@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "core-module-with-tests",
+  "title": "Core module with focused tests",
+  "purpose": "Create or update one Samantha core module with focused unit tests and deterministic verification.",
+  "useWhen": [
+    "The task changes core harness behavior without adding or changing a CLI command.",
+    "The behavior can be isolated to one src/core module and one focused test file.",
+    "The implementation can be verified with typecheck and Bun tests."
+  ],
+  "task": {
+    "id": "replace-with-task-id",
+    "title": "Implement <module> core behavior",
+    "targetAgent": "codex-worker",
+    "targetFiles": [
+      "src/core/<module>.ts",
+      "tests/<module>.test.ts"
+    ],
+    "forbiddenChanges": [
+      "src/cli.ts",
+      "ARCHITECTURE.md",
+      "LEARNING_ARCHITECTURE.md",
+      "NORTH_STAR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "runs/**",
+      "worktrees/**"
+    ],
+    "setupCommands": [],
+    "verifyCommands": [
+      "bun run typecheck",
+      "bun test tests/<module>.test.ts",
+      "bun test"
+    ],
+    "instructions": "Add the smallest core module implementation that satisfies this task. Start with focused behavior tests in tests/<module>.test.ts, then implement src/core/<module>.ts. Keep the change inside the core module boundary. Do not add CLI surface, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, or promoted learning artifact edits.",
+    "expectedCommitSubject": "feat: add <module> core behavior",
+    "status": "pending"
+  }
+}

@@ -42,6 +42,13 @@ const execution: WorkerDispatchExecution = {
     taskId: task.id,
     agentId: agent.id,
     worktreePath: "/tmp/samantha-worktree",
+    allocation: {
+      taskId: task.id,
+      repoRoot: "/repo",
+      worktreePath: "/tmp/samantha-worktree",
+      branch: "samantha/audit-log-fixture",
+      baseCommit: "b".repeat(40),
+    },
     codex: {
       prompt: "prompt",
       command: ["codex", "exec"],
@@ -70,7 +77,14 @@ const execution: WorkerDispatchExecution = {
     },
     changedFiles: ["allowed.txt"],
     scopeViolations: [],
-    verifyResults: [],
+    verifyResults: [
+      {
+        command: "test -f allowed.txt",
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+      },
+    ],
   },
   commit: {
     subject: "test: commit worker files",
@@ -118,6 +132,24 @@ describe("worker run logs", () => {
     expect(log.result.preparation.codex.command).toEqual(["codex", "exec"]);
     expect(log.result.evaluation?.changedFiles).toEqual(["allowed.txt"]);
     expect(log.result.commit?.commitHash).toBe("a".repeat(40));
+    expect(log.trajectory?.map((entry) => entry.event)).toEqual([
+      "planned",
+      "worktree_created",
+      "worker_dispatched",
+      "worker_output_received",
+      "harness_result_parsed",
+      "verification_started",
+      "verification_finished",
+    ]);
+    expect(log.trajectory?.map((entry) => entry.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(log.trajectory?.at(-1)).toMatchObject({
+      event: "verification_finished",
+      status: "completed",
+      details: {
+        passed: 1,
+        failed: 0,
+      },
+    });
   });
 
   test("writes pretty JSON under the run log directory", async () => {
@@ -138,6 +170,7 @@ describe("worker run logs", () => {
     expect(written.runId).toBe("2026-05-12T10-00-00-000Z-audit-log-fixture");
     expect(raw.endsWith("\n")).toBe(true);
     expect(raw).toContain('\n  "schemaVersion": 1,\n');
+    expect(parsed.trajectory[0].event).toBe("planned");
     expect(parsed.result.pass).toBe(true);
     expect(parsed.result.preparation.codex.prompt).toBe("prompt");
   });

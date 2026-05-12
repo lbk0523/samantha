@@ -1,12 +1,19 @@
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
 import { RunIndex } from "./core/ledger";
+import { draftLessonFromRunLog } from "./core/lesson-draft";
 import { evaluateMergeGate, readWorkerRunLog } from "./core/merge-gate";
+import {
+  recordCleanupFinished,
+  recordLifecycleMarked,
+  recordMergeChecked,
+} from "./core/post-run-trajectory";
 import {
   lifecycleBaseFromRunLog,
   RunLifecycleStore,
   type RunLifecycleEvent,
 } from "./core/run-lifecycle-store";
+import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
@@ -47,13 +54,27 @@ export interface WorktreeCleanupCliArgs {
   stateDir?: string;
 }
 
+export interface LessonsDraftCliArgs {
+  command: "lessons:draft";
+  runLogPath: string;
+}
+
+export interface TasksFromTemplateCliArgs {
+  command: "tasks:from-template";
+  templateId: string;
+  taskId: string;
+  title: string;
+}
+
 export type SamanthaCliArgs =
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
   | MergeCheckCliArgs
   | RunsMarkLifecycleCliArgs
-  | WorktreeCleanupCliArgs;
+  | WorktreeCleanupCliArgs
+  | LessonsDraftCliArgs
+  | TasksFromTemplateCliArgs;
 
 function parseFlags(args: string[]): Map<string, string> {
   const flags = new Map<string, string>();
@@ -160,7 +181,37 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup");
+  if (command === "lessons:draft") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const runLogPath = flags.get("run-log");
+    if (!runLogPath) {
+      throw new Error("usage: bun run samantha lessons:draft --run-log=<path>");
+    }
+    return {
+      command: "lessons:draft",
+      runLogPath,
+    };
+  }
+
+  if (command === "tasks:from-template") {
+    if (!first) {
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>");
+    }
+    const flags = parseFlags(rest);
+    const taskId = flags.get("task-id");
+    const title = flags.get("title");
+    if (!taskId || !title) {
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>");
+    }
+    return {
+      command: "tasks:from-template",
+      templateId: first,
+      taskId,
+      title,
+    };
+  }
+
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|lessons:draft|tasks:from-template");
 }
 
 function runIndexPath(runsDir?: string): string {
@@ -185,11 +236,13 @@ async function markLifecycle(input: {
   const repoRoot = resolve(input.repoRoot);
   const log = await readWorkerRunLog(runLogPath);
   const at = new Date().toISOString();
-  return new RunLifecycleStore(lifecyclePath({ runLogPath, stateDir: input.stateDir })).mark(
+  const record = await new RunLifecycleStore(lifecyclePath({ runLogPath, stateDir: input.stateDir })).mark(
     lifecycleBaseFromRunLog({ log, runLogPath, repoRoot, updatedAt: at }),
     input.event,
     at,
   );
+  await recordLifecycleMarked(runLogPath, input.event, record);
+  return record;
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -225,11 +278,13 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (args.command === "merge:check") {
+    const runLogPath = resolve(args.runLogPath);
     const result = await evaluateMergeGate({
-      runLogPath: resolve(args.runLogPath),
+      runLogPath,
       repoRoot: resolve(args.repoRoot),
       targetBranch: args.targetBranch,
     });
+    await recordMergeChecked(runLogPath, result);
     console.log(JSON.stringify(result, null, 2));
     return 0;
   }
@@ -239,16 +294,41 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  const cleanup = await cleanupCompletedWorktree({
-    runLogPath: resolve(args.runLogPath),
-    repoRoot: resolve(args.repoRoot),
-    targetBranch: args.targetBranch,
-  });
-  const lifecycle = cleanup.cleaned
-    ? await markLifecycle({ ...args, event: "cleaned" })
-    : undefined;
-  console.log(JSON.stringify({ cleanup, lifecycle }, null, 2));
-  return 0;
+  if (args.command === "lessons:draft") {
+    console.log(
+      JSON.stringify(
+        await draftLessonFromRunLog({
+          runLogPath: resolve(args.runLogPath),
+        }),
+        null,
+        2,
+      ),
+    );
+    return 0;
+  }
+
+  if (args.command === "tasks:from-template") {
+    console.log(JSON.stringify(await createTaskFromTemplate(args), null, 2));
+    return 0;
+  }
+
+  if (args.command === "worktree:cleanup") {
+    const runLogPath = resolve(args.runLogPath);
+    const cleanup = await cleanupCompletedWorktree({
+      runLogPath,
+      repoRoot: resolve(args.repoRoot),
+      targetBranch: args.targetBranch,
+    });
+    await recordCleanupFinished(runLogPath, cleanup);
+    const lifecycle = cleanup.cleaned
+      ? await markLifecycle({ ...args, event: "cleaned" })
+      : undefined;
+    console.log(JSON.stringify({ cleanup, lifecycle }, null, 2));
+    return 0;
+  }
+
+  const exhaustive: never = args;
+  throw new Error(`unhandled command: ${JSON.stringify(exhaustive)}`);
 }
 
 if (import.meta.main) {

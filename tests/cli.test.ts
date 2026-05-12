@@ -81,4 +81,27 @@ describe("samantha cli", () => {
       stateDir: "state",
     });
   });
+
+  test("parses lesson draft arguments", () => {
+    expect(parseCliArgs(["lessons:draft", "--run-log=runs/run-1.json"])).toEqual({
+      command: "lessons:draft",
+      runLogPath: "runs/run-1.json",
+    });
+  });
+
+  test("parses task creation from template arguments", () => {
+    expect(
+      parseCliArgs([
+        "tasks:from-template",
+        "core-module-with-tests",
+        "--task-id=add-task-template-command",
+        "--title=Add task template command",
+      ]),
+    ).toEqual({
+      command: "tasks:from-template",
+      templateId: "core-module-with-tests",
+      taskId: "add-task-template-command",
+      title: "Add task template command",
+    });
+  });
 });

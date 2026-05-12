@@ -1,6 +1,6 @@
 # Samantha Harness Restart
 
-Last updated: 2026-05-12
+Last updated: 2026-05-13
 
 ## Decision
 
@@ -9,7 +9,7 @@ The Telegram-first 24/7 Samantha control-plane plan is retired.
 The next Samantha should be a personal software development harness for Codex
 work, not a remote command bot and not an always-on LLM office.
 
-The new core product is:
+The core product loop is:
 
 ```text
 task spec
@@ -51,6 +51,13 @@ The first useful version does not need:
 
 Those can be reconsidered only after the core harness is routinely useful.
 
+## Direction Documents
+
+- `NORTH_STAR.md` defines the CEO-style local development harness direction.
+- `ARCHITECTURE.md` maps the current implementation to the harness layers.
+- `LEARNING_ARCHITECTURE.md` sketches explicit, reviewable self-learning for
+  the agent organization.
+
 ## Core Principles
 
 - Codex may write code only inside a Samantha-allocated worktree.
@@ -65,9 +72,9 @@ Those can be reconsidered only after the core harness is routinely useful.
 
 ## New Repo Boundary
 
-The new repo should start with a narrow package and CLI.
+The repo should stay a narrow package and CLI.
 
-Suggested package shape:
+Current package shape:
 
 ```text
 src/
@@ -82,18 +89,42 @@ src/
     worker-result.ts
     worker-dispatch.ts
     run-log.ts
+    ledger.ts
+    merge-gate.ts
+    run-lifecycle-store.ts
+    worktree-cleanup.ts
+    lesson-draft.ts
+    task-from-template.ts
   commands/
     run-task.ts
-    inspect-run.ts
-    merge-check.ts
 tests/
 references/
   agent-profiles/
   tasks/
+  task-templates/
 ```
 
 The old repository should be treated as a reference implementation. Do not copy
 `src/samantha.ts` forward.
+
+## Current CLI Surface
+
+```bash
+bun run samantha run-task <task.json> --repo-root=<repo>
+bun run samantha runs:list
+bun run samantha runs:show <run-id>
+bun run samantha merge:check --run-log=<path> --repo-root=<repo>
+bun run samantha runs:mark-lifecycle --run-log=<path> --repo-root=<repo> --event=merged|cleaned
+bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
+bun run samantha lessons:draft --run-log=<path>
+bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
+```
+
+Current task templates:
+
+- `references/task-templates/docs-only.json`
+- `references/task-templates/core-module-with-tests.json`
+- `references/task-templates/cli-command-with-tests.json`
 
 ## MVP Acceptance
 
@@ -125,4 +156,3 @@ Do not keep investing in:
 - CEO turn approval matching
 - daemon/watch/poll/reply flows
 - large `samantha.ts` refactors
-
