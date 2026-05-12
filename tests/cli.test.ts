@@ -23,4 +23,29 @@ describe("samantha cli", () => {
       codexBin: "/tmp/fake-codex",
     });
   });
+
+  test("parses run inspection and merge check arguments", () => {
+    expect(parseCliArgs(["runs:list", "--runs-dir=runs"])).toEqual({
+      command: "runs:list",
+      runsDir: "runs",
+    });
+    expect(parseCliArgs(["runs:show", "run-1", "--runs-dir=runs"])).toEqual({
+      command: "runs:show",
+      runId: "run-1",
+      runsDir: "runs",
+    });
+    expect(
+      parseCliArgs([
+        "merge:check",
+        "--run-log=runs/run-1.json",
+        "--repo-root=.",
+        "--target-branch=main",
+      ]),
+    ).toEqual({
+      command: "merge:check",
+      runLogPath: "runs/run-1.json",
+      repoRoot: ".",
+      targetBranch: "main",
+    });
+  });
 });
