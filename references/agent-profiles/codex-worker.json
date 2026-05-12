@@ -1,0 +1,16 @@
+{
+  "id": "codex-worker",
+  "role": "writer",
+  "model": "gpt-5.5",
+  "writerClass": "writer",
+  "worktreePolicy": "per-task",
+  "mergePolicy": "samantha-controlled",
+  "skillPolicy": {
+    "requiredBundles": [],
+    "blockedSkills": [
+      "using-git-worktrees",
+      "dispatching-parallel-agents",
+      "subagent-driven-development"
+    ]
+  }
+}

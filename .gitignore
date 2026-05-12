@@ -1,0 +1,5 @@
+node_modules/
+runs/
+worktrees/
+.samantha-worktrees/
+.DS_Store

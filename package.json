@@ -1,0 +1,16 @@
+{
+  "name": "samantha",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal Codex development harness",
+  "scripts": {
+    "samantha": "bun run src/cli.ts",
+    "typecheck": "bun x tsc --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "typescript": "^5.9.0"
+  }
+}
