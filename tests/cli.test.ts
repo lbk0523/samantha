@@ -48,4 +48,37 @@ describe("samantha cli", () => {
       targetBranch: "main",
     });
   });
+
+  test("parses lifecycle and cleanup arguments", () => {
+    expect(
+      parseCliArgs([
+        "runs:mark-lifecycle",
+        "--run-log=runs/run-1.json",
+        "--repo-root=.",
+        "--event=merged",
+        "--state-dir=state",
+      ]),
+    ).toEqual({
+      command: "runs:mark-lifecycle",
+      runLogPath: "runs/run-1.json",
+      repoRoot: ".",
+      event: "merged",
+      stateDir: "state",
+    });
+    expect(
+      parseCliArgs([
+        "worktree:cleanup",
+        "--run-log=runs/run-1.json",
+        "--repo-root=.",
+        "--target-branch=main",
+        "--state-dir=state",
+      ]),
+    ).toEqual({
+      command: "worktree:cleanup",
+      runLogPath: "runs/run-1.json",
+      repoRoot: ".",
+      targetBranch: "main",
+      stateDir: "state",
+    });
+  });
 });
