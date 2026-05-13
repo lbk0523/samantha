@@ -1,0 +1,31 @@
+{
+  "id": "add-task-placeholders-tests-v2",
+  "title": "Add task placeholder helper tests",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/task-placeholders.ts",
+    "tests/task-placeholders.test.ts"
+  ],
+  "forbiddenChanges": [
+    "src/cli.ts",
+    "ARCHITECTURE.md",
+    "LEARNING_ARCHITECTURE.md",
+    "NORTH_STAR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/task-templates/**",
+    "runs/**",
+    "worktrees/**"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun run typecheck",
+    "bun test tests/task-placeholders.test.ts",
+    "bun test"
+  ],
+  "instructions": "This is v2 because the first generated task was blocked by missing Bun types before trusted worker output; do not reuse that output. Add focused tests for src/core/task-placeholders.ts. Cover that unresolvedTaskPlaceholders reports placeholders from targetFiles, forbiddenChanges, setupCommands, verifyCommands, instructions, and expectedCommitSubject with sorted unique names. Cover that unresolvedDispatchPlaceholders excludes instruction-only CLI metavars such as --run-log=<path> while still reporting placeholders from dispatch-critical fields. Do not change behavior unless the tests expose a real bug. Do not add CLI surface, docs, templates, playbooks, policy, profiles, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, or promoted learning artifact edits.",
+  "expectedCommitSubject": "feat: add task-placeholders core behavior",
+  "status": "pending"
+}
