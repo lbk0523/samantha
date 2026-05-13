@@ -50,7 +50,7 @@ export function buildCodexWorkerPrompt(task: TaskSpec, agent: AgentProfile): str
     "",
     "Before final response, run the verify commands if you changed files.",
     "Final response must include exactly one HARNESS_RESULT line.",
-    'HARNESS_RESULT: {"status":"pass|rework|blocked","note":"short","commit":"<hash-or-empty>"}',
+    'HARNESS_RESULT: {"status":"pass|rework|blocked","note":"short"}',
   ].join("\n");
 }
 

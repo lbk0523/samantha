@@ -45,6 +45,14 @@ describe("codex dispatch preparation", () => {
     expect(prompt).toContain("HARNESS_RESULT");
   });
 
+  test("does not ask writer workers to report commit hashes", () => {
+    const prompt = buildCodexWorkerPrompt(task, worker);
+
+    expect(prompt).toContain('HARNESS_RESULT: {"status":"pass|rework|blocked","note":"short"}');
+    expect(prompt).not.toContain('"commit"');
+    expect(prompt).not.toContain("<hash-or-empty>");
+  });
+
   test("includes setup commands as already-run context", () => {
     const prompt = buildCodexWorkerPrompt({ ...task, setupCommands: ["bun install"] }, worker);
 
@@ -93,6 +101,11 @@ describe("codex dispatch preparation", () => {
     expect(prepared.prompt).toContain("This is a report-only task");
     expect(prepared.prompt).toContain("Produce an evidence-based report");
     expect(prepared.prompt).toContain("- (none; read-only task)");
+    expect(prepared.prompt).toContain(
+      'HARNESS_RESULT: {"status":"pass|rework|blocked","note":"short"}',
+    );
+    expect(prepared.prompt).not.toContain('"commit"');
+    expect(prepared.prompt).not.toContain("<hash-or-empty>");
     expect(prepared.command.slice(0, 7)).toEqual([
       "codex",
       "exec",
