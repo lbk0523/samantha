@@ -157,6 +157,51 @@ describe("cleanupCompletedWorktree", () => {
     expect(await git(["rev-parse", "--verify", branch], root)).toBeTruthy();
   });
 
+  test("does not treat report-only HARNESS_RESULT commits as cleanup evidence", async () => {
+    const { root, logPath, commit } = await makePassedRun({ merge: true });
+    const log = JSON.parse(await readFile(logPath, "utf8")) as WorkerRunLog;
+    log.task = {
+      ...log.task,
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      verifyCommands: [],
+      resultMode: "report",
+    };
+    log.agent = {
+      ...log.agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    log.result.preparation = {
+      taskId: log.task.id,
+      agentId: log.agent.id,
+      worktreePath: root,
+      codex: { prompt: "prompt", command: ["codex", "exec"] },
+    };
+    log.result.evaluation = {
+      pass: true,
+      harness: { status: "pass", note: "report only", commit },
+      changedFiles: [],
+      scopeViolations: [],
+      verifyResults: [],
+    };
+    log.result.commit = undefined;
+    log.result.pass = true;
+    await writeFile(logPath, `${JSON.stringify(log, null, 2)}\n`, "utf8");
+
+    const result = await cleanupCompletedWorktree({ runLogPath: logPath, repoRoot: root });
+
+    expect(result.cleaned).toBe(false);
+    expect(result.classification).toBe("abandoned");
+    expect(result.commit).toBe("");
+    expect(result.violations).toContain("run log has no allocated worktree");
+    expect(result.violations).toContain("run did not report a commit");
+  });
+
   test("blocks cleanup when the worker worktree is dirty", async () => {
     const { root, logPath, worktreePath } = await makePassedRun({ merge: true });
     await writeFile(join(worktreePath, "dirty.txt"), "dirty\n", "utf8");

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { WorkerRunLog } from "./run-log";
+import { actionableCommitForRunLog } from "./run-commit";
 
 export type RunLifecycleEvent = "merged" | "cleaned";
 
@@ -41,7 +42,7 @@ export function lifecycleBaseFromRunLog(input: {
   repoRoot: string;
   updatedAt: string;
 }): RunLifecycleRecord {
-  const commit = input.log.result.commit?.commitHash ?? input.log.result.evaluation?.harness?.commit ?? "";
+  const commit = actionableCommitForRunLog(input.log);
   return {
     schemaVersion: 1,
     runId: input.log.runId,

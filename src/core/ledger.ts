@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { WorkerRunLogInput } from "./run-log";
+import { actionableCommitForExecution } from "./run-commit";
 
 export type RunOutcome =
   | "pass"
@@ -144,7 +145,11 @@ export function summarizeWorkerRun(input: WorkerRunLogInput & {
     finishedAt: input.finishedAt,
     outcome,
     pass: execution.pass,
-    commit: execution.commit?.commitHash ?? evaluation?.harness?.commit ?? "",
+    commit: actionableCommitForExecution({
+      task: input.task,
+      agent: input.agent,
+      execution,
+    }),
     ...(failureReason ? { failureReason } : {}),
   };
 }

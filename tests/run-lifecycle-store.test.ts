@@ -2,7 +2,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RunLifecycleStore, type RunLifecycleRecord } from "../src/core/run-lifecycle-store";
+import {
+  lifecycleBaseFromRunLog,
+  RunLifecycleStore,
+  type RunLifecycleRecord,
+} from "../src/core/run-lifecycle-store";
+import type { WorkerRunLog } from "../src/core/run-log";
 
 let tmpRoots: string[] = [];
 
@@ -38,5 +43,65 @@ describe("RunLifecycleStore", () => {
     });
     expect(await store.find("run-1")).toEqual(cleaned);
     expect(await store.list()).toEqual([cleaned]);
+  });
+
+  test("does not use report-only HARNESS_RESULT commits for lifecycle records", () => {
+    const log: WorkerRunLog = {
+      schemaVersion: 1,
+      runId: "run-1",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      task: {
+        id: "report-fixture",
+        title: "Report fixture",
+        targetAgent: "codex-reviewer",
+        targetFiles: [],
+        forbiddenChanges: ["**/*"],
+        verifyCommands: [],
+        instructions: "Review only.",
+        resultMode: "report",
+        status: "pending",
+      },
+      agent: {
+        id: "codex-reviewer",
+        role: "reviewer",
+        model: "gpt-5.5",
+        writerClass: "non-writer",
+        worktreePolicy: "none",
+        mergePolicy: "none",
+        skillPolicy: {
+          requiredBundles: [],
+          blockedSkills: [],
+        },
+      },
+      input: { repoRoot: "/repo" },
+      result: {
+        preparation: {
+          taskId: "report-fixture",
+          agentId: "codex-reviewer",
+          worktreePath: "/repo",
+          codex: { prompt: "prompt", command: ["codex", "exec"] },
+        },
+        setupResults: [],
+        command: { command: ["codex", "exec"], exitCode: 0, stdout: "", stderr: "" },
+        evaluation: {
+          pass: true,
+          harness: { status: "pass", note: "report only", commit: "a".repeat(40) },
+          changedFiles: [],
+          scopeViolations: [],
+          verifyResults: [],
+        },
+        pass: true,
+      },
+    };
+
+    const record = lifecycleBaseFromRunLog({
+      log,
+      runLogPath: "/repo/runs/run-1.json",
+      repoRoot: "/repo",
+      updatedAt: "2026-05-12T10:02:00.000Z",
+    });
+
+    expect(record.commit).toBe("");
   });
 });

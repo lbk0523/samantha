@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { WorkerRunLog } from "./run-log";
 import { git, gitHead, gitRaw } from "./git";
+import { actionableCommitForRunLog } from "./run-commit";
 
 export interface MergeGateInput {
   runLogPath: string;
@@ -61,7 +62,7 @@ export async function evaluateMergeGate(input: MergeGateInput): Promise<MergeGat
   const log = await readWorkerRunLog(input.runLogPath);
   const targetBranch = input.targetBranch ?? "main";
   const execution = log.result;
-  const commit = execution.commit?.commitHash ?? execution.evaluation?.harness?.commit ?? "";
+  const commit = actionableCommitForRunLog(log);
   const violations: string[] = [];
   let failedVerification = false;
   let missingCommit = false;

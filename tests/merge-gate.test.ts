@@ -181,6 +181,51 @@ describe("evaluateMergeGate", () => {
     expect(missingResult.violations).toContain("run did not report a commit");
   });
 
+  test("does not treat report-only HARNESS_RESULT commits as merge candidates", async () => {
+    const { root, workerCommit, logPath } = await makeRepo();
+    const log = JSON.parse(await readFile(logPath, "utf8")) as WorkerRunLog;
+    log.task = {
+      ...log.task,
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      verifyCommands: [],
+      resultMode: "report",
+    };
+    log.agent = {
+      ...log.agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    log.result.preparation = {
+      taskId: log.task.id,
+      agentId: log.agent.id,
+      worktreePath: root,
+      codex: { prompt: "prompt", command: ["codex", "exec"] },
+    };
+    log.result.evaluation = {
+      pass: true,
+      harness: { status: "pass", note: "report only", commit: workerCommit },
+      changedFiles: [],
+      scopeViolations: [],
+      verifyResults: [],
+    };
+    log.result.commit = undefined;
+    log.result.pass = true;
+    await writeFile(logPath, `${JSON.stringify(log, null, 2)}\n`, "utf8");
+
+    const result = await evaluateMergeGate({ runLogPath: logPath, repoRoot: root });
+
+    expect(result.commit).toBe("");
+    expect(result.command).toBeUndefined();
+    expect(result.mayMerge).toBe(false);
+    expect(result.status).toBe("missing_commit");
+    expect(result.violations).toContain("run did not report a commit");
+  });
+
   test("blocks wrong target branch without creating a push command", async () => {
     const { root, logPath } = await makeRepo();
 

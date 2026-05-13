@@ -151,4 +151,49 @@ describe("RunIndex", () => {
     expect(scopeFailed.outcome).toBe("scope_failed");
     expect(scopeFailed.failureReason).toBe("1 scope violation(s)");
   });
+
+  test("does not surface report-only HARNESS_RESULT commits in run summaries", () => {
+    const reviewer: AgentProfile = {
+      ...agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    const reportTask: TaskSpec = {
+      ...task,
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      verifyCommands: [],
+      resultMode: "report",
+    };
+    const summary = summarizeWorkerRun({
+      ...logInput(
+        baseExecution({
+          preparation: {
+            taskId: reportTask.id,
+            agentId: reviewer.id,
+            worktreePath: "/repo",
+            codex: { prompt: "prompt", command: ["codex", "exec"] },
+          },
+          evaluation: {
+            pass: true,
+            harness: { status: "pass", note: "report only", commit: "a".repeat(40) },
+            changedFiles: [],
+            scopeViolations: [],
+            verifyResults: [],
+          },
+          commit: undefined,
+          pass: true,
+        }),
+      ),
+      task: reportTask,
+      agent: reviewer,
+    });
+
+    expect(summary.outcome).toBe("pass");
+    expect(summary.commit).toBe("");
+  });
 });

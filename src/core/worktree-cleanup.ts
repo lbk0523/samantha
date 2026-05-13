@@ -2,6 +2,7 @@ import { realpath } from "node:fs/promises";
 import type { WorktreeAllocation } from "./contracts";
 import { git, gitHead, gitRaw, gitTopLevel } from "./git";
 import { readWorkerRunLog } from "./merge-gate";
+import { actionableCommitForRunLog } from "./run-commit";
 import type { WorkerRunLog } from "./run-log";
 
 export interface WorktreeCleanupInput {
@@ -73,7 +74,7 @@ async function canonicalPath(path: string): Promise<string> {
 }
 
 function commitForLog(log: WorkerRunLog): string {
-  return log.result.commit?.commitHash ?? log.result.evaluation?.harness?.commit ?? "";
+  return actionableCommitForRunLog(log);
 }
 
 function allocationForLog(log: WorkerRunLog): WorktreeAllocation | undefined {
