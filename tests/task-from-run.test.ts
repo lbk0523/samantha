@@ -3,7 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
+import type { RunSummary } from "../src/core/ledger";
 import { validateDispatch } from "../src/core/policy";
+import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import { createTaskFromRun } from "../src/core/task-from-run";
 import type { WorkerRunLog } from "../src/core/run-log";
 import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
@@ -90,6 +92,38 @@ function baseLog(overrides: {
   };
 }
 
+function runSummary(overrides: Partial<RunSummary> = {}): RunSummary {
+  return {
+    schemaVersion: 1,
+    runId: "run-1",
+    taskId: task.id,
+    taskTitle: task.title,
+    agentId: agent.id,
+    repoRoot: "/repo",
+    worktreePath: "/repo/worktrees/original-task",
+    logPath: "/repo/runs/run-1.json",
+    startedAt: "2026-05-12T10:00:00.000Z",
+    finishedAt: "2026-05-12T10:01:00.000Z",
+    outcome: "blocked",
+    pass: false,
+    commit: "",
+    ...overrides,
+  };
+}
+
+function lifecycleRecord(overrides: Partial<RunLifecycleRecord> = {}): RunLifecycleRecord {
+  return {
+    schemaVersion: 1,
+    runId: "run-2",
+    taskId: task.id,
+    repoRoot: "/repo",
+    runLogPath: "/repo/runs/run-2.json",
+    commit: "b".repeat(40),
+    updatedAt: "2026-05-12T10:04:00.000Z",
+    ...overrides,
+  };
+}
+
 async function makeRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "samantha-task-from-run-"));
   tmpRoots.push(root);
@@ -104,6 +138,67 @@ async function writeRunLog(root: string, log: WorkerRunLog): Promise<string> {
 
 async function readTask(path: string): Promise<TaskSpec> {
   return JSON.parse(await readFile(path, "utf8")) as TaskSpec;
+}
+
+async function writeJsonLines<T>(path: string, items: T[]): Promise<void> {
+  await writeFile(path, `${items.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
+}
+
+function blockedLog(taskId: string, note: string): WorkerRunLog {
+  return baseLog({
+    task: {
+      ...task,
+      id: taskId,
+    },
+    result: baseExecution({
+      evaluation: {
+        pass: false,
+        harness: { status: "blocked", note, commit: "" },
+        changedFiles: [],
+        scopeViolations: [],
+        verifyResults: [],
+      },
+      commit: undefined,
+      pass: false,
+    }),
+  });
+}
+
+async function writeSupersedingRunEvidence(input: {
+  root: string;
+  sourceLog: WorkerRunLog;
+  cleanedAt?: string;
+}): Promise<void> {
+  const acceptedRunCommit = "b".repeat(40);
+  const acceptedRunLogPath = join(input.root, "run-2.json");
+  await writeJsonLines(join(input.root, "index.jsonl"), [
+    runSummary({
+      runId: input.sourceLog.runId,
+      taskId: input.sourceLog.task.id,
+      taskTitle: input.sourceLog.task.title,
+      logPath: join(input.root, `${input.sourceLog.runId}.json`),
+    }),
+    runSummary({
+      runId: "run-2",
+      taskId: `${input.sourceLog.task.id}-v2`,
+      taskTitle: input.sourceLog.task.title,
+      logPath: acceptedRunLogPath,
+      startedAt: "2026-05-12T10:02:00.000Z",
+      finishedAt: "2026-05-12T10:03:00.000Z",
+      outcome: "pass",
+      pass: true,
+      commit: acceptedRunCommit,
+    }),
+  ]);
+  await writeJsonLines(join(input.root, "run-lifecycle.jsonl"), [
+    lifecycleRecord({
+      runId: "run-2",
+      taskId: `${input.sourceLog.task.id}-v2`,
+      runLogPath: acceptedRunLogPath,
+      commit: acceptedRunCommit,
+      ...(input.cleanedAt ? { cleanedAt: input.cleanedAt } : {}),
+    }),
+  ]);
 }
 
 afterEach(async () => {
@@ -251,6 +346,58 @@ describe("task creation from run evidence", () => {
     });
     expect(generated.expectedCommitSubject).toBeUndefined();
     expect(validateDispatch(generated, reviewer).violations).toEqual([]);
+  });
+
+  test("refuses blocked writer follow-ups superseded by a later accepted and cleaned family run", async () => {
+    const root = await makeRoot();
+    const sourceLog = blockedLog("expose-runs-show-lifecycle", "stale blocked run");
+    const runLogPath = await writeRunLog(root, sourceLog);
+    await writeSupersedingRunEvidence({
+      root,
+      sourceLog,
+      cleanedAt: "2026-05-12T10:04:00.000Z",
+    });
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "superseded-follow-up",
+      title: "Inspect superseded run",
+    });
+
+    expect(result).toEqual({
+      status: "refused",
+      created: false,
+      runId: sourceLog.runId,
+      taskId: "superseded-follow-up",
+      outcome: "blocked",
+      recommendedNextAction: "resolve_blocker_and_rerun_new_task",
+      note: "run run-1 was superseded by accepted and cleaned run run-2; no task was created",
+    });
+    await expect(readFile(join(root, "references", "tasks", "superseded-follow-up.json"), "utf8")).rejects.toThrow();
+  });
+
+  test("creates blocked writer follow-ups when the later accepted family run has not been cleaned", async () => {
+    const root = await makeRoot();
+    const sourceLog = blockedLog("expose-runs-show-lifecycle", "still needs follow-up");
+    const runLogPath = await writeRunLog(root, sourceLog);
+    await writeSupersedingRunEvidence({ root, sourceLog });
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "uncleaned-follow-up",
+      title: "Inspect uncleaned run",
+    });
+    const generated = await readTask(result.path ?? "");
+
+    expect(result).toMatchObject({
+      status: "created",
+      created: true,
+      outcome: "blocked",
+      recommendedNextAction: "resolve_blocker_and_rerun_new_task",
+    });
+    expect(generated.instructions).toContain("Resolve the worker-reported blocker");
   });
 
   test("creates verify rework tasks that keep the failed verify command first", async () => {

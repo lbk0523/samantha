@@ -1,12 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { TaskSpec } from "./contracts";
 import {
   diagnoseWorkerRun,
   type RecommendedNextAction,
   type RunDiagnosis,
 } from "./run-diagnose";
-import type { RunOutcome } from "./ledger";
+import { RunIndex, type RunOutcome, type RunSummary } from "./ledger";
+import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
 import type { WorkerRunLog } from "./run-log";
 import type { ScopeViolation } from "./worker-result";
 
@@ -50,6 +51,47 @@ function refusalNote(log: WorkerRunLog, diagnosis: RunDiagnosis): string | undef
     return "commit failure requires explicit local inspection; no task was created and lifecycle is untrusted";
   }
   return undefined;
+}
+
+function taskFamily(taskId: string): string {
+  return taskId.replace(/-v\d+$/, "");
+}
+
+function hasCleanedLifecycle(summary: RunSummary, record: RunLifecycleRecord | undefined): boolean {
+  return Boolean(
+    record?.cleanedAt &&
+      record.commit === summary.commit &&
+      taskFamily(record.taskId) === taskFamily(summary.taskId),
+  );
+}
+
+async function supersededRefusalNote(input: {
+  log: WorkerRunLog;
+  runLogPath: string;
+  diagnosis: RunDiagnosis;
+}): Promise<string | undefined> {
+  if (isReportOnlyRun(input.log)) return undefined;
+  if (input.diagnosis.outcome !== "blocked" && input.diagnosis.outcome !== "rework") return undefined;
+
+  const evidenceDir = dirname(input.runLogPath);
+  const summaries = await new RunIndex(join(evidenceDir, "index.jsonl")).list();
+  const lifecycleRecords = await new RunLifecycleStore(join(evidenceDir, "run-lifecycle.jsonl")).list();
+  const lifecycleByRunId = new Map(lifecycleRecords.map((record) => [record.runId, record]));
+  const sourceFamily = taskFamily(input.log.task.id);
+  const supersedingRun = summaries.find((summary) => {
+    return (
+      summary.runId !== input.log.runId &&
+      summary.finishedAt > input.log.finishedAt &&
+      taskFamily(summary.taskId) === sourceFamily &&
+      summary.pass === true &&
+      summary.commit.trim().length > 0 &&
+      hasCleanedLifecycle(summary, lifecycleByRunId.get(summary.runId))
+    );
+  });
+
+  return supersedingRun
+    ? `run ${input.log.runId} was superseded by accepted and cleaned run ${supersedingRun.runId}; no task was created`
+    : undefined;
 }
 
 function firstFailedVerifyCommand(log: WorkerRunLog): string | undefined {
@@ -202,6 +244,19 @@ export async function createTaskFromRun(input: CreateTaskFromRunInput): Promise<
       outcome: diagnosis.outcome,
       recommendedNextAction: diagnosis.recommendedNextAction,
       note: refusal,
+    };
+  }
+
+  const supersededRefusal = await supersededRefusalNote({ log, runLogPath, diagnosis });
+  if (supersededRefusal) {
+    return {
+      status: "refused",
+      created: false,
+      runId: log.runId,
+      taskId: input.taskId,
+      outcome: diagnosis.outcome,
+      recommendedNextAction: diagnosis.recommendedNextAction,
+      note: supersededRefusal,
     };
   }
 
