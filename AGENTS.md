@@ -89,13 +89,15 @@ For small slices, or when the next step includes an action BK must perform
 directly, propose the next concrete action directly.
 
 For larger slices, or when a longer autonomous work session is useful, propose a
-Codex goal task instead. Include a ready-to-send `/goal` prompt so BK can launch
-the goal without rewriting the scope.
+Codex goal task instead. Include a ready-to-send `/goal` prompt that BK can paste
+into this or another Codex session without rewriting the scope.
 
 When a task or Codex goal completes, immediately propose the next concrete
 action. If the next step is small or needs BK directly, state it as a direct
 action. If the next step is a larger autonomous slice, include a ready-to-send
-`/goal` prompt.
+`/goal` prompt. The prompt must be self-contained enough for a fresh session: it
+should name the repo, summarize relevant evidence or prior results, define
+scope, verification commands, reporting expectations, and stop conditions.
 
 ## Parallelism Rules
 
