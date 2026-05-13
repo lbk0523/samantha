@@ -218,6 +218,7 @@ evidence only.
 ## Phase 5: Speculative Writer Batches
 
 Status: deferred until batch design exists.
+Minimal contract draft: `references/batch-specs/phase-5-minimal-batch-spec.md`.
 
 User capability:
 
