@@ -249,9 +249,11 @@ Current files:
 
 - `src/core/harness-result.ts`
 - `src/core/worker-result.ts`
+- `src/core/run-commit.ts`
 - `src/core/glob.ts`
 - `tests/harness-result.test.ts`
 - `tests/worker-result.test.ts`
+- `tests/run-commit.test.ts`
 
 Current behavior:
 
@@ -294,9 +296,15 @@ Current files:
 - `src/core/run-log.ts`
 - `src/core/post-run-trajectory.ts`
 - `src/core/ledger.ts`
+- `src/core/run-list.ts`
+- `src/core/run-show.ts`
+- `src/core/run-diagnose.ts`
 - `tests/run-log.test.ts`
 - `tests/post-run-trajectory.test.ts`
 - `tests/ledger.test.ts`
+- `tests/run-list.test.ts`
+- `tests/run-show.test.ts`
+- `tests/run-diagnose.test.ts`
 
 Current behavior:
 
@@ -367,8 +375,10 @@ The lifecycle layer tracks explicit post-run transitions.
 
 Current files:
 
+- `src/core/run-accept.ts`
 - `src/core/run-lifecycle-store.ts`
 - `src/core/worktree-cleanup.ts`
+- `tests/run-accept.test.ts`
 - `tests/run-lifecycle-store.test.ts`
 - `tests/worktree-cleanup.test.ts`
 
@@ -388,6 +398,7 @@ Current files:
 
 - `src/core/lesson-draft.ts`
 - `src/core/task-from-template.ts`
+- `src/core/task-from-run.ts`
 - `references/task-templates/docs-only.json`
 - `references/task-templates/core-module-with-tests.json`
 - `references/task-templates/cli-command-with-tests.json`
@@ -395,6 +406,7 @@ Current files:
 - `tests/lesson-draft.test.ts`
 - `tests/task-template.test.ts`
 - `tests/task-from-template.test.ts`
+- `tests/task-from-run.test.ts`
 
 Current behavior:
 
@@ -407,6 +419,12 @@ Current behavior:
 - refuse to overwrite existing task specs
 
 ## CLI Surface
+
+Current files:
+
+- `src/cli.ts`
+- `src/commands/run-task.ts`
+- `tests/cli.test.ts`
 
 Current command surface:
 
