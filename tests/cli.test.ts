@@ -148,12 +148,14 @@ describe("samantha cli", () => {
         "core-module-with-tests",
         "--task-id=add-task-template-command",
         "--title=Add task template command",
+        "--repo-root=/tmp/samantha-repo",
       ]),
     ).toEqual({
       command: "tasks:from-template",
       templateId: "core-module-with-tests",
       taskId: "add-task-template-command",
       title: "Add task template command",
+      repoRoot: "/tmp/samantha-repo",
     });
   });
 
@@ -164,12 +166,14 @@ describe("samantha cli", () => {
         "--run-log=runs/run-1.json",
         "--task-id=follow-up-task",
         "--title=Follow up task",
+        "--repo-root=/tmp/samantha-repo",
       ]),
     ).toEqual({
       command: "tasks:from-run",
       runLogPath: "runs/run-1.json",
       taskId: "follow-up-task",
       title: "Follow up task",
+      repoRoot: "/tmp/samantha-repo",
     });
   });
 });

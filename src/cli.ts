@@ -102,6 +102,7 @@ export interface TasksFromTemplateCliArgs {
   templateId: string;
   taskId: string;
   title: string;
+  repoRoot?: string;
 }
 
 export interface TasksFromRunCliArgs {
@@ -109,6 +110,7 @@ export interface TasksFromRunCliArgs {
   runLogPath: string;
   taskId: string;
   title: string;
+  repoRoot?: string;
 }
 
 export type SamanthaCliArgs =
@@ -320,19 +322,20 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
 
   if (command === "tasks:from-template") {
     if (!first) {
-      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>");
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--repo-root=<repo>]");
     }
     const flags = parseFlags(rest);
     const taskId = flags.get("task-id");
     const title = flags.get("title");
     if (!taskId || !title) {
-      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>");
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--repo-root=<repo>]");
     }
     return {
       command: "tasks:from-template",
       templateId: first,
       taskId,
       title,
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
     };
   }
 
@@ -342,13 +345,14 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     const taskId = flags.get("task-id");
     const title = flags.get("title");
     if (!runLogPath || !taskId || !title) {
-      throw new Error("usage: bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>");
+      throw new Error("usage: bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title> [--repo-root=<repo>]");
     }
     return {
       command: "tasks:from-run",
       runLogPath,
       taskId,
       title,
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
     };
   }
 
@@ -490,6 +494,7 @@ async function main(argv: string[]): Promise<number> {
       runLogPath: resolve(args.runLogPath),
       taskId: args.taskId,
       title: args.title,
+      repoRoot: args.repoRoot,
     });
     console.log(JSON.stringify(result, null, 2));
     return result.created ? 0 : 1;
