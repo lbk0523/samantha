@@ -278,12 +278,13 @@ references/task-templates/report-only-review.json
 The current generator is:
 
 ```text
-bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
+bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]...
 ```
 
 It copies the template's task spec into `references/tasks/<task-id>.json` and
-replaces only `id` and `title`. Other placeholders, such as `<module>`, remain
-visible for manual narrowing before dispatch.
+replaces `id`, `title`, and any explicitly supplied placeholders. Other
+placeholders, such as `<module>`, remain visible for manual narrowing before
+dispatch, and the command reports the unresolved placeholder names.
 
 ## Report-Only Reviewer Slice
 

@@ -108,6 +108,7 @@ export interface TasksFromTemplateCliArgs {
   templateId: string;
   taskId: string;
   title: string;
+  replacements?: Record<string, string>;
   repoRoot?: string;
 }
 
@@ -147,6 +148,24 @@ function parseFlags(args: string[]): Map<string, string> {
     flags.set(arg.slice(2, eq), arg.slice(eq + 1));
   }
   return flags;
+}
+
+function parseTemplateReplacements(args: string[]): Record<string, string> | undefined {
+  const replacements: Record<string, string> = {};
+  for (const arg of args) {
+    if (!arg.startsWith("--set=")) continue;
+    const raw = arg.slice("--set=".length);
+    const sep = raw.indexOf(":");
+    if (sep <= 0 || sep === raw.length - 1) {
+      throw new Error("usage: --set requires --set=<placeholder>:<value>");
+    }
+    const key = raw.slice(0, sep);
+    if (!/^[A-Za-z0-9_-]+$/.test(key)) {
+      throw new Error("template placeholder names must contain only letters, numbers, underscores, or dashes");
+    }
+    replacements[key] = raw.slice(sep + 1);
+  }
+  return Object.keys(replacements).length > 0 ? replacements : undefined;
 }
 
 export function parseCliArgs(argv: string[]): SamanthaCliArgs {
@@ -337,19 +356,21 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
 
   if (command === "tasks:from-template") {
     if (!first) {
-      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--repo-root=<repo>]");
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]... [--repo-root=<repo>]");
     }
     const flags = parseFlags(rest);
+    const replacements = parseTemplateReplacements(rest);
     const taskId = flags.get("task-id");
     const title = flags.get("title");
     if (!taskId || !title) {
-      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--repo-root=<repo>]");
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]... [--repo-root=<repo>]");
     }
     return {
       command: "tasks:from-template",
       templateId: first,
       taskId,
       title,
+      ...(replacements ? { replacements } : {}),
       ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
     };
   }

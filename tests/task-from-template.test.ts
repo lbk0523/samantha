@@ -74,6 +74,7 @@ describe("task creation from templates", () => {
       path: join(root, "references", "tasks", "add-task-template-command.json"),
       taskId: "add-task-template-command",
       templateId: "core-module-with-tests",
+      unresolvedPlaceholders: ["module"],
     });
     expect(raw.endsWith("\n")).toBe(true);
     expect(task).toEqual({
@@ -131,6 +132,30 @@ describe("task creation from templates", () => {
     }
   });
 
+  test("applies explicit placeholder replacements and reports remaining placeholders", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-task-template-"));
+    tmpRoots.push(root);
+    await copyRepoTemplate(root, "cli-command-with-tests");
+
+    const result = await createTaskFromTemplate({
+      repoRoot: root,
+      templateId: "cli-command-with-tests",
+      taskId: "add-template-values",
+      title: "Add template values",
+      replacements: {
+        command: "tasks:from-template",
+        module: "task-from-template",
+      },
+    });
+    const task = JSON.parse(await readFile(result.path, "utf8")) as TaskSpec;
+
+    expect(task.targetFiles).toContain("src/core/task-from-template.ts");
+    expect(task.verifyCommands).toContain("bun test tests/cli.test.ts tests/task-from-template.test.ts");
+    expect(task.instructions).toContain("tasks:from-template");
+    expect(task.expectedCommitSubject).toBe("feat: add tasks:from-template command");
+    expect(result.unresolvedPlaceholders).toEqual([]);
+  });
+
   test("keeps non-id placeholders for manual narrowing", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-task-template-"));
     tmpRoots.push(root);
@@ -147,5 +172,6 @@ describe("task creation from templates", () => {
     expect(task.targetFiles).toContain("src/core/<module>.ts");
     expect(task.verifyCommands).toContain("bun test tests/<module>.test.ts");
     expect(task.expectedCommitSubject).toBe("feat: add <module> core behavior");
+    expect(result.unresolvedPlaceholders).toEqual(["module"]);
   });
 });

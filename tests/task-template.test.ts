@@ -37,6 +37,7 @@ describe("task templates", () => {
     expect(template.task.forbiddenChanges).toContain("worktrees/**");
     expect(template.task.verifyCommands).toContain("bun run typecheck");
     expect(template.task.verifyCommands).toContain("bun test");
+    expect(template.task.instructions).toContain("references/playbooks/cli-core-command-with-tests.md");
     expect(validateDispatch(template.task, agent).violations).toEqual([]);
   });
 

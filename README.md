@@ -128,7 +128,7 @@ bun run samantha lessons:review <candidate.md>
 bun run samantha lessons:review-inbox [--repo-root=<repo>]
 bun run samantha lessons:promote <candidate.md> --playbook-id=<id>
 bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>
-bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
+bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]...
 bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```
 

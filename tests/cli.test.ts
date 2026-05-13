@@ -287,6 +287,8 @@ describe("samantha cli", () => {
         "core-module-with-tests",
         "--task-id=add-task-template-command",
         "--title=Add task template command",
+        "--set=module:task-from-template",
+        "--set=command:tasks:from-template",
         "--repo-root=/tmp/samantha-repo",
       ]),
     ).toEqual({
@@ -294,6 +296,10 @@ describe("samantha cli", () => {
       templateId: "core-module-with-tests",
       taskId: "add-task-template-command",
       title: "Add task template command",
+      replacements: {
+        command: "tasks:from-template",
+        module: "task-from-template",
+      },
       repoRoot: "/tmp/samantha-repo",
     });
   });
