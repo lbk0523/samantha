@@ -92,6 +92,8 @@ For larger slices, or when a longer autonomous work session is useful, propose a
 Codex goal task instead. Include a ready-to-send `/goal` prompt that BK can paste
 into this or another Codex session without rewriting the scope.
 
+Every ready-to-send prompt must explicitly require answers in Korean.
+
 When a task or Codex goal completes, immediately propose the next concrete
 action. If the next step is small or needs BK directly, state it as a direct
 action. If the next step is a larger autonomous slice, include a ready-to-send
