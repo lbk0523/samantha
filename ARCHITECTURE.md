@@ -64,7 +64,7 @@ encoding is too implicit.
 
 | Class | Authority | Worktree | Verification | Use |
 | --- | --- | --- | --- | --- |
-| report-only exploration | read and report only | none | optional repository sanity checks | reviews, evidence synthesis, architecture critique, run inspection |
+| report-only exploration | read and report only | none | no setup or verify commands in current policy; summary is advice-only evidence | reviews, evidence synthesis, architecture critique, run inspection |
 | docs-only writer | markdown writes only | per-task | cheap deterministic document-surface checks | direction docs, playbooks, lesson candidates, reviewed documentation |
 | standard writer task | bounded source/test writes | per-task | focused tests plus broader sanity when justified | normal implementation work |
 | rework task | bounded follow-up writes | per-task | starts from the failed command or scope evidence | fixing a failed run without trusting failed worker judgment |

@@ -204,6 +204,11 @@ Acceptance evidence:
   and `2026-05-13T13-14-11-869Z-dogfood-report-reviewer` summarized as 2
   accepted reports, `advice-only`, `trustedStateChanges: false`, and a Samantha
   `review_reports` decision point
+- 2026-05-13 explicit orchestration evidence:
+  `2026-05-13T13-29-00-182Z-fixture-report-reviewer` and
+  `2026-05-13T13-29-00-183Z-dogfood-report-reviewer` ran through
+  `reports:orchestrate` and summarized as 2 accepted reports, `advice-only`,
+  `trustedStateChanges: false`, and a Samantha `review_reports` decision point
 
 Promotion rule:
 

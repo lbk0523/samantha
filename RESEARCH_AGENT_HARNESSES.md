@@ -43,17 +43,18 @@ from stronger projects:
 - from `OpenHands` and `SWE-ReX`: sandbox/runtime separation, later
 - from `LobeHub`: agent-as-unit-of-work product language, not architecture
 
-The next implementation step is to dogfood the report-only reviewer on real run
-evidence:
+The current implementation step is to use report-only review evidence to harden
+explicit report-only orchestration without granting writer authority:
 
 ```text
-run a report-only review task against recent Samantha evidence
+run multiple report-only review tasks against recent Samantha evidence
 ```
 
 `lessons:draft`, the initial task templates, and trajectory entries for the
-current local run lifecycle are implemented. The report-only reviewer profile
-and template are also implemented. The remaining near-term gap is to use that
-reviewer on real evidence before adding more roles or runtime abstraction.
+current local run lifecycle are implemented. The report-only reviewer profile,
+template, summary command, and explicit report-only orchestration command are
+also implemented. The near-term gap is to keep reviewer output as advice-only
+evidence and use Samantha-owned follow-up decisions for any state changes.
 
 ## High-Fit References
 
@@ -570,7 +571,8 @@ Status:
 - non-writer report tasks cannot declare verify commands
 - covered by policy, dispatch, worker-dispatch, task-template, and
   task-from-template tests
-- automatic reviewer orchestration is not implemented
+- explicit report-only orchestration is implemented by `reports:orchestrate`;
+  automatic reviewer orchestration is not implemented
 
 ## Decision
 

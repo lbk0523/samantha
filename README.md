@@ -89,6 +89,7 @@ src/
     worktree-cleanup.ts
     worktree.ts
   commands/
+    orchestrate-reports.ts
     run-task.ts
 tests/
 references/
@@ -102,8 +103,10 @@ references/
 ## Core Principles
 
 - Codex may write code only inside a Samantha-allocated worktree.
-- Every task must declare target files, forbidden files, and verify commands.
-- Writer output must include `HARNESS_RESULT`.
+- Writer tasks must declare target files, forbidden files, and verify commands.
+- Non-writer report tasks must declare no target files, setup commands, or verify
+  commands.
+- Worker output must include `HARNESS_RESULT`.
 - Samantha, not the worker, owns the final commit.
 - Verification happens outside the worker's judgment.
 - Merge, push, cleanup, retry, recovery, connector access, and secret access are
@@ -123,6 +126,8 @@ bun run samantha runs:mark-lifecycle --run-log=<path> --repo-root=<repo> --event
 bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
 bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
 bun run samantha runs:diagnose --run-log=<path>
+bun run samantha reports:summarize --run-log=<path> [--run-log=<path>]...
+bun run samantha reports:orchestrate --repo-root=<repo> --task=<task.json> --task=<task.json>...
 bun run samantha lessons:draft --run-log=<path>
 bun run samantha lessons:review <candidate.md>
 bun run samantha lessons:review-inbox [--repo-root=<repo>]
@@ -154,3 +159,5 @@ Samantha's core loop is credible when:
 - failed or out-of-scope worker output is rejected without committing
 - post-run merge, acceptance, cleanup, diagnosis, lesson drafting, lesson
   review, promotion, and later evidence recording remain explicit operations
+- report-only runs allocate no worktree, create no commit, and remain advice-only
+  evidence for a Samantha decision point
