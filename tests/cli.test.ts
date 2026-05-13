@@ -108,6 +108,24 @@ describe("samantha cli", () => {
     });
   });
 
+  test("parses lesson review and promotion arguments", () => {
+    expect(parseCliArgs(["lessons:review", "references/lessons/inbox/run-1.md"])).toEqual({
+      command: "lessons:review",
+      candidatePath: "references/lessons/inbox/run-1.md",
+    });
+    expect(
+      parseCliArgs([
+        "lessons:promote",
+        "references/lessons/inbox/run-1.md",
+        "--playbook-id=cli-command-addition",
+      ]),
+    ).toEqual({
+      command: "lessons:promote",
+      candidatePath: "references/lessons/inbox/run-1.md",
+      playbookId: "cli-command-addition",
+    });
+  });
+
   test("parses task creation from template arguments", () => {
     expect(
       parseCliArgs([

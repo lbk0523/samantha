@@ -1,6 +1,8 @@
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
 import { draftLessonFromRunLog } from "./core/lesson-draft";
+import { promoteLessonCandidate } from "./core/lesson-promote";
+import { reviewLessonCandidate } from "./core/lesson-review";
 import { evaluateMergeGate, readWorkerRunLog } from "./core/merge-gate";
 import {
   recordCleanupFinished,
@@ -72,6 +74,17 @@ export interface LessonsDraftCliArgs {
   runLogPath: string;
 }
 
+export interface LessonsReviewCliArgs {
+  command: "lessons:review";
+  candidatePath: string;
+}
+
+export interface LessonsPromoteCliArgs {
+  command: "lessons:promote";
+  candidatePath: string;
+  playbookId: string;
+}
+
 export interface TasksFromTemplateCliArgs {
   command: "tasks:from-template";
   templateId: string;
@@ -96,6 +109,8 @@ export type SamanthaCliArgs =
   | RunsAcceptCliArgs
   | RunsDiagnoseCliArgs
   | LessonsDraftCliArgs
+  | LessonsReviewCliArgs
+  | LessonsPromoteCliArgs
   | TasksFromTemplateCliArgs
   | TasksFromRunCliArgs;
 
@@ -244,6 +259,32 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "lessons:review") {
+    if (!first) {
+      throw new Error("usage: bun run samantha lessons:review <candidate.md>");
+    }
+    return {
+      command: "lessons:review",
+      candidatePath: first,
+    };
+  }
+
+  if (command === "lessons:promote") {
+    if (!first) {
+      throw new Error("usage: bun run samantha lessons:promote <candidate.md> --playbook-id=<id>");
+    }
+    const flags = parseFlags(rest);
+    const playbookId = flags.get("playbook-id");
+    if (!playbookId) {
+      throw new Error("usage: bun run samantha lessons:promote <candidate.md> --playbook-id=<id>");
+    }
+    return {
+      command: "lessons:promote",
+      candidatePath: first,
+      playbookId,
+    };
+  }
+
   if (command === "tasks:from-template") {
     if (!first) {
       throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>");
@@ -278,7 +319,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|tasks:from-template|tasks:from-run");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|lessons:review|lessons:promote|tasks:from-template|tasks:from-run");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -365,6 +406,20 @@ async function main(argv: string[]): Promise<number> {
       ),
     );
     return 0;
+  }
+
+  if (args.command === "lessons:review") {
+    console.log(JSON.stringify(await reviewLessonCandidate({ candidatePath: resolve(args.candidatePath) }), null, 2));
+    return 0;
+  }
+
+  if (args.command === "lessons:promote") {
+    const result = await promoteLessonCandidate({
+      candidatePath: resolve(args.candidatePath),
+      playbookId: args.playbookId,
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return result.promoted ? 0 : 1;
   }
 
   if (args.command === "runs:diagnose") {
