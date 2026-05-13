@@ -26,6 +26,7 @@ import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
 import { diagnoseRun } from "./core/run-diagnose";
 import { createTaskFromRun } from "./core/task-from-run";
 import { reviewLessonInbox } from "./core/lesson-inbox-review";
+import { summarizeReportOnlyReviews } from "./core/report-review";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -72,6 +73,11 @@ export interface RunsAcceptCliArgs extends RunAcceptInput {
 export interface RunsDiagnoseCliArgs {
   command: "runs:diagnose";
   runLogPath: string;
+}
+
+export interface ReportsSummarizeCliArgs {
+  command: "reports:summarize";
+  runLogPaths: string[];
 }
 
 export interface LessonsDraftCliArgs {
@@ -129,6 +135,7 @@ export type SamanthaCliArgs =
   | WorktreeCleanupCliArgs
   | RunsAcceptCliArgs
   | RunsDiagnoseCliArgs
+  | ReportsSummarizeCliArgs
   | LessonsDraftCliArgs
   | LessonsReviewCliArgs
   | LessonsReviewInboxCliArgs
@@ -166,6 +173,11 @@ function parseTemplateReplacements(args: string[]): Record<string, string> | und
     replacements[key] = raw.slice(sep + 1);
   }
   return Object.keys(replacements).length > 0 ? replacements : undefined;
+}
+
+function parseRepeatedFlag(args: string[], name: string): string[] {
+  const prefix = `--${name}=`;
+  return args.filter((arg) => arg.startsWith(prefix)).map((arg) => arg.slice(prefix.length));
 }
 
 export function parseCliArgs(argv: string[]): SamanthaCliArgs {
@@ -288,6 +300,20 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "reports:summarize") {
+    const runLogPaths = parseRepeatedFlag(
+      [first, ...rest].filter((arg): arg is string => Boolean(arg)),
+      "run-log",
+    );
+    if (runLogPaths.length === 0) {
+      throw new Error("usage: bun run samantha reports:summarize --run-log=<path> [--run-log=<path>]...");
+    }
+    return {
+      command: "reports:summarize",
+      runLogPaths,
+    };
+  }
+
   if (command === "lessons:draft") {
     const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     const runLogPath = flags.get("run-log");
@@ -392,7 +418,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -522,6 +548,11 @@ export async function main(argv: string[]): Promise<number> {
 
   if (args.command === "runs:diagnose") {
     console.log(JSON.stringify(await diagnoseRun({ runLogPath: resolve(args.runLogPath) }), null, 2));
+    return 0;
+  }
+
+  if (args.command === "reports:summarize") {
+    console.log(JSON.stringify(await summarizeReportOnlyReviews(args), null, 2));
     return 0;
   }
 

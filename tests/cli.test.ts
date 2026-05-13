@@ -96,6 +96,16 @@ describe("samantha cli", () => {
     });
     expect(
       parseCliArgs([
+        "reports:summarize",
+        "--run-log=runs/review-a.json",
+        "--run-log=runs/review-b.json",
+      ]),
+    ).toEqual({
+      command: "reports:summarize",
+      runLogPaths: ["runs/review-a.json", "runs/review-b.json"],
+    });
+    expect(
+      parseCliArgs([
         "worktree:cleanup",
         "--run-log=runs/run-1.json",
         "--repo-root=.",
