@@ -60,6 +60,26 @@ add a reviewed policy/test change.
 - Do not create "light" writer tasks that skip worktree isolation, scope checks,
   deterministic verification, run evidence, or Samantha-owned transitions.
 
+## Completion Rules
+
+For Samantha self-build implementation work, the default completion standard is:
+
+```text
+deterministic verification passes
+-> intended files only
+-> commit
+-> push
+-> propose the next action
+```
+
+Do not leave BK with "push this" as the next action when the work can be pushed
+safely by Codex.
+
+Stop before commit or push when verification fails, unrelated dirty changes are
+present, the local branch diverges from the remote, secret or credential risk is
+possible, BK asks to keep work local or use a PR flow, or the change needs
+explicit review before publication.
+
 ## Next Action Proposal Rules
 
 While building Samantha itself, next-action proposals must distinguish task
