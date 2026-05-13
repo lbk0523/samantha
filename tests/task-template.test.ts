@@ -85,8 +85,9 @@ describe("task templates", () => {
     expect(template.task.forbiddenChanges).toContain("tests/**");
     expect(template.task.forbiddenChanges).toContain("runs/**");
     expect(template.task.forbiddenChanges).toContain("worktrees/**");
-    expect(template.task.verifyCommands).toContain("bun run typecheck");
-    expect(template.task.verifyCommands).toContain("bun test");
+    expect(template.task.verifyCommands).toEqual([
+      "git diff --check HEAD -- '*.md' 'references/**/*.md'",
+    ]);
     expect(validateDispatch(template.task, agent).violations).toEqual([]);
   });
 

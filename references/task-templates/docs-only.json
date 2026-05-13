@@ -6,7 +6,8 @@
   "useWhen": [
     "The task changes markdown documentation only.",
     "The work records product direction, architecture notes, research conclusions, playbooks, or reviewed lessons.",
-    "No source code, tests, generated run evidence, worktrees, or package configuration should change."
+    "No source code, tests, generated run evidence, worktrees, or package configuration should change.",
+    "A cheap deterministic markdown-surface check is enough evidence for the task."
   ],
   "task": {
     "id": "replace-with-task-id",
@@ -30,10 +31,9 @@
     ],
     "setupCommands": [],
     "verifyCommands": [
-      "bun run typecheck",
-      "bun test"
+      "git diff --check HEAD -- '*.md' 'references/**/*.md'"
     ],
-    "instructions": "Update only markdown documentation needed for this task. Keep the change surgical and direction-focused. Do not change source code, tests, package configuration, run logs, worktrees, task specs, task templates, agent profiles, remote adapters, daemon/watch behavior, dashboards, routine triggers, or hidden memory.",
+    "instructions": "Update only markdown documentation needed for this task. Keep the change surgical and direction-focused. Use cheap deterministic verification tied to the markdown diff; do not add broad code checks unless the task explicitly needs them. Do not change source code, tests, package configuration, run logs, worktrees, task specs, task templates, agent profiles, remote adapters, daemon/watch behavior, dashboards, routine triggers, or hidden memory.",
     "expectedCommitSubject": "docs: update <docs-topic>",
     "status": "pending"
   }

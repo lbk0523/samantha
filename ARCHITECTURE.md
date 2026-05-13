@@ -20,6 +20,127 @@ BK
 -> run inspection, merge gate, cleanup, lifecycle evidence
 ```
 
+## Design Tension
+
+Samantha intentionally pays some speed cost to preserve trust, auditability, and
+clear authority boundaries. That tradeoff should stay explicit as the harness
+gets faster after the MVP.
+
+The rule is:
+
+```text
+Reduce overhead by narrowing task classes, templates, and verification scope.
+Do not reduce overhead by bypassing worker isolation, scope checks,
+deterministic verification, run evidence, or Samantha-owned transitions.
+```
+
+Non-negotiable gates for writer output:
+
+- Samantha allocates the worker worktree.
+- The task declares target files and forbidden changes.
+- Samantha checks changed files against scope outside the worker's judgment.
+- Samantha runs deterministic verification outside the worker's judgment.
+- Run evidence is recorded locally.
+- Merge, cleanup, policy, and doctrine transitions stay Samantha-owned.
+
+Efficiency should come from:
+
+- report-only exploration before write work
+- parallel report-only review when Samantha owns the orchestration
+- reusable task templates
+- cheaper verification that is still connected to the changed surface
+- failure evidence that creates narrower follow-up tasks
+- concise run summaries instead of dashboard or daemon scope
+
+## Task Classes / Execution Modes
+
+Samantha should not model cheap work as a weaker safety mode. Cheap work should
+be represented as a narrower task class with a narrower verification surface.
+
+The current contracts encode these classes through task templates, agent
+profiles, `resultMode`, worktree policy, and merge policy. A future explicit
+`task.kind` field is acceptable only if real usage proves the template/profile
+encoding is too implicit.
+
+| Class | Authority | Worktree | Verification | Use |
+| --- | --- | --- | --- | --- |
+| report-only exploration | read and report only | none | optional repository sanity checks | reviews, evidence synthesis, architecture critique, run inspection |
+| docs-only writer | markdown writes only | per-task | cheap deterministic document-surface checks | direction docs, playbooks, lesson candidates, reviewed documentation |
+| standard writer task | bounded source/test writes | per-task | focused tests plus broader sanity when justified | normal implementation work |
+| rework task | bounded follow-up writes | per-task | starts from the failed command or scope evidence | fixing a failed run without trusting failed worker judgment |
+| policy-change | authority or contract writes | per-task | focused policy/template tests required | `src/core/policy.ts`, contracts, profiles, templates, or enforcement changes |
+| doctrine-update | product direction writes | per-task | docs verification plus report-only review when authority boundaries move | `AGENTS.md`, `NORTH_STAR.md`, `ARCHITECTURE.md`, `LEARNING_ARCHITECTURE.md` |
+
+The forbidden post-MVP shortcut is a "light" writer task that skips isolation,
+scope checks, deterministic verification, or evidence recording. A small task
+may have a small verify command, but it still has a verify command.
+
+## Parallelism Boundary
+
+Single-writer execution is an MVP constraint, not permanent product doctrine.
+Samantha should eventually support larger work by running multiple agents, but
+parallelism must not blur authority or make unverified output trusted.
+
+The rule is:
+
+```text
+Parallel execution can arrive before parallel trust.
+Integration stays ordered, Samantha-owned, and reverified.
+```
+
+The intended evolution is:
+
+1. Parallel report-only workers.
+   Non-writer reviewers, researchers, and spec workers may scale first because
+   they have `resultMode: "report"`, no worktree allocation, no merge policy,
+   and no lifecycle authority. Their output is advice and evidence, not trusted
+   writes.
+2. Speculative writer batches.
+   Multiple writer tasks may later run in isolated worktrees at the same time,
+   but only as candidate commits. Samantha must still choose the merge order and
+   re-run verification after each accepted integration step.
+3. Batch orchestration.
+   Large work needs explicit batch artifacts, task dependencies, partial failure
+   handling, ordered merge gates, batch-level summaries, and cleanup/lifecycle
+   evidence.
+
+Parallel writer batches require at least:
+
+- a batch id and declared task dependencies
+- a known base commit for every worker worktree
+- disjoint target files and forbidden changes checked before dispatch
+- serial-only handling for shared files such as contracts, policy, package
+  metadata, lockfiles, task templates, agent profiles, and doctrine documents
+- independent run logs and candidate commits per worker
+- an ordered Samantha merge queue
+- focused verification after each accepted merge
+- broader batch verification after the final accepted merge
+- stale-base, rebase, reverify, partial failure, and cleanup policy
+
+Until those pieces exist, writer execution and integration stay serial. Worker
+owned subagent orchestration stays forbidden; Samantha owns orchestration.
+
+## Meta-Task Rules
+
+Meta-tasks change Samantha's own rules rather than ordinary product behavior.
+They need stricter evidence because they can alter future authority.
+
+Treat these as doctrine or policy tasks:
+
+- `AGENTS.md`
+- `NORTH_STAR.md`
+- `ARCHITECTURE.md`
+- `LEARNING_ARCHITECTURE.md`
+- `src/core/policy.ts`
+- task templates
+- agent profiles
+- contract types that grant or restrict authority
+
+Doctrine updates should stay documentation-only unless the task explicitly
+includes an enforcement change. Policy changes need focused tests that prove the
+new rule accepts and rejects the intended cases. Changes that move authority
+boundaries should also receive a report-only review before becoming routine.
+
 ## Layers
 
 ### 1. CEO Layer
@@ -142,6 +263,28 @@ Current behavior:
 - run every verify command
 - pass only when harness status, scope, and verification all pass
 
+### Verify Quality Doctrine
+
+The policy requirement is not merely "some verify command exists." Verification
+should be connected to the changed surface and the task's risk.
+
+Template defaults should follow this order:
+
+- focused verification for the specific behavior or document surface
+- broader repository sanity checks only when the change can plausibly affect
+  shared contracts or executable behavior
+- no mutation testing until repeated evidence shows weak verification is a
+  recurring failure class
+
+Examples:
+
+- source changes should include focused tests for the changed module or command
+  and usually a full test/typecheck sanity pass
+- policy or contract changes should include tests that prove both allowed and
+  rejected cases
+- docs-only changes should use cheap deterministic checks tied to markdown
+  changes; full typecheck/test is optional evidence, not the default cost
+
 ### 7. Evidence Layer
 
 The evidence layer records what happened.
@@ -163,6 +306,41 @@ Current behavior:
 - append compact run summaries to `runs/index.jsonl`
 - support `runs:list`
 - support `runs:show`
+
+## Failure Recovery Model
+
+Samantha should not make failed worker output trustworthy by retrying inside the
+same authority context. A failed run is evidence. The normal recovery path is:
+
+```text
+failed run evidence
+-> classify failure
+-> create a narrower follow-up task or lifecycle action
+-> run through the same gates again
+```
+
+Current run summaries already classify setup failures, worker command failures,
+malformed results, scope violations, verification failures, commit failures, and
+blocked/rework harness results. Future commands such as `runs:diagnose` or
+`tasks:from-run` should use that evidence to produce the next explicit artifact
+instead of adding automatic hidden retry policy.
+
+Allowed recovery actions:
+
+- setup failure: fix setup instructions or environment, then run a new task
+- worker command failure: rerun only if the failure is clearly transient;
+  otherwise create a rework task from the evidence
+- missing or malformed `HARNESS_RESULT`: reject the run and tighten the task or
+  worker prompt before rerunning
+- scope violation or forbidden change: reject the run, split or narrow the task,
+  and keep the violating output untrusted
+- verify failure: create a rework task that cites the failed command and keeps
+  that command in verification
+- stale base, dirty target repo, missing commit, or cleanup blocker: handle as
+  an explicit merge/lifecycle operation, not as worker authority
+
+Automatic retry can be considered later only when it is visible in run evidence,
+bounded by policy, and cannot accept unverified worker output.
 
 ### 8. Integration Gate Layer
 
@@ -266,4 +444,6 @@ Avoid these shortcuts:
 - allowing worker-created worktrees
 - adding remote/Telegram control before local usefulness is proven
 - building dashboards before run logs and summaries are stable
-- adding multi-agent orchestration before single-writer discipline is boring
+- letting workers orchestrate subagents or parallel writers
+- adding parallel writer batches before batch gates, ordered integration, and
+  post-merge verification exist

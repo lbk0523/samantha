@@ -67,3 +67,53 @@ add a reviewed policy/test change.
 - Samantha, not a worker, owns commits after deterministic gates pass.
 - Every writer task must declare target files, forbidden changes, and verify
   commands.
+- Verify commands must be connected to the task's changed surface. Prefer
+  focused verification first, then broader sanity checks only when the change can
+  affect shared executable behavior.
+- Do not create "light" writer tasks that skip worktree isolation, scope checks,
+  deterministic verification, run evidence, or Samantha-owned transitions.
+
+## Parallelism Rules
+
+Single-writer execution is an MVP constraint, not a permanent doctrine. Do not
+raise writer concurrency just by changing `writerCap`.
+
+Worker-owned orchestration is forbidden. Workers must not spawn, coordinate, or
+delegate to subagents. Samantha owns any future parallelism.
+
+Report-only workers may be parallelized first when the orchestration is explicit
+and their tasks remain non-writer, report-only, and without merge or lifecycle
+authority.
+
+Parallel writer batches require a reviewed batch design before implementation:
+
+- batch id and task dependencies
+- disjoint write-set checks before dispatch
+- serial-only handling for contracts, policy, package metadata, lockfiles, task
+  templates, agent profiles, and doctrine documents
+- independent worker run logs and candidate commits
+- ordered Samantha-owned integration
+- focused verification after each accepted merge
+- broader batch verification after the final accepted merge
+- stale-base, rebase, partial failure, and cleanup policy
+
+## Meta-Task Rules
+
+Changes to Samantha's own authority model are meta-tasks, not ordinary
+implementation chores.
+
+Treat changes to these files or artifact families as doctrine or policy work:
+
+- `AGENTS.md`
+- `NORTH_STAR.md`
+- `ARCHITECTURE.md`
+- `LEARNING_ARCHITECTURE.md`
+- `src/core/policy.ts`
+- task templates
+- agent profiles
+- contract types that grant or restrict authority
+
+Doctrine updates should stay documentation-only unless an enforcement change is
+explicitly requested. Policy changes require focused tests that prove the new
+rule accepts and rejects the intended cases. If a change moves authority
+boundaries, use a report-only review before making the pattern routine.

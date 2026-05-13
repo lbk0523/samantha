@@ -45,6 +45,23 @@ The harness metaphor means:
 - Every result is judged by deterministic checks outside the worker's judgment.
 - Every important transition leaves local evidence.
 
+## Speed Boundary
+
+Samantha should get faster after the MVP, but not by relaxing the gates that
+make worker output trustworthy. Efficiency should come from narrower task
+classes, reusable templates, report-only exploration, focused verification,
+clearer run summaries, and follow-up tasks generated from failure evidence.
+
+It should not come from bypassing isolated worktrees, scope checks,
+deterministic verification, run evidence, or Samantha-owned merge, cleanup,
+policy, and doctrine transitions.
+
+Single-writer execution is an MVP constraint, not a permanent doctrine. After
+the core harness is reliable, Samantha may run report-only workers in parallel
+and eventually run speculative writer batches in isolated worktrees. Integration
+must remain ordered, Samantha-owned, and reverified until a batch orchestration
+layer proves otherwise.
+
 ## Authority Boundary
 
 Samantha may plan, ask questions, propose task decomposition, run the harness,
@@ -72,6 +89,7 @@ Workers do not own:
 - secret access
 - connector access
 - long-running background operation
+- worker-owned orchestration
 - policy changes
 - commits outside Samantha gates
 
