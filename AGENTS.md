@@ -73,6 +73,18 @@ add a reviewed policy/test change.
 - Do not create "light" writer tasks that skip worktree isolation, scope checks,
   deterministic verification, run evidence, or Samantha-owned transitions.
 
+## Next Action Proposal Rules
+
+While building Samantha itself, next-action proposals must distinguish task
+size and required BK involvement.
+
+For small slices, or when the next step includes an action BK must perform
+directly, propose the next concrete action directly.
+
+For larger slices, or when a longer autonomous work session is useful, propose a
+Codex goal task instead. Include a ready-to-send `/goal` prompt so BK can launch
+the goal without rewriting the scope.
+
 ## Parallelism Rules
 
 Single-writer execution is an MVP constraint, not a permanent doctrine. Do not
