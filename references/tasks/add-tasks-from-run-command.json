@@ -1,0 +1,33 @@
+{
+  "id": "add-tasks-from-run-command",
+  "title": "Add tasks from run command",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/cli.ts",
+    "src/core/task-from-run.ts",
+    "tests/cli.test.ts",
+    "tests/task-from-run.test.ts",
+    "ARCHITECTURE.md",
+    "references/tasks/add-tasks-from-run-command.json"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "LEARNING_ARCHITECTURE.md",
+    "NORTH_STAR.md",
+    "src/core/policy.ts",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/task-templates/**",
+    "runs/**",
+    "worktrees/**"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun run typecheck",
+    "bun test tests/cli.test.ts tests/task-from-run.test.ts",
+    "bun test"
+  ],
+  "instructions": "Implement a deterministic local bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title> command. Read AGENTS.md, ARCHITECTURE.md, src/cli.ts, src/core/run-diagnose.ts, src/core/task-from-template.ts, src/core/ledger.ts, src/core/run-log.ts, tests/cli.test.ts, tests/run-diagnose.test.ts, and tests/task-from-template.test.ts first. Add the smallest core module needed, likely src/core/task-from-run.ts. Add CLI parsing and execution in src/cli.ts. Add focused behavior tests in tests/task-from-run.test.ts and parser coverage in tests/cli.test.ts. Update ARCHITECTURE.md CLI Surface for the implemented command. Behavior: read one worker run log and use existing diagnosis/summarization signals. For passing writer runs, refuse task creation and recommend runs:accept. For passing report-only runs, refuse task creation and report evidence-only status. For verify_failed, create a rework task that keeps the failed verify command. For scope_failed, create a narrower task instruction that rejects untrusted output and cites scope violations. For setup failures, create a task focused on setup/task/environment correction. For worker command failures or malformed HARNESS_RESULT, create a task that starts from evidence inspection and narrowing; do not trust worker output. For commit failures, recommend explicit local inspection and do not trust lifecycle. Refuse to overwrite an existing task spec. Prefer existing task spec/template conventions. Do not retry, dispatch, merge, clean up, push, draft lessons, trust failed worker output, create hidden memory, promote learning artifacts, add Telegram/remote adapters, daemons, watch services, dashboards, budget governance, or multi-project orchestration. Worker agents must not get merge, push, or cleanup authority.",
+  "expectedCommitSubject": "feat: add tasks from run command",
+  "status": "pending"
+}

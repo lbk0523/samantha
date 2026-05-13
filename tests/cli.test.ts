@@ -123,4 +123,20 @@ describe("samantha cli", () => {
       title: "Add task template command",
     });
   });
+
+  test("parses task creation from run arguments", () => {
+    expect(
+      parseCliArgs([
+        "tasks:from-run",
+        "--run-log=runs/run-1.json",
+        "--task-id=follow-up-task",
+        "--title=Follow up task",
+      ]),
+    ).toEqual({
+      command: "tasks:from-run",
+      runLogPath: "runs/run-1.json",
+      taskId: "follow-up-task",
+      title: "Follow up task",
+    });
+  });
 });

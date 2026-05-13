@@ -17,6 +17,7 @@ import { acceptRun, type RunAcceptInput } from "./core/run-accept";
 import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
 import { diagnoseRun } from "./core/run-diagnose";
+import { createTaskFromRun } from "./core/task-from-run";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -77,6 +78,13 @@ export interface TasksFromTemplateCliArgs {
   title: string;
 }
 
+export interface TasksFromRunCliArgs {
+  command: "tasks:from-run";
+  runLogPath: string;
+  taskId: string;
+  title: string;
+}
+
 export type SamanthaCliArgs =
   | RunTaskCliArgs
   | RunsListCliArgs
@@ -87,7 +95,8 @@ export type SamanthaCliArgs =
   | RunsAcceptCliArgs
   | RunsDiagnoseCliArgs
   | LessonsDraftCliArgs
-  | TasksFromTemplateCliArgs;
+  | TasksFromTemplateCliArgs
+  | TasksFromRunCliArgs;
 
 function parseFlags(args: string[]): Map<string, string> {
   const flags = new Map<string, string>();
@@ -252,7 +261,23 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|tasks:from-template");
+  if (command === "tasks:from-run") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const runLogPath = flags.get("run-log");
+    const taskId = flags.get("task-id");
+    const title = flags.get("title");
+    if (!runLogPath || !taskId || !title) {
+      throw new Error("usage: bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>");
+    }
+    return {
+      command: "tasks:from-run",
+      runLogPath,
+      taskId,
+      title,
+    };
+  }
+
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|tasks:from-template|tasks:from-run");
 }
 
 function runIndexPath(runsDir?: string): string {
@@ -356,6 +381,16 @@ async function main(argv: string[]): Promise<number> {
   if (args.command === "tasks:from-template") {
     console.log(JSON.stringify(await createTaskFromTemplate(args), null, 2));
     return 0;
+  }
+
+  if (args.command === "tasks:from-run") {
+    const result = await createTaskFromRun({
+      runLogPath: resolve(args.runLogPath),
+      taskId: args.taskId,
+      title: args.title,
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return result.created ? 0 : 1;
   }
 
   if (args.command === "worktree:cleanup") {

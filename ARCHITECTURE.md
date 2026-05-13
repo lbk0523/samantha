@@ -421,6 +421,7 @@ bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
 bun run samantha runs:diagnose --run-log=<path>
 bun run samantha lessons:draft --run-log=<path>
 bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
+bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```
 
 The CLI should stay local and explicit. It should not become a daemon, remote
