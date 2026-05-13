@@ -50,6 +50,10 @@ The first useful version does not need:
 - multi-writer execution
 
 Those can be reconsidered only after the core harness is routinely useful.
+Single-writer execution is an MVP constraint, not a permanent doctrine:
+post-MVP parallelism should start with report-only workers and later move to
+speculative writer batches only after batch orchestration, ordered integration,
+and post-merge verification are designed.
 
 ## Direction Documents
 
@@ -68,6 +72,7 @@ Those can be reconsidered only after the core harness is routinely useful.
 - Merge, push, cleanup, retry, recovery, connector access, and secret access are
   separate gates.
 - Non-writer roles are report-only and should not edit files.
+- Workers must not own orchestration; future parallelism belongs to Samantha.
 - Keep the first implementation small enough to understand in one sitting.
 
 ## New Repo Boundary
