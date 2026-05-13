@@ -87,6 +87,39 @@ describe("worker dispatch", () => {
     expect(prepared.codex.command).toContain(prepared.worktreePath);
   });
 
+  test("blocks dispatch when generated task placeholders were not narrowed", async () => {
+    const repo = await makeRepo();
+
+    await expect(
+      prepareWorkerDispatch({
+        task: {
+          ...task,
+          targetFiles: ["src/core/<module>.ts"],
+          verifyCommands: ["bun test tests/<module>.test.ts"],
+          expectedCommitSubject: "feat: add <module> core behavior",
+        },
+        agent,
+        repoRoot: repo,
+        worktreesDir: "worktrees",
+      }),
+    ).rejects.toThrow("task contains unresolved dispatch placeholders: module");
+  });
+
+  test("allows instruction-only CLI metavars during dispatch", async () => {
+    const repo = await makeRepo();
+    const prepared = await prepareWorkerDispatch({
+      task: {
+        ...task,
+        instructions: "Keep command usage examples like --run-log=<path> in the prompt.",
+      },
+      agent,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+    });
+
+    expect(prepared.taskId).toBe(task.id);
+  });
+
   test("prepares non-writer report tasks without allocating a worktree", async () => {
     const repo = await makeRepo();
     const reviewer: AgentProfile = {

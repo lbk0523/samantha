@@ -2,6 +2,7 @@ import type { AgentProfile, TaskSpec, WorktreeAllocation } from "./contracts";
 import { prepareCodexDispatch, type PreparedCodexDispatch } from "./codex-dispatch";
 import { gitHead } from "./git";
 import { validateDispatch } from "./policy";
+import { unresolvedDispatchPlaceholders } from "./task-placeholders";
 import {
   collectChangedFileSnapshots,
   evaluateWorkerResult,
@@ -74,7 +75,13 @@ export async function prepareWorkerDispatch(
   input: PrepareWorkerDispatchInput,
 ): Promise<WorkerDispatchPreparation> {
   const plan = validateDispatch(input.task, input.agent);
-  if (!plan.mayDispatch) {
+  const unresolvedPlaceholders = unresolvedDispatchPlaceholders(input.task);
+  if (unresolvedPlaceholders.length > 0) {
+    plan.violations.push(
+      `task contains unresolved dispatch placeholders: ${unresolvedPlaceholders.join(", ")}`,
+    );
+  }
+  if (plan.violations.length > 0) {
     throw new Error(`dispatch blocked:\n${plan.violations.join("\n")}`);
   }
 

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { TaskSpec } from "./contracts";
+import { unresolvedTaskPlaceholders } from "./task-placeholders";
 
 export interface TaskTemplate {
   schemaVersion: 1;
@@ -56,30 +57,6 @@ function replaceTaskPlaceholders(task: TaskSpec, replacements: Record<string, st
       ? replaceText(task.expectedCommitSubject, replacements)
       : undefined,
   };
-}
-
-function collectPlaceholders(value: unknown, found: Set<string>): void {
-  if (typeof value === "string") {
-    for (const match of value.matchAll(/<([A-Za-z0-9][A-Za-z0-9_-]*)>/g)) {
-      found.add(match[1]);
-    }
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) collectPlaceholders(item, found);
-  }
-}
-
-function unresolvedTaskPlaceholders(task: TaskSpec): string[] {
-  const found = new Set<string>();
-  collectPlaceholders(task.targetFiles, found);
-  collectPlaceholders(task.forbiddenChanges, found);
-  collectPlaceholders(task.setupCommands, found);
-  collectPlaceholders(task.verifyCommands, found);
-  collectPlaceholders(task.instructions, found);
-  collectPlaceholders(task.expectedCommitSubject, found);
-  return Array.from(found).sort();
 }
 
 export async function createTaskFromTemplate(
