@@ -14,6 +14,7 @@ import {
   type RunLifecycleEvent,
 } from "./core/run-lifecycle-store";
 import { acceptRun, type RunAcceptInput } from "./core/run-accept";
+import { showRun } from "./core/run-show";
 import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
 import { diagnoseRun } from "./core/run-diagnose";
@@ -336,10 +337,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (args.command === "runs:show") {
-    const summary = await new RunIndex(runIndexPath(args.runsDir)).find(args.runId);
-    if (!summary) throw new Error(`run not found: ${args.runId}`);
-    const log = await readWorkerRunLog(summary.logPath);
-    console.log(JSON.stringify({ summary, log }, null, 2));
+    console.log(JSON.stringify(await showRun(args), null, 2));
     return 0;
   }
 
