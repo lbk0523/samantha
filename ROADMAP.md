@@ -200,6 +200,10 @@ Acceptance evidence:
 - independent report-only runs complete without changed files
 - Samantha can summarize multiple reports into a single decision point
 - tests preserve report-only non-authority boundaries
+- 2026-05-13 dogfood evidence: `2026-05-13T13-13-21-946Z-fixture-report-reviewer`
+  and `2026-05-13T13-14-11-869Z-dogfood-report-reviewer` summarized as 2
+  accepted reports, `advice-only`, `trustedStateChanges: false`, and a Samantha
+  `review_reports` decision point
 
 Promotion rule:
 
