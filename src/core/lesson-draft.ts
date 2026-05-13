@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { summarizeWorkerRun, type RunOutcome } from "./ledger";
+import { RunIndex, summarizeWorkerRun, type RunOutcome, type RunSummary } from "./ledger";
 import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
 import type { WorkerRunLog } from "./run-log";
 
@@ -19,6 +19,12 @@ interface LessonClassification {
   affectedLayer: string;
   suggestedArtifactType: string;
   riskIfAdopted: string;
+}
+
+interface SupersededContext {
+  summary: RunSummary;
+  lifecycle: RunLifecycleRecord | undefined;
+  kind: "accepted_cleaned" | "clean_report_only";
 }
 
 async function readRunLog(path: string): Promise<WorkerRunLog> {
@@ -72,7 +78,34 @@ function renderLifecycle(record: RunLifecycleRecord | undefined): string {
   return lines.join("\n");
 }
 
-function classifyLesson(outcome: RunOutcome): LessonClassification {
+function renderSupersededContext(context: SupersededContext | undefined): string {
+  if (!context) return "- Superseded status: not detected";
+
+  const lines = [
+    `- Superseded status: ${
+      context.kind === "accepted_cleaned"
+        ? "superseded by accepted and cleaned run"
+        : "superseded by clean report-only run"
+    }`,
+    `- Superseding run id: ${context.summary.runId}`,
+    `- Superseding task id: ${context.summary.taskId}`,
+    `- Superseding outcome: ${context.summary.outcome}`,
+    `- Superseding lifecycle state: ${lifecycleState(context.lifecycle)}`,
+  ];
+  if (context.summary.commit) lines.push(`- Superseding commit: ${context.summary.commit}`);
+  return lines.join("\n");
+}
+
+function classifyLesson(outcome: RunOutcome, superseded: SupersededContext | undefined): LessonClassification {
+  if (superseded) {
+    return {
+      proposedLesson: "Treat this candidate as stale unless the same failure recurs after the superseding run.",
+      affectedLayer: "evidence",
+      suggestedArtifactType: "run summary / no promotion",
+      riskIfAdopted: "Promoting superseded evidence can add process for a problem that was already resolved.",
+    };
+  }
+
   switch (outcome) {
     case "pass":
       return {
@@ -141,10 +174,90 @@ function classifyLesson(outcome: RunOutcome): LessonClassification {
   }
 }
 
+function taskFamily(taskId: string): string {
+  return taskId.replace(/-v\d+$/, "");
+}
+
+function isReportOnlyRun(log: WorkerRunLog): boolean {
+  return log.task.resultMode === "report" || log.agent.writerClass === "non-writer";
+}
+
+function hasCleanedLifecycle(summary: RunSummary, record: RunLifecycleRecord | undefined): boolean {
+  return Boolean(
+    record?.cleanedAt &&
+      record.commit === summary.commit &&
+      taskFamily(record.taskId) === taskFamily(summary.taskId),
+  );
+}
+
+function isCleanPassingReportRun(log: WorkerRunLog): boolean {
+  const evaluation = log.result.evaluation;
+
+  return Boolean(
+    isReportOnlyRun(log) &&
+      evaluation?.pass &&
+      evaluation.harness?.status === "pass" &&
+      evaluation.changedFiles.length === 0 &&
+      evaluation.scopeViolations.length === 0,
+  );
+}
+
+async function supersededContext(input: {
+  log: WorkerRunLog;
+  runLogPath: string;
+  outcome: RunOutcome;
+}): Promise<SupersededContext | undefined> {
+  const reportOnly = isReportOnlyRun(input.log);
+  if (!reportOnly && input.outcome !== "blocked" && input.outcome !== "rework") return undefined;
+  if (reportOnly && input.outcome === "pass") return undefined;
+
+  const evidenceDir = dirname(input.runLogPath);
+  const summaries = await new RunIndex(join(evidenceDir, "index.jsonl")).list();
+  const sourceFamily = taskFamily(input.log.task.id);
+
+  if (reportOnly) {
+    const candidateSummaries = summaries.filter((summary) => {
+      return (
+        summary.runId !== input.log.runId &&
+        summary.finishedAt > input.log.finishedAt &&
+        taskFamily(summary.taskId) === sourceFamily &&
+        summary.pass === true
+      );
+    });
+
+    for (const summary of candidateSummaries) {
+      const candidateLog = await readRunLog(summary.logPath);
+      if (isCleanPassingReportRun(candidateLog)) {
+        return { summary, lifecycle: undefined, kind: "clean_report_only" };
+      }
+    }
+
+    return undefined;
+  }
+
+  const lifecycleRecords = await new RunLifecycleStore(lifecycleStorePath(input.runLogPath)).list();
+  const lifecycleByRunId = new Map(lifecycleRecords.map((record) => [record.runId, record]));
+  const summary = summaries.find((candidate) => {
+    return (
+      candidate.runId !== input.log.runId &&
+      candidate.finishedAt > input.log.finishedAt &&
+      taskFamily(candidate.taskId) === sourceFamily &&
+      candidate.pass === true &&
+      candidate.commit.trim().length > 0 &&
+      hasCleanedLifecycle(candidate, lifecycleByRunId.get(candidate.runId))
+    );
+  });
+
+  return summary
+    ? { summary, lifecycle: lifecycleByRunId.get(summary.runId), kind: "accepted_cleaned" }
+    : undefined;
+}
+
 function buildLessonMarkdown(input: {
   log: WorkerRunLog;
   runLogPath: string;
   lifecycle: RunLifecycleRecord | undefined;
+  superseded: SupersededContext | undefined;
 }): string {
   const summary = summarizeWorkerRun({
     task: input.log.task,
@@ -157,7 +270,7 @@ function buildLessonMarkdown(input: {
     runId: input.log.runId,
     logPath: input.runLogPath,
   });
-  const classification = classifyLesson(summary.outcome);
+  const classification = classifyLesson(summary.outcome, input.superseded);
   const changedFiles = [...(input.log.result.evaluation?.changedFiles ?? input.log.result.commit?.files ?? [])].sort();
 
   return `# Lesson Candidate: ${input.log.runId}
@@ -180,6 +293,9 @@ ${renderVerification(input.log)}
 ### Lifecycle
 ${renderLifecycle(input.lifecycle)}
 
+### Superseded Context
+${renderSupersededContext(input.superseded)}
+
 ## Proposed Lesson
 - Proposed lesson: ${classification.proposedLesson}
 - Affected layer: ${classification.affectedLayer}
@@ -194,11 +310,23 @@ export async function draftLessonFromRunLog(input: LessonDraftInput): Promise<Le
   const repoRoot = resolve(input.repoRoot ?? ".");
   const log = await readRunLog(runLogPath);
   const lifecycle = await new RunLifecycleStore(lifecycleStorePath(runLogPath)).find(log.runId);
+  const summary = summarizeWorkerRun({
+    task: log.task,
+    agent: log.agent,
+    repoRoot: log.input.repoRoot,
+    worktreesDir: log.input.worktreesDir,
+    startedAt: log.startedAt,
+    finishedAt: log.finishedAt,
+    execution: log.result,
+    runId: log.runId,
+    logPath: runLogPath,
+  });
+  const superseded = await supersededContext({ log, runLogPath, outcome: summary.outcome });
   const inboxDir = join(repoRoot, "references", "lessons", "inbox");
   const path = join(inboxDir, `${log.runId}.md`);
 
   await mkdir(inboxDir, { recursive: true });
-  await writeFile(path, buildLessonMarkdown({ log, runLogPath, lifecycle }), "utf8");
+  await writeFile(path, buildLessonMarkdown({ log, runLogPath, lifecycle, superseded }), "utf8");
 
   return { path, runId: log.runId };
 }

@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { draftLessonFromRunLog } from "../src/core/lesson-draft";
+import type { RunSummary } from "../src/core/ledger";
+import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import { buildWorkerRunLog, type WorkerRunLog } from "../src/core/run-log";
 import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
 
@@ -103,6 +105,29 @@ async function writeRunLog(root: string, log: WorkerRunLog): Promise<string> {
   return runLogPath;
 }
 
+async function writeJsonLines<T>(path: string, items: T[]): Promise<void> {
+  await writeFile(path, `${items.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
+}
+
+function runSummary(log: WorkerRunLog, logPath: string, overrides: Partial<RunSummary> = {}): RunSummary {
+  return {
+    schemaVersion: 1,
+    runId: log.runId,
+    taskId: log.task.id,
+    taskTitle: log.task.title,
+    agentId: log.agent.id,
+    repoRoot: "/repo",
+    worktreePath: log.result.preparation.worktreePath,
+    logPath,
+    startedAt: log.startedAt,
+    finishedAt: log.finishedAt,
+    outcome: log.result.pass ? "pass" : "blocked",
+    pass: log.result.pass,
+    commit: log.result.commit?.commitHash ?? "",
+    ...overrides,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -153,6 +178,7 @@ describe("lesson drafts", () => {
     expect(markdown).toContain("- 1 passed, 0 failed");
     expect(markdown).toContain("- `bun test tests/allowed.test.ts` -> pass (0)");
     expect(markdown).toContain("- Lifecycle state: merged and cleaned");
+    expect(markdown).toContain("- Superseded status: not detected");
     expect(markdown).toContain("- Affected layer: playbook");
     expect(markdown).toContain("- Suggested artifact type: playbook");
     expect(markdown).toContain("Review manually before promotion.");
@@ -201,5 +227,93 @@ describe("lesson drafts", () => {
     expect(markdown).toContain("- Affected layer: task template");
     expect(markdown).toContain("- Suggested artifact type: task template or playbook");
     expect(markdown).toContain("- Risk if adopted: Overfitting to one verification failure can make future tasks slower without reducing real risk.");
+  });
+
+  test("marks blocked writer candidates as stale when a later family run was accepted and cleaned", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
+    tmpRoots.push(root);
+    const sourceTask: TaskSpec = {
+      ...task,
+      id: "expose-runs-show-lifecycle",
+      title: "Expose lifecycle evidence in runs show",
+    };
+    const acceptedTask: TaskSpec = {
+      ...sourceTask,
+      id: "expose-runs-show-lifecycle-v2",
+    };
+    const sourceLog = buildWorkerRunLog({
+      task: sourceTask,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: execution({
+        evaluation: {
+          pass: false,
+          harness: {
+            status: "blocked",
+            note: "typecheck blocked by missing @types/bun",
+            commit: "",
+          },
+          changedFiles: ["src/allowed.ts"],
+          scopeViolations: [],
+          verifyResults: [],
+        },
+        commit: undefined,
+        pass: false,
+      }),
+    });
+    const acceptedLog = buildWorkerRunLog({
+      task: acceptedTask,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:02:00.000Z",
+      finishedAt: "2026-05-12T10:03:00.000Z",
+      execution: execution({
+        commit: {
+          ...execution().commit!,
+          commitHash: "b".repeat(40),
+        },
+      }),
+    });
+    const sourceRunLogPath = await writeRunLog(root, sourceLog);
+    const acceptedRunLogPath = await writeRunLog(root, acceptedLog);
+    const lifecycle: RunLifecycleRecord = {
+      schemaVersion: 1,
+      runId: acceptedLog.runId,
+      taskId: acceptedTask.id,
+      repoRoot: "/repo",
+      runLogPath: acceptedRunLogPath,
+      commit: "b".repeat(40),
+      mergedAt: "2026-05-12T10:04:00.000Z",
+      cleanedAt: "2026-05-12T10:05:00.000Z",
+      updatedAt: "2026-05-12T10:05:00.000Z",
+    };
+    await writeJsonLines(join(root, "runs", "index.jsonl"), [
+      runSummary(sourceLog, sourceRunLogPath, {
+        outcome: "blocked",
+        pass: false,
+        failureReason: "typecheck blocked by missing @types/bun",
+      }),
+      runSummary(acceptedLog, acceptedRunLogPath, {
+        outcome: "pass",
+        pass: true,
+        commit: "b".repeat(40),
+      }),
+    ]);
+    await writeJsonLines(join(root, "runs", "run-lifecycle.jsonl"), [lifecycle]);
+
+    const draft = await draftLessonFromRunLog({ runLogPath: sourceRunLogPath, repoRoot: root });
+    const markdown = await readFile(draft.path, "utf8");
+
+    expect(markdown).toContain("- Observed outcome: blocked");
+    expect(markdown).toContain("- Superseded status: superseded by accepted and cleaned run");
+    expect(markdown).toContain(`- Superseding run id: ${acceptedLog.runId}`);
+    expect(markdown).toContain("- Superseding task id: expose-runs-show-lifecycle-v2");
+    expect(markdown).toContain("- Superseding lifecycle state: merged and cleaned");
+    expect(markdown).toContain("- Proposed lesson: Treat this candidate as stale unless the same failure recurs after the superseding run.");
+    expect(markdown).toContain("- Affected layer: evidence");
+    expect(markdown).toContain("- Suggested artifact type: run summary / no promotion");
+    expect(markdown).not.toContain("- Proposed lesson: Clarify the task contract before dispatching similar work.");
   });
 });
