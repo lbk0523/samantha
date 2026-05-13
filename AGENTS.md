@@ -28,18 +28,6 @@ Read these direction documents before broad architectural changes:
 - `ARCHITECTURE.md`
 - `LEARNING_ARCHITECTURE.md`
 
-## Forbidden MVP Scope
-
-Do not implement Telegram, remote adapters, daemon/watch services, dashboard,
-CEO-office memory, routine triggers, budget governance, or multi-project
-orchestration.
-
-The new CEO layer is allowed. The old `samantha-codex` CEO-office product
-direction is not allowed. Do not revive remote command choreography, Telegram
-approval flows, continuous polling, or hidden CEO turn memory.
-
-Do not copy `src/samantha.ts` from the old `samantha-codex` repository.
-
 ## Learning Rules
 
 Samantha may learn from repeated software work only through explicit,
