@@ -1,6 +1,5 @@
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
-import { RunIndex } from "./core/ledger";
 import { draftLessonFromRunLog } from "./core/lesson-draft";
 import { evaluateMergeGate, readWorkerRunLog } from "./core/merge-gate";
 import {
@@ -14,6 +13,7 @@ import {
   type RunLifecycleEvent,
 } from "./core/run-lifecycle-store";
 import { acceptRun, type RunAcceptInput } from "./core/run-accept";
+import { listRuns } from "./core/run-list";
 import { showRun } from "./core/run-show";
 import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
@@ -281,10 +281,6 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
   throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|tasks:from-template|tasks:from-run");
 }
 
-function runIndexPath(runsDir?: string): string {
-  return join(resolve(runsDir ?? "runs"), "index.jsonl");
-}
-
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
   return join(resolve(input.stateDir ?? dirname(resolve(input.runLogPath))), "run-lifecycle.jsonl");
 }
@@ -332,7 +328,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (args.command === "runs:list") {
-    console.log(JSON.stringify(await new RunIndex(runIndexPath(args.runsDir)).list(), null, 2));
+    console.log(JSON.stringify(await listRuns(args), null, 2));
     return 0;
   }
 
