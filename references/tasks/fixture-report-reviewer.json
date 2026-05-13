@@ -1,0 +1,17 @@
+{
+  "id": "fixture-report-reviewer",
+  "title": "Review Samantha harness evidence boundaries",
+  "targetAgent": "codex-reviewer",
+  "targetFiles": [],
+  "forbiddenChanges": [
+    "**/*"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Review the current Samantha harness evidence boundary using README.md, ARCHITECTURE.md, and RESEARCH_AGENT_HARNESSES.md. Report findings, risks, and open questions only. Do not edit files, create commits, run lifecycle transitions, or change policy.",
+  "resultMode": "report",
+  "status": "pending"
+}

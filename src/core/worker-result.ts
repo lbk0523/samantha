@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { HarnessResult, TaskSpec } from "./contracts";
 import { gitChangedFilesSince, gitWorkingTreeFiles } from "./git";
 import { matchesAnyGlob } from "./glob";
@@ -23,6 +26,44 @@ export interface WorkerResultEvaluation {
   changedFiles: string[];
   scopeViolations: ScopeViolation[];
   verifyResults: VerifyCommandResult[];
+}
+
+export interface ChangedFileSnapshot {
+  file: string;
+  contentHash: string | null;
+}
+
+export async function collectChangedFiles(input: {
+  baseCommit: string;
+  cwd: string;
+}): Promise<string[]> {
+  const committedFiles = await gitChangedFilesSince(input.baseCommit, input.cwd);
+  const workingTreeFiles = await gitWorkingTreeFiles(input.cwd);
+  return Array.from(new Set([...committedFiles, ...workingTreeFiles])).sort();
+}
+
+export async function collectChangedFileSnapshots(input: {
+  baseCommit: string;
+  cwd: string;
+}): Promise<ChangedFileSnapshot[]> {
+  const files = await collectChangedFiles(input);
+  return Promise.all(
+    files.map(async (file) => ({
+      file,
+      contentHash: await fileContentHash(input.cwd, file),
+    })),
+  );
+}
+
+async function fileContentHash(cwd: string, file: string): Promise<string | null> {
+  try {
+    return createHash("sha256").update(await readFile(join(cwd, file))).digest("hex");
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+      return null;
+    }
+    throw err;
+  }
 }
 
 async function runVerifyCommand(command: string, cwd: string): Promise<VerifyCommandResult> {
@@ -59,11 +100,38 @@ function findScopeViolations(task: TaskSpec, changedFiles: string[]): ScopeViola
   return violations;
 }
 
+async function collectChangedFilesAfterBaseline(input: {
+  baseCommit: string;
+  cwd: string;
+  baselineChangedFiles?: ChangedFileSnapshot[];
+}): Promise<string[]> {
+  const baselineByFile = new Map(
+    (input.baselineChangedFiles ?? []).map((snapshot) => [snapshot.file, snapshot.contentHash]),
+  );
+  const files = new Set(await collectChangedFiles(input));
+  for (const file of baselineByFile.keys()) {
+    files.add(file);
+  }
+
+  const changedFiles: string[] = [];
+  for (const file of Array.from(files).sort()) {
+    if (!baselineByFile.has(file)) {
+      changedFiles.push(file);
+      continue;
+    }
+    if ((await fileContentHash(input.cwd, file)) !== baselineByFile.get(file)) {
+      changedFiles.push(file);
+    }
+  }
+  return changedFiles;
+}
+
 export async function evaluateWorkerResult(input: {
   task: TaskSpec;
   cwd: string;
   baseCommit: string;
   output: string;
+  baselineChangedFiles?: ChangedFileSnapshot[];
 }): Promise<WorkerResultEvaluation> {
   let harness: HarnessResult | undefined;
   let parseError: string | undefined;
@@ -75,15 +143,17 @@ export async function evaluateWorkerResult(input: {
       err instanceof HarnessResultParseError || err instanceof Error ? err.message : String(err);
   }
 
-  const committedFiles = await gitChangedFilesSince(input.baseCommit, input.cwd);
-  const workingTreeFiles = await gitWorkingTreeFiles(input.cwd);
-  const changedFiles = Array.from(new Set([...committedFiles, ...workingTreeFiles])).sort();
-  const scopeViolations = findScopeViolations(input.task, changedFiles);
+  const initialChangedFiles = await collectChangedFilesAfterBaseline(input);
+  const initialScopeViolations = findScopeViolations(input.task, initialChangedFiles);
 
-  const shouldRunVerify = harness?.status === "pass" && scopeViolations.length === 0;
+  const shouldRunVerify = harness?.status === "pass" && initialScopeViolations.length === 0;
   const verifyResults = shouldRunVerify
     ? await Promise.all(input.task.verifyCommands.map((command) => runVerifyCommand(command, input.cwd)))
     : [];
+  const changedFiles =
+    verifyResults.length > 0 ? await collectChangedFilesAfterBaseline(input) : initialChangedFiles;
+  const scopeViolations =
+    verifyResults.length > 0 ? findScopeViolations(input.task, changedFiles) : initialScopeViolations;
   const verifyPassed = verifyResults.every((result) => result.exitCode === 0);
 
   return {

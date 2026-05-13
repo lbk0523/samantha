@@ -20,6 +20,11 @@ export function buildCodexWorkerPrompt(task: TaskSpec, agent: AgentProfile): str
     "Samantha owns orchestration, worktree allocation, verification, commit, and report evidence.",
     "Do not implement Telegram, remote adapters, daemon/watch services, dashboards, CEO-office memory, routines, budget governance, or multi-project orchestration for this MVP.",
     boundary,
+    ...(reportOnly
+      ? [
+          "Produce an evidence-based report only. Do not propose that you changed files, and do not claim merge, cleanup, policy, or commit authority.",
+        ]
+      : []),
     "",
     `Task: ${task.id}`,
     `Title: ${task.title}`,

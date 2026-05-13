@@ -125,6 +125,7 @@ Current task templates:
 - `references/task-templates/docs-only.json`
 - `references/task-templates/core-module-with-tests.json`
 - `references/task-templates/cli-command-with-tests.json`
+- `references/task-templates/report-only-review.json`
 
 ## MVP Acceptance
 

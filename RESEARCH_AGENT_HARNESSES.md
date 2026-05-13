@@ -43,16 +43,17 @@ from stronger projects:
 - from `OpenHands` and `SWE-ReX`: sandbox/runtime separation, later
 - from `LobeHub`: agent-as-unit-of-work product language, not architecture
 
-The next implementation step is to add a report-only reviewer:
+The next implementation step is to dogfood the report-only reviewer on real run
+evidence:
 
 ```text
-report-only reviewer
+run a report-only review task against recent Samantha evidence
 ```
 
 `lessons:draft`, the initial task templates, and trajectory entries for the
-current local run lifecycle are implemented. The remaining near-term gap is a
-non-writer review role that can inspect evidence without gaining write,
-merge, cleanup, or policy authority.
+current local run lifecycle are implemented. The report-only reviewer profile
+and template are also implemented. The remaining near-term gap is to use that
+reviewer on real evidence before adding more roles or runtime abstraction.
 
 ## High-Fit References
 
@@ -510,6 +511,7 @@ Status:
 - covered by `tests/task-from-template.test.ts`
 - generated tasks are verified against the existing dispatch policy
 - non-id placeholders remain visible for manual narrowing before dispatch
+- includes a `report-only-review` template for non-writer reviewer tasks
 
 ### Experiment 3: Trajectory Entries
 
@@ -543,6 +545,31 @@ Status:
 - post-run commands append merge, lifecycle, and cleanup trajectory entries
 - covered by `tests/run-log.test.ts` and `tests/post-run-trajectory.test.ts`
 
+### Experiment 4: Report-Only Reviewer
+
+Add:
+
+```text
+references/agent-profiles/codex-reviewer.json
+references/tasks/fixture-report-reviewer.json
+references/task-templates/report-only-review.json
+```
+
+Why fourth:
+
+- It uses the evidence created by the first three experiments.
+- It adds review capacity without adding writer authority.
+- It prepares for higher-quality reports before any multi-agent orchestration.
+
+Status:
+
+- first slice implemented
+- reviewer profile is non-writer, no-worktree, no-merge
+- report-only tasks run in the read-only Codex sandbox
+- covered by policy, dispatch, worker-dispatch, task-template, and
+  task-from-template tests
+- automatic reviewer orchestration is not implemented
+
 ## Decision
 
 Proceed with Samantha as a small Codex harness.
@@ -556,6 +583,7 @@ Use them as reference pressure only. The current implementation path is:
 lessons:draft [done]
 -> task templates [done]
 -> trajectory entries [done]
--> report-only reviewer [next]
+-> report-only reviewer [first slice done]
+-> dogfood reviewer on real evidence [next]
 -> local runtime abstraction only if needed
 ```

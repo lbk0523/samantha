@@ -89,4 +89,25 @@ describe("task templates", () => {
     expect(template.task.verifyCommands).toContain("bun test");
     expect(validateDispatch(template.task, agent).violations).toEqual([]);
   });
+
+  test("report-only review template is a dispatch-safe non-writer task shape", async () => {
+    const root = join(import.meta.dir, "..");
+    const [template, agent] = await Promise.all([
+      readJson<TaskTemplate>(join(root, "references", "task-templates", "report-only-review.json")),
+      readJson<AgentProfile>(join(root, "references", "agent-profiles", "codex-reviewer.json")),
+    ]);
+
+    expect(template).toMatchObject({
+      schemaVersion: 1,
+      id: "report-only-review",
+      title: "Report-only evidence review",
+    });
+    expect(template.task.targetAgent).toBe("codex-reviewer");
+    expect(template.task.resultMode).toBe("report");
+    expect(template.task.targetFiles).toEqual([]);
+    expect(template.task.forbiddenChanges).toContain("**/*");
+    expect(template.task.verifyCommands).toContain("bun run typecheck");
+    expect(template.task.verifyCommands).toContain("bun test");
+    expect(validateDispatch(template.task, agent).violations).toEqual([]);
+  });
 });

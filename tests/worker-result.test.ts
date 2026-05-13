@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
-import { evaluateWorkerResult } from "../src/core/worker-result";
+import { collectChangedFileSnapshots, evaluateWorkerResult } from "../src/core/worker-result";
 
 let tmpRoots: string[] = [];
 
@@ -69,6 +69,89 @@ describe("evaluateWorkerResult", () => {
 
     expect(result.pass).toBe(true);
     expect(result.changedFiles).toEqual(["allowed.txt"]);
+  });
+
+  test("can ignore baseline changes for report-only evaluation", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed before report\n", "utf8");
+    const baselineChangedFiles = await collectChangedFileSnapshots({ baseCommit, cwd: root });
+
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        targetAgent: "codex-reviewer",
+        targetFiles: [],
+        forbiddenChanges: ["**/*"],
+        resultMode: "report",
+      },
+      cwd: root,
+      baseCommit,
+      baselineChangedFiles,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"report only","commit":""}',
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.changedFiles).toEqual([]);
+    expect(result.scopeViolations).toEqual([]);
+  });
+
+  test("does not ignore baseline files changed during report-only evaluation", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed before report\n", "utf8");
+    const baselineChangedFiles = await collectChangedFileSnapshots({ baseCommit, cwd: root });
+    await writeFile(join(root, "allowed.txt"), "changed during report\n", "utf8");
+
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        targetAgent: "codex-reviewer",
+        targetFiles: [],
+        forbiddenChanges: ["**/*"],
+        resultMode: "report",
+      },
+      cwd: root,
+      baseCommit,
+      baselineChangedFiles,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"report only","commit":""}',
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.changedFiles).toEqual(["allowed.txt"]);
+    expect(result.scopeViolations).toContainEqual({
+      file: "allowed.txt",
+      reason: "forbidden",
+      matchedPattern: "**/*",
+    });
+  });
+
+  test("catches files created by verify commands", async () => {
+    const { root, baseCommit } = await makeRepo();
+
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        targetAgent: "codex-reviewer",
+        targetFiles: [],
+        forbiddenChanges: ["**/*"],
+        verifyCommands: ["touch verify-created.txt"],
+        resultMode: "report",
+      },
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"report only","commit":""}',
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.changedFiles).toEqual(["verify-created.txt"]);
+    expect(result.scopeViolations).toContainEqual({
+      file: "verify-created.txt",
+      reason: "forbidden",
+      matchedPattern: "**/*",
+    });
+    expect(result.verifyResults[0]).toMatchObject({
+      command: "touch verify-created.txt",
+      exitCode: 0,
+    });
   });
 
   test("rejects forbidden changed files", async () => {

@@ -87,6 +87,40 @@ describe("worker dispatch", () => {
     expect(prepared.codex.command).toContain(prepared.worktreePath);
   });
 
+  test("prepares non-writer report tasks without allocating a worktree", async () => {
+    const repo = await makeRepo();
+    const reviewer: AgentProfile = {
+      ...agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    const reportTask: TaskSpec = {
+      id: "review-fixture",
+      title: "Review fixture",
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      verifyCommands: ["test -f README.md"],
+      instructions: "Review evidence and report only.",
+      resultMode: "report",
+      status: "pending",
+    };
+
+    const prepared = await prepareWorkerDispatch({
+      task: reportTask,
+      agent: reviewer,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+    });
+
+    expect(prepared.worktreePath).toBe(repo);
+    expect(prepared.allocation).toBeUndefined();
+    expect(prepared.codex.command).toContain("read-only");
+  });
+
   test("runs setup, Codex, evaluation, and Samantha-owned commit after gates pass", async () => {
     const repo = await makeRepo();
     const fakeCodex = await makeFakeCodex([
@@ -114,6 +148,98 @@ describe("worker dispatch", () => {
     expect(await git(["log", "-1", "--pretty=%s"], result.preparation.worktreePath)).toBe(
       "test: dispatch worker fixture",
     );
+  });
+
+  test("runs report-only reviewer tasks without committing", async () => {
+    const repo = await makeRepo();
+    await writeFile(join(repo, "dirty-before-review.txt"), "pre-existing change\n", "utf8");
+    const reviewer: AgentProfile = {
+      ...agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    const reportTask: TaskSpec = {
+      id: "review-fixture",
+      title: "Review fixture",
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      verifyCommands: ["test -f README.md"],
+      instructions: "Review evidence and report only.",
+      resultMode: "report",
+      status: "pending",
+    };
+    const fakeCodex = await makeFakeCodex([
+      `echo 'Review: README.md exists and no write is needed.'`,
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"report only","commit":""}'`,
+    ]);
+
+    const result = await executeWorkerDispatch({
+      task: reportTask,
+      agent: reviewer,
+      repoRoot: repo,
+      codexBin: fakeCodex,
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.preparation.worktreePath).toBe(repo);
+    expect(result.preparation.allocation).toBeUndefined();
+    expect(result.evaluation?.changedFiles).toEqual([]);
+    expect(result.evaluation?.verifyResults[0]).toMatchObject({
+      command: "test -f README.md",
+      exitCode: 0,
+    });
+    expect(result.commit).toBeUndefined();
+  });
+
+  test("fails report-only reviewer tasks that change pre-existing dirty files", async () => {
+    const repo = await makeRepo();
+    await writeFile(join(repo, "dirty-before-review.txt"), "pre-existing change\n", "utf8");
+    const reviewer: AgentProfile = {
+      ...agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    const reportTask: TaskSpec = {
+      id: "review-fixture",
+      title: "Review fixture",
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      verifyCommands: ["test -f README.md"],
+      instructions: "Review evidence and report only.",
+      resultMode: "report",
+      status: "pending",
+    };
+    const fakeCodex = await makeFakeCodex([
+      'while [ "$1" != "--cd" ]; do shift; done',
+      "shift",
+      'cd "$1"',
+      "echo changed by reviewer > dirty-before-review.txt",
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"report only","commit":""}'`,
+    ]);
+
+    const result = await executeWorkerDispatch({
+      task: reportTask,
+      agent: reviewer,
+      repoRoot: repo,
+      codexBin: fakeCodex,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.evaluation?.changedFiles).toEqual(["dirty-before-review.txt"]);
+    expect(result.evaluation?.scopeViolations).toContainEqual({
+      file: "dirty-before-review.txt",
+      reason: "forbidden",
+      matchedPattern: "**/*",
+    });
+    expect(result.commit).toBeUndefined();
   });
 
   test("stops before Codex when setup fails", async () => {

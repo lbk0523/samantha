@@ -85,6 +85,10 @@ export function validateDispatch(
     violations.push(`task targets ${task.targetAgent}, but profile is ${agent.id}`);
   }
 
+  if (task.resultMode === "report" && agent.writerClass === "writer") {
+    violations.push("report tasks must use non-writer agents");
+  }
+
   if (agent.writerClass === "writer" && task.resultMode !== "report") {
     if (policy.requiredTargetFilesForWriters && task.targetFiles.length === 0) {
       violations.push("writer tasks must declare targetFiles");

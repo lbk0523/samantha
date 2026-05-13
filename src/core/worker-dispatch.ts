@@ -2,7 +2,11 @@ import type { AgentProfile, TaskSpec, WorktreeAllocation } from "./contracts";
 import { prepareCodexDispatch, type PreparedCodexDispatch } from "./codex-dispatch";
 import { gitHead } from "./git";
 import { validateDispatch } from "./policy";
-import { evaluateWorkerResult, type WorkerResultEvaluation } from "./worker-result";
+import {
+  collectChangedFileSnapshots,
+  evaluateWorkerResult,
+  type WorkerResultEvaluation,
+} from "./worker-result";
 import { allocateWorktree } from "./worktree";
 
 export interface PrepareWorkerDispatchInput {
@@ -170,6 +174,10 @@ export async function executeWorkerDispatch(
 ): Promise<WorkerDispatchExecution> {
   const preparation = await prepareWorkerDispatch(input);
   const baseCommit = preparation.allocation?.baseCommit ?? (await gitHead(preparation.worktreePath));
+  const baselineChangedFiles =
+    input.task.resultMode === "report" || input.agent.writerClass === "non-writer"
+      ? await collectChangedFileSnapshots({ baseCommit, cwd: preparation.worktreePath })
+      : [];
   const setupResults = await runSetupCommands(input.task.setupCommands ?? [], preparation.worktreePath);
 
   if (setupResults.some((result) => result.exitCode !== 0)) {
@@ -187,12 +195,14 @@ export async function executeWorkerDispatch(
     cwd: preparation.worktreePath,
     baseCommit,
     output,
+    baselineChangedFiles,
   });
   const shouldCommit =
     evaluation.pass &&
+    input.task.resultMode !== "report" &&
     input.agent.writerClass === "writer" &&
     preparation.allocation !== undefined &&
-    (evaluation.changedFiles.length > 0 || input.task.resultMode !== "report");
+    evaluation.changedFiles.length > 0;
   const commit = shouldCommit
     ? await commitWorkerChanges({
         task: input.task,

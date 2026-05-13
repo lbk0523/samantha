@@ -90,6 +90,7 @@ describe("codex dispatch preparation", () => {
     );
 
     expect(prepared.prompt).toContain("This is a report-only task");
+    expect(prepared.prompt).toContain("Produce an evidence-based report");
     expect(prepared.prompt).toContain("- (none; read-only task)");
     expect(prepared.command.slice(0, 7)).toEqual([
       "codex",

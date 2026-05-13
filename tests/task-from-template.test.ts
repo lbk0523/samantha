@@ -102,19 +102,22 @@ describe("task creation from templates", () => {
 
   test("repo task templates generate dispatch-safe task specs", async () => {
     const repoRoot = join(import.meta.dir, "..");
-    const agent = JSON.parse(
-      await readFile(join(repoRoot, "references", "agent-profiles", "codex-worker.json"), "utf8"),
-    ) as AgentProfile;
     const cases = [
       "cli-command-with-tests",
       "core-module-with-tests",
       "docs-only",
+      "report-only-review",
     ];
 
     for (const templateId of cases) {
       const root = await mkdtemp(join(tmpdir(), "samantha-task-template-"));
       tmpRoots.push(root);
       await copyRepoTemplate(root, templateId);
+      const agentPath =
+        templateId === "report-only-review"
+          ? join(repoRoot, "references", "agent-profiles", "codex-reviewer.json")
+          : join(repoRoot, "references", "agent-profiles", "codex-worker.json");
+      const agent = JSON.parse(await readFile(agentPath, "utf8")) as AgentProfile;
 
       const result = await createTaskFromTemplate({
         repoRoot: root,

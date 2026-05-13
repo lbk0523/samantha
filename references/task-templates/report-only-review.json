@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "report-only-review",
+  "title": "Report-only evidence review",
+  "purpose": "Review Samantha run evidence, direction docs, or implementation state without editing files or taking lifecycle actions.",
+  "useWhen": [
+    "The task asks for review, critique, risk finding, or evidence synthesis.",
+    "The reviewer should inspect existing files or run logs and produce a report only.",
+    "No source code, docs, tests, lifecycle records, worktrees, branches, commits, or policy should change."
+  ],
+  "task": {
+    "id": "replace-with-task-id",
+    "title": "Review <evidence-topic>",
+    "targetAgent": "codex-reviewer",
+    "targetFiles": [],
+    "forbiddenChanges": [
+      "**/*"
+    ],
+    "setupCommands": [],
+    "verifyCommands": [
+      "bun run typecheck",
+      "bun test"
+    ],
+    "instructions": "Review the requested Samantha evidence and produce a concise report with findings, risks, and open questions. Do not edit, create, delete, format, commit, push, merge, clean up, or modify policy. Do not claim authority over lifecycle transitions. The final response must be report-only and evidence-based.",
+    "resultMode": "report",
+    "status": "pending"
+  }
+}

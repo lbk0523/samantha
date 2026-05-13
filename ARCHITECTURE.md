@@ -46,7 +46,9 @@ Current files:
 
 - `src/core/contracts.ts`
 - `references/agent-profiles/codex-worker.json`
+- `references/agent-profiles/codex-reviewer.json`
 - `references/tasks/fixture-single-writer.json`
+- `references/tasks/fixture-report-reviewer.json`
 
 Contracts describe:
 
@@ -110,6 +112,8 @@ Current behavior:
 - build a scoped Codex prompt
 - include target files, forbidden changes, setup context, verify commands, and
   final `HARNESS_RESULT` requirements
+- run non-writer report tasks in a read-only Codex sandbox without allocating a
+  worker worktree
 - run setup commands before Codex
 - execute the Codex command
 - evaluate output
@@ -208,6 +212,7 @@ Current files:
 - `references/task-templates/docs-only.json`
 - `references/task-templates/core-module-with-tests.json`
 - `references/task-templates/cli-command-with-tests.json`
+- `references/task-templates/report-only-review.json`
 - `tests/lesson-draft.test.ts`
 - `tests/task-template.test.ts`
 - `tests/task-from-template.test.ts`

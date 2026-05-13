@@ -8,6 +8,11 @@ function globToRegExp(pattern: string): RegExp {
     const char = pattern[index];
     const next = pattern[index + 1];
 
+    if (char === "*" && next === "*" && pattern[index + 2] === "/") {
+      source += "(?:.*/)?";
+      index += 2;
+      continue;
+    }
     if (char === "*" && next === "*") {
       source += ".*";
       index += 1;

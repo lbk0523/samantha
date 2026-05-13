@@ -260,6 +260,7 @@ The first template artifacts are now present:
 references/task-templates/docs-only.json
 references/task-templates/core-module-with-tests.json
 references/task-templates/cli-command-with-tests.json
+references/task-templates/report-only-review.json
 ```
 
 The current generator is:
@@ -271,6 +272,22 @@ bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title
 It copies the template's task spec into `references/tasks/<task-id>.json` and
 replaces only `id` and `title`. Other placeholders, such as `<module>`, remain
 visible for manual narrowing before dispatch.
+
+## Report-Only Reviewer Slice
+
+The first non-writer reviewer profile is now present:
+
+```text
+references/agent-profiles/codex-reviewer.json
+references/tasks/fixture-report-reviewer.json
+references/task-templates/report-only-review.json
+```
+
+The reviewer is report-only: it uses `writerClass: "non-writer"`,
+`worktreePolicy: "none"`, `mergePolicy: "none"`, and task specs with
+`resultMode: "report"`. It may inspect evidence and produce findings, but it
+must not edit files, create commits, merge, clean up worktrees, or change
+policy.
 
 ## Deferred Promotion
 

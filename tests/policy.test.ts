@@ -64,6 +64,28 @@ describe("dispatch policy", () => {
     expect(validateAgentProfile(profile)).toEqual([]);
   });
 
+  test("accepts bundled reviewer profile and fixture task contract", async () => {
+    const root = join(import.meta.dir, "..");
+    const [profile, task] = await Promise.all([
+      readFile(join(root, "references", "agent-profiles", "codex-reviewer.json"), "utf8"),
+      readFile(join(root, "references", "tasks", "fixture-report-reviewer.json"), "utf8"),
+    ]);
+    const reviewerProfile = JSON.parse(profile) as AgentProfile;
+    const reviewerTask = JSON.parse(task) as TaskSpec;
+    const result = validateDispatch(reviewerTask, reviewerProfile);
+
+    expect(reviewerProfile).toMatchObject({
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    });
+    expect(validateAgentProfile(reviewerProfile)).toEqual([]);
+    expect(result.mayDispatch).toBe(true);
+    expect(result.violations).toEqual([]);
+  });
+
   test("allows a writer task with target files, forbidden changes, and verify commands", () => {
     const result = validateDispatch(validTask, worker);
 
@@ -106,6 +128,13 @@ describe("dispatch policy", () => {
 
     expect(result.mayDispatch).toBe(true);
     expect(result.violations).toEqual([]);
+  });
+
+  test("blocks report tasks that target writer agents", () => {
+    const result = validateDispatch({ ...validTask, resultMode: "report" }, worker);
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain("report tasks must use non-writer agents");
   });
 
   test("blocks non-writer tasks that request write behavior", () => {
