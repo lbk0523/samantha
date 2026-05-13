@@ -25,6 +25,13 @@
   - Outcome: pass
   - Assessment: unclear
   - Note: Historical repeat of the CLI core command with focused tests shape; useful as recurrence evidence, but not proof the playbook helped because the run predates promotion.
+- Run id: 2026-05-13T10-20-43-354Z-expose-task-creation-repo-root-v2
+  - Run log: /Users/byung/Documents/samantha/runs/2026-05-13T10-20-43-354Z-expose-task-creation-repo-root-v2.json
+  - Task id: expose-task-creation-repo-root-v2
+  - Task title: Expose repo root for task creation commands
+  - Outcome: pass
+  - Assessment: helped
+  - Note: Applied as advisory guidance for a small CLI/core connection task; it helped keep the change to parser coverage plus deterministic verification without promoting broader doctrine.
 
 ## Use
 
