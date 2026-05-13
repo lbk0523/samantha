@@ -80,6 +80,10 @@ describe("samantha cli", () => {
       targetBranch: "main",
       stateDir: "state",
     });
+    expect(parseCliArgs(["runs:diagnose", "--run-log=runs/run-1.json"])).toEqual({
+      command: "runs:diagnose",
+      runLogPath: "runs/run-1.json",
+    });
     expect(
       parseCliArgs([
         "worktree:cleanup",

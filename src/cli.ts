@@ -16,6 +16,7 @@ import {
 import { acceptRun, type RunAcceptInput } from "./core/run-accept";
 import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
+import { diagnoseRun } from "./core/run-diagnose";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -59,6 +60,11 @@ export interface RunsAcceptCliArgs extends RunAcceptInput {
   command: "runs:accept";
 }
 
+export interface RunsDiagnoseCliArgs {
+  command: "runs:diagnose";
+  runLogPath: string;
+}
+
 export interface LessonsDraftCliArgs {
   command: "lessons:draft";
   runLogPath: string;
@@ -79,6 +85,7 @@ export type SamanthaCliArgs =
   | RunsMarkLifecycleCliArgs
   | WorktreeCleanupCliArgs
   | RunsAcceptCliArgs
+  | RunsDiagnoseCliArgs
   | LessonsDraftCliArgs
   | TasksFromTemplateCliArgs;
 
@@ -203,6 +210,18 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "runs:diagnose") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const runLogPath = flags.get("run-log");
+    if (!runLogPath) {
+      throw new Error("usage: bun run samantha runs:diagnose --run-log=<path>");
+    }
+    return {
+      command: "runs:diagnose",
+      runLogPath,
+    };
+  }
+
   if (command === "lessons:draft") {
     const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     const runLogPath = flags.get("run-log");
@@ -233,7 +252,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|lessons:draft|tasks:from-template");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|tasks:from-template");
 }
 
 function runIndexPath(runsDir?: string): string {
@@ -326,6 +345,11 @@ async function main(argv: string[]): Promise<number> {
         2,
       ),
     );
+    return 0;
+  }
+
+  if (args.command === "runs:diagnose") {
+    console.log(JSON.stringify(await diagnoseRun({ runLogPath: resolve(args.runLogPath) }), null, 2));
     return 0;
   }
 
