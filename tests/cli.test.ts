@@ -106,6 +106,27 @@ describe("samantha cli", () => {
     });
     expect(
       parseCliArgs([
+        "reports:orchestrate",
+        "--repo-root=.",
+        "--task=references/tasks/fixture-report-reviewer.json",
+        "--task=references/tasks/dogfood-report-reviewer.json",
+        "--agent=references/agent-profiles/codex-reviewer.json",
+        "--runs-dir=runs",
+        "--codex-bin=/tmp/fake-codex",
+      ]),
+    ).toEqual({
+      command: "reports:orchestrate",
+      repoRoot: ".",
+      taskPaths: [
+        "references/tasks/fixture-report-reviewer.json",
+        "references/tasks/dogfood-report-reviewer.json",
+      ],
+      agentPath: "references/agent-profiles/codex-reviewer.json",
+      runsDir: "runs",
+      codexBin: "/tmp/fake-codex",
+    });
+    expect(
+      parseCliArgs([
         "worktree:cleanup",
         "--run-log=runs/run-1.json",
         "--repo-root=.",

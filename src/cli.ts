@@ -1,5 +1,9 @@
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
+import {
+  orchestrateReportOnlyReviews,
+  type OrchestrateReportOnlyReviewsInput,
+} from "./commands/orchestrate-reports";
 import { draftLessonFromRunLog } from "./core/lesson-draft";
 import {
   promoteLessonCandidate,
@@ -80,6 +84,10 @@ export interface ReportsSummarizeCliArgs {
   runLogPaths: string[];
 }
 
+export interface ReportsOrchestrateCliArgs extends OrchestrateReportOnlyReviewsInput {
+  command: "reports:orchestrate";
+}
+
 export interface LessonsDraftCliArgs {
   command: "lessons:draft";
   runLogPath: string;
@@ -136,6 +144,7 @@ export type SamanthaCliArgs =
   | RunsAcceptCliArgs
   | RunsDiagnoseCliArgs
   | ReportsSummarizeCliArgs
+  | ReportsOrchestrateCliArgs
   | LessonsDraftCliArgs
   | LessonsReviewCliArgs
   | LessonsReviewInboxCliArgs
@@ -314,6 +323,24 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "reports:orchestrate") {
+    const args = [first, ...rest].filter((arg): arg is string => Boolean(arg));
+    const flags = parseFlags(args);
+    const taskPaths = parseRepeatedFlag(args, "task");
+    const repoRoot = flags.get("repo-root");
+    if (!repoRoot || taskPaths.length < 2) {
+      throw new Error("usage: bun run samantha reports:orchestrate --repo-root=<repo> --task=<task.json> --task=<task.json>... [--agent=<profile.json>] [--runs-dir=<dir>] [--codex-bin=<path>]");
+    }
+    return {
+      command: "reports:orchestrate",
+      repoRoot,
+      taskPaths,
+      ...(flags.get("agent") ? { agentPath: flags.get("agent") } : {}),
+      ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
+      ...(flags.get("codex-bin") ? { codexBin: flags.get("codex-bin") } : {}),
+    };
+  }
+
   if (command === "lessons:draft") {
     const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     const runLogPath = flags.get("run-log");
@@ -418,7 +445,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -553,6 +580,11 @@ export async function main(argv: string[]): Promise<number> {
 
   if (args.command === "reports:summarize") {
     console.log(JSON.stringify(await summarizeReportOnlyReviews(args), null, 2));
+    return 0;
+  }
+
+  if (args.command === "reports:orchestrate") {
+    console.log(JSON.stringify(await orchestrateReportOnlyReviews(args), null, 2));
     return 0;
   }
 
