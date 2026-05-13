@@ -14,6 +14,7 @@ not active requirements; current direction comes from:
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
 - `LEARNING_ARCHITECTURE.md`
+- `ROADMAP.md`
 
 The core product loop is:
 

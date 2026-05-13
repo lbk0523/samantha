@@ -27,6 +27,7 @@ Read these direction documents before broad architectural changes:
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
 - `LEARNING_ARCHITECTURE.md`
+- `ROADMAP.md`
 
 ## Work Rules
 
