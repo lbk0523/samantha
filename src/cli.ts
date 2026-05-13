@@ -13,6 +13,7 @@ import {
   RunLifecycleStore,
   type RunLifecycleEvent,
 } from "./core/run-lifecycle-store";
+import { acceptRun, type RunAcceptInput } from "./core/run-accept";
 import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
 
@@ -54,6 +55,10 @@ export interface WorktreeCleanupCliArgs {
   stateDir?: string;
 }
 
+export interface RunsAcceptCliArgs extends RunAcceptInput {
+  command: "runs:accept";
+}
+
 export interface LessonsDraftCliArgs {
   command: "lessons:draft";
   runLogPath: string;
@@ -73,6 +78,7 @@ export type SamanthaCliArgs =
   | MergeCheckCliArgs
   | RunsMarkLifecycleCliArgs
   | WorktreeCleanupCliArgs
+  | RunsAcceptCliArgs
   | LessonsDraftCliArgs
   | TasksFromTemplateCliArgs;
 
@@ -181,6 +187,22 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "runs:accept") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const runLogPath = flags.get("run-log");
+    const repoRoot = flags.get("repo-root");
+    if (!runLogPath || !repoRoot) {
+      throw new Error("usage: bun run samantha runs:accept --run-log=<path> --repo-root=<repo> [--target-branch=<branch>] [--state-dir=<dir>]");
+    }
+    return {
+      command: "runs:accept",
+      runLogPath,
+      repoRoot,
+      ...(flags.get("target-branch") ? { targetBranch: flags.get("target-branch") } : {}),
+      ...(flags.get("state-dir") ? { stateDir: flags.get("state-dir") } : {}),
+    };
+  }
+
   if (command === "lessons:draft") {
     const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     const runLogPath = flags.get("run-log");
@@ -211,7 +233,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|lessons:draft|tasks:from-template");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|lessons:draft|tasks:from-template");
 }
 
 function runIndexPath(runsDir?: string): string {
@@ -325,6 +347,12 @@ async function main(argv: string[]): Promise<number> {
       : undefined;
     console.log(JSON.stringify({ cleanup, lifecycle }, null, 2));
     return 0;
+  }
+
+  if (args.command === "runs:accept") {
+    const result = await acceptRun(args);
+    console.log(JSON.stringify(result, null, 2));
+    return result.accepted ? 0 : 1;
   }
 
   const exhaustive: never = args;

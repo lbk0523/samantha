@@ -67,6 +67,21 @@ describe("samantha cli", () => {
     });
     expect(
       parseCliArgs([
+        "runs:accept",
+        "--run-log=runs/run-1.json",
+        "--repo-root=.",
+        "--target-branch=main",
+        "--state-dir=state",
+      ]),
+    ).toEqual({
+      command: "runs:accept",
+      runLogPath: "runs/run-1.json",
+      repoRoot: ".",
+      targetBranch: "main",
+      stateDir: "state",
+    });
+    expect(
+      parseCliArgs([
         "worktree:cleanup",
         "--run-log=runs/run-1.json",
         "--repo-root=.",
