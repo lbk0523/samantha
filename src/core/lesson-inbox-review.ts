@@ -18,6 +18,7 @@ export interface LessonInboxReviewIndexEntry {
 }
 
 export interface LessonInboxReviewIndex {
+  schemaVersion: 1;
   reviewedAt: string;
   inboxPath: string;
   reviewsPath: string;
@@ -25,6 +26,7 @@ export interface LessonInboxReviewIndex {
     total: number;
     autoRejected: number;
     needsMoreEvidence: number;
+    promotionCandidates: number;
     manualReview: number;
   };
   candidates: LessonInboxReviewIndexEntry[];
@@ -89,6 +91,7 @@ export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Pro
   }
 
   const index: LessonInboxReviewIndex = {
+    schemaVersion: 1,
     reviewedAt: new Date().toISOString(),
     inboxPath,
     reviewsPath,
@@ -96,6 +99,7 @@ export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Pro
       total: entries.length,
       autoRejected: countClassification(entries, "auto_rejected"),
       needsMoreEvidence: countClassification(entries, "needs_more_evidence"),
+      promotionCandidates: countClassification(entries, "promotion_candidate"),
       manualReview: countClassification(entries, "manual_review"),
     },
     candidates: entries,

@@ -86,6 +86,7 @@ export interface LessonsReviewCliArgs {
 
 export interface LessonsReviewInboxCliArgs {
   command: "lessons:review-inbox";
+  repoRoot?: string;
 }
 
 export interface LessonsPromoteCliArgs {
@@ -291,8 +292,10 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
   }
 
   if (command === "lessons:review-inbox") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     return {
       command: "lessons:review-inbox",
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
     };
   }
 
@@ -467,7 +470,7 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   if (args.command === "lessons:review-inbox") {
-    console.log(JSON.stringify(await reviewLessonInbox(), null, 2));
+    console.log(JSON.stringify(await reviewLessonInbox({ repoRoot: args.repoRoot }), null, 2));
     return 0;
   }
 

@@ -72,17 +72,50 @@ describe("lesson inbox review", () => {
 - Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
 `,
     );
+    const promotionCandidatePath = await writeCandidate(
+      root,
+      "promotion-candidate-run.md",
+      `# Lesson Candidate: promotion-candidate-run
+
+## Source
+- Source run id: promotion-candidate-run
+- Task id: repeated-cli-command
+- Task title: Repeated CLI command
+- Run log: /repo/runs/promotion-candidate-run.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+## Proposed Lesson
+- Proposed lesson: Promote the repeated CLI command pattern.
+- Affected layer: playbook
+- Suggested artifact type: playbook promotion candidate
+- Risk if adopted: Promotion still requires manual review.
+`,
+    );
 
     const result = await reviewLessonInbox({ repoRoot: root });
     const indexPath = join(root, "references", "lessons", "reviews", "index.json");
     const staleReviewPath = join(root, "references", "lessons", "reviews", "stale-run.json");
     const playbookReviewPath = join(root, "references", "lessons", "reviews", "playbook-run.json");
+    const promotionCandidateReviewPath = join(
+      root,
+      "references",
+      "lessons",
+      "reviews",
+      "promotion-candidate-run.json",
+    );
 
     expect(result.indexPath).toBe(indexPath);
+    expect(result.index.schemaVersion).toBe(1);
     expect(result.index.summary).toEqual({
-      total: 2,
+      total: 3,
       autoRejected: 1,
       needsMoreEvidence: 1,
+      promotionCandidates: 1,
       manualReview: 0,
     });
     expect(result.index.candidates).toEqual([
@@ -92,9 +125,19 @@ describe("lesson inbox review", () => {
         runId: "playbook-run",
         taskId: "add-cli-command",
         suggestedArtifactType: "playbook",
-        recommendedAction: "promote_playbook",
+        recommendedAction: "manual_review",
         classification: "needs_more_evidence",
         reason: "playbook candidate needs more evidence before promotion",
+      },
+      {
+        candidatePath: promotionCandidatePath,
+        reviewPath: promotionCandidateReviewPath,
+        runId: "promotion-candidate-run",
+        taskId: "repeated-cli-command",
+        suggestedArtifactType: "playbook promotion candidate",
+        recommendedAction: "promote_playbook",
+        classification: "promotion_candidate",
+        reason: "playbook candidate is ready for manual promotion",
       },
       {
         candidatePath: stalePath,
@@ -116,6 +159,11 @@ describe("lesson inbox review", () => {
     expect(JSON.parse(await readFile(playbookReviewPath, "utf8"))).toMatchObject({
       candidatePath: playbookPath,
       classification: "needs_more_evidence",
+      recommendedAction: "manual_review",
+    });
+    expect(JSON.parse(await readFile(promotionCandidateReviewPath, "utf8"))).toMatchObject({
+      candidatePath: promotionCandidatePath,
+      classification: "promotion_candidate",
       recommendedAction: "promote_playbook",
     });
   });

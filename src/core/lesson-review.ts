@@ -2,13 +2,18 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 export type LessonRecommendedAction = "promote_playbook" | "reject" | "manual_review";
-export type LessonReviewClassification = "auto_rejected" | "needs_more_evidence" | "manual_review";
+export type LessonReviewClassification =
+  | "auto_rejected"
+  | "needs_more_evidence"
+  | "promotion_candidate"
+  | "manual_review";
 
 export interface LessonReviewInput {
   candidatePath: string;
 }
 
 export interface LessonReviewArtifact {
+  schemaVersion: 1;
   candidatePath: string;
   reviewedAt: string;
   runId: string;
@@ -67,7 +72,9 @@ function recommendedAction(input: {
 }): LessonRecommendedAction {
   const artifactType = input.suggestedArtifactType.toLowerCase();
   if (input.stale || artifactType.includes("no promotion")) return "reject";
-  if (artifactType === "playbook") return "promote_playbook";
+  if (artifactType.includes("playbook") && artifactType.includes("promotion candidate")) {
+    return "promote_playbook";
+  }
   return "manual_review";
 }
 
@@ -80,7 +87,10 @@ function recommendationReason(review: LessonReview): string {
     reasons.push("suggested artifact type marks no promotion");
   }
   if (reasons.length > 0) return reasons.join("; ");
-  if (review.recommendedAction === "promote_playbook") return "playbook candidate needs more evidence before promotion";
+  if (review.recommendedAction === "promote_playbook") return "playbook candidate is ready for manual promotion";
+  if (review.suggestedArtifactType.toLowerCase() === "playbook") {
+    return "playbook candidate needs more evidence before promotion";
+  }
   return "suggested artifact type requires manual review";
 }
 
@@ -90,12 +100,14 @@ function reviewArtifactPath(input: { candidatePath: string; runId: string }): st
 
 export function classifyLessonReview(review: LessonReview): LessonReviewClassification {
   if (review.recommendedAction === "reject") return "auto_rejected";
+  if (review.recommendedAction === "promote_playbook") return "promotion_candidate";
   if (review.suggestedArtifactType.toLowerCase() === "playbook") return "needs_more_evidence";
   return "manual_review";
 }
 
 function toReviewArtifact(input: { review: LessonReview; reviewedAt: string }): LessonReviewArtifact {
   return {
+    schemaVersion: 1,
     candidatePath: input.review.sourcePath,
     reviewedAt: input.reviewedAt,
     runId: input.review.runId,

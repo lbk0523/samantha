@@ -90,7 +90,10 @@ export async function promoteLessonCandidate(input: LessonPromoteInput): Promise
   if (review.recommendedAction !== "promote_playbook") {
     return {
       promoted: false,
-      reason: "only playbook promotion is supported",
+      reason:
+        review.suggestedArtifactType.toLowerCase() === "playbook"
+          ? "candidate needs more evidence before playbook promotion"
+          : "only playbook promotion is supported",
       sourcePath: review.sourcePath,
     };
   }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main, parseCliArgs } from "../src/cli";
@@ -123,8 +123,9 @@ describe("samantha cli", () => {
       command: "lessons:review",
       candidatePath: "references/lessons/inbox/run-1.md",
     });
-    expect(parseCliArgs(["lessons:review-inbox"])).toEqual({
+    expect(parseCliArgs(["lessons:review-inbox", "--repo-root=/tmp/samantha-repo"])).toEqual({
       command: "lessons:review-inbox",
+      repoRoot: "/tmp/samantha-repo",
     });
     expect(
       parseCliArgs([
@@ -248,28 +249,26 @@ describe("samantha cli", () => {
     );
 
     const originalLog = console.log;
-    const originalCwd = process.cwd();
     let stdout = "";
     console.log = (message?: unknown) => {
       stdout = String(message);
     };
     try {
-      process.chdir(root);
-      await expect(main(["lessons:review-inbox"])).resolves.toBe(0);
+      await expect(main(["lessons:review-inbox", `--repo-root=${root}`])).resolves.toBe(0);
     } finally {
-      process.chdir(originalCwd);
       console.log = originalLog;
     }
 
     const result = JSON.parse(stdout);
-    const realRoot = await realpath(root);
-    const indexPath = join(realRoot, "references", "lessons", "reviews", "index.json");
+    const indexPath = join(root, "references", "lessons", "reviews", "index.json");
     expect(result.indexPath).toBe(indexPath);
     expect(JSON.parse(await readFile(indexPath, "utf8"))).toMatchObject({
+      schemaVersion: 1,
       summary: {
         total: 1,
         autoRejected: 1,
         needsMoreEvidence: 0,
+        promotionCandidates: 0,
         manualReview: 0,
       },
       candidates: [

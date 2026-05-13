@@ -101,6 +101,7 @@ describe("lesson review", () => {
 
     expect(result.path).toBe(expectedPath);
     expect(JSON.parse(await readFile(expectedPath, "utf8"))).toEqual({
+      schemaVersion: 1,
       candidatePath,
       reviewedAt: result.review.reviewedAt,
       runId: "no-promotion-run",

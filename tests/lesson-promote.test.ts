@@ -62,7 +62,7 @@ describe("lesson promotion", () => {
     await expect(readdir(join(root, "references", "playbooks"))).rejects.toThrow();
   });
 
-  test("promotes playbook candidates while preserving source evidence", async () => {
+  test("does not promote playbook candidates that still need more evidence", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-lesson-promote-"));
     tmpRoots.push(root);
     const candidatePath = await writeCandidate(
@@ -85,6 +85,48 @@ describe("lesson promotion", () => {
 - Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
 - Affected layer: playbook
 - Suggested artifact type: playbook
+- Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
+`,
+    );
+
+    const result = await promoteLessonCandidate({
+      candidatePath,
+      repoRoot: root,
+      playbookId: "cli-command-addition",
+    });
+
+    expect(result).toEqual({
+      promoted: false,
+      reason: "candidate needs more evidence before playbook promotion",
+      sourcePath: candidatePath,
+      artifactPath: undefined,
+    });
+    await expect(readdir(join(root, "references", "playbooks"))).rejects.toThrow();
+  });
+
+  test("promotes playbook promotion candidates while preserving source evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-promote-"));
+    tmpRoots.push(root);
+    const candidatePath = await writeCandidate(
+      root,
+      `# Lesson Candidate: pass-run
+
+## Source
+- Source run id: pass-run
+- Task id: add-cli-command
+- Task title: Add CLI command
+- Run log: /repo/runs/pass-run.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+## Proposed Lesson
+- Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
+- Affected layer: playbook
+- Suggested artifact type: playbook promotion candidate
 - Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
 `,
     );
@@ -136,7 +178,7 @@ describe("lesson promotion", () => {
 ## Proposed Lesson
 - Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
 - Affected layer: playbook
-- Suggested artifact type: playbook
+- Suggested artifact type: playbook promotion candidate
 - Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
 `,
     );
