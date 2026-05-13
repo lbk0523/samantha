@@ -28,6 +28,28 @@ Read these direction documents before broad architectural changes:
 - `ARCHITECTURE.md`
 - `LEARNING_ARCHITECTURE.md`
 
+## Work Rules
+
+`WORK-RULES.md` is the source of truth for BK/Codex working discipline in this
+repo: communication, thinking before coding, simplicity, surgical changes,
+verification, completion, and next-action handoff rules.
+
+Keep `AGENTS.md` focused on product boundaries, authority boundaries, and hard
+gates. Add new work-discipline rules to `WORK-RULES.md` unless they are needed
+here as a short routing or safety gate.
+
+Before implementing Samantha self-build work, apply the relevant sections of
+`WORK-RULES.md`. Before the final response, apply its completion checklist.
+
+Mandatory final-response gate for Samantha self-build work:
+
+- report deterministic verification and whether only intended files changed
+- commit and push when safe, or state the stop condition that prevented it
+- classify the next action as a direct action or a ready-to-send `/goal` prompt
+- include a ready-to-send `/goal` prompt for larger autonomous slices, and when
+  uncertain include both the direct action and the goal option
+- every ready-to-send `/goal` prompt must explicitly require Korean answers
+
 ## Learning Rules
 
 Samantha may learn from repeated software work only through explicit,
@@ -46,60 +68,6 @@ Allowed learning artifacts include:
 Do not add hidden memory. Do not silently rewrite policy or doctrine. If a
 lesson should change future behavior, write it as a candidate artifact first or
 add a reviewed policy/test change.
-
-## Engineering Rules
-
-- Keep changes surgical and test-driven.
-- Prefer the smallest readable implementation that satisfies the current phase.
-- Samantha, not a worker, owns commits after deterministic gates pass.
-- Every writer task must declare target files, forbidden changes, and verify
-  commands.
-- Verify commands must be connected to the task's changed surface. Prefer
-  focused verification first, then broader sanity checks only when the change can
-  affect shared executable behavior.
-- Do not create "light" writer tasks that skip worktree isolation, scope checks,
-  deterministic verification, run evidence, or Samantha-owned transitions.
-
-## Completion Rules
-
-For Samantha self-build implementation work, the default completion standard is:
-
-```text
-deterministic verification passes
--> intended files only
--> commit
--> push
--> propose the next action
-```
-
-Do not leave BK with "push this" as the next action when the work can be pushed
-safely by Codex.
-
-Stop before commit or push when verification fails, unrelated dirty changes are
-present, the local branch diverges from the remote, secret or credential risk is
-possible, BK asks to keep work local or use a PR flow, or the change needs
-explicit review before publication.
-
-## Next Action Proposal Rules
-
-While building Samantha itself, next-action proposals must distinguish task
-size and required BK involvement.
-
-For small slices, or when the next step includes an action BK must perform
-directly, propose the next concrete action directly.
-
-For larger slices, or when a longer autonomous work session is useful, propose a
-Codex goal task instead. Include a ready-to-send `/goal` prompt that BK can paste
-into this or another Codex session without rewriting the scope.
-
-Every ready-to-send prompt must explicitly require answers in Korean.
-
-When a task or Codex goal completes, immediately propose the next concrete
-action. If the next step is small or needs BK directly, state it as a direct
-action. If the next step is a larger autonomous slice, include a ready-to-send
-`/goal` prompt. The prompt must be self-contained enough for a fresh session: it
-should name the repo, summarize relevant evidence or prior results, define
-scope, verification commands, reporting expectations, and stop conditions.
 
 ## Parallelism Rules
 
