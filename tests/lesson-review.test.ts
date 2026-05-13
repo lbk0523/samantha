@@ -40,6 +40,12 @@ describe("lesson review", () => {
 - Superseded status: superseded by accepted and cleaned run
 - Superseding run id: fresh-run
 
+### Recurrence
+- Task family: expose-runs-show-lifecycle
+- Recurrence outcome: blocked
+- Recurrence count: 1
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Treat this candidate as stale unless the same failure recurs after the superseding run.
 - Affected layer: evidence
@@ -61,6 +67,13 @@ describe("lesson review", () => {
         stale: true,
         status: "superseded by accepted and cleaned run",
         supersedingRunId: "fresh-run",
+      },
+      recurrence: {
+        taskFamily: "expose-runs-show-lifecycle",
+        outcome: "blocked",
+        count: 1,
+        threshold: 2,
+        thresholdMet: false,
       },
       recommendedAction: "reject",
       proposedLesson: "Treat this candidate as stale unless the same failure recurs after the superseding run.",
@@ -88,6 +101,12 @@ describe("lesson review", () => {
 ### Superseded Context
 - Superseded status: not detected
 
+### Recurrence
+- Task family: inspect-only
+- Recurrence outcome: no code change needed
+- Recurrence count: 1
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Keep as evidence only.
 - Affected layer: evidence
@@ -112,9 +131,116 @@ describe("lesson review", () => {
         stale: true,
         status: "not detected",
       },
+      recurrence: {
+        taskFamily: "inspect-only",
+        outcome: "no code change needed",
+        count: 1,
+        threshold: 2,
+        thresholdMet: false,
+      },
       recommendedAction: "reject",
       classification: "auto_rejected",
       reason: "suggested artifact type marks no promotion",
+    });
+  });
+
+  test("keeps one-off playbook candidates as needs_more_evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-review-"));
+    tmpRoots.push(root);
+    const candidatePath = await writeCandidate(
+      root,
+      `# Lesson Candidate: pass-run
+
+## Source
+- Source run id: pass-run
+- Task id: add-cli-command
+- Task title: Add CLI command
+- Run log: /repo/runs/pass-run.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+### Recurrence
+- Task family: add-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 1
+- Promotion threshold: 2
+
+## Proposed Lesson
+- Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
+- Affected layer: playbook
+- Suggested artifact type: playbook promotion candidate
+- Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
+`,
+    );
+
+    const result = await recordLessonReview({ candidatePath });
+
+    expect(result.review).toMatchObject({
+      runId: "pass-run",
+      recurrence: {
+        taskFamily: "add-cli-command",
+        outcome: "pass",
+        count: 1,
+        threshold: 2,
+        thresholdMet: false,
+      },
+      recommendedAction: "manual_review",
+      classification: "needs_more_evidence",
+      reason: "playbook candidate needs more evidence before promotion (1/2)",
+    });
+  });
+
+  test("classifies recurring playbook evidence as a manual promotion candidate", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-review-"));
+    tmpRoots.push(root);
+    const candidatePath = await writeCandidate(
+      root,
+      `# Lesson Candidate: recurring-pass-run
+
+## Source
+- Source run id: recurring-pass-run
+- Task id: add-cli-command-v2
+- Task title: Add CLI command again
+- Run log: /repo/runs/recurring-pass-run.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+### Recurrence
+- Task family: add-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 2
+- Promotion threshold: 2
+
+## Proposed Lesson
+- Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
+- Affected layer: playbook
+- Suggested artifact type: playbook
+- Risk if adopted: Promotion still requires manual review.
+`,
+    );
+
+    const result = await recordLessonReview({ candidatePath });
+
+    expect(result.review).toMatchObject({
+      runId: "recurring-pass-run",
+      recurrence: {
+        taskFamily: "add-cli-command",
+        outcome: "pass",
+        count: 2,
+        threshold: 2,
+        thresholdMet: true,
+      },
+      recommendedAction: "promote_playbook",
+      classification: "promotion_candidate",
+      reason: "playbook candidate is ready for manual promotion",
     });
   });
 });

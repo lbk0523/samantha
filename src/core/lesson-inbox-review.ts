@@ -12,6 +12,13 @@ export interface LessonInboxReviewIndexEntry {
   runId: string;
   taskId: string;
   suggestedArtifactType: string;
+  recurrence: {
+    taskFamily: string;
+    outcome: string;
+    count: number;
+    threshold: number;
+    thresholdMet: boolean;
+  };
   recommendedAction: string;
   classification: LessonReviewClassification;
   reason: string;
@@ -65,6 +72,7 @@ function indexEntry(input: {
     runId: input.review.runId,
     taskId: input.review.taskId,
     suggestedArtifactType: input.review.suggestedArtifactType,
+    recurrence: input.review.recurrence,
     recommendedAction: input.review.recommendedAction,
     classification: input.review.classification,
     reason: input.review.reason,

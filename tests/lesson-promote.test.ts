@@ -39,6 +39,12 @@ describe("lesson promotion", () => {
 - Superseded status: superseded by accepted and cleaned run
 - Superseding run id: fresh-run
 
+### Recurrence
+- Task family: expose-runs-show-lifecycle
+- Recurrence outcome: blocked
+- Recurrence count: 1
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Treat this candidate as stale unless the same failure recurs after the superseding run.
 - Affected layer: evidence
@@ -81,11 +87,65 @@ describe("lesson promotion", () => {
 ### Superseded Context
 - Superseded status: not detected
 
+### Recurrence
+- Task family: add-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 1
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
 - Affected layer: playbook
 - Suggested artifact type: playbook
 - Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
+`,
+    );
+
+    const result = await promoteLessonCandidate({
+      candidatePath,
+      repoRoot: root,
+      playbookId: "cli-command-addition",
+    });
+
+    expect(result).toEqual({
+      promoted: false,
+      reason: "candidate needs more evidence before playbook promotion",
+      sourcePath: candidatePath,
+      artifactPath: undefined,
+    });
+    await expect(readdir(join(root, "references", "playbooks"))).rejects.toThrow();
+  });
+
+  test("does not promote playbook candidates below the recurrence threshold", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-promote-"));
+    tmpRoots.push(root);
+    const candidatePath = await writeCandidate(
+      root,
+      `# Lesson Candidate: pass-run
+
+## Source
+- Source run id: pass-run
+- Task id: add-cli-command
+- Task title: Add CLI command
+- Run log: /repo/runs/pass-run.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+### Recurrence
+- Task family: add-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 1
+- Promotion threshold: 2
+
+## Proposed Lesson
+- Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
+- Affected layer: playbook
+- Suggested artifact type: playbook promotion candidate
+- Risk if adopted: Promotion still requires manual review.
 `,
     );
 
@@ -123,10 +183,16 @@ describe("lesson promotion", () => {
 ### Superseded Context
 - Superseded status: not detected
 
+### Recurrence
+- Task family: add-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 2
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
 - Affected layer: playbook
-- Suggested artifact type: playbook promotion candidate
+- Suggested artifact type: playbook
 - Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
 `,
     );
@@ -152,6 +218,10 @@ describe("lesson promotion", () => {
     expect(markdown).toContain("- Run log: /repo/runs/pass-run.json");
     expect(markdown).toContain("- Observed outcome: pass");
     expect(markdown).toContain("- Superseded status: not detected");
+    expect(markdown).toContain("- Task family: add-cli-command");
+    expect(markdown).toContain("- Recurrence outcome: pass");
+    expect(markdown).toContain("- Recurrence count: 2");
+    expect(markdown).toContain("- Promotion threshold: 2");
     expect(markdown).toContain("- Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.");
     expect(markdown).toContain("## Later Evidence\n- none recorded");
   });
@@ -175,10 +245,16 @@ describe("lesson promotion", () => {
 ### Superseded Context
 - Superseded status: not detected
 
+### Recurrence
+- Task family: add-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 2
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
 - Affected layer: playbook
-- Suggested artifact type: playbook promotion candidate
+- Suggested artifact type: playbook
 - Risk if adopted: Promoting one smooth run too early can turn a lucky path into unnecessary doctrine.
 `,
     );

@@ -8,6 +8,14 @@ export type LessonReviewClassification =
   | "promotion_candidate"
   | "manual_review";
 
+export interface LessonRecurrence {
+  taskFamily: string;
+  outcome: string;
+  count: number;
+  threshold: number;
+  thresholdMet: boolean;
+}
+
 export interface LessonReviewInput {
   candidatePath: string;
 }
@@ -25,6 +33,7 @@ export interface LessonReviewArtifact {
     status: string;
     supersedingRunId?: string;
   };
+  recurrence: LessonRecurrence;
   recommendedAction: LessonRecommendedAction;
   classification: LessonReviewClassification;
   reason: string;
@@ -49,6 +58,7 @@ export interface LessonReview {
     status: string;
     supersedingRunId?: string;
   };
+  recurrence: LessonRecurrence;
   recommendedAction: LessonRecommendedAction;
   proposedLesson: string;
   affectedLayer: string;
@@ -66,13 +76,29 @@ function titleRunId(markdown: string): string | undefined {
   return line?.slice("# Lesson Candidate: ".length).trim();
 }
 
+function taskFamily(taskId: string): string {
+  return taskId.replace(/-v\d+$/, "");
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function isPlaybookLessonCandidate(suggestedArtifactType: string): boolean {
+  const artifactType = suggestedArtifactType.toLowerCase();
+  return artifactType === "playbook" || artifactType === "playbook promotion candidate";
+}
+
 function recommendedAction(input: {
   stale: boolean;
   suggestedArtifactType: string;
+  recurrence: LessonRecurrence;
 }): LessonRecommendedAction {
   const artifactType = input.suggestedArtifactType.toLowerCase();
   if (input.stale || artifactType.includes("no promotion")) return "reject";
-  if (artifactType.includes("playbook") && artifactType.includes("promotion candidate")) {
+  if (isPlaybookLessonCandidate(input.suggestedArtifactType) && input.recurrence.thresholdMet) {
     return "promote_playbook";
   }
   return "manual_review";
@@ -88,8 +114,8 @@ function recommendationReason(review: LessonReview): string {
   }
   if (reasons.length > 0) return reasons.join("; ");
   if (review.recommendedAction === "promote_playbook") return "playbook candidate is ready for manual promotion";
-  if (review.suggestedArtifactType.toLowerCase() === "playbook") {
-    return "playbook candidate needs more evidence before promotion";
+  if (isPlaybookLessonCandidate(review.suggestedArtifactType)) {
+    return `playbook candidate needs more evidence before promotion (${review.recurrence.count}/${review.recurrence.threshold})`;
   }
   return "suggested artifact type requires manual review";
 }
@@ -101,7 +127,7 @@ function reviewArtifactPath(input: { candidatePath: string; runId: string }): st
 export function classifyLessonReview(review: LessonReview): LessonReviewClassification {
   if (review.recommendedAction === "reject") return "auto_rejected";
   if (review.recommendedAction === "promote_playbook") return "promotion_candidate";
-  if (review.suggestedArtifactType.toLowerCase() === "playbook") return "needs_more_evidence";
+  if (isPlaybookLessonCandidate(review.suggestedArtifactType)) return "needs_more_evidence";
   return "manual_review";
 }
 
@@ -115,6 +141,7 @@ function toReviewArtifact(input: { review: LessonReview; reviewedAt: string }): 
     observedOutcome: input.review.observedOutcome,
     suggestedArtifactType: input.review.suggestedArtifactType,
     superseded: input.review.superseded,
+    recurrence: input.review.recurrence,
     recommendedAction: input.review.recommendedAction,
     classification: classifyLessonReview(input.review),
     reason: recommendationReason(input.review),
@@ -125,17 +152,28 @@ export function reviewLessonCandidateMarkdown(input: {
   markdown: string;
   sourcePath: string;
 }): LessonReview {
+  const taskId = bulletValue(input.markdown, "Task id") ?? "";
+  const observedOutcome = bulletValue(input.markdown, "Observed outcome") ?? "";
   const suggestedArtifactType = bulletValue(input.markdown, "Suggested artifact type") ?? "";
   const supersededStatus = bulletValue(input.markdown, "Superseded status") ?? "not detected";
   const stale = supersededStatus !== "not detected" || suggestedArtifactType.toLowerCase().includes("no promotion");
+  const recurrenceCount = positiveInt(bulletValue(input.markdown, "Recurrence count"), 1);
+  const recurrenceThreshold = positiveInt(bulletValue(input.markdown, "Promotion threshold"), 2);
+  const recurrence: LessonRecurrence = {
+    taskFamily: bulletValue(input.markdown, "Task family") ?? taskFamily(taskId),
+    outcome: bulletValue(input.markdown, "Recurrence outcome") ?? observedOutcome,
+    count: recurrenceCount,
+    threshold: recurrenceThreshold,
+    thresholdMet: recurrenceCount >= recurrenceThreshold,
+  };
 
   return {
     runId: bulletValue(input.markdown, "Source run id") ?? titleRunId(input.markdown) ?? "",
     sourcePath: input.sourcePath,
-    taskId: bulletValue(input.markdown, "Task id") ?? "",
+    taskId,
     taskTitle: bulletValue(input.markdown, "Task title") ?? "",
     runLogPath: bulletValue(input.markdown, "Run log") ?? "",
-    observedOutcome: bulletValue(input.markdown, "Observed outcome") ?? "",
+    observedOutcome,
     ...(bulletValue(input.markdown, "Failure reason")
       ? { failureReason: bulletValue(input.markdown, "Failure reason") }
       : {}),
@@ -147,7 +185,8 @@ export function reviewLessonCandidateMarkdown(input: {
         ? { supersedingRunId: bulletValue(input.markdown, "Superseding run id") }
         : {}),
     },
-    recommendedAction: recommendedAction({ stale, suggestedArtifactType }),
+    recurrence,
+    recommendedAction: recommendedAction({ stale, suggestedArtifactType, recurrence }),
     proposedLesson: bulletValue(input.markdown, "Proposed lesson") ?? "",
     affectedLayer: bulletValue(input.markdown, "Affected layer") ?? "",
     riskIfAdopted: bulletValue(input.markdown, "Risk if adopted") ?? "",

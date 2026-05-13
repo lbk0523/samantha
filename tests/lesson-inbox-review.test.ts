@@ -41,6 +41,12 @@ describe("lesson inbox review", () => {
 - Superseded status: superseded by accepted and cleaned run
 - Superseding run id: fresh-run
 
+### Recurrence
+- Task family: inspect-only
+- Recurrence outcome: stale evidence
+- Recurrence count: 1
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Keep as evidence only.
 - Affected layer: evidence
@@ -64,6 +70,12 @@ describe("lesson inbox review", () => {
 
 ### Superseded Context
 - Superseded status: not detected
+
+### Recurrence
+- Task family: add-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 1
+- Promotion threshold: 2
 
 ## Proposed Lesson
 - Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.
@@ -89,10 +101,16 @@ describe("lesson inbox review", () => {
 ### Superseded Context
 - Superseded status: not detected
 
+### Recurrence
+- Task family: repeated-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 2
+- Promotion threshold: 2
+
 ## Proposed Lesson
 - Proposed lesson: Promote the repeated CLI command pattern.
 - Affected layer: playbook
-- Suggested artifact type: playbook promotion candidate
+- Suggested artifact type: playbook
 - Risk if adopted: Promotion still requires manual review.
 `,
     );
@@ -125,16 +143,30 @@ describe("lesson inbox review", () => {
         runId: "playbook-run",
         taskId: "add-cli-command",
         suggestedArtifactType: "playbook",
+        recurrence: {
+          taskFamily: "add-cli-command",
+          outcome: "pass",
+          count: 1,
+          threshold: 2,
+          thresholdMet: false,
+        },
         recommendedAction: "manual_review",
         classification: "needs_more_evidence",
-        reason: "playbook candidate needs more evidence before promotion",
+        reason: "playbook candidate needs more evidence before promotion (1/2)",
       },
       {
         candidatePath: promotionCandidatePath,
         reviewPath: promotionCandidateReviewPath,
         runId: "promotion-candidate-run",
         taskId: "repeated-cli-command",
-        suggestedArtifactType: "playbook promotion candidate",
+        suggestedArtifactType: "playbook",
+        recurrence: {
+          taskFamily: "repeated-cli-command",
+          outcome: "pass",
+          count: 2,
+          threshold: 2,
+          thresholdMet: true,
+        },
         recommendedAction: "promote_playbook",
         classification: "promotion_candidate",
         reason: "playbook candidate is ready for manual promotion",
@@ -145,6 +177,13 @@ describe("lesson inbox review", () => {
         runId: "stale-run",
         taskId: "inspect-only",
         suggestedArtifactType: "run summary / no promotion",
+        recurrence: {
+          taskFamily: "inspect-only",
+          outcome: "stale evidence",
+          count: 1,
+          threshold: 2,
+          thresholdMet: false,
+        },
         recommendedAction: "reject",
         classification: "auto_rejected",
         reason: "superseded: superseded by accepted and cleaned run; suggested artifact type marks no promotion",

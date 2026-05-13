@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { summarizeWorkerRun, type RunOutcome } from "./ledger";
-import { reviewLessonCandidate, type LessonReview } from "./lesson-review";
+import { isPlaybookLessonCandidate, reviewLessonCandidate, type LessonReview } from "./lesson-review";
 import type { WorkerRunLog } from "./run-log";
 
 export type PlaybookEvidenceAssessment = "helped" | "not-helped" | "unclear";
@@ -62,6 +62,10 @@ function renderPlaybook(input: { playbookId: string; review: LessonReview }): st
 - Observed outcome: ${input.review.observedOutcome}
 - Superseded status: ${input.review.superseded.status}
 ${input.review.superseded.supersedingRunId ? `- Superseding run id: ${input.review.superseded.supersedingRunId}\n` : ""}
+- Task family: ${input.review.recurrence.taskFamily}
+- Recurrence outcome: ${input.review.recurrence.outcome}
+- Recurrence count: ${input.review.recurrence.count}
+- Promotion threshold: ${input.review.recurrence.threshold}
 ## Later Evidence
 - none recorded
 
@@ -91,7 +95,7 @@ export async function promoteLessonCandidate(input: LessonPromoteInput): Promise
     return {
       promoted: false,
       reason:
-        review.suggestedArtifactType.toLowerCase() === "playbook"
+        isPlaybookLessonCandidate(review.suggestedArtifactType)
           ? "candidate needs more evidence before playbook promotion"
           : "only playbook promotion is supported",
       sourcePath: review.sourcePath,

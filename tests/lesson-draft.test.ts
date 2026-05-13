@@ -179,9 +179,68 @@ describe("lesson drafts", () => {
     expect(markdown).toContain("- `bun test tests/allowed.test.ts` -> pass (0)");
     expect(markdown).toContain("- Lifecycle state: merged and cleaned");
     expect(markdown).toContain("- Superseded status: not detected");
+    expect(markdown).toContain("- Task family: lesson-fixture");
+    expect(markdown).toContain("- Recurrence outcome: pass");
+    expect(markdown).toContain("- Recurrence count: 1");
+    expect(markdown).toContain("- Promotion threshold: 2");
     expect(markdown).toContain("- Affected layer: playbook");
     expect(markdown).toContain("- Suggested artifact type: playbook");
     expect(markdown).toContain("Review manually before promotion.");
+  });
+
+  test("counts recurring runs by task family and outcome including the source run", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
+    tmpRoots.push(root);
+    const sourceTask: TaskSpec = {
+      ...task,
+      id: "add-cli-command-v2",
+      title: "Add CLI command again",
+    };
+    const priorTask: TaskSpec = {
+      ...task,
+      id: "add-cli-command",
+      title: "Add CLI command",
+    };
+    const sourceLog = buildWorkerRunLog({
+      task: sourceTask,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: execution(),
+    });
+    const priorLog = buildWorkerRunLog({
+      task: priorTask,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T09:00:00.000Z",
+      finishedAt: "2026-05-12T09:01:00.000Z",
+      execution: execution(),
+    });
+    const otherOutcomeLog = buildWorkerRunLog({
+      task: priorTask,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T08:00:00.000Z",
+      finishedAt: "2026-05-12T08:01:00.000Z",
+      execution: execution({ pass: false, commit: undefined }),
+    });
+    const sourceRunLogPath = await writeRunLog(root, sourceLog);
+    const priorRunLogPath = await writeRunLog(root, priorLog);
+    const otherOutcomeRunLogPath = await writeRunLog(root, otherOutcomeLog);
+    await writeJsonLines(join(root, "runs", "index.jsonl"), [
+      runSummary(priorLog, priorRunLogPath, { outcome: "pass", pass: true }),
+      runSummary(otherOutcomeLog, otherOutcomeRunLogPath, { outcome: "blocked", pass: false }),
+      runSummary(sourceLog, sourceRunLogPath, { outcome: "pass", pass: true }),
+    ]);
+
+    const draft = await draftLessonFromRunLog({ runLogPath: sourceRunLogPath, repoRoot: root });
+    const markdown = await readFile(draft.path, "utf8");
+
+    expect(markdown).toContain("- Task family: add-cli-command");
+    expect(markdown).toContain("- Recurrence outcome: pass");
+    expect(markdown).toContain("- Recurrence count: 2");
+    expect(markdown).toContain("- Promotion threshold: 2");
   });
 
   test("classifies verification failures without lifecycle records", async () => {

@@ -27,6 +27,15 @@ interface SupersededContext {
   kind: "accepted_cleaned" | "clean_report_only";
 }
 
+interface RecurrenceContext {
+  taskFamily: string;
+  outcome: RunOutcome;
+  count: number;
+  threshold: number;
+}
+
+const RECURRENCE_PROMOTION_THRESHOLD = 2;
+
 async function readRunLog(path: string): Promise<WorkerRunLog> {
   return JSON.parse(await readFile(path, "utf8")) as WorkerRunLog;
 }
@@ -253,11 +262,36 @@ async function supersededContext(input: {
     : undefined;
 }
 
+async function recurrenceContext(input: {
+  log: WorkerRunLog;
+  runLogPath: string;
+  outcome: RunOutcome;
+}): Promise<RecurrenceContext> {
+  const evidenceDir = dirname(input.runLogPath);
+  const sourceFamily = taskFamily(input.log.task.id);
+  const summaries = await new RunIndex(join(evidenceDir, "index.jsonl")).list();
+  const matchingPriorRuns = summaries.filter((summary) => {
+    return (
+      summary.runId !== input.log.runId &&
+      taskFamily(summary.taskId) === sourceFamily &&
+      summary.outcome === input.outcome
+    );
+  });
+
+  return {
+    taskFamily: sourceFamily,
+    outcome: input.outcome,
+    count: matchingPriorRuns.length + 1,
+    threshold: RECURRENCE_PROMOTION_THRESHOLD,
+  };
+}
+
 function buildLessonMarkdown(input: {
   log: WorkerRunLog;
   runLogPath: string;
   lifecycle: RunLifecycleRecord | undefined;
   superseded: SupersededContext | undefined;
+  recurrence: RecurrenceContext;
 }): string {
   const summary = summarizeWorkerRun({
     task: input.log.task,
@@ -296,6 +330,12 @@ ${renderLifecycle(input.lifecycle)}
 ### Superseded Context
 ${renderSupersededContext(input.superseded)}
 
+### Recurrence
+- Task family: ${input.recurrence.taskFamily}
+- Recurrence outcome: ${input.recurrence.outcome}
+- Recurrence count: ${input.recurrence.count}
+- Promotion threshold: ${input.recurrence.threshold}
+
 ## Proposed Lesson
 - Proposed lesson: ${classification.proposedLesson}
 - Affected layer: ${classification.affectedLayer}
@@ -322,11 +362,12 @@ export async function draftLessonFromRunLog(input: LessonDraftInput): Promise<Le
     logPath: runLogPath,
   });
   const superseded = await supersededContext({ log, runLogPath, outcome: summary.outcome });
+  const recurrence = await recurrenceContext({ log, runLogPath, outcome: summary.outcome });
   const inboxDir = join(repoRoot, "references", "lessons", "inbox");
   const path = join(inboxDir, `${log.runId}.md`);
 
   await mkdir(inboxDir, { recursive: true });
-  await writeFile(path, buildLessonMarkdown({ log, runLogPath, lifecycle, superseded }), "utf8");
+  await writeFile(path, buildLessonMarkdown({ log, runLogPath, lifecycle, superseded, recurrence }), "utf8");
 
   return { path, runId: log.runId };
 }
