@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { RunIndex, summarizeWorkerRun, type RunOutcome, type RunSummary } from "./ledger";
 import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
+import { taskFamily } from "./task-family";
 import type { WorkerRunLog } from "./run-log";
 
 export interface LessonDraftInput {
@@ -183,10 +184,6 @@ function classifyLesson(outcome: RunOutcome, superseded: SupersededContext | und
   }
 }
 
-function taskFamily(taskId: string): string {
-  return taskId.replace(/-v\d+$/, "");
-}
-
 function isReportOnlyRun(log: WorkerRunLog): boolean {
   return log.task.resultMode === "report" || log.agent.writerClass === "non-writer";
 }
@@ -273,6 +270,7 @@ async function recurrenceContext(input: {
   const matchingPriorRuns = summaries.filter((summary) => {
     return (
       summary.runId !== input.log.runId &&
+      summary.finishedAt <= input.log.finishedAt &&
       taskFamily(summary.taskId) === sourceFamily &&
       summary.outcome === input.outcome
     );

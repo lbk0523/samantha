@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { taskFamily } from "./task-family";
 
 export type LessonRecommendedAction = "promote_playbook" | "reject" | "manual_review";
 export type LessonReviewClassification =
@@ -74,10 +75,6 @@ function bulletValue(markdown: string, label: string): string | undefined {
 function titleRunId(markdown: string): string | undefined {
   const line = markdown.split("\n").find((item) => item.startsWith("# Lesson Candidate: "));
   return line?.slice("# Lesson Candidate: ".length).trim();
-}
-
-function taskFamily(taskId: string): string {
-  return taskId.replace(/-v\d+$/, "");
 }
 
 function positiveInt(value: string | undefined, fallback: number): number {

@@ -243,6 +243,51 @@ describe("lesson drafts", () => {
     expect(markdown).toContain("- Promotion threshold: 2");
   });
 
+  test("does not count future same-family runs as recurrence evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
+    tmpRoots.push(root);
+    const sourceTask: TaskSpec = {
+      ...task,
+      id: "add-cli-command",
+      title: "Add CLI command",
+    };
+    const futureTask: TaskSpec = {
+      ...task,
+      id: "add-cli-command-v2",
+      title: "Add CLI command again",
+    };
+    const sourceLog = buildWorkerRunLog({
+      task: sourceTask,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T09:00:00.000Z",
+      finishedAt: "2026-05-12T09:01:00.000Z",
+      execution: execution(),
+    });
+    const futureLog = buildWorkerRunLog({
+      task: futureTask,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: execution(),
+    });
+    const sourceRunLogPath = await writeRunLog(root, sourceLog);
+    const futureRunLogPath = await writeRunLog(root, futureLog);
+    await writeJsonLines(join(root, "runs", "index.jsonl"), [
+      runSummary(sourceLog, sourceRunLogPath, { outcome: "pass", pass: true }),
+      runSummary(futureLog, futureRunLogPath, { outcome: "pass", pass: true }),
+    ]);
+
+    const draft = await draftLessonFromRunLog({ runLogPath: sourceRunLogPath, repoRoot: root });
+    const markdown = await readFile(draft.path, "utf8");
+
+    expect(markdown).toContain("- Task family: add-cli-command");
+    expect(markdown).toContain("- Recurrence outcome: pass");
+    expect(markdown).toContain("- Recurrence count: 1");
+    expect(markdown).toContain("- Promotion threshold: 2");
+  });
+
   test("classifies verification failures without lifecycle records", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
     tmpRoots.push(root);

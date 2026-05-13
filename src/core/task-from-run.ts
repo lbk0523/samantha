@@ -8,6 +8,7 @@ import {
 } from "./run-diagnose";
 import { RunIndex, type RunOutcome, type RunSummary } from "./ledger";
 import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
+import { taskFamily } from "./task-family";
 import type { WorkerRunLog } from "./run-log";
 import type { ScopeViolation } from "./worker-result";
 
@@ -51,10 +52,6 @@ function refusalNote(log: WorkerRunLog, diagnosis: RunDiagnosis): string | undef
     return "commit failure requires explicit local inspection; no task was created and lifecycle is untrusted";
   }
   return undefined;
-}
-
-function taskFamily(taskId: string): string {
-  return taskId.replace(/-v\d+$/, "");
 }
 
 function hasCleanedLifecycle(summary: RunSummary, record: RunLifecycleRecord | undefined): boolean {
