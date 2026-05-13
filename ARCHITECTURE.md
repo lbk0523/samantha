@@ -77,6 +77,7 @@ Current policy:
 - writer tasks must declare forbidden changes
 - writer tasks must declare verify commands
 - non-writer tasks must be report-only
+- non-writer report tasks must not declare setup commands
 - orchestration-conflicting skills are blocked
 
 ### 4. Worktree Layer
@@ -114,7 +115,7 @@ Current behavior:
   final `HARNESS_RESULT` requirements
 - run non-writer report tasks in a read-only Codex sandbox without allocating a
   worker worktree
-- run setup commands before Codex
+- run setup commands before Codex for writer tasks
 - execute the Codex command
 - evaluate output
 - create the Samantha-owned commit only after gates pass

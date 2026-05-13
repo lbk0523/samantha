@@ -64,15 +64,15 @@ describe("dispatch policy", () => {
     expect(validateAgentProfile(profile)).toEqual([]);
   });
 
-  test("accepts bundled reviewer profile and fixture task contract", async () => {
+  test("accepts bundled reviewer profile and reviewer task contracts", async () => {
     const root = join(import.meta.dir, "..");
-    const [profile, task] = await Promise.all([
+    const [profile, fixtureTask, dogfoodTask] = await Promise.all([
       readFile(join(root, "references", "agent-profiles", "codex-reviewer.json"), "utf8"),
       readFile(join(root, "references", "tasks", "fixture-report-reviewer.json"), "utf8"),
+      readFile(join(root, "references", "tasks", "dogfood-report-reviewer.json"), "utf8"),
     ]);
     const reviewerProfile = JSON.parse(profile) as AgentProfile;
-    const reviewerTask = JSON.parse(task) as TaskSpec;
-    const result = validateDispatch(reviewerTask, reviewerProfile);
+    const reviewerTasks = [fixtureTask, dogfoodTask].map((raw) => JSON.parse(raw) as TaskSpec);
 
     expect(reviewerProfile).toMatchObject({
       id: "codex-reviewer",
@@ -82,8 +82,12 @@ describe("dispatch policy", () => {
       mergePolicy: "none",
     });
     expect(validateAgentProfile(reviewerProfile)).toEqual([]);
-    expect(result.mayDispatch).toBe(true);
-    expect(result.violations).toEqual([]);
+    for (const task of reviewerTasks) {
+      const result = validateDispatch(task, reviewerProfile);
+
+      expect(result.mayDispatch).toBe(true);
+      expect(result.violations).toEqual([]);
+    }
   });
 
   test("allows a writer task with target files, forbidden changes, and verify commands", () => {
@@ -151,6 +155,23 @@ describe("dispatch policy", () => {
     expect(result.mayDispatch).toBe(false);
     expect(result.violations).toContain("non-writer tasks must use report resultMode");
     expect(result.violations).toContain("non-writer report tasks must not declare targetFiles");
+  });
+
+  test("blocks non-writer report tasks with setup commands", () => {
+    const result = validateDispatch(
+      {
+        ...validTask,
+        targetAgent: "codex-reviewer",
+        resultMode: "report",
+        targetFiles: [],
+        forbiddenChanges: ["**/*"],
+        setupCommands: ["touch should-not-run"],
+      },
+      reviewer,
+    );
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain("non-writer report tasks must not declare setupCommands");
   });
 
   test("blocks profiles that can use orchestration-conflicting skills", () => {

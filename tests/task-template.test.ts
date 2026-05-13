@@ -106,6 +106,7 @@ describe("task templates", () => {
     expect(template.task.resultMode).toBe("report");
     expect(template.task.targetFiles).toEqual([]);
     expect(template.task.forbiddenChanges).toContain("**/*");
+    expect(template.task.setupCommands).toEqual([]);
     expect(template.task.verifyCommands).toContain("bun run typecheck");
     expect(template.task.verifyCommands).toContain("bun test");
     expect(validateDispatch(template.task, agent).violations).toEqual([]);

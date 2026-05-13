@@ -108,6 +108,9 @@ export function validateDispatch(
     if (task.targetFiles.length > 0) {
       violations.push("non-writer report tasks must not declare targetFiles");
     }
+    if ((task.setupCommands ?? []).length > 0) {
+      violations.push("non-writer report tasks must not declare setupCommands");
+    }
   }
 
   return {
