@@ -227,30 +227,42 @@ artifacts that workers receive:
 This keeps responsibility clear. A worker cannot claim it learned a new
 authority boundary.
 
-## First Practical Slice
+## Implemented Learning Loop Slice
 
-The first useful implementation slice is now present:
+The current implemented learning loop is:
 
 ```text
 bun run samantha lessons:draft --run-log=<path>
+bun run samantha lessons:review <candidate.md>
+bun run samantha lessons:review-inbox [--repo-root=<repo>]
+bun run samantha lessons:promote <candidate.md> --playbook-id=<id>
+bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>
 ```
 
-It should:
+It does:
 
 - read one run log
 - summarize failures, scope violations, verify failures, cleanup blockers, and
   commit outcome
 - write a markdown lesson candidate under `references/lessons/inbox/`
-- never edit policy, profiles, templates, or playbooks directly
+- include lifecycle, superseded-run, and task-family recurrence evidence
+- review candidates into JSON artifacts under `references/lessons/reviews/`
+- batch-review the inbox and write a review index
+- keep stale or no-promotion candidates auto-rejected
+- keep one-off playbook candidates as needs-more-evidence
+- mark recurring playbook candidates as promotion candidates once they reach the
+  recurrence threshold
+- promote explicit playbook candidates only through `lessons:promote`
+- append later run evidence to promoted playbooks through
+  `lessons:record-evidence`
 
 Current status:
 
-- `lessons:draft` reads one run log and writes
-  `references/lessons/inbox/<run-id>.md`
-- lesson classification is deterministic and makes no LLM call
+- lesson drafting and review are deterministic and make no LLM call
 - lifecycle state is included when `run-lifecycle.jsonl` exists beside the run
   log
-- promoted artifacts are not modified
+- promoted artifacts are not modified by draft or review commands
+- promotion remains a separate explicit command
 
 ## Task Template Slice
 
@@ -289,22 +301,22 @@ The reviewer is report-only: it uses `writerClass: "non-writer"`,
 commands. The reviewer may inspect evidence and produce findings, but it must
 not edit files, create commits, merge, clean up worktrees, or change policy.
 
-## Deferred Promotion
+## Manual Promotion And Later Evidence
 
-The later promotion command would be:
+Promotion is implemented but deliberately narrow. `lessons:promote` only writes
+a playbook when the candidate is a playbook promotion candidate. Inbox review
+does not auto-promote durable guidance.
 
-```text
-bun run samantha lessons:promote <lesson-id>
-```
-
-But promotion should wait until the candidate format is proven useful.
+The current automatic promotion-candidate signal is repeated same-family
+evidence that reaches the recurrence threshold. Clear high-cost failures can
+still be reviewed manually, but they are not an automatic promotion path until
+there is a reviewed deterministic signal for them.
 
 ## Open Design Questions
 
 - Should lesson candidates be generated only on failed runs, or also on smooth
   successful runs?
-- Should BK approve every candidate, or should Samantha batch candidates into a
-  review report?
+- How should promotion candidates be ranked for BK review once the inbox grows?
 - Should task templates stay plain JSON after the current first three examples,
   or move to a richer format once real usage exposes friction?
 - Should playbooks be referenced explicitly in task specs, or selected by the

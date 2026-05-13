@@ -103,14 +103,19 @@ failure machinery because it might be useful later.
 
 ## Phase 2: Reviewable Learning Loop
 
-Status: partially implemented; promotion remains deliberately slow.
+Status: implemented baseline; high-cost failure promotion remains explicit, not
+automatic.
 
 User capability:
 
 - Samantha can draft lesson candidates from run evidence.
 - BK can review candidates before they become durable guidance or enforcement.
-- Repeated failures can become playbooks, templates, profile changes, policy
-  checks, or direction-document updates.
+- Samantha can batch-review the lesson inbox, persist review decisions, promote
+  recurrence-backed playbook candidates, and record later run evidence against
+  promoted playbooks.
+- Repeated failures can become playbooks. Templates, profile changes, policy
+  checks, and direction-document updates remain candidate artifact classes that
+  require explicit reviewed implementation.
 
 Required gates:
 
@@ -124,15 +129,20 @@ Required gates:
 Acceptance evidence:
 
 - `lessons:draft` produces a useful candidate from a representative run
-- at least one reviewed candidate is promoted into the right artifact type
+- `lessons:review` records deterministic candidate reviews
+- `lessons:review-inbox` produces a durable inbox review index
+- `lessons:promote` promotes only explicit playbook promotion candidates
+- `lessons:record-evidence` records whether later run evidence helped,
+  hurt, or remained unclear
 - promoted artifacts do not weaken worktree, scope, verification, or lifecycle
   gates
-- later run evidence shows whether the promoted lesson helped
 
 Promotion rule:
 
-Promote lessons only after repeated evidence or a clear high-cost failure. A
-one-off annoyance should stay out of durable artifacts.
+The implemented automatic signal marks playbook candidates for promotion only
+after repeated evidence. Clear high-cost failures require explicit manual
+review or a future deterministic signal before they can become an automatic
+promotion path. A one-off annoyance should stay out of durable artifacts.
 
 ## Phase 3: Task Templates And Playbooks
 

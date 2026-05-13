@@ -397,6 +397,10 @@ repository artifacts.
 Current files:
 
 - `src/core/lesson-draft.ts`
+- `src/core/lesson-inbox-review.ts`
+- `src/core/lesson-promote.ts`
+- `src/core/lesson-review.ts`
+- `src/core/task-family.ts`
 - `src/core/task-from-template.ts`
 - `src/core/task-from-run.ts`
 - `references/task-templates/docs-only.json`
@@ -404,6 +408,10 @@ Current files:
 - `references/task-templates/cli-command-with-tests.json`
 - `references/task-templates/report-only-review.json`
 - `tests/lesson-draft.test.ts`
+- `tests/lesson-inbox-review.test.ts`
+- `tests/lesson-promote.test.ts`
+- `tests/lesson-review.test.ts`
+- `tests/playbook-evidence.test.ts`
 - `tests/task-template.test.ts`
 - `tests/task-from-template.test.ts`
 - `tests/task-from-run.test.ts`
@@ -412,7 +420,15 @@ Current behavior:
 
 - draft markdown lesson candidates under `references/lessons/inbox/`
 - classify lesson candidates deterministically without LLM calls
+- include task-family recurrence evidence in lesson candidates
+- record reviewed candidate artifacts under `references/lessons/reviews/`
+- batch-review inbox candidates and write a review index
+- classify stale or no-promotion candidates as auto-rejected
+- keep one-off playbook candidates as needs-more-evidence
+- mark recurring playbook candidates as promotion candidates after the threshold
 - keep promoted artifacts unchanged during lesson drafting
+- promote only explicit playbook promotion candidates through `lessons:promote`
+- append later run evidence to promoted playbooks through `lessons:record-evidence`
 - store task template shapes as source-controlled JSON artifacts
 - create task specs from templates by replacing only task id and title
 - keep non-id placeholders visible for manual narrowing
@@ -438,6 +454,10 @@ bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
 bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
 bun run samantha runs:diagnose --run-log=<path>
 bun run samantha lessons:draft --run-log=<path>
+bun run samantha lessons:review <candidate.md>
+bun run samantha lessons:review-inbox [--repo-root=<repo>]
+bun run samantha lessons:promote <candidate.md> --playbook-id=<id>
+bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>
 bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
 bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```

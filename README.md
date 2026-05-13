@@ -68,6 +68,9 @@ src/
     harness-result.ts
     ledger.ts
     lesson-draft.ts
+    lesson-inbox-review.ts
+    lesson-promote.ts
+    lesson-review.ts
     merge-gate.ts
     policy.ts
     post-run-trajectory.ts
@@ -75,9 +78,12 @@ src/
     run-commit.ts
     run-diagnose.ts
     run-lifecycle-store.ts
+    run-list.ts
     run-log.ts
+    run-show.ts
     task-from-run.ts
     task-from-template.ts
+    task-family.ts
     worker-dispatch.ts
     worker-result.ts
     worktree-cleanup.ts
@@ -87,6 +93,8 @@ src/
 tests/
 references/
   agent-profiles/
+  lessons/
+  playbooks/
   tasks/
   task-templates/
 ```
@@ -116,6 +124,10 @@ bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
 bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
 bun run samantha runs:diagnose --run-log=<path>
 bun run samantha lessons:draft --run-log=<path>
+bun run samantha lessons:review <candidate.md>
+bun run samantha lessons:review-inbox [--repo-root=<repo>]
+bun run samantha lessons:promote <candidate.md> --playbook-id=<id>
+bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>
 bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
 bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```
@@ -140,5 +152,5 @@ Samantha's core loop is credible when:
 - a JSON run log records prompt, command, output, changed files, verification,
   and commit
 - failed or out-of-scope worker output is rejected without committing
-- post-run merge, acceptance, cleanup, diagnosis, and lesson drafting remain
-  explicit operations
+- post-run merge, acceptance, cleanup, diagnosis, lesson drafting, lesson
+  review, promotion, and later evidence recording remain explicit operations
