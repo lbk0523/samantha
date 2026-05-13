@@ -73,6 +73,11 @@ For larger slices, or when a longer autonomous work session is useful, propose a
 Codex goal task instead. Include a ready-to-send `/goal` prompt so BK can launch
 the goal without rewriting the scope.
 
+When a task or Codex goal completes, immediately propose the next concrete
+action. If the next step is small or needs BK directly, state it as a direct
+action. If the next step is a larger autonomous slice, include a ready-to-send
+`/goal` prompt.
+
 ## Parallelism Rules
 
 Single-writer execution is an MVP constraint, not a permanent doctrine. Do not
