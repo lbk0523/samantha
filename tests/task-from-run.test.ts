@@ -3,8 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
-import type { RunSummary } from "../src/core/ledger";
+import type { RunOutcome, RunSummary } from "../src/core/ledger";
 import { validateDispatch } from "../src/core/policy";
+import type { RecommendedNextAction } from "../src/core/run-diagnose";
 import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import { createTaskFromRun } from "../src/core/task-from-run";
 import type { WorkerRunLog } from "../src/core/run-log";
@@ -575,6 +576,140 @@ describe("task creation from run evidence", () => {
       recommendedNextAction: "resolve_blocker_and_rerun_new_task",
     });
     expect(generated.instructions).toContain("Resolve the worker-reported blocker");
+  });
+
+  test("refuses stale writer follow-ups for non-blocked failures superseded by accepted and cleaned family runs", async () => {
+    const cases: Array<{
+      name: string;
+      sourceLog: WorkerRunLog;
+      outcome: RunOutcome;
+      recommendedNextAction: RecommendedNextAction;
+    }> = [
+      {
+        name: "verify",
+        outcome: "verify_failed",
+        recommendedNextAction: "create_rework_task_keep_failed_verify_command",
+        sourceLog: baseLog({
+          task: { ...task, id: "phase-one-closeout" },
+          result: baseExecution({
+            evaluation: {
+              pass: false,
+              harness: { status: "pass", note: "ok", commit: "" },
+              changedFiles: ["src/core/original.ts"],
+              scopeViolations: [],
+              verifyResults: [{ command: "bun test tests/original.test.ts", exitCode: 1, stdout: "", stderr: "" }],
+            },
+            commit: undefined,
+            pass: false,
+          }),
+        }),
+      },
+      {
+        name: "scope",
+        outcome: "scope_failed",
+        recommendedNextAction: "reject_output_and_create_narrower_task",
+        sourceLog: baseLog({
+          task: { ...task, id: "phase-one-closeout" },
+          result: baseExecution({
+            evaluation: {
+              pass: false,
+              harness: { status: "pass", note: "ok", commit: "" },
+              changedFiles: ["runs/leak.json"],
+              scopeViolations: [{ file: "runs/leak.json", reason: "forbidden", matchedPattern: "runs/**" }],
+              verifyResults: [],
+            },
+            commit: undefined,
+            pass: false,
+          }),
+        }),
+      },
+      {
+        name: "setup",
+        outcome: "setup_failed",
+        recommendedNextAction: "fix_setup_task_or_environment_and_rerun_new_task",
+        sourceLog: baseLog({
+          task: { ...task, id: "phase-one-closeout", setupCommands: ["bun install --frozen-lockfile"] },
+          result: baseExecution({
+            setupResults: [
+              { command: ["bash", "-lc", "bun install --frozen-lockfile"], exitCode: 1, stdout: "", stderr: "" },
+            ],
+            command: undefined,
+            evaluation: undefined,
+            commit: undefined,
+            pass: false,
+          }),
+        }),
+      },
+      {
+        name: "worker",
+        outcome: "worker_failed",
+        recommendedNextAction: "inspect_evidence_then_narrow_or_rerun_with_explicit_reason",
+        sourceLog: baseLog({
+          task: { ...task, id: "phase-one-closeout" },
+          result: baseExecution({
+            command: commandResult(7),
+            evaluation: {
+              pass: false,
+              parseError: "missing HARNESS_RESULT",
+              changedFiles: [],
+              scopeViolations: [],
+              verifyResults: [],
+            },
+            commit: undefined,
+            pass: false,
+          }),
+        }),
+      },
+      {
+        name: "malformed",
+        outcome: "missing_harness_result",
+        recommendedNextAction: "inspect_evidence_then_narrow_or_rerun_with_explicit_reason",
+        sourceLog: baseLog({
+          task: { ...task, id: "phase-one-closeout" },
+          result: baseExecution({
+            evaluation: {
+              pass: false,
+              parseError: "invalid HARNESS_RESULT JSON",
+              changedFiles: [],
+              scopeViolations: [],
+              verifyResults: [],
+            },
+            commit: undefined,
+            pass: false,
+          }),
+        }),
+      },
+    ];
+
+    for (const item of cases) {
+      const root = await makeRoot();
+      const runLogPath = await writeRunLog(root, item.sourceLog);
+      await writeSupersedingRunEvidence({
+        root,
+        sourceLog: item.sourceLog,
+        cleanedAt: "2026-05-12T10:04:00.000Z",
+      });
+
+      const result = await createTaskFromRun({
+        repoRoot: root,
+        runLogPath,
+        taskId: `${item.name}-superseded-follow-up`,
+        title: "Inspect superseded run",
+      });
+
+      expect(result).toEqual({
+        status: "refused",
+        created: false,
+        runId: item.sourceLog.runId,
+        taskId: `${item.name}-superseded-follow-up`,
+        outcome: item.outcome,
+        recommendedNextAction: item.recommendedNextAction,
+        note: "run run-1 was superseded by accepted and cleaned run run-2; no task was created",
+      });
+      await expect(
+        readFile(join(root, "references", "tasks", `${item.name}-superseded-follow-up.json`), "utf8"),
+      ).rejects.toThrow();
+    }
   });
 
   test("creates verify rework tasks that keep the failed verify command first", async () => {

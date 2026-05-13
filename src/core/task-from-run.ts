@@ -83,10 +83,9 @@ async function supersededRefusalNote(input: {
   diagnosis: RunDiagnosis;
 }): Promise<string | undefined> {
   const reportOnly = isReportOnlyRun(input.log);
-  if (!reportOnly && input.diagnosis.outcome !== "blocked" && input.diagnosis.outcome !== "rework") {
+  if (input.diagnosis.outcome === "pass" || input.diagnosis.outcome === "commit_failed") {
     return undefined;
   }
-  if (reportOnly && input.diagnosis.outcome === "pass") return undefined;
 
   const evidenceDir = dirname(input.runLogPath);
   const summaries = await new RunIndex(join(evidenceDir, "index.jsonl")).list();

@@ -68,7 +68,7 @@ Non-goals:
 
 ## Phase 1: Evidence-Driven Recovery Loop
 
-Status: next operational hardening phase.
+Status: implemented recovery baseline; further changes must stay evidence-led.
 
 User capability:
 
