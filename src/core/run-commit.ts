@@ -12,7 +12,7 @@ export function actionableCommitForExecution(input: {
   execution: WorkerDispatchExecution;
 }): string {
   if (isReportOnlyRun(input)) return "";
-  return input.execution.commit?.commitHash ?? input.execution.evaluation?.harness?.commit ?? "";
+  return input.execution.commit?.commitHash ?? "";
 }
 
 export function actionableCommitForRunLog(log: WorkerRunLog): string {

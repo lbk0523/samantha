@@ -181,6 +181,27 @@ describe("evaluateMergeGate", () => {
     expect(missingResult.violations).toContain("run did not report a commit");
   });
 
+  test("does not treat writer HARNESS_RESULT commits as merge candidates", async () => {
+    const { root, workerCommit, logPath } = await makeRepo();
+    const log = JSON.parse(await readFile(logPath, "utf8")) as WorkerRunLog;
+    log.result.commit = undefined;
+    if (!log.result.evaluation) throw new Error("fixture evaluation missing");
+    log.result.evaluation.harness = {
+      status: "pass",
+      note: "worker supplied commit",
+      commit: workerCommit,
+    };
+    await writeFile(logPath, `${JSON.stringify(log, null, 2)}\n`, "utf8");
+
+    const result = await evaluateMergeGate({ runLogPath: logPath, repoRoot: root });
+
+    expect(result.commit).toBe("");
+    expect(result.command).toBeUndefined();
+    expect(result.mayMerge).toBe(false);
+    expect(result.status).toBe("missing_commit");
+    expect(result.violations).toContain("run did not report a commit");
+  });
+
   test("does not treat report-only HARNESS_RESULT commits as merge candidates", async () => {
     const { root, workerCommit, logPath } = await makeRepo();
     const log = JSON.parse(await readFile(logPath, "utf8")) as WorkerRunLog;
