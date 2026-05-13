@@ -6,7 +6,7 @@ import {
   recordPlaybookEvidence,
   type PlaybookEvidenceAssessment,
 } from "./core/lesson-promote";
-import { reviewLessonCandidate } from "./core/lesson-review";
+import { recordLessonReview } from "./core/lesson-review";
 import { evaluateMergeGate, readWorkerRunLog } from "./core/merge-gate";
 import {
   recordCleanupFinished,
@@ -25,6 +25,7 @@ import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
 import { diagnoseRun } from "./core/run-diagnose";
 import { createTaskFromRun } from "./core/task-from-run";
+import { reviewLessonInbox } from "./core/lesson-inbox-review";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -83,6 +84,10 @@ export interface LessonsReviewCliArgs {
   candidatePath: string;
 }
 
+export interface LessonsReviewInboxCliArgs {
+  command: "lessons:review-inbox";
+}
+
 export interface LessonsPromoteCliArgs {
   command: "lessons:promote";
   candidatePath: string;
@@ -124,6 +129,7 @@ export type SamanthaCliArgs =
   | RunsDiagnoseCliArgs
   | LessonsDraftCliArgs
   | LessonsReviewCliArgs
+  | LessonsReviewInboxCliArgs
   | LessonsPromoteCliArgs
   | LessonsRecordEvidenceCliArgs
   | TasksFromTemplateCliArgs
@@ -284,6 +290,12 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "lessons:review-inbox") {
+    return {
+      command: "lessons:review-inbox",
+    };
+  }
+
   if (command === "lessons:promote") {
     if (!first) {
       throw new Error("usage: bun run samantha lessons:promote <candidate.md> --playbook-id=<id>");
@@ -356,7 +368,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|lessons:review|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -390,7 +402,7 @@ async function markLifecycle(input: {
   return record;
 }
 
-async function main(argv: string[]): Promise<number> {
+export async function main(argv: string[]): Promise<number> {
   const args = parseCliArgs(argv);
   if (args.command === "run-task") {
     const result = await runTaskCommand(args);
@@ -450,7 +462,12 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (args.command === "lessons:review") {
-    console.log(JSON.stringify(await reviewLessonCandidate({ candidatePath: resolve(args.candidatePath) }), null, 2));
+    console.log(JSON.stringify(await recordLessonReview({ candidatePath: resolve(args.candidatePath) }), null, 2));
+    return 0;
+  }
+
+  if (args.command === "lessons:review-inbox") {
+    console.log(JSON.stringify(await reviewLessonInbox(), null, 2));
     return 0;
   }
 

@@ -1,5 +1,15 @@
-import { describe, expect, test } from "bun:test";
-import { parseCliArgs } from "../src/cli";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { main, parseCliArgs } from "../src/cli";
+
+let tmpRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
+  tmpRoots = [];
+});
 
 describe("samantha cli", () => {
   test("parses run-task arguments", () => {
@@ -113,6 +123,9 @@ describe("samantha cli", () => {
       command: "lessons:review",
       candidatePath: "references/lessons/inbox/run-1.md",
     });
+    expect(parseCliArgs(["lessons:review-inbox"])).toEqual({
+      command: "lessons:review-inbox",
+    });
     expect(
       parseCliArgs([
         "lessons:promote",
@@ -138,6 +151,133 @@ describe("samantha cli", () => {
       runLogPath: "runs/run-2.json",
       assessment: "helped",
       note: "Passed again with the same task shape.",
+    });
+  });
+
+  test("lesson review command writes a review artifact", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-"));
+    tmpRoots.push(root);
+    const candidateDir = join(root, "references", "lessons", "inbox");
+    const candidatePath = join(candidateDir, "run-1.md");
+    await mkdir(candidateDir, { recursive: true });
+    await writeFile(
+      candidatePath,
+      `# Lesson Candidate: run-1
+
+## Source
+- Source run id: run-1
+- Task id: inspect-only
+- Task title: Inspect only
+- Run log: /repo/runs/run-1.json
+
+## Evidence
+- Observed outcome: stale evidence
+
+### Superseded Context
+- Superseded status: superseded by accepted and cleaned run
+- Superseding run id: run-2
+
+## Proposed Lesson
+- Proposed lesson: Keep as evidence only.
+- Affected layer: evidence
+- Suggested artifact type: run summary / no promotion
+- Risk if adopted: Adds process without reusable value.
+`,
+      "utf8",
+    );
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["lessons:review", candidatePath])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    const artifactPath = join(root, "references", "lessons", "reviews", "run-1.json");
+    expect(result.path).toBe(artifactPath);
+    expect(JSON.parse(await readFile(artifactPath, "utf8"))).toMatchObject({
+      candidatePath,
+      runId: "run-1",
+      taskId: "inspect-only",
+      observedOutcome: "stale evidence",
+      suggestedArtifactType: "run summary / no promotion",
+      superseded: {
+        stale: true,
+        status: "superseded by accepted and cleaned run",
+        supersedingRunId: "run-2",
+      },
+      recommendedAction: "reject",
+      classification: "auto_rejected",
+      reason: "superseded: superseded by accepted and cleaned run; suggested artifact type marks no promotion",
+    });
+  });
+
+  test("lesson inbox review command writes review index", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-"));
+    tmpRoots.push(root);
+    const candidateDir = join(root, "references", "lessons", "inbox");
+    await mkdir(candidateDir, { recursive: true });
+    await writeFile(
+      join(candidateDir, "run-1.md"),
+      `# Lesson Candidate: run-1
+
+## Source
+- Source run id: run-1
+- Task id: inspect-only
+- Task title: Inspect only
+- Run log: /repo/runs/run-1.json
+
+## Evidence
+- Observed outcome: stale evidence
+
+### Superseded Context
+- Superseded status: not detected
+
+## Proposed Lesson
+- Proposed lesson: Keep as evidence only.
+- Affected layer: evidence
+- Suggested artifact type: run summary / no promotion
+- Risk if adopted: Adds process without reusable value.
+`,
+      "utf8",
+    );
+
+    const originalLog = console.log;
+    const originalCwd = process.cwd();
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      process.chdir(root);
+      await expect(main(["lessons:review-inbox"])).resolves.toBe(0);
+    } finally {
+      process.chdir(originalCwd);
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    const realRoot = await realpath(root);
+    const indexPath = join(realRoot, "references", "lessons", "reviews", "index.json");
+    expect(result.indexPath).toBe(indexPath);
+    expect(JSON.parse(await readFile(indexPath, "utf8"))).toMatchObject({
+      summary: {
+        total: 1,
+        autoRejected: 1,
+        needsMoreEvidence: 0,
+        manualReview: 0,
+      },
+      candidates: [
+        {
+          runId: "run-1",
+          classification: "auto_rejected",
+        },
+      ],
     });
   });
 

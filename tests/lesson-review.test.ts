@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { reviewLessonCandidate } from "../src/core/lesson-review";
+import { recordLessonReview, reviewLessonCandidate } from "../src/core/lesson-review";
 
 let tmpRoots: string[] = [];
 
@@ -66,6 +66,54 @@ describe("lesson review", () => {
       proposedLesson: "Treat this candidate as stale unless the same failure recurs after the superseding run.",
       affectedLayer: "evidence",
       riskIfAdopted: "Promoting superseded evidence can add process for a problem that was already resolved.",
+    });
+  });
+
+  test("records reject reviews as durable JSON artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-review-"));
+    tmpRoots.push(root);
+    const candidatePath = await writeCandidate(
+      root,
+      `# Lesson Candidate: no-promotion-run
+
+## Source
+- Source run id: no-promotion-run
+- Task id: inspect-only
+- Task title: Inspect only
+- Run log: /repo/runs/no-promotion-run.json
+
+## Evidence
+- Observed outcome: no code change needed
+
+### Superseded Context
+- Superseded status: not detected
+
+## Proposed Lesson
+- Proposed lesson: Keep as evidence only.
+- Affected layer: evidence
+- Suggested artifact type: run summary / no promotion
+- Risk if adopted: Adds process without reusable value.
+`,
+    );
+
+    const result = await recordLessonReview({ candidatePath });
+    const expectedPath = join(root, "references", "lessons", "reviews", "no-promotion-run.json");
+
+    expect(result.path).toBe(expectedPath);
+    expect(JSON.parse(await readFile(expectedPath, "utf8"))).toEqual({
+      candidatePath,
+      reviewedAt: result.review.reviewedAt,
+      runId: "no-promotion-run",
+      taskId: "inspect-only",
+      observedOutcome: "no code change needed",
+      suggestedArtifactType: "run summary / no promotion",
+      superseded: {
+        stale: true,
+        status: "not detected",
+      },
+      recommendedAction: "reject",
+      classification: "auto_rejected",
+      reason: "suggested artifact type marks no promotion",
     });
   });
 });

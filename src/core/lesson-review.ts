@@ -1,10 +1,33 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 export type LessonRecommendedAction = "promote_playbook" | "reject" | "manual_review";
+export type LessonReviewClassification = "auto_rejected" | "needs_more_evidence" | "manual_review";
 
 export interface LessonReviewInput {
   candidatePath: string;
+}
+
+export interface LessonReviewArtifact {
+  candidatePath: string;
+  reviewedAt: string;
+  runId: string;
+  taskId: string;
+  observedOutcome: string;
+  suggestedArtifactType: string;
+  superseded: {
+    stale: boolean;
+    status: string;
+    supersedingRunId?: string;
+  };
+  recommendedAction: LessonRecommendedAction;
+  classification: LessonReviewClassification;
+  reason: string;
+}
+
+export interface LessonReviewArtifactResult {
+  path: string;
+  review: LessonReviewArtifact;
 }
 
 export interface LessonReview {
@@ -48,6 +71,44 @@ function recommendedAction(input: {
   return "manual_review";
 }
 
+function recommendationReason(review: LessonReview): string {
+  const reasons: string[] = [];
+  if (review.superseded.stale && review.superseded.status !== "not detected") {
+    reasons.push(`superseded: ${review.superseded.status}`);
+  }
+  if (review.suggestedArtifactType.toLowerCase().includes("no promotion")) {
+    reasons.push("suggested artifact type marks no promotion");
+  }
+  if (reasons.length > 0) return reasons.join("; ");
+  if (review.recommendedAction === "promote_playbook") return "playbook candidate needs more evidence before promotion";
+  return "suggested artifact type requires manual review";
+}
+
+function reviewArtifactPath(input: { candidatePath: string; runId: string }): string {
+  return join(dirname(dirname(input.candidatePath)), "reviews", `${input.runId}.json`);
+}
+
+export function classifyLessonReview(review: LessonReview): LessonReviewClassification {
+  if (review.recommendedAction === "reject") return "auto_rejected";
+  if (review.suggestedArtifactType.toLowerCase() === "playbook") return "needs_more_evidence";
+  return "manual_review";
+}
+
+function toReviewArtifact(input: { review: LessonReview; reviewedAt: string }): LessonReviewArtifact {
+  return {
+    candidatePath: input.review.sourcePath,
+    reviewedAt: input.reviewedAt,
+    runId: input.review.runId,
+    taskId: input.review.taskId,
+    observedOutcome: input.review.observedOutcome,
+    suggestedArtifactType: input.review.suggestedArtifactType,
+    superseded: input.review.superseded,
+    recommendedAction: input.review.recommendedAction,
+    classification: classifyLessonReview(input.review),
+    reason: recommendationReason(input.review),
+  };
+}
+
 export function reviewLessonCandidateMarkdown(input: {
   markdown: string;
   sourcePath: string;
@@ -87,4 +148,13 @@ export async function reviewLessonCandidate(input: LessonReviewInput): Promise<L
     markdown: await readFile(sourcePath, "utf8"),
     sourcePath,
   });
+}
+
+export async function recordLessonReview(input: LessonReviewInput): Promise<LessonReviewArtifactResult> {
+  const review = await reviewLessonCandidate(input);
+  const artifact = toReviewArtifact({ review, reviewedAt: new Date().toISOString() });
+  const path = reviewArtifactPath({ candidatePath: review.sourcePath, runId: review.runId });
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
+  return { path, review: artifact };
 }
