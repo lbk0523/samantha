@@ -124,6 +124,21 @@ describe("samantha cli", () => {
       candidatePath: "references/lessons/inbox/run-1.md",
       playbookId: "cli-command-addition",
     });
+    expect(
+      parseCliArgs([
+        "lessons:record-evidence",
+        "references/playbooks/cli-command-addition.md",
+        "--run-log=runs/run-2.json",
+        "--assessment=helped",
+        "--note=Passed again with the same task shape.",
+      ]),
+    ).toEqual({
+      command: "lessons:record-evidence",
+      playbookPath: "references/playbooks/cli-command-addition.md",
+      runLogPath: "runs/run-2.json",
+      assessment: "helped",
+      note: "Passed again with the same task shape.",
+    });
   });
 
   test("parses task creation from template arguments", () => {

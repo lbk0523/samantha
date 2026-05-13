@@ -1,6 +1,10 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { summarizeWorkerRun, type RunOutcome } from "./ledger";
 import { reviewLessonCandidate, type LessonReview } from "./lesson-review";
+import type { WorkerRunLog } from "./run-log";
+
+export type PlaybookEvidenceAssessment = "helped" | "not-helped" | "unclear";
 
 export interface LessonPromoteInput {
   candidatePath: string;
@@ -13,6 +17,23 @@ export interface LessonPromotion {
   reason: string;
   sourcePath: string;
   artifactPath?: string;
+}
+
+export interface PlaybookEvidenceInput {
+  playbookPath: string;
+  runLogPath: string;
+  assessment: PlaybookEvidenceAssessment;
+  note: string;
+}
+
+export interface PlaybookEvidenceRecord {
+  recorded: true;
+  playbookPath: string;
+  runLogPath: string;
+  runId: string;
+  taskId: string;
+  outcome: RunOutcome;
+  assessment: PlaybookEvidenceAssessment;
 }
 
 function assertPlaybookId(id: string): void {
@@ -41,6 +62,9 @@ function renderPlaybook(input: { playbookId: string; review: LessonReview }): st
 - Observed outcome: ${input.review.observedOutcome}
 - Superseded status: ${input.review.superseded.status}
 ${input.review.superseded.supersedingRunId ? `- Superseding run id: ${input.review.superseded.supersedingRunId}\n` : ""}
+## Later Evidence
+- none recorded
+
 ## Use
 
 Apply this playbook only when new run evidence matches the source pattern.
@@ -97,5 +121,69 @@ export async function promoteLessonCandidate(input: LessonPromoteInput): Promise
     reason: "promoted playbook",
     sourcePath: review.sourcePath,
     artifactPath,
+  };
+}
+
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function appendLaterEvidence(markdown: string, entry: string): string {
+  const heading = "## Later Evidence\n";
+  const headingIndex = markdown.indexOf(heading);
+  if (headingIndex === -1) {
+    throw new Error("playbook is missing ## Later Evidence section");
+  }
+
+  const contentStart = headingIndex + heading.length;
+  const nextHeadingIndex = markdown.indexOf("\n## ", contentStart);
+  const contentEnd = nextHeadingIndex === -1 ? markdown.length : nextHeadingIndex;
+  const before = markdown.slice(0, contentStart);
+  const content = markdown.slice(contentStart, contentEnd).trim();
+  const after = markdown.slice(contentEnd);
+  const updatedContent = content === "- none recorded" ? entry : `${content}\n${entry}`;
+
+  return `${before}${updatedContent}\n${after}`;
+}
+
+export async function recordPlaybookEvidence(input: PlaybookEvidenceInput): Promise<PlaybookEvidenceRecord> {
+  const playbookPath = resolve(input.playbookPath);
+  const runLogPath = resolve(input.runLogPath);
+  const [markdown, rawLog] = await Promise.all([
+    readFile(playbookPath, "utf8"),
+    readFile(runLogPath, "utf8"),
+  ]);
+  const log = JSON.parse(rawLog) as WorkerRunLog;
+  const summary = summarizeWorkerRun({
+    task: log.task,
+    agent: log.agent,
+    repoRoot: log.input.repoRoot,
+    worktreesDir: log.input.worktreesDir,
+    startedAt: log.startedAt,
+    finishedAt: log.finishedAt,
+    execution: log.result,
+    runId: log.runId,
+    logPath: runLogPath,
+  });
+  const entry = [
+    `- Run id: ${summary.runId}`,
+    `  - Run log: ${runLogPath}`,
+    `  - Task id: ${summary.taskId}`,
+    `  - Task title: ${summary.taskTitle}`,
+    `  - Outcome: ${summary.outcome}`,
+    `  - Assessment: ${input.assessment}`,
+    `  - Note: ${oneLine(input.note)}`,
+  ].join("\n");
+
+  await writeFile(playbookPath, appendLaterEvidence(markdown, entry), "utf8");
+
+  return {
+    recorded: true,
+    playbookPath,
+    runLogPath,
+    runId: summary.runId,
+    taskId: summary.taskId,
+    outcome: summary.outcome,
+    assessment: input.assessment,
   };
 }

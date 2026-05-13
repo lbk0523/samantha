@@ -1,7 +1,11 @@
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
 import { draftLessonFromRunLog } from "./core/lesson-draft";
-import { promoteLessonCandidate } from "./core/lesson-promote";
+import {
+  promoteLessonCandidate,
+  recordPlaybookEvidence,
+  type PlaybookEvidenceAssessment,
+} from "./core/lesson-promote";
 import { reviewLessonCandidate } from "./core/lesson-review";
 import { evaluateMergeGate, readWorkerRunLog } from "./core/merge-gate";
 import {
@@ -85,6 +89,14 @@ export interface LessonsPromoteCliArgs {
   playbookId: string;
 }
 
+export interface LessonsRecordEvidenceCliArgs {
+  command: "lessons:record-evidence";
+  playbookPath: string;
+  runLogPath: string;
+  assessment: PlaybookEvidenceAssessment;
+  note: string;
+}
+
 export interface TasksFromTemplateCliArgs {
   command: "tasks:from-template";
   templateId: string;
@@ -111,6 +123,7 @@ export type SamanthaCliArgs =
   | LessonsDraftCliArgs
   | LessonsReviewCliArgs
   | LessonsPromoteCliArgs
+  | LessonsRecordEvidenceCliArgs
   | TasksFromTemplateCliArgs
   | TasksFromRunCliArgs;
 
@@ -285,6 +298,26 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "lessons:record-evidence") {
+    if (!first) {
+      throw new Error("usage: bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>");
+    }
+    const flags = parseFlags(rest);
+    const runLogPath = flags.get("run-log");
+    const assessment = flags.get("assessment");
+    const note = flags.get("note");
+    if (!runLogPath || !isPlaybookEvidenceAssessment(assessment) || !note) {
+      throw new Error("usage: bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>");
+    }
+    return {
+      command: "lessons:record-evidence",
+      playbookPath: first,
+      runLogPath,
+      assessment,
+      note,
+    };
+  }
+
   if (command === "tasks:from-template") {
     if (!first) {
       throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>");
@@ -319,7 +352,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|lessons:review|lessons:promote|tasks:from-template|tasks:from-run");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|lessons:draft|lessons:review|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -328,6 +361,10 @@ function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string
 
 function isRunLifecycleEvent(value: unknown): value is RunLifecycleEvent {
   return value === "merged" || value === "cleaned";
+}
+
+function isPlaybookEvidenceAssessment(value: unknown): value is PlaybookEvidenceAssessment {
+  return value === "helped" || value === "not-helped" || value === "unclear";
 }
 
 async function markLifecycle(input: {
@@ -420,6 +457,22 @@ async function main(argv: string[]): Promise<number> {
     });
     console.log(JSON.stringify(result, null, 2));
     return result.promoted ? 0 : 1;
+  }
+
+  if (args.command === "lessons:record-evidence") {
+    console.log(
+      JSON.stringify(
+        await recordPlaybookEvidence({
+          playbookPath: resolve(args.playbookPath),
+          runLogPath: resolve(args.runLogPath),
+          assessment: args.assessment,
+          note: args.note,
+        }),
+        null,
+        2,
+      ),
+    );
+    return 0;
   }
 
   if (args.command === "runs:diagnose") {

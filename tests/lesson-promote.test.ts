@@ -111,6 +111,7 @@ describe("lesson promotion", () => {
     expect(markdown).toContain("- Observed outcome: pass");
     expect(markdown).toContain("- Superseded status: not detected");
     expect(markdown).toContain("- Proposed lesson: Keep CLI additions paired with parser tests and focused core tests.");
+    expect(markdown).toContain("## Later Evidence\n- none recorded");
   });
 
   test("does not overwrite an existing playbook", async () => {
