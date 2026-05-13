@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { prepareCodexDispatch } from "../core/codex-dispatch";
 import type { AgentProfile, TaskSpec } from "../core/contracts";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "../core/ledger";
 import { writeWorkerRunLog, type WorkerRunLogWrite } from "../core/run-log";
@@ -28,19 +29,55 @@ function defaultAgentPath(task: TaskSpec): string {
   return resolve("references", "agent-profiles", `${task.targetAgent}.json`);
 }
 
+function isDispatchBlock(err: unknown): err is Error {
+  return err instanceof Error && err.message.startsWith("dispatch blocked:");
+}
+
+function blockedExecution(input: {
+  task: TaskSpec;
+  agent: AgentProfile;
+  repoRoot: string;
+  codexBin?: string;
+  error: Error;
+}): WorkerDispatchExecution {
+  return {
+    preparation: {
+      taskId: input.task.id,
+      agentId: input.agent.id,
+      worktreePath: input.repoRoot,
+      codex: prepareCodexDispatch(input.task, input.agent, input.repoRoot, input.codexBin),
+    },
+    setupResults: [],
+    dispatchError: input.error.message,
+    pass: false,
+  };
+}
+
 export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTaskCommandResult> {
   const task = await readJson<TaskSpec>(resolve(input.taskPath));
   const agent = await readJson<AgentProfile>(resolve(input.agentPath ?? defaultAgentPath(task)));
   const repoRoot = resolve(input.repoRoot);
   const runsDir = resolve(input.runsDir ?? resolve(repoRoot, "runs"));
   const startedAt = new Date().toISOString();
-  const execution = await executeWorkerDispatch({
-    task,
-    agent,
-    repoRoot,
-    worktreesDir: input.worktreesDir,
-    codexBin: input.codexBin,
-  });
+  let execution: WorkerDispatchExecution;
+  try {
+    execution = await executeWorkerDispatch({
+      task,
+      agent,
+      repoRoot,
+      worktreesDir: input.worktreesDir,
+      codexBin: input.codexBin,
+    });
+  } catch (err) {
+    if (!isDispatchBlock(err)) throw err;
+    execution = blockedExecution({
+      task,
+      agent,
+      repoRoot,
+      codexBin: input.codexBin,
+      error: err,
+    });
+  }
   const finishedAt = new Date().toISOString();
   const logInput = {
     task,

@@ -333,6 +333,53 @@ describe("worker dispatch", () => {
     );
   });
 
+  test("records dispatch-blocked tasks before worker start", async () => {
+    const repo = await makeRepo();
+    const taskPath = join(repo, "task.json");
+    const agentPath = join(repo, "agent.json");
+    await writeFile(
+      taskPath,
+      `${JSON.stringify(
+        {
+          ...task,
+          targetFiles: ["src/core/<module>.ts"],
+          verifyCommands: ["bun test tests/<module>.test.ts"],
+          expectedCommitSubject: "feat: add <module> core behavior",
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await writeFile(agentPath, `${JSON.stringify(agent, null, 2)}\n`, "utf8");
+
+    const result = await runTaskCommand({
+      taskPath,
+      agentPath,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      runsDir: join(repo, "runs"),
+    });
+    const parsed = JSON.parse(await readFile(result.runLog.path, "utf8"));
+
+    expect(result.execution.pass).toBe(false);
+    expect(result.execution.dispatchError).toContain("task contains unresolved dispatch placeholders");
+    expect(result.execution.preparation.worktreePath).toBe(repo);
+    expect(result.execution.preparation.allocation).toBeUndefined();
+    expect(result.execution.command).toBeUndefined();
+    expect(result.runSummary).toMatchObject({
+      outcome: "blocked",
+      pass: false,
+      failureReason: result.execution.dispatchError,
+      worktreePath: repo,
+    });
+    expect(parsed.trajectory[0]).toMatchObject({
+      event: "planned",
+      status: "failed",
+      note: "dispatch blocked before worker start",
+    });
+  });
+
   test("captures command stdout, stderr, and exit code", async () => {
     const result = await runCommand(["bash", "-lc", "echo out && echo err >&2"]);
 

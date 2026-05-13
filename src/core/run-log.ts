@@ -69,15 +69,26 @@ export function buildWorkerRunId(input: { startedAt: string; taskId: string }): 
 export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTrajectoryEntry[] {
   const execution = input.execution;
   const entries: Omit<WorkerRunTrajectoryEntry, "sequence">[] = [
-    {
-      event: "planned",
-      status: "completed",
-      note: "task accepted for worker dispatch",
-      details: {
-        taskId: input.task.id,
-        agentId: input.agent.id,
-      },
-    },
+    execution.dispatchError
+      ? {
+          event: "planned",
+          status: "failed",
+          note: "dispatch blocked before worker start",
+          details: {
+            taskId: input.task.id,
+            agentId: input.agent.id,
+            reason: execution.dispatchError,
+          },
+        }
+      : {
+          event: "planned",
+          status: "completed",
+          note: "task accepted for worker dispatch",
+          details: {
+            taskId: input.task.id,
+            agentId: input.agent.id,
+          },
+        },
     execution.preparation.allocation
       ? {
           event: "worktree_created",
@@ -92,7 +103,9 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
       : {
           event: "worktree_created",
           status: "skipped",
-          note: "worker did not use an allocated worktree",
+          note: execution.dispatchError
+            ? "dispatch blocked before worktree allocation"
+            : "worker did not use an allocated worktree",
           details: {
             worktreePath: execution.preparation.worktreePath,
           },

@@ -44,6 +44,7 @@ export interface WorkerCommitResult {
 export interface WorkerDispatchExecution {
   preparation: WorkerDispatchPreparation;
   setupResults: CommandRunResult[];
+  dispatchError?: string;
   command?: CommandRunResult;
   evaluation?: WorkerResultEvaluation;
   commit?: WorkerCommitResult;

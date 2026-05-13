@@ -108,6 +108,9 @@ export function summarizeWorkerRun(input: WorkerRunLogInput & {
     outcome = "pass";
   } else if ((failureReason = firstFailedSetup(input))) {
     outcome = "setup_failed";
+  } else if (execution.dispatchError) {
+    outcome = "blocked";
+    failureReason = execution.dispatchError;
   } else if (!execution.command) {
     outcome = "blocked";
     failureReason = "worker did not start";
