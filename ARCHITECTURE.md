@@ -321,7 +321,7 @@ failed run evidence
 
 Current run summaries already classify setup failures, worker command failures,
 malformed results, scope violations, verification failures, commit failures, and
-blocked/rework harness results. Future commands such as `runs:diagnose` or
+blocked/rework harness results. Commands such as `runs:diagnose` or future
 `tasks:from-run` should use that evidence to produce the next explicit artifact
 instead of adding automatic hidden retry policy.
 
@@ -418,6 +418,7 @@ bun run samantha merge:check --run-log=<path> --repo-root=<repo>
 bun run samantha runs:mark-lifecycle --run-log=<path> --repo-root=<repo> --event=merged|cleaned
 bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
 bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
+bun run samantha runs:diagnose --run-log=<path>
 bun run samantha lessons:draft --run-log=<path>
 bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
 ```
