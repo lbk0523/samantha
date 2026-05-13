@@ -50,7 +50,7 @@ Efficiency should come from:
 - reusable task templates
 - cheaper verification that is still connected to the changed surface
 - failure evidence that creates narrower follow-up tasks
-- concise run summaries instead of dashboard or daemon scope
+- concise run summaries instead of broad UI or runtime scope
 
 ## Task Classes / Execution Modes
 
@@ -424,8 +424,9 @@ bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title
 bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```
 
-The CLI should stay local and explicit. It should not become a daemon, remote
-adapter, or chat command system.
+The CLI currently stays local and explicit. Remote adapters, daemon operation,
+or chat command surfaces require separate product design and authority gates;
+they should not be inherited from historical migration scope.
 
 ## Responsibility Model
 
@@ -445,7 +446,7 @@ Avoid these shortcuts:
 - turning reports into hidden memory
 - letting workers commit directly to target branches
 - allowing worker-created worktrees
-- adding remote/Telegram control before local usefulness is proven
+- adding remote or chat control without explicit product and authority design
 - building dashboards before run logs and summaries are stable
 - letting workers orchestrate subagents or parallel writers
 - adding parallel writer batches before batch gates, ordered integration, and

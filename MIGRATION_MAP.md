@@ -1,87 +1,76 @@
-# Migration Map
+# Historical Migration Notes
 
-Last updated: 2026-05-12
+Last updated: 2026-05-13
 
-This map decides what should be reused from `samantha-codex` when starting the
-new Samantha harness.
+The migration from `samantha-codex` into the current Samantha harness is
+complete. This file is historical context, not active task guidance and not a
+source of product restrictions.
 
-## Carry Forward First
+Use the current direction documents for active work:
 
-These modules are close to the new harness core and have focused tests:
+- `AGENTS.md`
+- `README.md`
+- `NORTH_STAR.md`
+- `ARCHITECTURE.md`
+- `LEARNING_ARCHITECTURE.md`
 
-| Existing file | Why reuse |
+## Carried Forward During Migration
+
+These old modules shaped the initial harness core because they already matched
+the scoped Codex-task loop:
+
+| Old file | Reason it was useful |
 | --- | --- |
-| `src/lib/contracts.ts` | Task, agent, policy, and harness result shapes are a good starting contract. |
+| `src/lib/contracts.ts` | Task, agent, policy, and harness result shapes were a good starting contract. |
 | `src/lib/harness-result.ts` | Small parser with clear failure behavior. |
-| `src/lib/policy.ts` | Writer/non-writer and blocked-skill safety checks are useful. |
+| `src/lib/policy.ts` | Writer/non-writer and blocked-skill safety checks were useful. |
 | `src/lib/git.ts` | Thin git wrapper used by worktree and result evaluation. |
-| `src/lib/worktree.ts` | Per-task worktree allocation is central to the new harness. |
-| `src/lib/codex-dispatch.ts` | Codex prompt and command construction are directly relevant. |
+| `src/lib/worktree.ts` | Per-task worktree allocation is central to the harness. |
+| `src/lib/codex-dispatch.ts` | Codex prompt and command construction were directly relevant. |
 | `src/lib/worker-result.ts` | Scope and verification evaluation are core harness logic. |
-| `src/lib/worker-dispatch.ts` | Dispatch, setup, live command capture, evaluation, and Samantha-owned commit are core. |
+| `src/lib/worker-dispatch.ts` | Dispatch, setup, live command capture, evaluation, and Samantha-owned commit were core. |
 | `src/lib/run-log.ts` | JSON run log contract is useful audit evidence. |
-| `src/lib/ledger.ts` | Compact run indexing can be kept if it stays simple. |
-| `src/lib/merge-gate.ts` | Keep after MVP, because merge should remain explicit and deterministic. |
-| `src/lib/worktree-cleanup.ts` | Keep after merge gate, not in the first slice. |
+| `src/lib/ledger.ts` | Compact run indexing remained useful while it stayed simple. |
+| `src/lib/merge-gate.ts` | Merge should remain explicit and deterministic. |
+| `src/lib/worktree-cleanup.ts` | Cleanup belongs after merge and lifecycle gates. |
 
-Carry the matching tests with them:
+Matching tests were carried forward where they still matched the current code.
 
-- `tests/harness-result.test.ts`
-- `tests/policy.test.ts`
-- `tests/worktree.test.ts`
-- `tests/codex-dispatch.test.ts`
-- `tests/worker-result.test.ts`
-- `tests/worker-dispatch.test.ts`
-- `tests/run-log.test.ts`
-- `tests/ledger.test.ts`
-- `tests/merge-gate.test.ts`
-- `tests/worktree-cleanup.test.ts`
+## Rewritten During Migration
 
-## Rewrite Instead Of Copying
+Some ideas were kept but reshaped for the current local harness:
 
-These ideas are useful, but the current code is too coupled to the old control
-plane:
-
-| Area | Keep the idea | Rewrite target |
+| Area | Kept idea | Current shape |
 | --- | --- | --- |
-| CLI | local operator commands | small `run-task`, `inspect-run`, `merge-check` commands |
-| project profiles | repo defaults and verify defaults | minimal per-project config file |
-| reports | concise user-facing result summaries | plain local CLI reports, no Telegram format |
-| live logs | command progress evidence | optional JSONL stream after core MVP |
-| dashboard | read-only inspection | postpone until run logs are stable |
+| CLI | local operator commands | explicit `run-task`, run inspection, merge, accept, cleanup, diagnose, lesson, and task-generation commands |
+| project profiles | repo defaults and verify defaults | task specs and agent profiles first; richer project config later if needed |
+| reports | concise user-facing result summaries | local CLI and run-log summaries |
+| live logs | command progress evidence | ordered trajectory entries in run logs |
+| dashboard | read-only inspection | postponed until run logs and summaries justify it |
 
-## Do Not Carry Forward
+## Left Behind During Migration
 
-Do not migrate these into the first new repo:
+The initial harness did not carry forward broad control-plane implementation
+surfaces such as:
 
 - `src/samantha.ts`
-- `src/lib/telegram-adapter.ts`
-- `src/lib/telegram-reply-adapter.ts`
-- `src/lib/remote-command.ts`
-- `src/lib/operator-reports.ts`
-- `src/lib/ceo-turn-store.ts`
-- `src/lib/ceo-report-store.ts`
-- `src/lib/ceo-status.ts`
-- `src/lib/operating-surface.ts`
-- `src/lib/dashboard.ts`
-- `src/lib/daemon.ts`
-- `src/lib/routine-trigger-store.ts`
-- `src/lib/queue-pressure.ts`
-- `src/lib/cost-budget-audit.ts`
-- `src/lib/backup-restore.ts`
-- `ops/systemd/*`
-- `ops/launchd/*`
-- Telegram, remote, CEO-turn, daemon, dashboard, routine, budget, and host
-  migration tests
+- Telegram adapters
+- remote command adapters
+- CEO turn stores
+- dashboard implementation
+- daemon/watch services
+- routine trigger stores
+- cost budget audit code
+- host migration scripts
 
-These may still be mined later, but copying them early would bring back the old
-product direction.
+This list records what happened during migration. It does not prohibit future
+work. Any future adjacent surface should be justified against the current
+responsibility model and added through a reviewed task.
 
-## Documentation Treatment
+## Historical Documentation
 
-Treat old docs as historical context, not as active requirements.
-
-Reference only:
+Old `samantha-codex` docs were treated as context during migration, not as
+active requirements:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DETERMINISTIC_CEO_OFFICE.md`
@@ -91,17 +80,5 @@ Reference only:
 - `docs/Samantha_v2_Phase1.md`
 - `docs/legacy/REMOTE_AUTOPILOT.md`
 
-Do not port phase history. The new repo should have its own short README and
-task-focused architecture note.
-
-## Extraction Rule
-
-Every migrated module must satisfy this rule:
-
-```text
-It helps run, verify, record, or gate a scoped Codex task.
-```
-
-If a module mainly helps remote UX, continuous operations, conversation memory,
-or broad CEO-office state, leave it behind.
-
+The current repo owns its own README, architecture, north star, learning model,
+task templates, agent profiles, policy, tests, and run evidence.

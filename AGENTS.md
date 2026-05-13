@@ -51,7 +51,6 @@ add a reviewed policy/test change.
 
 - Keep changes surgical and test-driven.
 - Prefer the smallest readable implementation that satisfies the current phase.
-- Treat `samantha-codex` as a reference implementation, not the active product.
 - Samantha, not a worker, owns commits after deterministic gates pass.
 - Every writer task must declare target files, forbidden changes, and verify
   commands.

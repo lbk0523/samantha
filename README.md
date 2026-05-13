@@ -1,29 +1,32 @@
-# Samantha Harness Restart
+# Samantha Harness
 
 Last updated: 2026-05-13
 
 ## Decision
 
-The Telegram-first 24/7 Samantha control-plane plan is retired.
+Samantha is the active CEO-style local development harness for BK's Codex
+software work.
 
-The next Samantha should be a personal software development harness for Codex
-work, not a remote command bot and not an always-on LLM office.
+The migration from `samantha-codex` is complete. Historical migration notes are
+not active requirements; current direction comes from:
+
+- `AGENTS.md`
+- `NORTH_STAR.md`
+- `ARCHITECTURE.md`
+- `LEARNING_ARCHITECTURE.md`
 
 The core product loop is:
 
 ```text
-task spec
+minimal user goal
+-> Samantha CEO decomposition
+-> task spec
 -> isolated worktree
 -> Codex run
 -> HARNESS_RESULT
 -> deterministic verification
 -> Samantha-owned commit/report
 ```
-
-The current `samantha-codex` repository remains useful as a prototype and source
-of tested components. It should not remain the main implementation base for the
-next product because too much code, state, and documentation is shaped around
-Telegram, remote adapters, daemon operation, and CEO-office command workflows.
 
 ## Product Shape
 
@@ -37,30 +40,55 @@ Samantha should help BK run software work with discipline:
 - produce concise implementation reports
 - keep merge, push, cleanup, recovery, and authority changes explicit
 
-The first useful version does not need:
+Adjacent surfaces such as chat adapters, daemon operation, dashboards, routine
+triggers, budget governance, multi-project orchestration, and multi-writer
+execution should be introduced only as reviewed product slices with explicit
+authority and verification gates.
 
-- Telegram
-- 24/7 daemon operation
-- remote approval flows
-- CEO turn memory
-- dashboard
-- routine triggers
-- budget governance
-- multi-project orchestration
-- multi-writer execution
-
-Those can be reconsidered only after the core harness is routinely useful.
 Single-writer execution is an MVP constraint, not a permanent doctrine:
 post-MVP parallelism should start with report-only workers and later move to
 speculative writer batches only after batch orchestration, ordered integration,
 and post-merge verification are designed.
 
-## Direction Documents
+## Repository Boundary
 
-- `NORTH_STAR.md` defines the CEO-style local development harness direction.
-- `ARCHITECTURE.md` maps the current implementation to the harness layers.
-- `LEARNING_ARCHITECTURE.md` sketches explicit, reviewable self-learning for
-  the agent organization.
+The repo should stay a narrow package and CLI while the harness core matures.
+
+Current package shape:
+
+```text
+src/
+  cli.ts
+  core/
+    codex-dispatch.ts
+    contracts.ts
+    git.ts
+    glob.ts
+    harness-result.ts
+    ledger.ts
+    lesson-draft.ts
+    merge-gate.ts
+    policy.ts
+    post-run-trajectory.ts
+    run-accept.ts
+    run-commit.ts
+    run-diagnose.ts
+    run-lifecycle-store.ts
+    run-log.ts
+    task-from-run.ts
+    task-from-template.ts
+    worker-dispatch.ts
+    worker-result.ts
+    worktree-cleanup.ts
+    worktree.ts
+  commands/
+    run-task.ts
+tests/
+references/
+  agent-profiles/
+  tasks/
+  task-templates/
+```
 
 ## Core Principles
 
@@ -73,44 +101,7 @@ and post-merge verification are designed.
   separate gates.
 - Non-writer roles are report-only and should not edit files.
 - Workers must not own orchestration; future parallelism belongs to Samantha.
-- Keep the first implementation small enough to understand in one sitting.
-
-## New Repo Boundary
-
-The repo should stay a narrow package and CLI.
-
-Current package shape:
-
-```text
-src/
-  cli.ts
-  core/
-    contracts.ts
-    harness-result.ts
-    policy.ts
-    git.ts
-    worktree.ts
-    codex-dispatch.ts
-    worker-result.ts
-    worker-dispatch.ts
-    run-log.ts
-    ledger.ts
-    merge-gate.ts
-    run-lifecycle-store.ts
-    worktree-cleanup.ts
-    lesson-draft.ts
-    task-from-template.ts
-  commands/
-    run-task.ts
-tests/
-references/
-  agent-profiles/
-  tasks/
-  task-templates/
-```
-
-The old repository should be treated as a reference implementation. Do not copy
-`src/samantha.ts` forward.
+- Keep the implementation small enough to understand in one sitting.
 
 ## Current CLI Surface
 
@@ -121,8 +112,11 @@ bun run samantha runs:show <run-id>
 bun run samantha merge:check --run-log=<path> --repo-root=<repo>
 bun run samantha runs:mark-lifecycle --run-log=<path> --repo-root=<repo> --event=merged|cleaned
 bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
+bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
+bun run samantha runs:diagnose --run-log=<path>
 bun run samantha lessons:draft --run-log=<path>
 bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
+bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```
 
 Current task templates:
@@ -132,11 +126,11 @@ Current task templates:
 - `references/task-templates/cli-command-with-tests.json`
 - `references/task-templates/report-only-review.json`
 
-## MVP Acceptance
+## Acceptance Baseline
 
-The new Samantha harness MVP is complete when:
+Samantha's core loop is credible when:
 
-- a fixture writer task runs in an isolated worktree
+- a writer task runs in an isolated worktree
 - Codex receives a scoped prompt with target and forbidden files
 - Samantha parses the worker's `HARNESS_RESULT`
 - changed files are checked against scope
@@ -144,21 +138,6 @@ The new Samantha harness MVP is complete when:
 - Samantha creates the commit after gates pass
 - a JSON run log records prompt, command, output, changed files, verification,
   and commit
-- a failed or out-of-scope worker result is rejected without committing
-
-## Legacy Position
-
-Keep `samantha-codex` available for:
-
-- tested module behavior
-- old dogfood evidence
-- migration reference
-- examples of gates that may be reintroduced later
-
-Do not keep investing in:
-
-- Telegram UX polish
-- remote command choreography
-- CEO turn approval matching
-- daemon/watch/poll/reply flows
-- large `samantha.ts` refactors
+- failed or out-of-scope worker output is rejected without committing
+- post-run merge, acceptance, cleanup, diagnosis, and lesson drafting remain
+  explicit operations

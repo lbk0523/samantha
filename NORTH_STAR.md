@@ -111,22 +111,16 @@ Learning must be explicit and reviewable:
 If a lesson matters, it should become an artifact that BK can inspect, edit, and
 reject.
 
-## Non-Goals For The Current Product
+## Outside The Core Loop
 
-Do not rebuild the old `samantha-codex` product direction:
+Samantha's core loop is local software work: plan, scope, isolate, run, verify,
+commit, report, and record evidence.
 
-- Telegram
-- remote adapters
-- daemon/watch services
-- dashboard-first operation
-- CEO turn memory
-- routine triggers
-- budget governance
-- multi-project orchestration
-- autonomous push or cleanup without explicit local gates
-
-These ideas may be reconsidered only after the local harness is routinely useful
-and the core responsibility model is stable.
+Adjacent surfaces such as chat adapters, daemon operation, dashboards, routine
+triggers, budget governance, multi-project orchestration, and autonomous
+push/cleanup are outside that loop. They are eligible only as separate reviewed
+product slices with explicit authority, verification, and lifecycle gates. They
+should not re-enter the product as inherited migration scope.
 
 ## Success Test
 
