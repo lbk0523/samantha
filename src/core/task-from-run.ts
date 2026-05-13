@@ -172,8 +172,11 @@ function buildTaskSpec(input: {
     targetAgent: input.log.task.targetAgent,
     targetFiles: [...input.log.task.targetFiles],
     forbiddenChanges: [...input.log.task.forbiddenChanges],
-    setupCommands: input.diagnosis.outcome === "setup_failed" ? [] : [...(input.log.task.setupCommands ?? [])],
-    verifyCommands: verifyCommandsForRun(input.log, input.diagnosis.outcome),
+    setupCommands:
+      reportMode || input.diagnosis.outcome === "setup_failed"
+        ? []
+        : [...(input.log.task.setupCommands ?? [])],
+    verifyCommands: reportMode ? [] : verifyCommandsForRun(input.log, input.diagnosis.outcome),
     instructions: taskInstructions(input),
     ...(reportMode ? { resultMode: "report" as const } : { expectedCommitSubject: `fix: ${input.title}` }),
     status: "pending",

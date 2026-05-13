@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
+import { validateDispatch } from "../src/core/policy";
 import { createTaskFromRun } from "../src/core/task-from-run";
 import type { WorkerRunLog } from "../src/core/run-log";
 import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
@@ -185,6 +186,71 @@ describe("task creation from run evidence", () => {
       recommendedNextAction: "record_report_evidence_do_not_merge",
       note: "passing report-only run is evidence-only; no task was created",
     });
+  });
+
+  test("creates dispatch-safe report-only follow-up tasks from legacy failed report logs", async () => {
+    const root = await makeRoot();
+    const reportTask: TaskSpec = {
+      ...task,
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      setupCommands: ["bun install"],
+      verifyCommands: ["bun run typecheck", "bun test"],
+      resultMode: "report",
+      expectedCommitSubject: undefined,
+    };
+    const reviewer: AgentProfile = {
+      ...agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    const runLogPath = await writeRunLog(
+      root,
+      baseLog({
+        task: reportTask,
+        agent: reviewer,
+        result: baseExecution({
+          setupResults: [],
+          evaluation: {
+            pass: false,
+            harness: { status: "rework", note: "report-only dirty-file blind spot", commit: "" },
+            changedFiles: [],
+            scopeViolations: [],
+            verifyResults: [],
+          },
+          commit: undefined,
+          pass: false,
+        }),
+      }),
+    );
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "report-rework-follow-up",
+      title: "Inspect report rework",
+    });
+    const generated = await readTask(result.path ?? "");
+
+    expect(result).toMatchObject({
+      status: "created",
+      created: true,
+      outcome: "rework",
+    });
+    expect(generated).toMatchObject({
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      setupCommands: [],
+      verifyCommands: [],
+      resultMode: "report",
+    });
+    expect(generated.expectedCommitSubject).toBeUndefined();
+    expect(validateDispatch(generated, reviewer).violations).toEqual([]);
   });
 
   test("creates verify rework tasks that keep the failed verify command first", async () => {
