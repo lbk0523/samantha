@@ -417,6 +417,7 @@ bun run samantha runs:show <run-id>
 bun run samantha merge:check --run-log=<path> --repo-root=<repo>
 bun run samantha runs:mark-lifecycle --run-log=<path> --repo-root=<repo> --event=merged|cleaned
 bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
+bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
 bun run samantha lessons:draft --run-log=<path>
 bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title>
 ```
