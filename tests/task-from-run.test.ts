@@ -164,6 +164,49 @@ function blockedLog(taskId: string, note: string): WorkerRunLog {
   });
 }
 
+function reportOnlyTask(taskId: string): TaskSpec {
+  return {
+    ...task,
+    id: taskId,
+    targetAgent: "codex-reviewer",
+    targetFiles: [],
+    forbiddenChanges: ["**/*"],
+    setupCommands: [],
+    verifyCommands: [],
+    resultMode: "report",
+    expectedCommitSubject: undefined,
+  };
+}
+
+function reviewerAgent(): AgentProfile {
+  return {
+    ...agent,
+    id: "codex-reviewer",
+    role: "reviewer",
+    writerClass: "non-writer",
+    worktreePolicy: "none",
+    mergePolicy: "none",
+  };
+}
+
+function reportOnlyReworkLog(taskId: string, note: string): WorkerRunLog {
+  return baseLog({
+    task: reportOnlyTask(taskId),
+    agent: reviewerAgent(),
+    result: baseExecution({
+      evaluation: {
+        pass: false,
+        harness: { status: "rework", note, commit: "" },
+        changedFiles: [],
+        scopeViolations: [],
+        verifyResults: [],
+      },
+      commit: undefined,
+      pass: false,
+    }),
+  });
+}
+
 async function writeSupersedingRunEvidence(input: {
   root: string;
   sourceLog: WorkerRunLog;
@@ -346,6 +389,140 @@ describe("task creation from run evidence", () => {
     });
     expect(generated.expectedCommitSubject).toBeUndefined();
     expect(validateDispatch(generated, reviewer).violations).toEqual([]);
+  });
+
+  test("refuses report-only rework follow-ups superseded by a later clean report-only pass", async () => {
+    const root = await makeRoot();
+    const sourceLog = reportOnlyReworkLog("dogfood-report-reviewer", "stale report");
+    const runLogPath = await writeRunLog(root, sourceLog);
+    const cleanLog = {
+      ...baseLog({
+        task: reportOnlyTask("dogfood-report-reviewer-v2"),
+        agent: reviewerAgent(),
+        result: baseExecution({
+          evaluation: {
+            pass: true,
+            harness: { status: "pass", note: "clean report", commit: "" },
+            changedFiles: [],
+            scopeViolations: [],
+            verifyResults: [],
+          },
+          commit: undefined,
+          pass: true,
+        }),
+      }),
+      runId: "run-2",
+      startedAt: "2026-05-12T10:02:00.000Z",
+      finishedAt: "2026-05-12T10:03:00.000Z",
+    };
+    const cleanLogPath = await writeRunLog(root, cleanLog);
+    await writeJsonLines(join(root, "index.jsonl"), [
+      runSummary({
+        runId: sourceLog.runId,
+        taskId: sourceLog.task.id,
+        taskTitle: sourceLog.task.title,
+        logPath: runLogPath,
+        outcome: "rework",
+        pass: false,
+      }),
+      runSummary({
+        runId: cleanLog.runId,
+        taskId: cleanLog.task.id,
+        taskTitle: cleanLog.task.title,
+        logPath: cleanLogPath,
+        startedAt: cleanLog.startedAt,
+        finishedAt: cleanLog.finishedAt,
+        outcome: "pass",
+        pass: true,
+        commit: "",
+      }),
+    ]);
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "report-superseded-follow-up",
+      title: "Inspect superseded report",
+    });
+
+    expect(result).toEqual({
+      status: "refused",
+      created: false,
+      runId: sourceLog.runId,
+      taskId: "report-superseded-follow-up",
+      outcome: "rework",
+      recommendedNextAction: "inspect_evidence_then_narrow_or_rerun_with_explicit_reason",
+      note: "run run-1 was superseded by clean report-only run run-2; no task was created",
+    });
+    await expect(readFile(join(root, "references", "tasks", "report-superseded-follow-up.json"), "utf8")).rejects.toThrow();
+  });
+
+  test("creates report-only follow-ups when the later report-only pass changed files", async () => {
+    const root = await makeRoot();
+    const sourceLog = reportOnlyReworkLog("dogfood-report-reviewer", "still needs report follow-up");
+    const runLogPath = await writeRunLog(root, sourceLog);
+    const dirtyLog = {
+      ...baseLog({
+        task: reportOnlyTask("dogfood-report-reviewer-v2"),
+        agent: reviewerAgent(),
+        result: baseExecution({
+          evaluation: {
+            pass: true,
+            harness: { status: "pass", note: "dirty report", commit: "" },
+            changedFiles: ["notes.md"],
+            scopeViolations: [],
+            verifyResults: [],
+          },
+          commit: undefined,
+          pass: true,
+        }),
+      }),
+      runId: "run-2",
+      startedAt: "2026-05-12T10:02:00.000Z",
+      finishedAt: "2026-05-12T10:03:00.000Z",
+    };
+    const dirtyLogPath = await writeRunLog(root, dirtyLog);
+    await writeJsonLines(join(root, "index.jsonl"), [
+      runSummary({
+        runId: sourceLog.runId,
+        taskId: sourceLog.task.id,
+        taskTitle: sourceLog.task.title,
+        logPath: runLogPath,
+        outcome: "rework",
+        pass: false,
+      }),
+      runSummary({
+        runId: dirtyLog.runId,
+        taskId: dirtyLog.task.id,
+        taskTitle: dirtyLog.task.title,
+        logPath: dirtyLogPath,
+        startedAt: dirtyLog.startedAt,
+        finishedAt: dirtyLog.finishedAt,
+        outcome: "pass",
+        pass: true,
+        commit: "",
+      }),
+    ]);
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "report-dirty-follow-up",
+      title: "Inspect dirty report",
+    });
+    const generated = await readTask(result.path ?? "");
+
+    expect(result).toMatchObject({
+      status: "created",
+      created: true,
+      outcome: "rework",
+    });
+    expect(generated).toMatchObject({
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      verifyCommands: [],
+      resultMode: "report",
+    });
   });
 
   test("refuses blocked writer follow-ups superseded by a later accepted and cleaned family run", async () => {

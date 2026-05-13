@@ -65,19 +65,55 @@ function hasCleanedLifecycle(summary: RunSummary, record: RunLifecycleRecord | u
   );
 }
 
+function isCleanPassingReportRun(log: WorkerRunLog): boolean {
+  const evaluation = log.result.evaluation;
+
+  return Boolean(
+    isReportOnlyRun(log) &&
+      evaluation?.pass &&
+      evaluation.harness?.status === "pass" &&
+      evaluation.changedFiles.length === 0 &&
+      evaluation.scopeViolations.length === 0,
+  );
+}
+
 async function supersededRefusalNote(input: {
   log: WorkerRunLog;
   runLogPath: string;
   diagnosis: RunDiagnosis;
 }): Promise<string | undefined> {
-  if (isReportOnlyRun(input.log)) return undefined;
-  if (input.diagnosis.outcome !== "blocked" && input.diagnosis.outcome !== "rework") return undefined;
+  const reportOnly = isReportOnlyRun(input.log);
+  if (!reportOnly && input.diagnosis.outcome !== "blocked" && input.diagnosis.outcome !== "rework") {
+    return undefined;
+  }
+  if (reportOnly && input.diagnosis.outcome === "pass") return undefined;
 
   const evidenceDir = dirname(input.runLogPath);
   const summaries = await new RunIndex(join(evidenceDir, "index.jsonl")).list();
+  const sourceFamily = taskFamily(input.log.task.id);
+
+  if (reportOnly) {
+    const candidateSummaries = summaries.filter((summary) => {
+      return (
+        summary.runId !== input.log.runId &&
+        summary.finishedAt > input.log.finishedAt &&
+        taskFamily(summary.taskId) === sourceFamily &&
+        summary.pass === true
+      );
+    });
+
+    for (const summary of candidateSummaries) {
+      const candidateLog = JSON.parse(await readFile(summary.logPath, "utf8")) as WorkerRunLog;
+      if (isCleanPassingReportRun(candidateLog)) {
+        return `run ${input.log.runId} was superseded by clean report-only run ${summary.runId}; no task was created`;
+      }
+    }
+
+    return undefined;
+  }
+
   const lifecycleRecords = await new RunLifecycleStore(join(evidenceDir, "run-lifecycle.jsonl")).list();
   const lifecycleByRunId = new Map(lifecycleRecords.map((record) => [record.runId, record]));
-  const sourceFamily = taskFamily(input.log.task.id);
   const supersedingRun = summaries.find((summary) => {
     return (
       summary.runId !== input.log.runId &&
