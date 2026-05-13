@@ -17,10 +17,7 @@
       "**/*"
     ],
     "setupCommands": [],
-    "verifyCommands": [
-      "bun run typecheck",
-      "bun test"
-    ],
+    "verifyCommands": [],
     "instructions": "Review the requested Samantha evidence and produce a concise report with findings, risks, and open questions. Do not edit, create, delete, format, commit, push, merge, clean up, or modify policy. Do not claim authority over lifecycle transitions. The final response must be report-only and evidence-based.",
     "resultMode": "report",
     "status": "pending"

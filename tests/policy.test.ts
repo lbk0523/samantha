@@ -126,6 +126,7 @@ describe("dispatch policy", () => {
         resultMode: "report",
         targetFiles: [],
         forbiddenChanges: ["**/*"],
+        verifyCommands: [],
       },
       reviewer,
     );
@@ -165,6 +166,7 @@ describe("dispatch policy", () => {
         resultMode: "report",
         targetFiles: [],
         forbiddenChanges: ["**/*"],
+        verifyCommands: [],
         setupCommands: ["touch should-not-run"],
       },
       reviewer,
@@ -172,6 +174,23 @@ describe("dispatch policy", () => {
 
     expect(result.mayDispatch).toBe(false);
     expect(result.violations).toContain("non-writer report tasks must not declare setupCommands");
+  });
+
+  test("blocks non-writer report tasks with verify commands", () => {
+    const result = validateDispatch(
+      {
+        ...validTask,
+        targetAgent: "codex-reviewer",
+        resultMode: "report",
+        targetFiles: [],
+        forbiddenChanges: ["**/*"],
+        verifyCommands: ["touch should-not-run"],
+      },
+      reviewer,
+    );
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain("non-writer report tasks must not declare verifyCommands");
   });
 
   test("blocks profiles that can use orchestration-conflicting skills", () => {

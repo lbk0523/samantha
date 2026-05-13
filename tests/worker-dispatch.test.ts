@@ -103,7 +103,7 @@ describe("worker dispatch", () => {
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
-      verifyCommands: ["test -f README.md"],
+      verifyCommands: [],
       instructions: "Review evidence and report only.",
       resultMode: "report",
       status: "pending",
@@ -167,7 +167,7 @@ describe("worker dispatch", () => {
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
-      verifyCommands: ["test -f README.md"],
+      verifyCommands: [],
       instructions: "Review evidence and report only.",
       resultMode: "report",
       status: "pending",
@@ -188,10 +188,7 @@ describe("worker dispatch", () => {
     expect(result.preparation.worktreePath).toBe(repo);
     expect(result.preparation.allocation).toBeUndefined();
     expect(result.evaluation?.changedFiles).toEqual([]);
-    expect(result.evaluation?.verifyResults[0]).toMatchObject({
-      command: "test -f README.md",
-      exitCode: 0,
-    });
+    expect(result.evaluation?.verifyResults).toEqual([]);
     expect(result.commit).toBeUndefined();
   });
 
@@ -212,7 +209,7 @@ describe("worker dispatch", () => {
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
-      verifyCommands: ["test -f README.md"],
+      verifyCommands: [],
       instructions: "Review evidence and report only.",
       resultMode: "report",
       status: "pending",

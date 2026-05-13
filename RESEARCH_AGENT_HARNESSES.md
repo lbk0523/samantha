@@ -567,6 +567,7 @@ Status:
 - reviewer profile is non-writer, no-worktree, no-merge
 - report-only tasks run in the read-only Codex sandbox
 - non-writer report tasks cannot declare setup commands
+- non-writer report tasks cannot declare verify commands
 - covered by policy, dispatch, worker-dispatch, task-template, and
   task-from-template tests
 - automatic reviewer orchestration is not implemented

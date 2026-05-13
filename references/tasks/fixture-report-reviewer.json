@@ -7,10 +7,7 @@
     "**/*"
   ],
   "setupCommands": [],
-  "verifyCommands": [
-    "bun run typecheck",
-    "bun test"
-  ],
+  "verifyCommands": [],
   "instructions": "Review the current Samantha harness evidence boundary using README.md, ARCHITECTURE.md, and RESEARCH_AGENT_HARNESSES.md. Report findings, risks, and open questions only. Do not edit files, create commits, run lifecycle transitions, or change policy.",
   "resultMode": "report",
   "status": "pending"

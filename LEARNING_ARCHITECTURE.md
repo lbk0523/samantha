@@ -285,9 +285,9 @@ references/task-templates/report-only-review.json
 
 The reviewer is report-only: it uses `writerClass: "non-writer"`,
 `worktreePolicy: "none"`, `mergePolicy: "none"`, and task specs with
-`resultMode: "report"`. Non-writer report tasks may not declare setup commands.
-The reviewer may inspect evidence and produce findings, but it must not edit
-files, create commits, merge, clean up worktrees, or change policy.
+`resultMode: "report"`. Non-writer report tasks may not declare setup or verify
+commands. The reviewer may inspect evidence and produce findings, but it must
+not edit files, create commits, merge, clean up worktrees, or change policy.
 
 ## Deferred Promotion
 

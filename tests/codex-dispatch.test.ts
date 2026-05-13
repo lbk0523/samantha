@@ -77,6 +77,7 @@ describe("codex dispatch preparation", () => {
         resultMode: "report",
         targetFiles: [],
         forbiddenChanges: ["**/*"],
+        verifyCommands: [],
       },
       {
         ...worker,

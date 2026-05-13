@@ -111,6 +111,9 @@ export function validateDispatch(
     if ((task.setupCommands ?? []).length > 0) {
       violations.push("non-writer report tasks must not declare setupCommands");
     }
+    if (task.verifyCommands.length > 0) {
+      violations.push("non-writer report tasks must not declare verifyCommands");
+    }
   }
 
   return {

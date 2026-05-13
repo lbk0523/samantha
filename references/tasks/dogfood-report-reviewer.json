@@ -7,10 +7,7 @@
     "**/*"
   ],
   "setupCommands": [],
-  "verifyCommands": [
-    "bun run typecheck",
-    "bun test"
-  ],
+  "verifyCommands": [],
   "instructions": "Review the current Samantha harness evidence for the report-only reviewer slice. Inspect README.md, ARCHITECTURE.md, LEARNING_ARCHITECTURE.md, RESEARCH_AGENT_HARNESSES.md, references/agent-profiles/codex-reviewer.json, references/task-templates/report-only-review.json, references/tasks/fixture-report-reviewer.json, src/core/codex-dispatch.ts, src/core/worker-dispatch.ts, src/core/worker-result.ts, and the related tests. Produce a concise evidence-based report with findings, risks, and open questions only. Do not edit, create, delete, format, commit, push, merge, clean up, or modify policy.",
   "resultMode": "report",
   "status": "pending"
