@@ -9,6 +9,10 @@ This guide defines the debut user-facing operating protocol for Samantha.
 Samantha v0 is operated through Codex Chat. It is not a new CLI command, chat
 adapter, daemon, dashboard, routine trigger, or remote control plane.
 
+This document is the protocol specification. Cross-repo activation in Codex
+sessions is handled by the global Codex skill at
+`~/.codex/skills/samantha-operator/SKILL.md`.
+
 The official syntax is:
 
 ```text
@@ -18,6 +22,12 @@ Samantha <intent>: <natural language request>
 Only explicit `Samantha <intent>:` messages activate this protocol. Ordinary
 chat messages stay ordinary Codex conversation unless BK explicitly frames them
 as Samantha operation.
+
+When the global skill activates in another repo, the current Codex working
+directory is the target repo and the Samantha harness repo remains
+`/Users/byung/Documents/samantha`. A thin terminal `samantha` wrapper may exist
+for CLI convenience, but it does not activate Samantha in Codex Chat. Chat
+activation is the global skill plus the explicit `Samantha <intent>:` prefix.
 
 ## Authority Boundary
 

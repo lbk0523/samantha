@@ -53,6 +53,10 @@ gates.
 
 See `OPERATING_GUIDE.md` for the full protocol and examples.
 
+For cross-repo Codex Chat use, activation is provided by the global
+`samantha-operator` skill; this README and the operating guides describe the
+protocol, not a daemon or chat adapter.
+
 ## Product Shape
 
 Samantha should help BK run software work with discipline:

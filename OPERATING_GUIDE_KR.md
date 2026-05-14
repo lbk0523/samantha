@@ -9,6 +9,10 @@
 Samantha v0는 Codex Chat에서 운용한다. 새 CLI 명령, chat adapter, daemon,
 dashboard, routine trigger, remote control plane이 아니다.
 
+이 문서는 프로토콜 사양이다. 다른 repo의 Codex 세션에서 이 프로토콜을
+활성화하는 실제 장치는 전역 Codex skill
+`~/.codex/skills/samantha-operator/SKILL.md`이다.
+
 공식 문법은 다음과 같다:
 
 ```text
@@ -18,6 +22,12 @@ Samantha <intent>: <자연어 요청>
 명시적인 `Samantha <intent>:` 메시지만 이 프로토콜을 활성화한다. BK가
 명시적으로 Samantha 운영 요청으로 표현하지 않은 일반 채팅은 평소 Codex 대화로
 취급한다.
+
+전역 skill이 활성화된 세션에서는 현재 Codex 작업 디렉토리를 target repo로 보고,
+Samantha harness repo는 항상 `/Users/byung/Documents/samantha`로 고정한다. 터미널
+편의를 위한 얇은 `samantha` wrapper가 있을 수 있지만, wrapper는 CLI 실행만
+돕는다. Codex Chat activation은 여전히 전역 skill과 명시적인
+`Samantha <intent>:` prefix가 담당한다.
 
 ## 권한 경계
 
