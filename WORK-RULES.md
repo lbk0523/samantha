@@ -47,6 +47,16 @@ such as "make it work" need clarification or a tighter local interpretation.
 - Do not refactor adjacent code unless it is required for the requested change.
 - Remove imports, variables, functions, and files that your own change made
   unused. Do not clean up pre-existing dead code unless asked.
+- Size implementation slices around cohesive work surfaces, not tiny individual
+  invariants. When several rules share the same validator, artifact shape,
+  command workflow, or report-only orchestration boundary, group them into one
+  implementation slice if they can be tested, verified, committed, and pushed
+  together without crossing authority boundaries.
+- Keep slices small only when the broader grouping would require new authority,
+  a broad framework, writer parallelism, trusted worker reports, dispatch,
+  merge, cleanup execution, or unclear product decisions. If slice size is being
+  reduced mainly to lower implementation risk or context load, say that
+  explicitly and explain the tradeoff before proceeding.
 - Samantha, not a worker, owns commits after deterministic gates pass.
 - Every writer task must declare target files, forbidden changes, and verify
   commands.
