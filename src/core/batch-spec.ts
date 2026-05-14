@@ -1,6 +1,31 @@
+type BatchStatus =
+  | "planned"
+  | "preflight_passed"
+  | "dispatched"
+  | "partially_failed"
+  | "integrated"
+  | "rejected"
+  | "cleaned";
+
+type BatchTaskStatus =
+  | "planned"
+  | "eligible"
+  | "dispatched"
+  | "passed"
+  | "failed"
+  | "blocked"
+  | "accepted"
+  | "rejected"
+  | "cleaned";
+
+type IntegrationQueueStatus = "pending" | "accepted" | "skipped" | "failed";
+
 export interface MinimalBatchTaskSpec {
   taskId: string;
   expectedVerifyCommands: string[];
+  status: BatchTaskStatus;
+  runLogPath?: string;
+  candidateCommit?: string;
 }
 
 export interface MinimalBatchDependency {
@@ -12,7 +37,9 @@ export interface MinimalBatchIntegrationQueueItem {
   order: number;
   taskId: string;
   requiresAccepted: string[];
+  expectedCandidateCommit?: string;
   focusedVerifyCommands: string[];
+  status: IntegrationQueueStatus;
 }
 
 export interface BatchSpec {
@@ -20,7 +47,7 @@ export interface BatchSpec {
   batchId: string;
   repoRoot: string;
   baseCommit: string;
-  status: string;
+  status: BatchStatus;
   tasks: MinimalBatchTaskSpec[];
   dependencies: MinimalBatchDependency[];
   integrationQueue: MinimalBatchIntegrationQueueItem[];
@@ -28,6 +55,33 @@ export interface BatchSpec {
 
 const BATCH_ID_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/;
 const FULL_HEX_COMMIT_PATTERN = /^[0-9a-f]{40}$/;
+const BATCH_STATUSES = new Set<BatchStatus>([
+  "planned",
+  "preflight_passed",
+  "dispatched",
+  "partially_failed",
+  "integrated",
+  "rejected",
+  "cleaned",
+]);
+const BATCH_TASK_STATUSES = new Set<BatchTaskStatus>([
+  "planned",
+  "eligible",
+  "dispatched",
+  "passed",
+  "failed",
+  "blocked",
+  "accepted",
+  "rejected",
+  "cleaned",
+]);
+const INTEGRATION_QUEUE_STATUSES = new Set<IntegrationQueueStatus>([
+  "pending",
+  "accepted",
+  "skipped",
+  "failed",
+]);
+const PRE_DISPATCH_BATCH_STATUSES = new Set<BatchStatus>(["planned", "preflight_passed"]);
 
 export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
   const violations: string[] = [];
@@ -41,13 +95,55 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
   if (!FULL_HEX_COMMIT_PATTERN.test(spec.baseCommit)) {
     violations.push("baseCommit must be a 40-character hex commit hash");
   }
+  if (!BATCH_STATUSES.has(spec.status)) {
+    violations.push(`status must be a valid BatchStatus: ${spec.status}`);
+  }
 
   violations.push(...validateUniqueTaskIds(spec.tasks));
+  violations.push(...validateTaskStatuses(spec.tasks));
+  violations.push(...validatePreDispatchEvidenceAbsence(spec));
   violations.push(...validateDependencies(spec.tasks, spec.dependencies));
   if (hasDependencyCycle(spec.tasks, spec.dependencies)) {
     violations.push("dependencies must be acyclic");
   }
   violations.push(...validateIntegrationQueue(spec.tasks, spec.dependencies, spec.integrationQueue));
+
+  return violations;
+}
+
+function validateTaskStatuses(tasks: MinimalBatchTaskSpec[]): string[] {
+  const violations: string[] = [];
+
+  for (const task of tasks) {
+    if (!BATCH_TASK_STATUSES.has(task.status)) {
+      violations.push(`tasks[].status must be a valid BatchTaskStatus: ${task.taskId} has ${task.status}`);
+    }
+  }
+
+  return violations;
+}
+
+function validatePreDispatchEvidenceAbsence(spec: BatchSpec): string[] {
+  const violations: string[] = [];
+
+  if (!PRE_DISPATCH_BATCH_STATUSES.has(spec.status)) {
+    return violations;
+  }
+
+  for (const task of spec.tasks) {
+    if (task.runLogPath !== undefined) {
+      violations.push(`tasks[].runLogPath must be absent before dispatch: ${task.taskId}`);
+    }
+    if (task.candidateCommit !== undefined) {
+      violations.push(`tasks[].candidateCommit must be absent before dispatch: ${task.taskId}`);
+    }
+  }
+
+  for (const item of spec.integrationQueue) {
+    if (item.expectedCandidateCommit !== undefined) {
+      violations.push(`integrationQueue[].expectedCandidateCommit must be absent before dispatch: ${item.taskId}`);
+    }
+  }
 
   return violations;
 }
@@ -137,6 +233,9 @@ function validateIntegrationQueue(
   const queueCountByTaskId = new Map<string, number>();
 
   for (const item of integrationQueue) {
+    if (!INTEGRATION_QUEUE_STATUSES.has(item.status)) {
+      violations.push(`integrationQueue[].status must be pending, accepted, skipped, or failed: ${item.taskId}`);
+    }
     if (!taskIds.has(item.taskId)) {
       violations.push(`integrationQueue[].taskId must reference an existing taskId: ${item.taskId}`);
     }
