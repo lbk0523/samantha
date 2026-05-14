@@ -17,7 +17,6 @@ reviewed artifacts.
 
 - `NORTH_STAR.md` defines product identity and success.
 - `ARCHITECTURE.md` defines system shape, authority boundaries, and gates.
-- `LEARNING_ARCHITECTURE.md` defines explicit learning artifacts.
 - `ROADMAP.md` sequences product capability phases.
 - `references/tasks/*.json` are executable work units.
 - `runs/*.json` and `runs/index.jsonl` are run evidence.
@@ -125,6 +124,7 @@ Required gates:
 - policy lessons require focused tests
 - doctrine updates stay documentation-only unless enforcement is explicitly
   requested
+- worker behavior changes only through reviewed artifacts that workers receive
 
 Acceptance evidence:
 

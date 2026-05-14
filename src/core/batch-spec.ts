@@ -199,11 +199,6 @@ export const DEFAULT_SERIAL_ONLY_RULES: SerialOnlyRule[] = [
     reason: "architecture defines authority boundaries",
   },
   {
-    id: "doctrine-learning",
-    glob: "LEARNING_ARCHITECTURE.md",
-    reason: "learning rules define durable memory boundaries",
-  },
-  {
     id: "doctrine-roadmap",
     glob: "ROADMAP.md",
     reason: "roadmap changes phase authority",

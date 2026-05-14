@@ -10,7 +10,6 @@
   ],
   "forbiddenChanges": [
     "ARCHITECTURE.md",
-    "LEARNING_ARCHITECTURE.md",
     "NORTH_STAR.md",
     "references/agent-profiles/**",
     "references/playbooks/**",

@@ -164,11 +164,6 @@ The first implementation should treat these path classes as serial-only:
     "reason": "architecture defines authority boundaries"
   },
   {
-    "id": "doctrine-learning",
-    "glob": "LEARNING_ARCHITECTURE.md",
-    "reason": "learning rules define durable memory boundaries"
-  },
-  {
     "id": "doctrine-roadmap",
     "glob": "ROADMAP.md",
     "reason": "roadmap changes phase authority"
@@ -410,11 +405,6 @@ perform cleanup.
       "id": "doctrine-architecture",
       "glob": "ARCHITECTURE.md",
       "reason": "architecture defines authority boundaries"
-    },
-    {
-      "id": "doctrine-learning",
-      "glob": "LEARNING_ARCHITECTURE.md",
-      "reason": "learning rules define durable memory boundaries"
     },
     {
       "id": "doctrine-roadmap",

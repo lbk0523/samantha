@@ -13,7 +13,6 @@ not active requirements; current direction comes from:
 - `AGENTS.md`
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
-- `LEARNING_ARCHITECTURE.md`
 - `ROADMAP.md`
 
 The core product loop is:
@@ -118,6 +117,10 @@ references/
   separate gates.
 - Non-writer roles are report-only and should not edit files.
 - Workers must not own orchestration; future parallelism belongs to Samantha.
+- Learning must be explicit repository artifacts: candidates, reviews,
+  playbooks, templates, profiles, policy/tests, or direction documents.
+- Hidden memory, automatic promotion, and unreviewed authority changes are not
+  allowed.
 - Keep the implementation small enough to understand in one sitting.
 
 ## Current CLI Surface

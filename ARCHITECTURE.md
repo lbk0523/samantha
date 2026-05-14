@@ -1,6 +1,6 @@
 # Samantha Architecture
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
 
 ## System Shape
 
@@ -69,7 +69,7 @@ encoding is too implicit.
 | standard writer task | bounded source/test writes | per-task | focused tests plus broader sanity when justified | normal implementation work |
 | rework task | bounded follow-up writes | per-task | starts from the failed command or scope evidence | fixing a failed run without trusting failed worker judgment |
 | policy-change | authority or contract writes | per-task | focused policy/template tests required | `src/core/policy.ts`, contracts, profiles, templates, or enforcement changes |
-| doctrine-update | product direction writes | per-task | docs verification plus report-only review when authority boundaries move | `AGENTS.md`, `NORTH_STAR.md`, `ARCHITECTURE.md`, `LEARNING_ARCHITECTURE.md` |
+| doctrine-update | product direction writes | per-task | docs verification plus report-only review when authority boundaries move | `AGENTS.md`, `NORTH_STAR.md`, `ARCHITECTURE.md`, `ROADMAP.md` |
 
 The forbidden post-MVP shortcut is a "light" writer task that skips isolation,
 scope checks, deterministic verification, or evidence recording. A small task
@@ -132,7 +132,7 @@ Treat these as doctrine or policy tasks:
 - `AGENTS.md`
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
-- `LEARNING_ARCHITECTURE.md`
+- `ROADMAP.md`
 - `src/core/policy.ts`
 - task templates
 - agent profiles
@@ -396,6 +396,21 @@ Current behavior:
 The learning artifact layer turns run evidence into explicit, reviewable
 repository artifacts.
 
+Learning is a pipeline:
+
+```text
+run evidence
+-> lesson candidate
+-> review
+-> promoted artifact
+-> enforcement or guidance
+-> later run evidence
+```
+
+Nothing becomes durable guidance until it is promoted into a repository
+artifact. Samantha must not learn through hidden memory, vague preference drift,
+automatic policy rewrite, or unreviewed authority changes.
+
 Current files:
 
 - `src/core/lesson-draft.ts`
@@ -437,6 +452,29 @@ Current behavior:
 - keep unresolved placeholders visible for manual narrowing and report their
   names after generation
 - refuse to overwrite existing task specs
+
+Allowed learning artifacts are markdown direction documents, playbooks, task
+templates, agent profiles, TypeScript policy checks with tests, run summaries,
+lifecycle records, lesson candidates, and lesson reviews.
+
+Promotion force should stay proportional to evidence:
+
+- advisory lessons live in playbooks
+- default behavior lives in task templates or agent profiles
+- gates live in TypeScript policy and focused tests
+- doctrine lives in `AGENTS.md`, `NORTH_STAR.md`, `ARCHITECTURE.md`, or
+  `ROADMAP.md`
+
+Workers do not learn directly. Worker behavior changes only when Samantha
+updates the task instructions, agent profile, blocked skills, target files,
+forbidden changes, verify commands, or playbook references that workers receive.
+Agent profiles may guide worker behavior, but they cannot grant authority that
+policy rejects.
+
+Learning must never create background execution, grant worker merge/push/cleanup
+authority, bypass deterministic verification, store secrets, hide user
+preferences in opaque memory, or silently rewrite doctrine or policy. The bias
+is slow promotion and strong evidence.
 
 ## CLI Surface
 
@@ -488,8 +526,16 @@ Avoid these shortcuts:
 - turning reports into hidden memory
 - letting workers commit directly to target branches
 - allowing worker-created worktrees
+- adopting broad agent frameworks before repeated local evidence proves the
+  abstraction is worth its authority and maintenance cost
 - adding remote or chat control without explicit product and authority design
 - building dashboards before run logs and summaries are stable
 - letting workers orchestrate subagents or parallel writers
 - adding parallel writer batches before batch gates, ordered integration, and
   post-merge verification exist
+
+External agent projects should be reference pressure, not product scope. Do not
+adopt LobeHub, Hermes Agent, OpenHands, LangGraph, CrewAI, AutoGen, Goose, or a
+runtime abstraction as Samantha's framework by default. Keep subprocess Codex
+dispatch, local git worktrees, and deterministic verification until repeated
+failures show the current boundary is the problem.

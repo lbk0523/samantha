@@ -12,7 +12,7 @@ Use the current direction documents for active work:
 - `README.md`
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
-- `LEARNING_ARCHITECTURE.md`
+- `ROADMAP.md`
 
 ## Carried Forward During Migration
 

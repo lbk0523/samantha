@@ -26,7 +26,6 @@ Read these direction documents before broad architectural changes:
 
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
-- `LEARNING_ARCHITECTURE.md`
 - `ROADMAP.md`
 
 ## Work Rules
@@ -98,7 +97,6 @@ Treat changes to these files or artifact families as doctrine or policy work:
 - `AGENTS.md`
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
-- `LEARNING_ARCHITECTURE.md`
 - `src/core/policy.ts`
 - task templates
 - agent profiles

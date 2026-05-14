@@ -104,7 +104,6 @@ const AUTHORITY_BOUNDARY_SERIAL_RULE_IDS = new Set([
   "doctrine-agents",
   "doctrine-north-star",
   "doctrine-architecture",
-  "doctrine-learning",
   "doctrine-roadmap",
   "doctrine-work-rules",
 ]);

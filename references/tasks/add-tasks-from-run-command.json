@@ -12,7 +12,6 @@
   ],
   "forbiddenChanges": [
     "AGENTS.md",
-    "LEARNING_ARCHITECTURE.md",
     "NORTH_STAR.md",
     "src/core/policy.ts",
     "references/agent-profiles/**",
