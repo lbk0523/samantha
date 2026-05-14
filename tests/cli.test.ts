@@ -47,10 +47,15 @@ function cliTaskSpecFor(batchTask: BatchSpec["tasks"][number], overrides: Partia
   };
 }
 
-async function writeCliBatchPreflightFixture(taskSpecOverrides: Partial<TaskSpec> = {}): Promise<string> {
+async function writeCliBatchStoreFixture(
+  taskSpecOverrides: Partial<TaskSpec> = {},
+  batchOverrides: Partial<BatchSpec> = {},
+): Promise<{ batchPath: string; batchesDir: string; root: string }> {
   const root = await mkdtemp(join(tmpdir(), "samantha-cli-batch-"));
   tmpRoots.push(root);
   await mkdir(join(root, "references", "tasks"), { recursive: true });
+  const batchesDir = join(root, "references", "batch-specs");
+  await mkdir(batchesDir, { recursive: true });
   const batchTask = cliBatchTask("task-a");
   await writeFile(
     join(root, batchTask.taskSpecPath),
@@ -75,10 +80,15 @@ async function writeCliBatchPreflightFixture(taskSpecOverrides: Partial<TaskSpec
         status: "pending",
       },
     ],
+    ...batchOverrides,
   };
-  const batchPath = join(root, "batch.json");
+  const batchPath = join(batchesDir, "cli-preflight.json");
   await writeFile(batchPath, `${JSON.stringify(batch, null, 2)}\n`, "utf8");
-  return batchPath;
+  return { batchPath, batchesDir, root };
+}
+
+async function writeCliBatchPreflightFixture(taskSpecOverrides: Partial<TaskSpec> = {}): Promise<string> {
+  return (await writeCliBatchStoreFixture(taskSpecOverrides)).batchPath;
 }
 
 describe("samantha cli", () => {
@@ -428,6 +438,31 @@ describe("samantha cli", () => {
       command: "batches:preflight",
       batchPath: "references/batches/batch-1.json",
     });
+    expect(
+      parseCliArgs([
+        "batches:preflight",
+        "--batch-id=cli-preflight",
+        "--batches-dir=references/batch-specs",
+      ]),
+    ).toEqual({
+      command: "batches:preflight",
+      batchId: "cli-preflight",
+      batchesDir: "references/batch-specs",
+    });
+    expect(() => parseCliArgs(["batches:preflight"])).toThrow(
+      "usage: bun run samantha batches:preflight --batch=<path> OR --batch-id=<id> [--batches-dir=<dir>]",
+    );
+  });
+
+  test("parses batch list and show arguments", () => {
+    expect(parseCliArgs(["batches:list", "--batches-dir=references/batch-specs"])).toEqual({
+      command: "batches:list",
+      batchesDir: "references/batch-specs",
+    });
+    expect(parseCliArgs(["batches:show", "--batch-id=cli-preflight"])).toEqual({
+      command: "batches:show",
+      batchId: "cli-preflight",
+    });
   });
 
   test("batch preflight command prints passing preflight result", async () => {
@@ -484,6 +519,118 @@ describe("samantha cli", () => {
     const result = JSON.parse(stdout);
     expect(result.mayDispatch).toBe(false);
     expect(result.violations).toContain(
+      "tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: task-a",
+    );
+  });
+
+  test("batch list command prints store summaries in stable order", async () => {
+    const { batchesDir, root } = await writeCliBatchStoreFixture();
+    const secondBatch = {
+      schemaVersion: 1,
+      batchId: "alpha-batch",
+      repoRoot: root,
+      baseCommit: "0123456789abcdef0123456789abcdef01234567",
+      status: "planned",
+      serialOnlyRules: DEFAULT_SERIAL_ONLY_RULES,
+      tasks: [cliBatchTask("task-a")],
+      dependencies: [],
+      integrationQueue: [
+        {
+          order: 1,
+          taskId: "task-a",
+          requiresAccepted: [],
+          focusedVerifyCommands: ["bun test task-a"],
+          status: "pending",
+        },
+      ],
+    } satisfies BatchSpec;
+    await writeFile(join(batchesDir, "alpha-batch.json"), `${JSON.stringify(secondBatch, null, 2)}\n`, "utf8");
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batches:list", `--batches-dir=${batchesDir}`])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout).map((item: { batchId: string }) => item.batchId)).toEqual([
+      "alpha-batch",
+      "cli-preflight",
+    ]);
+  });
+
+  test("batch show command prints BatchSpec JSON by id", async () => {
+    const { batchesDir } = await writeCliBatchStoreFixture();
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batches:show", "--batch-id=cli-preflight", `--batches-dir=${batchesDir}`])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout)).toMatchObject({
+      batchId: "cli-preflight",
+      status: "planned",
+      tasks: [{ taskId: "task-a" }],
+    });
+  });
+
+  test("batch show command fails clearly when id is missing from the store", async () => {
+    const { batchesDir } = await writeCliBatchStoreFixture();
+
+    await expect(main(["batches:show", "--batch-id=missing-batch", `--batches-dir=${batchesDir}`])).rejects.toThrow(
+      "batch not found: missing-batch",
+    );
+  });
+
+  test("batch preflight command can read BatchSpec by id", async () => {
+    const { batchesDir } = await writeCliBatchStoreFixture();
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main(["batches:preflight", "--batch-id=cli-preflight", `--batches-dir=${batchesDir}`]),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout)).toMatchObject({
+      mayDispatch: true,
+      violations: [],
+    });
+  });
+
+  test("batch preflight by id returns non-zero when preflight rejects dispatch", async () => {
+    const { batchesDir } = await writeCliBatchStoreFixture({ targetFiles: ["src/different.ts"] });
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main(["batches:preflight", "--batch-id=cli-preflight", `--batches-dir=${batchesDir}`]),
+      ).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout).violations).toContain(
       "tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: task-a",
     );
   });

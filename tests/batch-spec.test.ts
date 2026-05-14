@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES, preflightBatchSpec, validateMinimalBatchSpec } from "../src/core/batch-spec";
+import { listBatchSpecs, readBatchSpecById } from "../src/core/batch-spec-store";
 import type { TaskSpec } from "../src/core/contracts";
 
 let tmpRoots: string[] = [];
@@ -417,6 +418,81 @@ describe("minimal BatchSpec validation", () => {
       ),
     ).toContain(
       "integrationQueue[].focusedVerifyCommands must include expected verify command: task-c requires bun test task-c",
+    );
+  });
+});
+
+describe("BatchSpec artifact store", () => {
+  test("lists BatchSpec summaries in stable batchId order and ignores non-json files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-store-"));
+    tmpRoots.push(root);
+    const batchesDir = join(root, "references", "batch-specs");
+    await mkdir(batchesDir, { recursive: true });
+    await writeFile(join(batchesDir, "notes.md"), "# Direction only\n", "utf8");
+    await writeFile(
+      join(batchesDir, "z-batch.json"),
+      `${JSON.stringify(batchSpec({ batchId: "z-batch", tasks: [task("task-a")] }), null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(batchesDir, "a-batch.json"),
+      `${JSON.stringify(batchSpec({ batchId: "a-batch", tasks: [task("task-a"), task("task-b")] }), null, 2)}\n`,
+      "utf8",
+    );
+
+    await expect(listBatchSpecs({ batchesDir })).resolves.toEqual([
+      {
+        batchId: "a-batch",
+        path: join(batchesDir, "a-batch.json"),
+        status: "planned",
+        baseCommit: "0123456789abcdef0123456789abcdef01234567",
+        taskCount: 2,
+      },
+      {
+        batchId: "z-batch",
+        path: join(batchesDir, "z-batch.json"),
+        status: "planned",
+        baseCommit: "0123456789abcdef0123456789abcdef01234567",
+        taskCount: 1,
+      },
+    ]);
+  });
+
+  test("reads BatchSpec JSON by batchId", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-store-"));
+    tmpRoots.push(root);
+    const batchesDir = join(root, "references", "batch-specs");
+    const spec = batchSpec({ batchId: "show-me" });
+    await mkdir(batchesDir, { recursive: true });
+    await writeFile(join(batchesDir, "show-me.json"), `${JSON.stringify(spec, null, 2)}\n`, "utf8");
+
+    await expect(readBatchSpecById({ batchesDir, batchId: "show-me" })).resolves.toEqual(spec);
+    await expect(readBatchSpecById({ batchesDir, batchId: "missing-batch" })).rejects.toThrow(
+      "batch not found: missing-batch",
+    );
+  });
+
+  test("fails deterministically when the store has duplicate batchIds", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-store-"));
+    tmpRoots.push(root);
+    const batchesDir = join(root, "references", "batch-specs");
+    await mkdir(batchesDir, { recursive: true });
+    await writeFile(
+      join(batchesDir, "one.json"),
+      `${JSON.stringify(batchSpec({ batchId: "duplicate-batch" }), null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(batchesDir, "two.json"),
+      `${JSON.stringify(batchSpec({ batchId: "duplicate-batch" }), null, 2)}\n`,
+      "utf8",
+    );
+
+    await expect(listBatchSpecs({ batchesDir })).rejects.toThrow(
+      `duplicate batchId in BatchSpec store: duplicate-batch: ${join(batchesDir, "one.json")}, ${join(
+        batchesDir,
+        "two.json",
+      )}`,
     );
   });
 });
