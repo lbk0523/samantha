@@ -811,4 +811,49 @@ describe("samantha cli", () => {
       `repoRoot HEAD must match baseCommit before dispatch: HEAD ${head} != baseCommit ${baseCommit}`,
     );
   });
+
+  test("batch execute records stale replan evidence without mutating the source BatchSpec", async () => {
+    const { batchPath, batchesDir, root, baseCommit } = await writeCliBatchStoreFixture();
+    const beforeBatchJson = await readFile(batchPath, "utf8");
+    await writeFile(join(root, "advanced.txt"), "advanced\n", "utf8");
+    await git(["add", "advanced.txt"], root);
+    await git(["commit", "-m", "chore: advance cli fixture"], root);
+    const head = await gitHead(root);
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batches:execute",
+          "--batch-id=cli-preflight",
+          `--batches-dir=${batchesDir}`,
+          `--runs-dir=${join(root, "runs")}`,
+          "--target-branch=main",
+          "--codex-bin=/bin/false",
+        ]),
+      ).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.status).toBe("preflight_failed");
+    expect(result.staleBaseReplan).toMatchObject({
+      batchId: "cli-preflight",
+      policy: "block_and_replan",
+      decision: "blocked_for_replan",
+      trigger: "preflight",
+      sourceBaseCommit: baseCommit,
+      observedHead: head,
+      sourceBatchSpecMutation: "not_performed",
+      replanArtifactPath: null,
+    });
+    expect(await readFile(batchPath, "utf8")).toBe(beforeBatchJson);
+    const evidence = JSON.parse(await readFile(join(root, "runs", "batch-replan-evidence.jsonl"), "utf8"));
+    expect(evidence).toEqual(result.staleBaseReplan);
+  });
 });

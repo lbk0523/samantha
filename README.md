@@ -63,6 +63,7 @@ src/
   cli.ts
   core/
     batch-execution.ts
+    batch-replan.ts
     batch-spec-store.ts
     batch-spec.ts
     codex-dispatch.ts
@@ -171,5 +172,5 @@ Samantha's core loop is credible when:
   evidence for a Samantha decision point
 - BatchSpec writer batches re-run preflight, dispatch only eligible writer
   groups from `baseCommit`, integrate candidates in queue order, verify after
-  accepted merges, record lifecycle evidence, and clean up only after terminal
-  accepted evidence
+  accepted merges, record stale-base `block_and_replan` evidence, record
+  lifecycle evidence, and clean up only after terminal accepted evidence

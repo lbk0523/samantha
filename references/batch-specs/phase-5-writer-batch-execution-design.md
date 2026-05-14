@@ -161,12 +161,21 @@ records show all workers have terminal decisions.
 ## Stale Base, Rebase, Partial Failure, And Cleanup
 
 Stale base policy is `block_and_replan`. If the target repo advances before
-integration, Samantha must stop candidate acceptance and create a fresh plan or
-a reviewed rebase path.
+dispatch or during integration, Samantha stops candidate acceptance and records
+terminal replan evidence in `batch-replan-evidence.jsonl`. That evidence
+includes the source batch id, source `baseCommit`, observed `HEAD`, trigger,
+violations, and `sourceBatchSpecMutation: "not_performed"`.
+
+The implemented closure does not automatically create the replacement
+`BatchSpec`. Automatic replacement planning remains deferred because choosing a
+new integration queue, status model, and lifecycle state is a product authority
+decision.
 
 Rebase policy is `explicit_samantha_owned_rebase_only`. A rebase creates new
 candidate evidence and must rerun scope and verification gates. Workers do not
-rebase batch branches.
+rebase batch branches. Samantha-owned rebase execution remains deferred until a
+reviewed rebase plan/evidence contract exists; old verification must not be
+reused after any future rebase path.
 
 Partial failure policy is
 `block_dependents_allow_independent_candidates`. Failed tasks block dependents,
@@ -188,6 +197,7 @@ The execution baseline now implements:
 - focused verification execution after candidate integration
 - final batch verification execution
 - partial-failure status transitions
+- stale-base `block_and_replan` terminal evidence
 - cleanup execution
 
 These items remain deliberately outside the routine baseline:
@@ -195,9 +205,11 @@ These items remain deliberately outside the routine baseline:
 - raising `writerCap`
 - worker-owned orchestration, rebase, merge order, cleanup, or lifecycle
   mutation
-- automatic stale-base replan execution
-- Samantha-owned rebase execution without a reviewed rebase task
-- source `BatchSpec` lifecycle or status mutation
+- automatic stale-base generation of a replacement `BatchSpec`
+- Samantha-owned rebase execution until a reviewed rebase task and evidence
+  contract exists
+- source `BatchSpec` lifecycle or status mutation until a Samantha-owned
+  mutation API with before/after audit exists
 
 ## Stop Conditions For Implementation Work
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_SERIAL_ONLY_RULES, type BatchSpec } from "../src/core/batch-spec";
@@ -302,9 +302,79 @@ describe("batch execution", () => {
 
     expect(result.status).toBe("preflight_failed");
     expect(result.pass).toBe(false);
+    expect(result.staleBaseReplan).toMatchObject({
+      batchId: "batch-execution-fixture",
+      policy: "block_and_replan",
+      decision: "blocked_for_replan",
+      trigger: "preflight",
+      sourceBaseCommit: baseCommit,
+      observedHead: await gitHead(root),
+      sourceBatchSpecMutation: "not_performed",
+      replanArtifactPath: null,
+    });
     expect(result.preflight.violations).toContain(
       `repoRoot HEAD must match baseCommit before dispatch: HEAD ${await gitHead(root)} != baseCommit ${baseCommit}`,
     );
+    const evidence = JSON.parse(await readFile(join(root, "runs", "batch-replan-evidence.jsonl"), "utf8"));
+    expect(evidence).toEqual(result.staleBaseReplan);
+  });
+
+  test("records block_and_replan evidence when target HEAD moves during integration", async () => {
+    const tasks = [batchTask("task-a", "a.txt")];
+    const { root, baseCommit } = await makeRepo(tasks);
+    const fakeCodex = await makeFakeCodex([
+      'while [ "$1" != "--cd" ]; do shift; done',
+      "shift",
+      'cd "$1"',
+      "echo task-a > a.txt",
+      'target_root="$(cd "$PWD/../.." && pwd)"',
+      'echo advanced > "$target_root/advanced.txt"',
+      'git -C "$target_root" add advanced.txt',
+      'git -C "$target_root" commit -m "chore: advance target during batch"',
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"batch fixture","commit":""}'`,
+    ]);
+
+    const result = await executeBatch({
+      spec: batchSpec({
+        root,
+        baseCommit,
+        tasks,
+        integrationQueue: [
+          {
+            order: 1,
+            taskId: "task-a",
+            requiresAccepted: [],
+            focusedVerifyCommands: ["grep -q task-a a.txt"],
+            status: "pending",
+          },
+        ],
+      }),
+      worktreesDir: ".worktrees",
+      runsDir: join(root, "runs"),
+      codexBin: fakeCodex,
+      targetBranch: "main",
+    });
+
+    const head = await gitHead(root);
+    expect(result.status).toBe("stale_base");
+    expect(result.pass).toBe(false);
+    expect(result.taskDecisions["task-a"]).toBe("blocked");
+    expect(result.staleBaseReplan).toMatchObject({
+      batchId: "batch-execution-fixture",
+      policy: "block_and_replan",
+      decision: "blocked_for_replan",
+      trigger: "integration",
+      sourceBaseCommit: baseCommit,
+      observedHead: head,
+      expectedIntegrationHead: baseCommit,
+      sourceBatchSpecMutation: "not_performed",
+      replanArtifactPath: null,
+    });
+    expect(result.violations).toContain(
+      `target repo HEAD changed outside batch integration: HEAD ${head} != expected ${baseCommit}`,
+    );
+    const evidence = JSON.parse(await readFile(join(root, "runs", "batch-replan-evidence.jsonl"), "utf8"));
+    expect(evidence).toEqual(result.staleBaseReplan);
   });
 
   test("blocks authority-boundary serial-only tasks from routine batch execution", async () => {

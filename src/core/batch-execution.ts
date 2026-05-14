@@ -5,6 +5,10 @@ import {
   type BatchPreflightResult,
   type BatchSpec,
 } from "./batch-spec";
+import {
+  recordStaleBaseReplanEvidence,
+  type BatchStaleBaseReplanEvidence,
+} from "./batch-replan";
 import type { AgentProfile, TaskSpec } from "./contracts";
 import { git, gitHead, gitRaw } from "./git";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "./ledger";
@@ -87,6 +91,7 @@ export interface BatchExecutionResult {
   workers: BatchWorkerEvidence[];
   integration: BatchIntegrationEvidence[];
   finalVerification: CommandRunResult[];
+  staleBaseReplan?: BatchStaleBaseReplanEvidence;
   taskDecisions: Record<string, BatchTaskDecision>;
   violations: string[];
 }
@@ -235,6 +240,10 @@ function commandResultsPassed(results: CommandRunResult[]): boolean {
   return results.every((result) => result.exitCode === 0);
 }
 
+function hasStaleBaseViolation(violations: string[]): boolean {
+  return violations.some((violation) => violation.startsWith("repoRoot HEAD must match baseCommit before dispatch:"));
+}
+
 function mergeGateResult(input: {
   targetBranch: string;
   commit: string;
@@ -354,11 +363,22 @@ export async function executeBatch(input: ExecuteBatchInput): Promise<BatchExecu
   const dependents = dependentsByBefore(spec);
   const groups = dispatchGroups(spec);
   let staleBase = false;
+  let staleBaseReplan: BatchStaleBaseReplanEvidence | undefined;
   let expectedIntegrationHead = spec.baseCommit;
 
   await mkdir(runsDir, { recursive: true });
 
   if (!preflight.mayDispatch) {
+    if (hasStaleBaseViolation(preflight.violations)) {
+      staleBaseReplan = await recordStaleBaseReplanEvidence({
+        stateDir,
+        spec,
+        targetBranch,
+        trigger: "preflight",
+        observedHead: await gitHead(repoRoot),
+        violations: preflight.violations,
+      });
+    }
     return {
       batchId: spec.batchId,
       status: "preflight_failed",
@@ -368,6 +388,7 @@ export async function executeBatch(input: ExecuteBatchInput): Promise<BatchExecu
       workers: [],
       integration: [],
       finalVerification: [],
+      ...(staleBaseReplan ? { staleBaseReplan } : {}),
       taskDecisions: Object.fromEntries(decisions),
       violations: preflight.violations,
     };
@@ -452,6 +473,15 @@ export async function executeBatch(input: ExecuteBatchInput): Promise<BatchExecu
         itemViolations.push(
           `target repo HEAD changed outside batch integration: HEAD ${head} != expected ${expectedIntegrationHead}`,
         );
+        staleBaseReplan = await recordStaleBaseReplanEvidence({
+          stateDir,
+          spec,
+          targetBranch,
+          trigger: "integration",
+          observedHead: head,
+          expectedIntegrationHead,
+          violations: itemViolations,
+        });
       }
 
       if (itemViolations.length > 0) {
@@ -685,6 +715,7 @@ export async function executeBatch(input: ExecuteBatchInput): Promise<BatchExecu
     workers,
     integration,
     finalVerification,
+    ...(staleBaseReplan ? { staleBaseReplan } : {}),
     taskDecisions: Object.fromEntries(decisions),
     violations,
   };

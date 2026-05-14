@@ -287,16 +287,23 @@ perform cleanup.
 
 - `staleBase` is `block_and_replan`: if target repo `HEAD` differs from
   `baseCommit` before integration, no queued item can be accepted until
-  Samantha creates a new explicit plan.
+  Samantha creates a new explicit plan. The current execution closure records
+  terminal `block_and_replan` evidence instead of automatically generating the
+  replacement `BatchSpec`.
 - `rebase` is `explicit_samantha_owned_rebase_only`: workers do not rebase
   batch branches. A rebase creates new evidence and requires the same scope and
-  verification checks before the candidate can be accepted.
+  verification checks before the candidate can be accepted. Samantha-owned
+  rebase execution remains deferred until a reviewed rebase plan/evidence
+  contract exists.
 - `partialFailure` is `block_dependents_allow_independent_candidates`: a failed
   task blocks dependents, but independent passed candidates can remain eligible
   if their dependencies and write-set guarantees still hold.
 - Failed worker output remains evidence only. It cannot be merged, used as a
   trusted base, or used to update the batch artifact except through
   Samantha-owned failure status.
+- Source `BatchSpec` lifecycle/status mutation remains deferred. Worker output
+  cannot change batch status, `integrationQueue`, or lifecycle state; the
+  current closure records separate audit evidence instead.
 - `cleanup` is `explicit_per_worker_lifecycle_after_resolution`: cleanup is
   allowed only after each worker has a recorded terminal decision such as
   accepted, rejected, superseded, or abandoned.

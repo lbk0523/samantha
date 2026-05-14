@@ -218,7 +218,8 @@ evidence only.
 ## Phase 5: Speculative Writer Batches
 
 Status: BatchSpec planning, preflight, execution, ordered integration,
-verification, and cleanup evidence baseline implemented.
+verification, stale-base replan evidence, and cleanup evidence baseline
+implemented.
 
 Design artifacts:
 
@@ -270,6 +271,8 @@ Implemented execution gates:
 - final batch verification runs after the last accepted candidate
 - stale `baseCommit` is blocked by preflight, and unexpected target `HEAD`
   movement during integration is treated as `block_and_replan`
+- stale-base closure records Samantha-owned terminal replan evidence in
+  `batch-replan-evidence.jsonl` without mutating the source `BatchSpec`
 - cleanup runs only after accepted candidates have lifecycle evidence and final
   verification passes
 
@@ -278,18 +281,25 @@ Still deferred or explicit-only items:
 - raising `writerCap`
 - worker-owned orchestration, rebase, merge order, cleanup, or lifecycle
   mutation
-- automatic stale-base replan execution
-- Samantha-owned rebase execution without a reviewed rebase task
-- mutating the source BatchSpec artifact as lifecycle state
+- automatic stale-base generation of a replacement `BatchSpec`
+- Samantha-owned rebase execution until a reviewed rebase plan/evidence contract
+  exists
+- mutating the source BatchSpec artifact as lifecycle state until a
+  Samantha-owned mutation API with before/after audit exists
 
 Acceptance evidence:
 
 - batch artifacts prove dependency and write-set decisions before dispatch
 - failed batch members do not contaminate accepted work
 - every accepted writer output is reverified after integration
+- stale preflight and stale integration paths leave `block_and_replan` evidence
+  with observed `HEAD`, source `baseCommit`, trigger, violations, and explicit
+  `sourceBatchSpecMutation: "not_performed"`
 - cleanup/lifecycle evidence is recorded per worker
 - focused tests cover happy path, stale-base rejection, partial failure, and
   authority-boundary serial-only blocking
+- CLI tests prove stale execution evidence is written without mutating the
+  source `BatchSpec`
 
 Promotion rule:
 

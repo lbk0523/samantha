@@ -115,6 +115,8 @@ Parallel writer batches require at least:
 - an ordered Samantha merge queue
 - focused verification after each accepted merge
 - broader batch verification after the final accepted merge
+- stale-base `block_and_replan` evidence that does not mutate the source
+  `BatchSpec`
 - stale-base, rebase, reverify, partial failure, and cleanup policy
 
 Until those pieces exist, writer execution and integration stay serial. Worker
