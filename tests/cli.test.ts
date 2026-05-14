@@ -48,6 +48,32 @@ function cliTaskSpecFor(batchTask: BatchSpec["tasks"][number], overrides: Partia
   };
 }
 
+function cliVerification(overrides: Partial<BatchSpec["verification"]> = {}): BatchSpec["verification"] {
+  return {
+    preflightChecks: [
+      "validate batch identity and baseCommit",
+      "validate task references against TaskSpec",
+      "validate dependency DAG",
+      "validate disjoint write sets",
+      "validate serial-only classifications",
+      "validate integration queue",
+    ],
+    afterEachAcceptedMerge: ["run focused verify commands for the accepted queue item"],
+    afterFinalAcceptedMerge: ["bun run typecheck", "bun test"],
+    ...overrides,
+  };
+}
+
+function cliLifecyclePolicy(overrides: Partial<BatchSpec["lifecyclePolicy"]> = {}): BatchSpec["lifecyclePolicy"] {
+  return {
+    staleBase: "block_and_replan",
+    rebase: "explicit_samantha_owned_rebase_only",
+    partialFailure: "block_dependents_allow_independent_candidates",
+    cleanup: "explicit_per_worker_lifecycle_after_resolution",
+    ...overrides,
+  };
+}
+
 async function writeCliBatchStoreFixture(
   taskSpecOverrides: Partial<TaskSpec> = {},
   batchOverrides: Partial<BatchSpec> = {},
@@ -88,6 +114,8 @@ async function writeCliBatchStoreFixture(
         status: "pending",
       },
     ],
+    verification: cliVerification(),
+    lifecyclePolicy: cliLifecyclePolicy(),
     ...batchOverrides,
   };
   const batchPath = join(batchesDir, "cli-preflight.json");
@@ -531,6 +559,33 @@ describe("samantha cli", () => {
     );
   });
 
+  test("batch preflight command applies verification and lifecycle policy contract from path", async () => {
+    const { batchPath } = await writeCliBatchStoreFixture(
+      {},
+      {
+        verification: cliVerification({ afterFinalAcceptedMerge: [] }),
+        lifecyclePolicy: cliLifecyclePolicy({
+          staleBase: "auto_rebase" as BatchSpec["lifecyclePolicy"]["staleBase"],
+        }),
+      },
+    );
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batches:preflight", `--batch=${batchPath}`])).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.violations).toContain("verification.afterFinalAcceptedMerge must be a non-empty string array");
+    expect(result.violations).toContain("lifecyclePolicy.staleBase must be block_and_replan");
+  });
+
   test("batch preflight command returns non-zero when BatchSpec baseCommit is stale", async () => {
     const { batchPath, root, baseCommit } = await writeCliBatchStoreFixture();
     await writeFile(join(root, "advanced.txt"), "advanced\n", "utf8");
@@ -576,6 +631,8 @@ describe("samantha cli", () => {
           status: "pending",
         },
       ],
+      verification: cliVerification(),
+      lifecyclePolicy: cliLifecyclePolicy(),
     } satisfies BatchSpec;
     await writeFile(join(batchesDir, "alpha-batch.json"), `${JSON.stringify(secondBatch, null, 2)}\n`, "utf8");
 
@@ -665,6 +722,37 @@ describe("samantha cli", () => {
 
     expect(JSON.parse(stdout).violations).toContain(
       "tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: task-a",
+    );
+  });
+
+  test("batch preflight by id applies the same verification and lifecycle policy contract", async () => {
+    const { batchesDir } = await writeCliBatchStoreFixture(
+      {},
+      {
+        verification: cliVerification({ afterEachAcceptedMerge: [] }),
+        lifecyclePolicy: cliLifecyclePolicy({
+          cleanup: "auto_cleanup_after_failure" as BatchSpec["lifecyclePolicy"]["cleanup"],
+        }),
+      },
+    );
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main(["batches:preflight", "--batch-id=cli-preflight", `--batches-dir=${batchesDir}`]),
+      ).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.violations).toContain("verification.afterEachAcceptedMerge must be a non-empty string array");
+    expect(result.violations).toContain(
+      "lifecyclePolicy.cleanup must be explicit_per_worker_lifecycle_after_resolution",
     );
   });
 

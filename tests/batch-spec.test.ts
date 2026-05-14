@@ -40,6 +40,32 @@ function queueItem(
   return { order, taskId, requiresAccepted, focusedVerifyCommands, status: "pending", ...overrides };
 }
 
+function verification(overrides: Partial<BatchSpec["verification"]> = {}): BatchSpec["verification"] {
+  return {
+    preflightChecks: [
+      "validate batch identity and baseCommit",
+      "validate task references against TaskSpec",
+      "validate dependency DAG",
+      "validate disjoint write sets",
+      "validate serial-only classifications",
+      "validate integration queue",
+    ],
+    afterEachAcceptedMerge: ["run focused verify commands for the accepted queue item"],
+    afterFinalAcceptedMerge: ["bun run typecheck", "bun test"],
+    ...overrides,
+  };
+}
+
+function lifecyclePolicy(overrides: Partial<BatchSpec["lifecyclePolicy"]> = {}): BatchSpec["lifecyclePolicy"] {
+  return {
+    staleBase: "block_and_replan",
+    rebase: "explicit_samantha_owned_rebase_only",
+    partialFailure: "block_dependents_allow_independent_candidates",
+    cleanup: "explicit_per_worker_lifecycle_after_resolution",
+    ...overrides,
+  };
+}
+
 function batchSpec(overrides: Partial<BatchSpec> = {}): BatchSpec {
   return {
     schemaVersion: 1,
@@ -62,6 +88,8 @@ function batchSpec(overrides: Partial<BatchSpec> = {}): BatchSpec {
       queueItem(2, "task-b", ["task-a"]),
       queueItem(3, "task-c", ["task-b"]),
     ],
+    verification: verification(),
+    lifecyclePolicy: lifecyclePolicy(),
     ...overrides,
   };
 }
@@ -131,6 +159,44 @@ describe("minimal BatchSpec validation", () => {
   test("requires a valid batch status", () => {
     expect(validateMinimalBatchSpec(batchSpec({ status: "paused" as BatchSpec["status"] }))).toContain(
       "status must be a valid BatchStatus: paused",
+    );
+  });
+
+  test("requires verification policy phases to be non-empty string arrays", () => {
+    const violations = validateMinimalBatchSpec(
+      batchSpec({
+        verification: verification({
+          preflightChecks: [],
+          afterEachAcceptedMerge: ["  "],
+          afterFinalAcceptedMerge: ["bun run typecheck", 7 as unknown as string],
+        }),
+      }),
+    );
+
+    expect(violations).toContain("verification.preflightChecks must be a non-empty string array");
+    expect(violations).toContain("verification.afterEachAcceptedMerge must be a non-empty string array");
+    expect(violations).toContain("verification.afterFinalAcceptedMerge must be a non-empty string array");
+  });
+
+  test("requires the Phase 5 lifecycle policy literals", () => {
+    const violations = validateMinimalBatchSpec(
+      batchSpec({
+        lifecyclePolicy: lifecyclePolicy({
+          staleBase: "auto_rebase" as BatchSpec["lifecyclePolicy"]["staleBase"],
+          rebase: "worker_rebase_allowed" as BatchSpec["lifecyclePolicy"]["rebase"],
+          partialFailure: "reject_all_candidates" as BatchSpec["lifecyclePolicy"]["partialFailure"],
+          cleanup: "auto_cleanup_after_failure" as BatchSpec["lifecyclePolicy"]["cleanup"],
+        }),
+      }),
+    );
+
+    expect(violations).toContain("lifecyclePolicy.staleBase must be block_and_replan");
+    expect(violations).toContain("lifecyclePolicy.rebase must be explicit_samantha_owned_rebase_only");
+    expect(violations).toContain(
+      "lifecyclePolicy.partialFailure must be block_dependents_allow_independent_candidates",
+    );
+    expect(violations).toContain(
+      "lifecyclePolicy.cleanup must be explicit_per_worker_lifecycle_after_resolution",
     );
   });
 

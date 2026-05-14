@@ -26,6 +26,10 @@ type BatchTaskStatus =
 
 type IntegrationQueueStatus = "pending" | "accepted" | "skipped" | "failed";
 type WriteSetClassification = "parallel_eligible" | "serial_only";
+type StaleBasePolicy = "block_and_replan";
+type RebasePolicy = "explicit_samantha_owned_rebase_only";
+type PartialFailurePolicy = "block_dependents_allow_independent_candidates";
+type CleanupPolicy = "explicit_per_worker_lifecycle_after_resolution";
 
 export interface SerialOnlyRule {
   id: string;
@@ -62,6 +66,19 @@ export interface MinimalBatchIntegrationQueueItem {
   status: IntegrationQueueStatus;
 }
 
+export interface BatchVerificationPolicy {
+  preflightChecks: string[];
+  afterEachAcceptedMerge: string[];
+  afterFinalAcceptedMerge: string[];
+}
+
+export interface BatchLifecyclePolicy {
+  staleBase: StaleBasePolicy;
+  rebase: RebasePolicy;
+  partialFailure: PartialFailurePolicy;
+  cleanup: CleanupPolicy;
+}
+
 export interface BatchSpec {
   schemaVersion: 1;
   batchId: string;
@@ -72,6 +89,8 @@ export interface BatchSpec {
   tasks: MinimalBatchTaskSpec[];
   dependencies: MinimalBatchDependency[];
   integrationQueue: MinimalBatchIntegrationQueueItem[];
+  verification: BatchVerificationPolicy;
+  lifecyclePolicy: BatchLifecyclePolicy;
 }
 
 export interface BatchPreflightTask {
@@ -126,6 +145,12 @@ const INTEGRATION_QUEUE_STATUSES = new Set<IntegrationQueueStatus>([
 const WRITE_SET_CLASSIFICATIONS = new Set<WriteSetClassification>(["parallel_eligible", "serial_only"]);
 const PRE_DISPATCH_BATCH_STATUSES = new Set<BatchStatus>(["planned", "preflight_passed"]);
 const GLOB_CHARS_PATTERN = /[*?[\]]/;
+const REQUIRED_LIFECYCLE_POLICY: BatchLifecyclePolicy = {
+  staleBase: "block_and_replan",
+  rebase: "explicit_samantha_owned_rebase_only",
+  partialFailure: "block_dependents_allow_independent_candidates",
+  cleanup: "explicit_per_worker_lifecycle_after_resolution",
+};
 
 export const DEFAULT_SERIAL_ONLY_RULES: SerialOnlyRule[] = [
   {
@@ -206,6 +231,8 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
     violations.push(`status must be a valid BatchStatus: ${spec.status}`);
   }
 
+  violations.push(...validateVerificationPolicy(spec.verification));
+  violations.push(...validateLifecyclePolicy(spec.lifecyclePolicy));
   violations.push(...validateUniqueTaskIds(spec.tasks));
   violations.push(...validateTaskStatuses(spec.tasks));
   violations.push(...validateTaskPlanningFields(spec.tasks));
@@ -632,7 +659,7 @@ function validateNonEmptyStringArray(
   return [];
 }
 
-function hasOnlyNonEmptyStrings(value: string[], options: { allowEmpty: boolean }): boolean {
+function hasOnlyNonEmptyStrings(value: unknown, options: { allowEmpty: boolean }): value is string[] {
   if (!Array.isArray(value)) {
     return false;
   }
@@ -643,8 +670,42 @@ function hasOnlyNonEmptyStrings(value: string[], options: { allowEmpty: boolean 
   return value.every(isNonEmptyString);
 }
 
-function isNonEmptyString(value: string): boolean {
+function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function validateVerificationPolicy(policy: BatchVerificationPolicy): string[] {
+  const violations: string[] = [];
+
+  if (!isRecord(policy)) {
+    return ["verification must be an object with preflightChecks, afterEachAcceptedMerge, and afterFinalAcceptedMerge"];
+  }
+
+  for (const fieldName of ["preflightChecks", "afterEachAcceptedMerge", "afterFinalAcceptedMerge"] as const) {
+    if (!hasOnlyNonEmptyStrings(policy[fieldName], { allowEmpty: false })) {
+      violations.push(`verification.${fieldName} must be a non-empty string array`);
+    }
+  }
+
+  return violations;
+}
+
+function validateLifecyclePolicy(policy: BatchLifecyclePolicy): string[] {
+  if (!isRecord(policy)) {
+    return ["lifecyclePolicy must be an object with required Phase 5 policy values"];
+  }
+
+  const violations: string[] = [];
+  for (const fieldName of ["staleBase", "rebase", "partialFailure", "cleanup"] as const) {
+    if (policy[fieldName] !== REQUIRED_LIFECYCLE_POLICY[fieldName]) {
+      violations.push(`lifecyclePolicy.${fieldName} must be ${REQUIRED_LIFECYCLE_POLICY[fieldName]}`);
+    }
+  }
+  return violations;
 }
 
 function validateTaskStatuses(tasks: MinimalBatchTaskSpec[]): string[] {
