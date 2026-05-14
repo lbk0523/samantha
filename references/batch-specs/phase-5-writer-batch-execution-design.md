@@ -169,9 +169,15 @@ includes the source batch id, source `baseCommit`, observed `HEAD`, trigger,
 violations, and `sourceBatchSpecMutation: "not_performed"`.
 
 The implemented closure does not automatically create the replacement
-`BatchSpec`. Automatic replacement planning remains deferred because choosing a
-new integration queue, status model, and lifecycle state is a product authority
-decision.
+`BatchSpec`. Automatic replacement planning remains deferred. Replacement
+generation is now explicit-only through Samantha-owned `batches:replace`: it
+reads matching terminal `block_and_replan` evidence, writes a new BatchSpec with
+a new `batchId`, sets `baseCommit` to the evidence `observedHead`, sets
+`status: planned`, resets task statuses and `integrationQueue` statuses to
+pre-dispatch values, removes `runLogPath`, `candidateCommit`, and
+`expectedCandidateCommit`, and records `batch-replacement-audit.jsonl`. It does
+not mutate the source BatchSpec; source closure remains the separate
+`batches:reject` operation.
 
 Rebase policy is `explicit_samantha_owned_rebase_only`. A rebase creates new
 candidate evidence and must rerun scope and verification gates. Workers do not
@@ -233,6 +239,25 @@ does not update task statuses, it does not fill `runLogPath` or
 Execution paths such as stale-base preflight/integration still record
 `sourceBatchSpecMutation: "not_performed"` unless this explicit command is run
 afterward.
+
+## Explicit Replacement BatchSpec Generation
+
+The implemented replacement surface is intentionally narrow:
+
+```text
+batches:replace
+-> validate the current source BatchSpec
+-> read matching block_and_replan evidence from batch-replan-evidence.jsonl
+-> create a new planned BatchSpec at the observed target HEAD
+-> clear worker run, candidate commit, and expected candidate evidence
+-> write replacement audit evidence to batch-replacement-audit.jsonl
+```
+
+`batches:replace` is Samantha-owned planning, not execution. It does not rebase
+candidates, reuse candidate commits, dispatch workers, accept merges, clean up
+worktrees, or close the source BatchSpec. Worker output and `HARNESS_RESULT`
+cannot invoke it or mutate replacement status, `integrationQueue`, lifecycle
+state, or source batch status.
 
 ## Stop Conditions For Implementation Work
 

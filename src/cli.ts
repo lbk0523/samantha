@@ -34,6 +34,7 @@ import { reviewLessonInbox } from "./core/lesson-inbox-review";
 import { summarizeReportOnlyReviews } from "./core/report-review";
 import { preflightBatchSpec, type BatchSpec } from "./core/batch-spec";
 import { markBatchSpecRejected } from "./core/batch-spec-mutation";
+import { createReplacementBatchSpec } from "./core/batch-spec-replacement";
 import { listBatchSpecs, readBatchSpecById, readBatchSpecRecordById } from "./core/batch-spec-store";
 import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
 
@@ -162,6 +163,17 @@ export interface BatchesRejectCliArgs {
   reason: string;
 }
 
+export interface BatchesReplaceCliArgs {
+  command: "batches:replace";
+  batchPath?: string;
+  batchId?: string;
+  batchesDir?: string;
+  replacementBatchId: string;
+  replacementPath: string;
+  replanEvidencePath: string;
+  stateDir?: string;
+}
+
 export interface BatchesListCliArgs {
   command: "batches:list";
   batchesDir?: string;
@@ -194,6 +206,7 @@ export type SamanthaCliArgs =
   | BatchesPreflightCliArgs
   | BatchesExecuteCliArgs
   | BatchesRejectCliArgs
+  | BatchesReplaceCliArgs
   | BatchesListCliArgs
   | BatchesShowCliArgs;
 
@@ -573,7 +586,32 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject");
+  if (command === "batches:replace") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const batchPath = flags.get("batch");
+    const batchId = flags.get("batch-id");
+    const replacementBatchId = flags.get("replacement-batch-id");
+    const replacementPath = flags.get("replacement");
+    const replanEvidencePath = flags.get("replan-evidence");
+    if (batchPath && batchId) {
+      throw new Error("usage: batches:replace accepts either --batch=<path> or --batch-id=<id>, not both");
+    }
+    if ((!batchPath && !batchId) || !replacementBatchId || !replacementPath || !replanEvidencePath) {
+      throw new Error("usage: bun run samantha batches:replace --batch=<path> OR --batch-id=<id> --replacement-batch-id=<id> --replacement=<path> --replan-evidence=<path> [--batches-dir=<dir>] [--state-dir=<dir>]");
+    }
+    return {
+      command: "batches:replace",
+      ...(batchPath ? { batchPath } : {}),
+      ...(batchId ? { batchId } : {}),
+      ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      replacementBatchId,
+      replacementPath,
+      replanEvidencePath,
+      ...(flags.get("state-dir") ? { stateDir: flags.get("state-dir") } : {}),
+    };
+  }
+
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -800,6 +838,33 @@ export async function main(argv: string[]): Promise<number> {
           batchPath,
           authority: "samantha_cli",
           reason: args.reason,
+          stateDir: args.stateDir,
+        }),
+        null,
+        2,
+      ),
+    );
+    return 0;
+  }
+
+  if (args.command === "batches:replace") {
+    if (!args.batchPath && !args.batchId) {
+      throw new Error("batches:replace requires --batch=<path> or --batch-id=<id>");
+    }
+    const sourceBatchPath = args.batchPath
+      ? resolve(args.batchPath)
+      : (await readBatchSpecRecordById({
+          batchId: args.batchId ?? "",
+          batchesDir: args.batchesDir,
+        })).path;
+    console.log(
+      JSON.stringify(
+        await createReplacementBatchSpec({
+          sourceBatchPath,
+          authority: "samantha_cli",
+          replacementBatchId: args.replacementBatchId,
+          replacementPath: args.replacementPath,
+          replanEvidencePath: args.replanEvidencePath,
           stateDir: args.stateDir,
         }),
         null,

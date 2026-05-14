@@ -540,6 +540,31 @@ describe("samantha cli", () => {
     );
   });
 
+  test("parses batch replacement arguments", () => {
+    expect(
+      parseCliArgs([
+        "batches:replace",
+        "--batch-id=cli-preflight",
+        "--batches-dir=references/batch-specs",
+        "--replacement-batch-id=cli-replacement",
+        "--replacement=references/batch-specs/cli-replacement.json",
+        "--replan-evidence=runs/batch-replan-evidence.jsonl",
+        "--state-dir=runs",
+      ]),
+    ).toEqual({
+      command: "batches:replace",
+      batchId: "cli-preflight",
+      batchesDir: "references/batch-specs",
+      replacementBatchId: "cli-replacement",
+      replacementPath: "references/batch-specs/cli-replacement.json",
+      replanEvidencePath: "runs/batch-replan-evidence.jsonl",
+      stateDir: "runs",
+    });
+    expect(() => parseCliArgs(["batches:replace", "--batch=references/batch-specs/one.json"])).toThrow(
+      "usage: bun run samantha batches:replace --batch=<path> OR --batch-id=<id> --replacement-batch-id=<id> --replacement=<path> --replan-evidence=<path> [--batches-dir=<dir>] [--state-dir=<dir>]",
+    );
+  });
+
   test("parses batch list and show arguments", () => {
     expect(parseCliArgs(["batches:list", "--batches-dir=references/batch-specs"])).toEqual({
       command: "batches:list",
@@ -919,6 +944,83 @@ describe("samantha cli", () => {
       expect.objectContaining({ taskId: "task-a", status: "pending" }),
     ]);
     const audit = JSON.parse(await readFile(join(root, "runs", "batch-lifecycle-audit.jsonl"), "utf8"));
+    expect(audit).toEqual(result.evidence);
+  });
+
+  test("batch replace command creates planned replacement from stale replan evidence without mutating source", async () => {
+    const { batchPath, batchesDir, root, baseCommit } = await writeCliBatchStoreFixture();
+    const sourceBefore = await readFile(batchPath, "utf8");
+    const observedHead = "1111111111111111111111111111111111111111";
+    const replanEvidencePath = join(root, "runs", "batch-replan-evidence.jsonl");
+    const replacementPath = join(batchesDir, "cli-replacement.json");
+    await mkdir(join(root, "runs"), { recursive: true });
+    await writeFile(
+      replanEvidencePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        batchId: "cli-preflight",
+        policy: "block_and_replan",
+        decision: "blocked_for_replan",
+        trigger: "preflight",
+        sourceBaseCommit: baseCommit,
+        observedHead,
+        targetBranch: "main",
+        sourceBatchSpecMutation: "not_performed",
+        replanArtifactPath: null,
+        reason: "stale base",
+        violations: ["repoRoot HEAD must match baseCommit before dispatch"],
+        createdAt: "2026-05-14T00:00:00.000Z",
+      })}\n`,
+      "utf8",
+    );
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batches:replace",
+          "--batch-id=cli-preflight",
+          `--batches-dir=${batchesDir}`,
+          "--replacement-batch-id=cli-replacement",
+          `--replacement=${replacementPath}`,
+          `--replan-evidence=${replanEvidencePath}`,
+          `--state-dir=${join(root, "runs")}`,
+        ]),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(await readFile(batchPath, "utf8")).toBe(sourceBefore);
+    expect(result.spec).toMatchObject({
+      batchId: "cli-replacement",
+      baseCommit: observedHead,
+      status: "planned",
+    });
+    expect(result.spec.tasks).toEqual([
+      expect.objectContaining({ taskId: "task-a", status: "planned" }),
+    ]);
+    expect(result.spec.integrationQueue).toEqual([
+      expect.objectContaining({ taskId: "task-a", status: "pending" }),
+    ]);
+    expect(JSON.parse(await readFile(replacementPath, "utf8"))).toEqual(result.spec);
+    expect(result.evidence).toMatchObject({
+      operation: "create_replacement",
+      authority: "samantha_cli",
+      sourceBatchSpecMutation: "not_performed",
+      sourceBatchId: "cli-preflight",
+      sourceBaseCommit: baseCommit,
+      observedHead,
+      replanEvidencePath,
+      replacementBatchId: "cli-replacement",
+      replacementPath,
+    });
+    const audit = JSON.parse(await readFile(join(root, "runs", "batch-replacement-audit.jsonl"), "utf8"));
     expect(audit).toEqual(result.evidence);
   });
 });

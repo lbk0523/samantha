@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES, preflightBatchSpec, validateMinimalBatchSpec } from "../src/core/batch-spec";
 import { markBatchSpecRejected } from "../src/core/batch-spec-mutation";
+import { createReplacementBatchSpec } from "../src/core/batch-spec-replacement";
 import { listBatchSpecs, readBatchSpecById } from "../src/core/batch-spec-store";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
@@ -557,6 +558,126 @@ describe("BatchSpec lifecycle mutation", () => {
 
     const unchanged = JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec;
     expect(unchanged.status).toBe("planned");
+  });
+});
+
+describe("BatchSpec replacement generation", () => {
+  test("creates a planned replacement from stale-base replan evidence without mutating the source BatchSpec", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-replacement-"));
+    tmpRoots.push(root);
+    const batchesDir = join(root, "references", "batch-specs");
+    const sourceBatchPath = join(batchesDir, "phase-5-source.json");
+    const replacementPath = join(batchesDir, "phase-5-replacement.json");
+    const replanEvidencePath = join(root, "runs", "batch-replan-evidence.jsonl");
+    const stateDir = join(root, "runs");
+    const observedHead = "1111111111111111111111111111111111111111";
+    const sourceSpec = batchSpec({
+      repoRoot: root,
+      status: "partially_failed",
+      tasks: [
+        task("task-a", ["bun test task-a"], {
+          status: "passed",
+          runLogPath: "runs/task-a.json",
+          candidateCommit: "2222222222222222222222222222222222222222",
+        }),
+        task("task-b", ["bun test task-b"], { status: "blocked" }),
+      ],
+      dependencies: [{ before: "task-a", after: "task-b" }],
+      integrationQueue: [
+        queueItem(1, "task-a", [], ["bun test task-a"], {
+          status: "accepted",
+          expectedCandidateCommit: "2222222222222222222222222222222222222222",
+        }),
+        queueItem(2, "task-b", ["task-a"], ["bun test task-b"], { status: "failed" }),
+      ],
+    });
+    await mkdir(join(root, "runs"), { recursive: true });
+    await mkdir(batchesDir, { recursive: true });
+    await writeFile(sourceBatchPath, `${JSON.stringify(sourceSpec, null, 2)}\n`, "utf8");
+    const sourceBefore = await readFile(sourceBatchPath, "utf8");
+    await writeFile(
+      replanEvidencePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        batchId: sourceSpec.batchId,
+        policy: "block_and_replan",
+        decision: "blocked_for_replan",
+        trigger: "preflight",
+        sourceBaseCommit: sourceSpec.baseCommit,
+        observedHead,
+        targetBranch: "main",
+        sourceBatchSpecMutation: "not_performed",
+        replanArtifactPath: null,
+        reason: "stale base",
+        violations: ["repoRoot HEAD must match baseCommit before dispatch"],
+        createdAt: "2026-05-14T00:00:00.000Z",
+      })}\n`,
+      "utf8",
+    );
+
+    const result = await createReplacementBatchSpec({
+      sourceBatchPath,
+      replacementBatchId: "phase-5-replacement",
+      replacementPath,
+      replanEvidencePath,
+      authority: "samantha_api",
+      stateDir,
+      createdAt: "2026-05-14T00:01:00.000Z",
+    });
+
+    expect(await readFile(sourceBatchPath, "utf8")).toBe(sourceBefore);
+    expect(result.spec).toMatchObject({
+      batchId: "phase-5-replacement",
+      baseCommit: observedHead,
+      status: "planned",
+    });
+    expect(result.spec.tasks).toEqual([
+      expect.objectContaining({ taskId: "task-a", status: "planned" }),
+      expect.objectContaining({ taskId: "task-b", status: "planned" }),
+    ]);
+    expect(result.spec.tasks.some((batchTask) => batchTask.runLogPath || batchTask.candidateCommit)).toBe(false);
+    expect(result.spec.integrationQueue).toEqual([
+      expect.objectContaining({ taskId: "task-a", status: "pending" }),
+      expect.objectContaining({ taskId: "task-b", status: "pending" }),
+    ]);
+    expect(result.spec.integrationQueue.some((item) => item.expectedCandidateCommit)).toBe(false);
+    expect(validateMinimalBatchSpec(result.spec)).toEqual([]);
+    expect(JSON.parse(await readFile(replacementPath, "utf8"))).toEqual(result.spec);
+    expect(result.evidence).toMatchObject({
+      operation: "create_replacement",
+      authority: "samantha_api",
+      sourceBatchSpecMutation: "not_performed",
+      sourceBatchId: sourceSpec.batchId,
+      sourceBatchPath,
+      sourceBaseCommit: sourceSpec.baseCommit,
+      observedHead,
+      replanEvidencePath,
+      replacementBatchId: "phase-5-replacement",
+      replacementPath,
+      createdAt: "2026-05-14T00:01:00.000Z",
+    });
+    const audit = JSON.parse(await readFile(join(stateDir, "batch-replacement-audit.jsonl"), "utf8"));
+    expect(audit).toEqual(result.evidence);
+  });
+
+  test("rejects worker-owned replacement generation attempts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-replacement-"));
+    tmpRoots.push(root);
+    const sourceBatchPath = join(root, "phase-5-source.json");
+    const replacementPath = join(root, "phase-5-replacement.json");
+    const replanEvidencePath = join(root, "batch-replan-evidence.jsonl");
+    await writeFile(sourceBatchPath, `${JSON.stringify(batchSpec({ repoRoot: root }), null, 2)}\n`, "utf8");
+    await writeFile(replanEvidencePath, "", "utf8");
+
+    await expect(
+      createReplacementBatchSpec({
+        sourceBatchPath,
+        replacementBatchId: "phase-5-replacement",
+        replacementPath,
+        replanEvidencePath,
+        authority: "worker_harness_result",
+      }),
+    ).rejects.toThrow("BatchSpec replacement generation must be Samantha-owned: worker_harness_result");
   });
 });
 

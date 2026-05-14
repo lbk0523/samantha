@@ -289,9 +289,17 @@ perform cleanup.
 
 - `staleBase` is `block_and_replan`: if target repo `HEAD` differs from
   `baseCommit` before integration, no queued item can be accepted until
-  Samantha creates a new explicit plan. The current execution closure records
-  terminal `block_and_replan` evidence instead of automatically generating the
+  Samantha creates a new explicit plan. Execution records terminal
+  `block_and_replan` evidence instead of automatically generating the
   replacement `BatchSpec`.
+- Replacement `BatchSpec` generation is explicit-only through the
+  Samantha-owned `batches:replace` command/API. It reads matching
+  `batch-replan-evidence.jsonl` terminal evidence, writes a new BatchSpec with a
+  new `batchId`, `baseCommit` set to the evidence `observedHead`, and
+  `status: planned`, resets task statuses to `planned`, resets
+  `integrationQueue` statuses to `pending`, and removes `runLogPath`,
+  `candidateCommit`, and `expectedCandidateCommit` so pre-dispatch evidence
+  absence validation still applies.
 - `rebase` is `explicit_samantha_owned_rebase_only`: workers do not rebase
   batch branches. A rebase creates new evidence and requires the same scope and
   verification checks before the candidate can be accepted. Samantha-owned
@@ -309,6 +317,11 @@ perform cleanup.
   top-level `status` to `rejected`, and does not update task statuses,
   candidate evidence, or `integrationQueue`. Worker output cannot change batch
   status, `integrationQueue`, or lifecycle state.
+- `batches:replace` does not mutate the source `BatchSpec`; source closure
+  remains a separate `batches:reject` decision. Replacement generation records
+  audit evidence in `batch-replacement-audit.jsonl` with the source batch id,
+  source `baseCommit`, observed `HEAD`, replan evidence path, replacement path,
+  and `sourceBatchSpecMutation: "not_performed"`.
 - `cleanup` is `explicit_per_worker_lifecycle_after_resolution`: cleanup is
   allowed only after each worker has a recorded terminal decision such as
   accepted, rejected, superseded, or abandoned.

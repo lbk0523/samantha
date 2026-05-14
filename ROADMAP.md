@@ -218,8 +218,9 @@ evidence only.
 ## Phase 5: Speculative Writer Batches
 
 Status: BatchSpec planning, preflight, execution, ordered integration,
-verification, stale-base replan evidence, cleanup evidence, and explicit
-Samantha-owned source BatchSpec rejection baseline implemented.
+verification, stale-base replan evidence, cleanup evidence, explicit
+Samantha-owned source BatchSpec rejection, and explicit stale-base replacement
+BatchSpec generation baseline implemented.
 
 Design artifacts:
 
@@ -273,6 +274,11 @@ Implemented execution gates:
   movement during integration is treated as `block_and_replan`
 - stale-base closure records Samantha-owned terminal replan evidence in
   `batch-replan-evidence.jsonl` without mutating the source `BatchSpec`
+- stale-base replacement planning is explicit-only through Samantha-owned
+  `batches:replace`, which consumes terminal `block_and_replan` evidence,
+  writes a new `planned` BatchSpec at the observed target `HEAD`, resets task
+  and integration queue statuses to pre-dispatch state, removes worker run and
+  candidate evidence, and records `batch-replacement-audit.jsonl`
 - source BatchSpecs can be explicitly marked `rejected` only through the
   Samantha-owned `batches:reject` mutation surface, which records before/after
   audit evidence and does not mutate task statuses, candidate evidence, or
@@ -300,6 +306,10 @@ Acceptance evidence:
 - stale preflight and stale integration paths leave `block_and_replan` evidence
   with observed `HEAD`, source `baseCommit`, trigger, violations, and explicit
   `sourceBatchSpecMutation: "not_performed"`
+- explicit replacement generation leaves `batch-replacement-audit.jsonl`
+  evidence with source batch id, source `baseCommit`, observed `HEAD`, replan
+  evidence path, replacement path, and
+  `sourceBatchSpecMutation: "not_performed"`
 - explicit source BatchSpec rejection leaves `batch-lifecycle-audit.jsonl`
   evidence with before/after status snapshots and
   `sourceBatchSpecMutation: "performed"`
@@ -307,8 +317,9 @@ Acceptance evidence:
 - focused tests cover happy path, stale-base rejection, partial failure, and
   authority-boundary serial-only blocking
 - CLI tests prove stale execution evidence is written without mutating the
-  source `BatchSpec`, and explicit rejection mutates only the source BatchSpec
-  status through Samantha-owned authority
+  source `BatchSpec`, explicit replacement creates only a new planned BatchSpec
+  through Samantha-owned authority, and explicit rejection mutates only the
+  source BatchSpec status through Samantha-owned authority
 
 Promotion rule:
 
