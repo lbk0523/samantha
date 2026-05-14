@@ -156,7 +156,7 @@ Phase 5 stale-base replacement and source rejection stay deliberately separate:
 - `batches:replace` is Samantha-owned planning only: it consumes matching
   stale-base evidence, creates a new planned `BatchSpec` at `observedHead`,
   clears worker run and candidate evidence, and still requires ordinary
-  replacement preflight before dispatch
+  BatchSpec preflight (`batches:preflight`) before dispatch
 - `batches:reject` is the separate Samantha-owned source closure: it mutates
   only the source top-level `status` to `rejected` and writes lifecycle audit
   evidence

@@ -504,7 +504,28 @@ describe("BatchSpec lifecycle mutation", () => {
     const batchPath = join(root, "references", "batch-specs", "phase-5-minimal.json");
     const stateDir = join(root, "runs");
     await mkdir(join(root, "references", "batch-specs"), { recursive: true });
-    await writeFile(batchPath, `${JSON.stringify(batchSpec({ repoRoot: root }), null, 2)}\n`, "utf8");
+    const sourceSpec = batchSpec({
+      repoRoot: root,
+      status: "partially_failed",
+      tasks: [
+        task("task-a", ["bun test task-a"], {
+          status: "accepted",
+          runLogPath: "runs/task-a.json",
+          candidateCommit: "2222222222222222222222222222222222222222",
+        }),
+        task("task-b", ["bun test task-b"], { status: "blocked" }),
+        task("task-c", ["bun test task-c"], { status: "blocked" }),
+      ],
+      integrationQueue: [
+        queueItem(1, "task-a", [], ["bun test task-a"], {
+          status: "accepted",
+          expectedCandidateCommit: "2222222222222222222222222222222222222222",
+        }),
+        queueItem(2, "task-b", ["task-a"], ["bun test task-b"], { status: "skipped" }),
+        queueItem(3, "task-c", ["task-b"], ["bun test task-c"], { status: "skipped" }),
+      ],
+    });
+    await writeFile(batchPath, `${JSON.stringify(sourceSpec, null, 2)}\n`, "utf8");
 
     const result = await markBatchSpecRejected({
       batchPath,
@@ -516,17 +537,23 @@ describe("BatchSpec lifecycle mutation", () => {
 
     const mutated = JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec;
     expect(mutated.status).toBe("rejected");
-    expect(mutated.tasks.map((task) => [task.taskId, task.status])).toEqual([
-      ["task-a", "planned"],
-      ["task-b", "planned"],
-      ["task-c", "planned"],
-    ]);
-    expect(mutated.integrationQueue.map((item) => [item.taskId, item.status])).toEqual([
-      ["task-a", "pending"],
-      ["task-b", "pending"],
-      ["task-c", "pending"],
-    ]);
+    expect(mutated.tasks).toEqual(sourceSpec.tasks);
+    expect(mutated.integrationQueue).toEqual(sourceSpec.integrationQueue);
     expect(validateMinimalBatchSpec(mutated)).toEqual([]);
+    const preservedSnapshot = {
+      tasks: sourceSpec.tasks.map((batchTask) => ({
+        taskId: batchTask.taskId,
+        status: batchTask.status,
+        ...(batchTask.runLogPath ? { runLogPath: batchTask.runLogPath } : {}),
+        ...(batchTask.candidateCommit ? { candidateCommit: batchTask.candidateCommit } : {}),
+      })),
+      integrationQueue: sourceSpec.integrationQueue.map((item) => ({
+        order: item.order,
+        taskId: item.taskId,
+        status: item.status,
+        ...(item.expectedCandidateCommit ? { expectedCandidateCommit: item.expectedCandidateCommit } : {}),
+      })),
+    };
     expect(result.evidence).toMatchObject({
       schemaVersion: 1,
       batchId: "phase-5-minimal",
@@ -534,8 +561,14 @@ describe("BatchSpec lifecycle mutation", () => {
       authority: "samantha_api",
       sourceBatchSpecMutation: "performed",
       reason: "stale base closure requires a replacement BatchSpec",
-      before: { status: "planned" },
-      after: { status: "rejected" },
+      before: {
+        status: "partially_failed",
+        ...preservedSnapshot,
+      },
+      after: {
+        status: "rejected",
+        ...preservedSnapshot,
+      },
       createdAt: "2026-05-14T00:00:00.000Z",
     });
     const audit = JSON.parse(await readFile(join(stateDir, "batch-lifecycle-audit.jsonl"), "utf8"));
