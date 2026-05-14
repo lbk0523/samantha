@@ -148,6 +148,21 @@ bun run samantha batches:reject --batch=<path> --reason=<reason>
 bun run samantha batches:replace --batch=<path> --replacement-batch-id=<id> --replacement=<path> --replan-evidence=<path>
 ```
 
+Phase 5 stale-base replacement and source rejection stay deliberately separate:
+
+- stale-base preflight or integration records `block_and_replan` evidence with
+  `sourceBatchSpecMutation: "not_performed"`; it does not automatically create
+  a replacement or close the source `BatchSpec`
+- `batches:replace` is Samantha-owned planning only: it consumes matching
+  stale-base evidence, creates a new planned `BatchSpec` at `observedHead`,
+  clears worker run and candidate evidence, and still requires ordinary
+  replacement preflight before dispatch
+- `batches:reject` is the separate Samantha-owned source closure: it mutates
+  only the source top-level `status` to `rejected` and writes lifecycle audit
+  evidence
+- rebase execution, `writerCap` increases, worker-owned orchestration, and
+  worker-owned lifecycle mutation remain outside the implemented boundary
+
 Current task templates:
 
 - `references/task-templates/docs-only.json`

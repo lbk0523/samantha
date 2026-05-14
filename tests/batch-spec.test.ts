@@ -679,6 +679,51 @@ describe("BatchSpec replacement generation", () => {
       }),
     ).rejects.toThrow("BatchSpec replacement generation must be Samantha-owned: worker_harness_result");
   });
+
+  test("rejects stale-base evidence that already mutated the source BatchSpec", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-replacement-"));
+    tmpRoots.push(root);
+    const sourceBatchPath = join(root, "phase-5-source.json");
+    const replacementPath = join(root, "phase-5-replacement.json");
+    const replanEvidencePath = join(root, "batch-replan-evidence.jsonl");
+    const stateDir = join(root, "runs");
+    const sourceSpec = batchSpec({ repoRoot: root });
+    await writeFile(sourceBatchPath, `${JSON.stringify(sourceSpec, null, 2)}\n`, "utf8");
+    await writeFile(
+      replanEvidencePath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        batchId: sourceSpec.batchId,
+        policy: "block_and_replan",
+        decision: "blocked_for_replan",
+        trigger: "preflight",
+        sourceBaseCommit: sourceSpec.baseCommit,
+        observedHead: "1111111111111111111111111111111111111111",
+        targetBranch: "main",
+        sourceBatchSpecMutation: "performed",
+        replanArtifactPath: null,
+        reason: "stale base after source closure",
+        violations: ["repoRoot HEAD must match baseCommit before dispatch"],
+        createdAt: "2026-05-14T00:00:00.000Z",
+      })}\n`,
+      "utf8",
+    );
+
+    await expect(
+      createReplacementBatchSpec({
+        sourceBatchPath,
+        replacementBatchId: "phase-5-replacement",
+        replacementPath,
+        replanEvidencePath,
+        authority: "samantha_api",
+        stateDir,
+      }),
+    ).rejects.toThrow(
+      `no block_and_replan evidence found for source batch ${sourceSpec.batchId} at base ${sourceSpec.baseCommit}`,
+    );
+    await expect(readFile(replacementPath, "utf8")).rejects.toThrow();
+    await expect(readFile(join(stateDir, "batch-replacement-audit.jsonl"), "utf8")).rejects.toThrow();
+  });
 });
 
 describe("BatchSpec artifact store", () => {

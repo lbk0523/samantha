@@ -299,7 +299,8 @@ perform cleanup.
   `status: planned`, resets task statuses to `planned`, resets
   `integrationQueue` statuses to `pending`, and removes `runLogPath`,
   `candidateCommit`, and `expectedCandidateCommit` so pre-dispatch evidence
-  absence validation still applies.
+  absence validation still applies. The replacement is still only a plan; it
+  must pass ordinary BatchSpec preflight before any dispatch.
 - `rebase` is `explicit_samantha_owned_rebase_only`: workers do not rebase
   batch branches. A rebase creates new evidence and requires the same scope and
   verification checks before the candidate can be accepted. Samantha-owned

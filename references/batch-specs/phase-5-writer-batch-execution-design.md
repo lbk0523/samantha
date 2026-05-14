@@ -177,7 +177,8 @@ a new `batchId`, sets `baseCommit` to the evidence `observedHead`, sets
 pre-dispatch values, removes `runLogPath`, `candidateCommit`, and
 `expectedCandidateCommit`, and records `batch-replacement-audit.jsonl`. It does
 not mutate the source BatchSpec; source closure remains the separate
-`batches:reject` operation.
+`batches:reject` operation. The replacement must pass ordinary
+`batches:preflight` before any dispatch.
 
 Rebase policy is `explicit_samantha_owned_rebase_only`. A rebase creates new
 candidate evidence and must rerun scope and verification gates. Workers do not
