@@ -46,9 +46,10 @@ Mandatory final-response gate for Samantha self-build work:
 
 - report deterministic verification and whether only intended files changed
 - commit and push when safe, or state the stop condition that prevented it
-- classify the next action as a direct action or a ready-to-send `/goal` prompt
-- include a ready-to-send `/goal` prompt for larger autonomous slices, and when
-  uncertain include both the direct action and the goal option
+- classify the outcome as completed now, recommended autonomous `/goal`, or
+  blocked on BK decision
+- prefer a ready-to-send `/goal` prompt for remaining autonomous engineering
+  work, and use direct BK actions only for genuine BK decisions or blockers
 - every ready-to-send `/goal` prompt must explicitly require Korean answers
 
 ## Learning Rules

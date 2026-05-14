@@ -75,11 +75,16 @@ deterministic verification passes
 -> intended files only
 -> commit
 -> push
--> propose the next action
+-> close out or propose the next autonomous goal
 ```
 
 Do not leave BK with "push this" as the next action when the work can be pushed
 safely by Codex.
+
+Do not leave BK with small engineering follow-ups when Codex can complete them
+in the current session. If the next step is a document edit, a focused test, a
+single CLI wiring change, a fixture dogfood run, or another small deterministic
+engineering action, do it now instead of proposing it.
 
 Stop before commit or push when verification fails, unrelated dirty changes are
 present, the local branch diverges from the remote, secret or credential risk is
@@ -94,15 +99,33 @@ Before the final response on Samantha self-build work, explicitly check:
 - changed files are intended for the request
 - commit and push were completed when safe
 - remaining blockers are stated
-- next action is classified as either a direct action or a ready-to-send `/goal`
-  prompt
+- outcome is classified as one of:
+  - completed now
+  - recommended autonomous `/goal`
+  - blocked on BK decision
 
-If the next step is small or requires BK directly, state the next concrete
-action directly.
+Prefer "completed now" when Codex can finish the work in the current session.
+Prefer a recommended autonomous `/goal` when meaningful engineering work remains
+and can be delegated to a fresh Codex session without BK taking over the next
+step. Use "blocked on BK decision" only when BK's product judgment, credentials,
+external authority, or explicit review is required before work can continue.
 
-If the next step is a larger autonomous slice, or a longer work session would be
-useful, include a ready-to-send `/goal` prompt that BK can paste into this or
-another Codex session without rewriting the scope.
+Before proposing any direct BK action, first check whether Codex can either do it
+now or fold it into a larger autonomous `/goal`. Direct BK actions are allowed
+only when the action genuinely requires BK, such as choosing product direction,
+granting credentials, approving an authority-boundary change, resolving unclear
+scope, or performing a non-delegable external step.
+
+Small follow-up engineering steps are not valid direct BK actions. Anti-patterns
+include ending with "create one fixture", "run one dogfood command", "add the
+next test", "wire the next option", "clean up this sentence", or similar work
+that Codex can perform. Do the work immediately, omit it if it is not valuable,
+or include it inside a larger autonomous `/goal`.
+
+Use a ready-to-send `/goal` prompt only for a sustained, independently
+verifiable objective that benefits from a new or longer Codex session. A good
+`/goal` lets Codex complete meaningful implementation, focused tests,
+verification, commit, and push without BK deciding the next step midstream.
 
 Size ready-to-send `/goal` prompts around one cohesive local work surface, not
 one tiny invariant. Prefer a slice that lets Codex complete meaningful
@@ -114,8 +137,14 @@ context loading and commit/push than on the actual work. Also avoid prompts so
 broad that they require new authority, broad frameworks, writer parallelism,
 trusted worker reports, or dispatch/merge/cleanup execution.
 
-If the classification is ambiguous, include both the direct action and a goal
-option.
+Good `/goal` candidates include one artifact store workflow, one CLI command
+workflow, one report-only orchestration surface, one run lifecycle API plus CLI
+surface, or one validator area with focused tests. Bad `/goal` candidates are
+single tests, one-off fixture runs, small documentation wording edits, or
+commands Codex can run immediately.
+
+If the classification is ambiguous, include the recommended autonomous `/goal`
+first and state the exact BK decision that would make direct action necessary.
 
 Every ready-to-send `/goal` prompt must:
 
@@ -128,6 +157,10 @@ Every ready-to-send `/goal` prompt must:
 - define stop conditions
 
 ### Ready-To-Send `/goal` Prompt Format
+
+Treat a ready-to-send `/goal` prompt as an autonomous session contract, not a
+small handoff note. It should be large enough to remove BK from the next
+engineering loop, but bounded enough for one Codex session to finish safely.
 
 Do not compress ready-to-send `/goal` prompts into one dense line. Use a
 multiline fenced `text` block so BK can read, edit, and paste the prompt without
@@ -158,9 +191,12 @@ Stop condition:
 - <condition that must stop work>
 ```
 
-If the prompt is very small, the `맥락` or `보고` sections may be omitted, but
-keep line breaks and keep `범위`, `검증`, and `Stop condition` visible as separate
-sections. If no code verification applies, say that explicitly under `검증`.
+If a possible prompt feels very small, do not emit it by default. Either do the
+work now, omit it, or enlarge it into the nearest cohesive autonomous objective.
+For valid small-but-real autonomous prompts, the `맥락` or `보고` sections may be
+omitted, but keep line breaks and keep `범위`, `검증`, and `Stop condition`
+visible as separate sections. If no code verification applies, say that
+explicitly under `검증`.
 
 Do not suggest turning this into a global skill until the same formatting need
 recurs outside this repository. For now, this repo rule is the source of truth.
