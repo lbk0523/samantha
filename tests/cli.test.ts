@@ -1023,4 +1023,132 @@ describe("samantha cli", () => {
     const audit = JSON.parse(await readFile(join(root, "runs", "batch-replacement-audit.jsonl"), "utf8"));
     expect(audit).toEqual(result.evidence);
   });
+
+  test("batch replacement dogfoods stale-base evidence through replacement preflight", async () => {
+    const { batchPath, batchesDir, root, baseCommit } = await writeCliBatchStoreFixture();
+    const sourceBefore = await readFile(batchPath, "utf8");
+    await writeFile(join(root, "advanced.txt"), "advanced\n", "utf8");
+    await git(["add", "advanced.txt"], root);
+    await git(["commit", "-m", "chore: advance cli replacement fixture"], root);
+    const head = await gitHead(root);
+    const replanEvidencePath = join(root, "runs", "batch-replan-evidence.jsonl");
+    const replacementPath = join(batchesDir, "cli-replacement-dogfood.json");
+
+    let stdout = "";
+    const originalLog = console.log;
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batches:execute",
+          "--batch-id=cli-preflight",
+          `--batches-dir=${batchesDir}`,
+          `--runs-dir=${join(root, "runs")}`,
+          "--target-branch=main",
+          "--codex-bin=/bin/false",
+        ]),
+      ).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const executeResult = JSON.parse(stdout);
+    expect(executeResult.status).toBe("preflight_failed");
+    expect(executeResult.staleBaseReplan).toMatchObject({
+      batchId: "cli-preflight",
+      policy: "block_and_replan",
+      decision: "blocked_for_replan",
+      trigger: "preflight",
+      sourceBaseCommit: baseCommit,
+      observedHead: head,
+      sourceBatchSpecMutation: "not_performed",
+      replanArtifactPath: null,
+    });
+    expect(JSON.parse(await readFile(replanEvidencePath, "utf8"))).toEqual(executeResult.staleBaseReplan);
+    expect(await readFile(batchPath, "utf8")).toBe(sourceBefore);
+
+    stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batches:replace",
+          "--batch-id=cli-preflight",
+          `--batches-dir=${batchesDir}`,
+          "--replacement-batch-id=cli-replacement-dogfood",
+          `--replacement=${replacementPath}`,
+          `--replan-evidence=${replanEvidencePath}`,
+          `--state-dir=${join(root, "runs")}`,
+        ]),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const replaceResult = JSON.parse(stdout);
+    expect(await readFile(batchPath, "utf8")).toBe(sourceBefore);
+    expect(replaceResult.spec).toMatchObject({
+      batchId: "cli-replacement-dogfood",
+      baseCommit: head,
+      status: "planned",
+    });
+    expect(replaceResult.evidence).toMatchObject({
+      operation: "create_replacement",
+      sourceBatchSpecMutation: "not_performed",
+      sourceBatchId: "cli-preflight",
+      sourceBaseCommit: baseCommit,
+      observedHead: head,
+      replanEvidencePath,
+      replacementBatchId: "cli-replacement-dogfood",
+      replacementPath,
+    });
+    expect(JSON.parse(await readFile(replacementPath, "utf8"))).toEqual(replaceResult.spec);
+
+    stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batches:preflight", `--batch=${replacementPath}`])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout)).toMatchObject({
+      mayDispatch: true,
+      violations: [],
+    });
+    expect(await readFile(batchPath, "utf8")).toBe(sourceBefore);
+
+    stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batches:reject",
+          "--batch-id=cli-preflight",
+          `--batches-dir=${batchesDir}`,
+          `--state-dir=${join(root, "runs")}`,
+          "--reason=replacement dogfood closed source separately",
+        ]),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const rejectResult = JSON.parse(stdout);
+    expect(rejectResult.evidence).toMatchObject({
+      operation: "mark_rejected",
+      sourceBatchSpecMutation: "performed",
+      before: { status: "planned" },
+      after: { status: "rejected" },
+    });
+    expect((JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec).status).toBe("rejected");
+  });
 });
