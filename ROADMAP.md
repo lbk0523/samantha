@@ -1,6 +1,6 @@
 # Samantha Roadmap
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
 
 ## Purpose
 
@@ -217,8 +217,15 @@ evidence only.
 
 ## Phase 5: Speculative Writer Batches
 
-Status: deferred until batch design exists.
-Minimal contract draft: `references/batch-specs/phase-5-minimal-batch-spec.md`.
+Status: planning and preflight baseline implemented; execution remains
+deferred.
+
+Design artifacts:
+
+- Minimal contract and preflight design:
+  `references/batch-specs/phase-5-minimal-batch-spec.md`
+- Writer batch execution design draft:
+  `references/batch-specs/phase-5-writer-batch-execution-design.md`
 
 User capability:
 
@@ -238,6 +245,32 @@ Required gates:
 - focused verification after each accepted merge
 - broader batch verification after final integration
 - stale-base, rebase, partial failure, and cleanup policy
+
+Implemented planning gates:
+
+- BatchSpec artifact store and stable `batchId` lookup
+- path and id preflight
+- referenced TaskSpec parsing and declaration matching
+- write-set and forbidden-change preflight
+- serial-only classification and single-member serial dispatch groups
+- git `baseCommit` resolution and target `HEAD` equality gate
+- verification and lifecycle policy contract validation
+- CLI preflight that reports whether a batch may dispatch
+
+Still deferred execution items:
+
+- raising `writerCap`
+- writer batch dispatch
+- worker worktree creation for batch execution
+- parallel writer process management
+- candidate merge or cherry-pick execution
+- merge queue execution
+- focused verification execution after accepted candidate integration
+- final batch verification execution
+- stale-base replan or Samantha-owned rebase execution
+- partial-failure status transitions
+- cleanup execution
+- BatchSpec lifecycle or status mutation
 
 Acceptance evidence:
 
