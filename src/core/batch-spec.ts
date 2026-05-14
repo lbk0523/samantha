@@ -19,10 +19,18 @@ type BatchTaskStatus =
   | "cleaned";
 
 type IntegrationQueueStatus = "pending" | "accepted" | "skipped" | "failed";
+type WriteSetClassification = "parallel_eligible" | "serial_only";
 
 export interface MinimalBatchTaskSpec {
   taskId: string;
+  taskSpecPath: string;
+  targetAgent: string;
+  declaredTargetFiles: string[];
+  declaredForbiddenChanges: string[];
   expectedVerifyCommands: string[];
+  writeSetClassification: WriteSetClassification;
+  classificationReasons: string[];
+  dispatchGroup: string;
   status: BatchTaskStatus;
   runLogPath?: string;
   candidateCommit?: string;
@@ -81,6 +89,7 @@ const INTEGRATION_QUEUE_STATUSES = new Set<IntegrationQueueStatus>([
   "skipped",
   "failed",
 ]);
+const WRITE_SET_CLASSIFICATIONS = new Set<WriteSetClassification>(["parallel_eligible", "serial_only"]);
 const PRE_DISPATCH_BATCH_STATUSES = new Set<BatchStatus>(["planned", "preflight_passed"]);
 
 export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
@@ -101,6 +110,7 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
 
   violations.push(...validateUniqueTaskIds(spec.tasks));
   violations.push(...validateTaskStatuses(spec.tasks));
+  violations.push(...validateTaskPlanningFields(spec.tasks));
   violations.push(...validatePreDispatchEvidenceAbsence(spec));
   violations.push(...validateDependencies(spec.tasks, spec.dependencies));
   if (hasDependencyCycle(spec.tasks, spec.dependencies)) {
@@ -109,6 +119,67 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
   violations.push(...validateIntegrationQueue(spec.tasks, spec.dependencies, spec.integrationQueue));
 
   return violations;
+}
+
+function validateTaskPlanningFields(tasks: MinimalBatchTaskSpec[]): string[] {
+  const violations: string[] = [];
+
+  for (const task of tasks) {
+    if (!isNonEmptyString(task.taskSpecPath)) {
+      violations.push(`tasks[].taskSpecPath must be a non-empty string: ${task.taskId}`);
+    }
+    if (!isNonEmptyString(task.targetAgent)) {
+      violations.push(`tasks[].targetAgent must be a non-empty string: ${task.taskId}`);
+    }
+    violations.push(...validateNonEmptyStringArray(task.taskId, "declaredTargetFiles", task.declaredTargetFiles));
+    violations.push(
+      ...validateNonEmptyStringArray(task.taskId, "declaredForbiddenChanges", task.declaredForbiddenChanges),
+    );
+    violations.push(...validateNonEmptyStringArray(task.taskId, "expectedVerifyCommands", task.expectedVerifyCommands));
+    if (!WRITE_SET_CLASSIFICATIONS.has(task.writeSetClassification)) {
+      violations.push(
+        `tasks[].writeSetClassification must be parallel_eligible or serial_only: ${task.taskId}`,
+      );
+    }
+    if (
+      task.writeSetClassification === "serial_only" &&
+      !hasOnlyNonEmptyStrings(task.classificationReasons, { allowEmpty: false })
+    ) {
+      violations.push(`tasks[].classificationReasons must be non-empty for serial_only: ${task.taskId}`);
+    }
+    if (!isNonEmptyString(task.dispatchGroup)) {
+      violations.push(`tasks[].dispatchGroup must be a non-empty string: ${task.taskId}`);
+    }
+  }
+
+  return violations;
+}
+
+function validateNonEmptyStringArray(
+  taskId: string,
+  fieldName: "declaredTargetFiles" | "declaredForbiddenChanges" | "expectedVerifyCommands",
+  value: string[],
+): string[] {
+  if (!hasOnlyNonEmptyStrings(value, { allowEmpty: false })) {
+    return [`tasks[].${fieldName} must be a non-empty string array: ${taskId}`];
+  }
+
+  return [];
+}
+
+function hasOnlyNonEmptyStrings(value: string[], options: { allowEmpty: boolean }): boolean {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  if (!options.allowEmpty && value.length === 0) {
+    return false;
+  }
+
+  return value.every(isNonEmptyString);
+}
+
+function isNonEmptyString(value: string): boolean {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function validateTaskStatuses(tasks: MinimalBatchTaskSpec[]): string[] {
@@ -236,6 +307,12 @@ function validateIntegrationQueue(
     if (!INTEGRATION_QUEUE_STATUSES.has(item.status)) {
       violations.push(`integrationQueue[].status must be pending, accepted, skipped, or failed: ${item.taskId}`);
     }
+    if (!Array.isArray(item.requiresAccepted)) {
+      violations.push(`integrationQueue[].requiresAccepted must be a string array: ${item.taskId}`);
+    }
+    if (!Array.isArray(item.focusedVerifyCommands)) {
+      violations.push(`integrationQueue[].focusedVerifyCommands must be a string array: ${item.taskId}`);
+    }
     if (!taskIds.has(item.taskId)) {
       violations.push(`integrationQueue[].taskId must reference an existing taskId: ${item.taskId}`);
     }
@@ -259,6 +336,27 @@ function validateIntegrationQueue(
 
   const orderByTaskId = new Map(integrationQueue.map((item) => [item.taskId, item.order]));
 
+  for (const item of integrationQueue) {
+    if (!Array.isArray(item.requiresAccepted)) continue;
+    for (const requiredTaskId of item.requiresAccepted) {
+      if (!taskIds.has(requiredTaskId)) {
+        violations.push(
+          `integrationQueue[].requiresAccepted must reference an existing taskId: ${item.taskId} requires ${requiredTaskId}`,
+        );
+      }
+      if (requiredTaskId === item.taskId) {
+        violations.push(`integrationQueue[].requiresAccepted must not include itself: ${item.taskId}`);
+      }
+
+      const requiredOrder = orderByTaskId.get(requiredTaskId);
+      if (requiredOrder !== undefined && requiredOrder >= item.order) {
+        violations.push(
+          `integrationQueue[].requiresAccepted must reference an earlier queue item: ${item.taskId} requires ${requiredTaskId}`,
+        );
+      }
+    }
+  }
+
   for (const dependency of dependencies) {
     const beforeOrder = orderByTaskId.get(dependency.before);
     const afterOrder = orderByTaskId.get(dependency.after);
@@ -275,6 +373,7 @@ function validateIntegrationQueue(
   for (const task of tasks) {
     const queueItem = queueItemByTaskId.get(task.taskId);
     if (queueItem === undefined) continue;
+    if (!Array.isArray(task.expectedVerifyCommands) || !Array.isArray(queueItem.focusedVerifyCommands)) continue;
     for (const expectedCommand of task.expectedVerifyCommands) {
       if (!queueItem.focusedVerifyCommands.includes(expectedCommand)) {
         violations.push(
@@ -287,6 +386,7 @@ function validateIntegrationQueue(
   for (const dependency of dependencies) {
     const dependentQueueItem = queueItemByTaskId.get(dependency.after);
     if (dependentQueueItem === undefined) continue;
+    if (!Array.isArray(dependentQueueItem.requiresAccepted)) continue;
     if (!dependentQueueItem.requiresAccepted.includes(dependency.before)) {
       violations.push(
         `integrationQueue[].requiresAccepted must include direct dependency: ${dependency.after} requires ${dependency.before}`,

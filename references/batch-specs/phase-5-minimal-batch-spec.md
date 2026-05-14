@@ -188,6 +188,21 @@ doctrine task with focused tests or report-only review as required by
 
 ## Validation Rules
 
+Phase 5 closes only artifact-local planning structure validation. It does not
+parse referenced `TaskSpec` files, inspect git state, create worktrees, prove
+glob disjointness, dispatch workers, merge candidates, trust worker reports, or
+perform cleanup.
+
+| Area | Phase 5 planning validator coverage | Deferred boundary |
+| --- | --- | --- |
+| Batch identity and base | `schemaVersion`, `batchId` shape, `baseCommit` hash shape, and batch `status` enum. | Batch artifact store uniqueness, commit resolution in `repoRoot`, target `HEAD` equality, worker worktree base creation, and stale-base detection require preflight or execution state. |
+| Task references | Unique `taskId`; task `status` enum; required non-empty `taskSpecPath`, `targetAgent`, `declaredTargetFiles`, `declaredForbiddenChanges`, `expectedVerifyCommands`, and `dispatchGroup`; `writeSetClassification` enum; non-empty `classificationReasons` for `serial_only`; no `runLogPath` or `candidateCommit` before dispatch. | `TaskSpec` file existence/parsing, writer profile/behavior checks, and matching declared fields against the referenced `TaskSpec` require the preflight framework. |
+| Dependency DAG | Existing dependency endpoints, self-dependency rejection, cycle rejection, integration queue topological ordering, and direct dependencies represented in `requiresAccepted`. | Runtime dispatch gating and failure-to-blocked transitions require dispatch lifecycle state. |
+| Disjoint write-set preflight | Empty `declaredTargetFiles` is rejected as an invalid planning reference shape. | Repo-relative path normalization, absolute/`..` rejection, overlap checks, forbidden-change matching, deterministic glob analysis, and same-`dispatchGroup` disjoint proof require preflight path analysis. |
+| Serial-only classification | `writeSetClassification` is limited to `parallel_eligible` or `serial_only`; `serial_only` requires at least one classification reason. | Matching target files against `serialOnlyRules`, proving `parallel_eligible` has no serial-only targets, and enforcing that serial-only tasks are sole `dispatchGroup` members require serial-only rule and path-analysis preflight. |
+| Integration queue | Every task appears exactly once; `order` starts at `1` and is contiguous; queue task ids exist; queue `status` enum is valid; `requiresAccepted` entries exist, are not self-references, point to earlier queue items, and include direct dependencies; `focusedVerifyCommands` includes each task's `expectedVerifyCommands`; `expectedCandidateCommit` is absent before dispatch. | Matching `expectedCandidateCommit` to run evidence, proving workers cannot mutate merge order, and rerunning focused/final verification are integration execution responsibilities. |
+| Stale base, rebase, partial failure, cleanup | No Phase 5 planning-only validator coverage beyond keeping pre-dispatch evidence out of planned artifacts. | All rules in this area require git state, worker evidence, integration decisions, and lifecycle execution records. |
+
 ### Batch Identity And Base
 
 - `schemaVersion` must be exactly `1`.

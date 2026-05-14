@@ -7,7 +7,19 @@ function task(
   expectedVerifyCommands: string[] = [`bun test ${taskId}`],
   overrides: Partial<BatchSpec["tasks"][number]> = {},
 ): BatchSpec["tasks"][number] {
-  return { taskId, expectedVerifyCommands, status: "planned", ...overrides };
+  return {
+    taskId,
+    taskSpecPath: `references/tasks/${taskId}.json`,
+    targetAgent: "codex-worker",
+    declaredTargetFiles: [`tests/${taskId}.test.ts`],
+    declaredForbiddenChanges: ["src/core/policy.ts"],
+    expectedVerifyCommands,
+    writeSetClassification: "parallel_eligible",
+    classificationReasons: [],
+    dispatchGroup: "group-1",
+    status: "planned",
+    ...overrides,
+  };
 }
 
 function queueItem(
@@ -100,6 +112,53 @@ describe("minimal BatchSpec validation", () => {
         }),
       ),
     ).toContain("tasks[].status must be a valid BatchTaskStatus: task-b has paused");
+  });
+
+  test("requires task planning reference fields", () => {
+    const violations = validateMinimalBatchSpec(
+      batchSpec({
+        tasks: [
+          task("task-a"),
+          task("task-b", [], {
+            taskSpecPath: "",
+            targetAgent: "",
+            declaredTargetFiles: [],
+            declaredForbiddenChanges: [],
+            dispatchGroup: "",
+          }),
+          task("task-c"),
+        ],
+      }),
+    );
+
+    expect(violations).toContain("tasks[].taskSpecPath must be a non-empty string: task-b");
+    expect(violations).toContain("tasks[].targetAgent must be a non-empty string: task-b");
+    expect(violations).toContain("tasks[].declaredTargetFiles must be a non-empty string array: task-b");
+    expect(violations).toContain("tasks[].declaredForbiddenChanges must be a non-empty string array: task-b");
+    expect(violations).toContain("tasks[].expectedVerifyCommands must be a non-empty string array: task-b");
+    expect(violations).toContain("tasks[].dispatchGroup must be a non-empty string: task-b");
+  });
+
+  test("requires valid write-set classification planning fields", () => {
+    const violations = validateMinimalBatchSpec(
+      batchSpec({
+        tasks: [
+          task("task-a"),
+          task("task-b", ["bun test task-b"], {
+            writeSetClassification: "shared" as BatchSpec["tasks"][number]["writeSetClassification"],
+          }),
+          task("task-c", ["bun test task-c"], {
+            writeSetClassification: "serial_only",
+            classificationReasons: [],
+          }),
+        ],
+      }),
+    );
+
+    expect(violations).toContain(
+      "tasks[].writeSetClassification must be parallel_eligible or serial_only: task-b",
+    );
+    expect(violations).toContain("tasks[].classificationReasons must be non-empty for serial_only: task-c");
   });
 
   test("requires pre-dispatch evidence fields to be absent", () => {
@@ -279,6 +338,30 @@ describe("minimal BatchSpec validation", () => {
         }),
       ),
     ).toContain("integrationQueue[].requiresAccepted must include direct dependency: task-c requires task-a");
+  });
+
+  test("requires integrationQueue requiresAccepted to be structurally consistent with tasks", () => {
+    const violations = validateMinimalBatchSpec(
+      batchSpec({
+        dependencies: [],
+        integrationQueue: [
+          queueItem(1, "task-a"),
+          queueItem(2, "task-b", ["missing-task", "task-b", "task-c"]),
+          queueItem(3, "task-c"),
+        ],
+      }),
+    );
+
+    expect(violations).toContain(
+      "integrationQueue[].requiresAccepted must reference an existing taskId: task-b requires missing-task",
+    );
+    expect(violations).toContain("integrationQueue[].requiresAccepted must not include itself: task-b");
+    expect(violations).toContain(
+      "integrationQueue[].requiresAccepted must reference an earlier queue item: task-b requires task-b",
+    );
+    expect(violations).toContain(
+      "integrationQueue[].requiresAccepted must reference an earlier queue item: task-b requires task-c",
+    );
   });
 
   test("requires integrationQueue focusedVerifyCommands to include expected verify commands", () => {
