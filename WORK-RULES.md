@@ -94,6 +94,16 @@ If the next step is a larger autonomous slice, or a longer work session would be
 useful, include a ready-to-send `/goal` prompt that BK can paste into this or
 another Codex session without rewriting the scope.
 
+Size ready-to-send `/goal` prompts around one cohesive local work surface, not
+one tiny invariant. Prefer a slice that lets Codex complete meaningful
+implementation, focused tests, verification, commit, and push in one session
+without crossing authority boundaries. Good examples are one validator area,
+one command workflow, one report-only orchestration surface, or one document
+section with its matching checks. Avoid prompts that spend more overhead on
+context loading and commit/push than on the actual work. Also avoid prompts so
+broad that they require new authority, broad frameworks, writer parallelism,
+trusted worker reports, or dispatch/merge/cleanup execution.
+
 If the classification is ambiguous, include both the direct action and a goal
 option.
 
