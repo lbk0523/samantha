@@ -18,6 +18,11 @@ function batchSpec(overrides: Partial<BatchSpec> = {}): BatchSpec {
       { before: "task-a", after: "task-b" },
       { before: "task-b", after: "task-c" },
     ],
+    integrationQueue: [
+      { order: 1, taskId: "task-a" },
+      { order: 2, taskId: "task-b" },
+      { order: 3, taskId: "task-c" },
+    ],
     ...overrides,
   };
 }
@@ -96,5 +101,20 @@ describe("minimal BatchSpec validation", () => {
         }),
       ),
     ).toContain("dependencies must be acyclic");
+  });
+
+  test("requires integrationQueue to order dependencies before dependents", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          dependencies: [{ before: "task-a", after: "task-b" }],
+          integrationQueue: [
+            { order: 1, taskId: "task-b" },
+            { order: 2, taskId: "task-a" },
+            { order: 3, taskId: "task-c" },
+          ],
+        }),
+      ),
+    ).toContain("integrationQueue must order dependencies before dependents: task-a before task-b");
   });
 });

@@ -7,6 +7,11 @@ export interface MinimalBatchDependency {
   after: string;
 }
 
+export interface MinimalBatchIntegrationQueueItem {
+  order: number;
+  taskId: string;
+}
+
 export interface BatchSpec {
   schemaVersion: 1;
   batchId: string;
@@ -15,6 +20,7 @@ export interface BatchSpec {
   status: string;
   tasks: MinimalBatchTaskSpec[];
   dependencies: MinimalBatchDependency[];
+  integrationQueue: MinimalBatchIntegrationQueueItem[];
 }
 
 const BATCH_ID_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/;
@@ -38,6 +44,7 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
   if (hasDependencyCycle(spec.tasks, spec.dependencies)) {
     violations.push("dependencies must be acyclic");
   }
+  violations.push(...validateIntegrationQueueOrder(spec.dependencies, spec.integrationQueue));
 
   return violations;
 }
@@ -115,4 +122,25 @@ function hasDependencyCycle(
   }
 
   return false;
+}
+
+function validateIntegrationQueueOrder(
+  dependencies: MinimalBatchDependency[],
+  integrationQueue: MinimalBatchIntegrationQueueItem[],
+): string[] {
+  const violations: string[] = [];
+  const orderByTaskId = new Map(integrationQueue.map((item) => [item.taskId, item.order]));
+
+  for (const dependency of dependencies) {
+    const beforeOrder = orderByTaskId.get(dependency.before);
+    const afterOrder = orderByTaskId.get(dependency.after);
+    if (beforeOrder === undefined || afterOrder === undefined) continue;
+    if (beforeOrder >= afterOrder) {
+      violations.push(
+        `integrationQueue must order dependencies before dependents: ${dependency.before} before ${dependency.after}`,
+      );
+    }
+  }
+
+  return violations;
 }
