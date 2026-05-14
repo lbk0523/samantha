@@ -6,6 +6,7 @@ import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES, preflightBatchSpec, validateMinimalBatchSpec } from "../src/core/batch-spec";
 import { listBatchSpecs, readBatchSpecById } from "../src/core/batch-spec-store";
 import type { TaskSpec } from "../src/core/contracts";
+import { git, gitHead } from "../src/core/git";
 
 let tmpRoots: string[] = [];
 
@@ -79,10 +80,14 @@ function taskSpecFor(batchTask: BatchSpec["tasks"][number], overrides: Partial<T
   };
 }
 
-async function makeRepoFixture(tasks: BatchSpec["tasks"]): Promise<string> {
+async function makeRepoFixture(tasks: BatchSpec["tasks"]): Promise<{ root: string; baseCommit: string }> {
   const root = await mkdtemp(join(tmpdir(), "samantha-batch-preflight-"));
   tmpRoots.push(root);
+  await git(["init"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
   await mkdir(join(root, "references", "tasks"), { recursive: true });
+  await writeFile(join(root, ".fixture"), "base\n", "utf8");
   for (const batchTask of tasks) {
     await writeFile(
       join(root, batchTask.taskSpecPath),
@@ -90,7 +95,9 @@ async function makeRepoFixture(tasks: BatchSpec["tasks"]): Promise<string> {
       "utf8",
     );
   }
-  return root;
+  await git(["add", "."], root);
+  await git(["commit", "-m", "chore: initial batch fixture"], root);
+  return { root, baseCommit: await gitHead(root) };
 }
 
 afterEach(async () => {
@@ -509,11 +516,12 @@ describe("BatchSpec preflight validation", () => {
         declaredForbiddenChanges: ["worktrees/**"],
       }),
     ];
-    const root = await makeRepoFixture(tasks);
+    const { root, baseCommit } = await makeRepoFixture(tasks);
 
     const result = await preflightBatchSpec(
       batchSpec({
         repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
@@ -537,7 +545,7 @@ describe("BatchSpec preflight validation", () => {
 
   test("requires batch declarations to match referenced TaskSpec files", async () => {
     const tasks = [task("task-a")];
-    const root = await makeRepoFixture(tasks);
+    const { root, baseCommit } = await makeRepoFixture(tasks);
     await writeFile(
       join(root, tasks[0].taskSpecPath),
       `${JSON.stringify(
@@ -554,6 +562,7 @@ describe("BatchSpec preflight validation", () => {
     const result = await preflightBatchSpec(
       batchSpec({
         repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a")],
@@ -576,10 +585,12 @@ describe("BatchSpec preflight validation", () => {
         declaredTargetFiles: ["../outside.ts"],
       }),
     ];
+    const { root, baseCommit } = await makeRepoFixture([]);
 
     const result = await preflightBatchSpec(
       batchSpec({
-        repoRoot: await makeRepoFixture([]),
+        repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a")],
@@ -595,16 +606,87 @@ describe("BatchSpec preflight validation", () => {
     expect(result.mayDispatch).toBe(false);
   });
 
+  test("rejects stale BatchSpec baseCommit when repoRoot HEAD has advanced", async () => {
+    const tasks = [task("task-a")];
+    const { root, baseCommit } = await makeRepoFixture(tasks);
+    await writeFile(join(root, "advanced.txt"), "advanced\n", "utf8");
+    await git(["add", "advanced.txt"], root);
+    await git(["commit", "-m", "chore: advance head"], root);
+    const head = await gitHead(root);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        baseCommit,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      `repoRoot HEAD must match baseCommit before dispatch: HEAD ${head} != baseCommit ${baseCommit}`,
+    );
+    expect(result.mayDispatch).toBe(false);
+  });
+
+  test("rejects a baseCommit that cannot resolve inside repoRoot", async () => {
+    const tasks = [task("task-a")];
+    const { root } = await makeRepoFixture(tasks);
+    const missingCommit = "f".repeat(40);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        baseCommit: missingCommit,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      `baseCommit must resolve to a git commit in repoRoot: ${missingCommit}`,
+    );
+    expect(result.mayDispatch).toBe(false);
+  });
+
+  test("rejects a non-git repoRoot as a deterministic preflight violation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-non-git-"));
+    tmpRoots.push(root);
+    const tasks = [task("task-a")];
+    await mkdir(join(root, "references", "tasks"), { recursive: true });
+    await writeFile(
+      join(root, tasks[0].taskSpecPath),
+      `${JSON.stringify(taskSpecFor(tasks[0]), null, 2)}\n`,
+      "utf8",
+    );
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        baseCommit: "a".repeat(40),
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a")],
+      }),
+    );
+
+    expect(result.violations).toContain("repoRoot must be a git repository with a resolvable HEAD");
+    expect(result.mayDispatch).toBe(false);
+  });
+
   test("rejects overlapping write sets in the same dispatch group", async () => {
     const tasks = [
       task("task-a", ["bun test task-a"], { declaredTargetFiles: ["src/core"] }),
       task("task-b", ["bun test task-b"], { declaredTargetFiles: ["src/core/policy.ts"] }),
     ];
-    const root = await makeRepoFixture(tasks);
+    const { root, baseCommit } = await makeRepoFixture(tasks);
 
     const result = await preflightBatchSpec(
       batchSpec({
         repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
@@ -626,11 +708,12 @@ describe("BatchSpec preflight validation", () => {
         declaredTargetFiles: ["tests/task-b.test.ts"],
       }),
     ];
-    const root = await makeRepoFixture(tasks);
+    const { root, baseCommit } = await makeRepoFixture(tasks);
 
     const result = await preflightBatchSpec(
       batchSpec({
         repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
@@ -658,11 +741,12 @@ describe("BatchSpec preflight validation", () => {
         dispatchGroup: "group-2",
       }),
     ];
-    const root = await makeRepoFixture(tasks);
+    const { root, baseCommit } = await makeRepoFixture(tasks);
 
     const result = await preflightBatchSpec(
       batchSpec({
         repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b"), queueItem(3, "task-c")],
@@ -692,11 +776,12 @@ describe("BatchSpec preflight validation", () => {
         declaredTargetFiles: ["tests/task-b.test.ts"],
       }),
     ];
-    const root = await makeRepoFixture(tasks);
+    const { root, baseCommit } = await makeRepoFixture(tasks);
 
     const result = await preflightBatchSpec(
       batchSpec({
         repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
@@ -712,11 +797,12 @@ describe("BatchSpec preflight validation", () => {
         declaredTargetFiles: ["src/core/*.ts"],
       }),
     ];
-    const root = await makeRepoFixture(tasks);
+    const { root, baseCommit } = await makeRepoFixture(tasks);
 
     const result = await preflightBatchSpec(
       batchSpec({
         repoRoot: root,
+        baseCommit,
         tasks,
         dependencies: [],
         integrationQueue: [queueItem(1, "task-a")],

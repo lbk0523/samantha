@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join, posix, resolve } from "node:path";
 import type { TaskSpec } from "./contracts";
+import { git, gitHead } from "./git";
 import { matchesAnyGlob } from "./glob";
 
 type BatchStatus =
@@ -221,6 +222,7 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
 export async function preflightBatchSpec(spec: BatchSpec): Promise<BatchPreflightResult> {
   const repoRoot = resolve(spec.repoRoot);
   const violations = validateMinimalBatchSpec(spec);
+  await validateBatchGitBase(spec, repoRoot, violations);
   const serialOnlyRules = normalizeSerialOnlyRules(spec.serialOnlyRules, violations);
   const preflightTasks: BatchPreflightTask[] = [];
 
@@ -276,6 +278,40 @@ export async function preflightBatchSpec(spec: BatchSpec): Promise<BatchPrefligh
     tasks: preflightTasks,
     writeSetProofs,
   };
+}
+
+async function validateBatchGitBase(spec: BatchSpec, repoRoot: string, violations: string[]): Promise<void> {
+  if (!FULL_HEX_COMMIT_PATTERN.test(spec.baseCommit)) {
+    return;
+  }
+
+  let head: string;
+  try {
+    head = await gitHead(repoRoot);
+  } catch {
+    violations.push("repoRoot must be a git repository with a resolvable HEAD");
+    return;
+  }
+
+  if (!(await gitCommitExists(spec.baseCommit, repoRoot))) {
+    violations.push(`baseCommit must resolve to a git commit in repoRoot: ${spec.baseCommit}`);
+    return;
+  }
+
+  if (head !== spec.baseCommit) {
+    violations.push(
+      `repoRoot HEAD must match baseCommit before dispatch: HEAD ${head} != baseCommit ${spec.baseCommit}`,
+    );
+  }
+}
+
+async function gitCommitExists(commit: string, repoRoot: string): Promise<boolean> {
+  try {
+    await git(["rev-parse", "--verify", `${commit}^{commit}`], repoRoot);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeRepoRelativePath(

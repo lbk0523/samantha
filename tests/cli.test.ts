@@ -6,6 +6,7 @@ import { main, parseCliArgs } from "../src/cli";
 import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES } from "../src/core/batch-spec";
 import type { TaskSpec } from "../src/core/contracts";
+import { git, gitHead } from "../src/core/git";
 
 let tmpRoots: string[] = [];
 
@@ -50,23 +51,30 @@ function cliTaskSpecFor(batchTask: BatchSpec["tasks"][number], overrides: Partia
 async function writeCliBatchStoreFixture(
   taskSpecOverrides: Partial<TaskSpec> = {},
   batchOverrides: Partial<BatchSpec> = {},
-): Promise<{ batchPath: string; batchesDir: string; root: string }> {
+): Promise<{ batchPath: string; batchesDir: string; root: string; baseCommit: string }> {
   const root = await mkdtemp(join(tmpdir(), "samantha-cli-batch-"));
   tmpRoots.push(root);
+  await git(["init"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
   await mkdir(join(root, "references", "tasks"), { recursive: true });
   const batchesDir = join(root, "references", "batch-specs");
   await mkdir(batchesDir, { recursive: true });
   const batchTask = cliBatchTask("task-a");
+  await writeFile(join(root, ".fixture"), "base\n", "utf8");
   await writeFile(
     join(root, batchTask.taskSpecPath),
     `${JSON.stringify(cliTaskSpecFor(batchTask, taskSpecOverrides), null, 2)}\n`,
     "utf8",
   );
+  await git(["add", ".fixture", batchTask.taskSpecPath], root);
+  await git(["commit", "-m", "chore: initial cli batch fixture"], root);
+  const baseCommit = await gitHead(root);
   const batch: BatchSpec = {
     schemaVersion: 1,
     batchId: "cli-preflight",
     repoRoot: root,
-    baseCommit: "0123456789abcdef0123456789abcdef01234567",
+    baseCommit,
     status: "planned",
     serialOnlyRules: DEFAULT_SERIAL_ONLY_RULES,
     tasks: [batchTask],
@@ -84,7 +92,7 @@ async function writeCliBatchStoreFixture(
   };
   const batchPath = join(batchesDir, "cli-preflight.json");
   await writeFile(batchPath, `${JSON.stringify(batch, null, 2)}\n`, "utf8");
-  return { batchPath, batchesDir, root };
+  return { batchPath, batchesDir, root, baseCommit };
 }
 
 async function writeCliBatchPreflightFixture(taskSpecOverrides: Partial<TaskSpec> = {}): Promise<string> {
@@ -523,6 +531,31 @@ describe("samantha cli", () => {
     );
   });
 
+  test("batch preflight command returns non-zero when BatchSpec baseCommit is stale", async () => {
+    const { batchPath, root, baseCommit } = await writeCliBatchStoreFixture();
+    await writeFile(join(root, "advanced.txt"), "advanced\n", "utf8");
+    await git(["add", "advanced.txt"], root);
+    await git(["commit", "-m", "chore: advance cli fixture"], root);
+    const head = await gitHead(root);
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batches:preflight", `--batch=${batchPath}`])).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      `repoRoot HEAD must match baseCommit before dispatch: HEAD ${head} != baseCommit ${baseCommit}`,
+    );
+  });
+
   test("batch list command prints store summaries in stable order", async () => {
     const { batchesDir, root } = await writeCliBatchStoreFixture();
     const secondBatch = {
@@ -632,6 +665,33 @@ describe("samantha cli", () => {
 
     expect(JSON.parse(stdout).violations).toContain(
       "tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: task-a",
+    );
+  });
+
+  test("batch preflight by id applies the same stale base gate", async () => {
+    const { batchesDir, root, baseCommit } = await writeCliBatchStoreFixture();
+    await writeFile(join(root, "advanced.txt"), "advanced\n", "utf8");
+    await git(["add", "advanced.txt"], root);
+    await git(["commit", "-m", "chore: advance cli fixture"], root);
+    const head = await gitHead(root);
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main(["batches:preflight", "--batch-id=cli-preflight", `--batches-dir=${batchesDir}`]),
+      ).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      `repoRoot HEAD must match baseCommit before dispatch: HEAD ${head} != baseCommit ${baseCommit}`,
     );
   });
 });
