@@ -41,16 +41,9 @@ here as a short routing or safety gate.
 
 Before implementing Samantha self-build work, apply the relevant sections of
 `WORK-RULES.md`. Before the final response, apply its completion checklist.
-
-Mandatory final-response gate for Samantha self-build work:
-
-- report deterministic verification and whether only intended files changed
-- commit and push when safe, or state the stop condition that prevented it
-- classify the outcome as completed now, recommended autonomous `/goal`, or
-  blocked on BK decision
-- prefer a ready-to-send `/goal` prompt for remaining autonomous engineering
-  work, and use direct BK actions only for genuine BK decisions or blockers
-- every ready-to-send `/goal` prompt must explicitly require Korean answers
+That checklist is authoritative for verification reporting, intended-file
+reporting, commit/push handling, outcome classification, and `/goal`
+next-action reporting.
 
 ## Learning Rules
 
