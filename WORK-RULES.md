@@ -103,6 +103,9 @@ Before the final response on Samantha self-build work, explicitly check:
   - completed now
   - recommended autonomous `/goal`
   - blocked on BK decision
+- after any `/goal` work completes, propose the next highest-value action as
+  either a ready-to-send `/goal`, a direct BK decision, or "no next action
+  recommended" when continuing would be low-value
 
 Prefer "completed now" when Codex can finish the work in the current session.
 Prefer a recommended autonomous `/goal` when meaningful engineering work remains
