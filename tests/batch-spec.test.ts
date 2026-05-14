@@ -10,18 +10,28 @@ function batchSpec(overrides: Partial<BatchSpec> = {}): BatchSpec {
     baseCommit: "0123456789abcdef0123456789abcdef01234567",
     status: "planned",
     tasks: [
-      { taskId: "task-a" },
-      { taskId: "task-b" },
-      { taskId: "task-c" },
+      { taskId: "task-a", expectedVerifyCommands: ["bun test task-a"] },
+      { taskId: "task-b", expectedVerifyCommands: ["bun test task-b"] },
+      { taskId: "task-c", expectedVerifyCommands: ["bun test task-c"] },
     ],
     dependencies: [
       { before: "task-a", after: "task-b" },
       { before: "task-b", after: "task-c" },
     ],
     integrationQueue: [
-      { order: 1, taskId: "task-a", requiresAccepted: [] },
-      { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
-      { order: 3, taskId: "task-c", requiresAccepted: ["task-b"] },
+      { order: 1, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+      {
+        order: 2,
+        taskId: "task-b",
+        requiresAccepted: ["task-a"],
+        focusedVerifyCommands: ["bun test task-b"],
+      },
+      {
+        order: 3,
+        taskId: "task-c",
+        requiresAccepted: ["task-b"],
+        focusedVerifyCommands: ["bun test task-c"],
+      },
     ],
     ...overrides,
   };
@@ -54,7 +64,10 @@ describe("minimal BatchSpec validation", () => {
     expect(
       validateMinimalBatchSpec(
         batchSpec({
-          tasks: [{ taskId: "task-a" }, { taskId: "task-a" }],
+          tasks: [
+            { taskId: "task-a", expectedVerifyCommands: ["bun test task-a"] },
+            { taskId: "task-a", expectedVerifyCommands: ["bun test duplicate-task-a"] },
+          ],
           dependencies: [],
         }),
       ),
@@ -109,9 +122,14 @@ describe("minimal BatchSpec validation", () => {
         batchSpec({
           dependencies: [{ before: "task-a", after: "task-b" }],
           integrationQueue: [
-            { order: 1, taskId: "task-b", requiresAccepted: ["task-a"] },
-            { order: 2, taskId: "task-a", requiresAccepted: [] },
-            { order: 3, taskId: "task-c", requiresAccepted: [] },
+            {
+              order: 1,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
+            { order: 2, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            { order: 3, taskId: "task-c", requiresAccepted: [], focusedVerifyCommands: ["bun test task-c"] },
           ],
         }),
       ),
@@ -123,8 +141,13 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a", requiresAccepted: [] },
-            { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
+            { order: 1, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            {
+              order: 2,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
           ],
         }),
       ),
@@ -134,9 +157,19 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a", requiresAccepted: [] },
-            { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
-            { order: 3, taskId: "task-b", requiresAccepted: ["task-a"] },
+            { order: 1, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            {
+              order: 2,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
+            {
+              order: 3,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
           ],
         }),
       ),
@@ -148,9 +181,14 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a", requiresAccepted: [] },
-            { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
-            { order: 3, taskId: "missing-task", requiresAccepted: [] },
+            { order: 1, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            {
+              order: 2,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
+            { order: 3, taskId: "missing-task", requiresAccepted: [], focusedVerifyCommands: [] },
           ],
         }),
       ),
@@ -162,9 +200,19 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 0, taskId: "task-a", requiresAccepted: [] },
-            { order: 1, taskId: "task-b", requiresAccepted: ["task-a"] },
-            { order: 2, taskId: "task-c", requiresAccepted: ["task-b"] },
+            { order: 0, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            {
+              order: 1,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
+            {
+              order: 2,
+              taskId: "task-c",
+              requiresAccepted: ["task-b"],
+              focusedVerifyCommands: ["bun test task-c"],
+            },
           ],
         }),
       ),
@@ -174,9 +222,19 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a", requiresAccepted: [] },
-            { order: 3, taskId: "task-b", requiresAccepted: ["task-a"] },
-            { order: 3, taskId: "task-c", requiresAccepted: ["task-b"] },
+            { order: 1, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            {
+              order: 3,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
+            {
+              order: 3,
+              taskId: "task-c",
+              requiresAccepted: ["task-b"],
+              focusedVerifyCommands: ["bun test task-c"],
+            },
           ],
         }),
       ),
@@ -189,12 +247,33 @@ describe("minimal BatchSpec validation", () => {
         batchSpec({
           dependencies: [{ before: "task-a", after: "task-c" }],
           integrationQueue: [
-            { order: 1, taskId: "task-a", requiresAccepted: [] },
-            { order: 2, taskId: "task-b", requiresAccepted: [] },
-            { order: 3, taskId: "task-c", requiresAccepted: [] },
+            { order: 1, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            { order: 2, taskId: "task-b", requiresAccepted: [], focusedVerifyCommands: ["bun test task-b"] },
+            { order: 3, taskId: "task-c", requiresAccepted: [], focusedVerifyCommands: ["bun test task-c"] },
           ],
         }),
       ),
     ).toContain("integrationQueue[].requiresAccepted must include direct dependency: task-c requires task-a");
+  });
+
+  test("requires integrationQueue focusedVerifyCommands to include expected verify commands", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          integrationQueue: [
+            { order: 1, taskId: "task-a", requiresAccepted: [], focusedVerifyCommands: ["bun test task-a"] },
+            {
+              order: 2,
+              taskId: "task-b",
+              requiresAccepted: ["task-a"],
+              focusedVerifyCommands: ["bun test task-b"],
+            },
+            { order: 3, taskId: "task-c", requiresAccepted: ["task-b"], focusedVerifyCommands: [] },
+          ],
+        }),
+      ),
+    ).toContain(
+      "integrationQueue[].focusedVerifyCommands must include expected verify command: task-c requires bun test task-c",
+    );
   });
 });

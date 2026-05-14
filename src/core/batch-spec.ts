@@ -1,5 +1,6 @@
 export interface MinimalBatchTaskSpec {
   taskId: string;
+  expectedVerifyCommands: string[];
 }
 
 export interface MinimalBatchDependency {
@@ -11,6 +12,7 @@ export interface MinimalBatchIntegrationQueueItem {
   order: number;
   taskId: string;
   requiresAccepted: string[];
+  focusedVerifyCommands: string[];
 }
 
 export interface BatchSpec {
@@ -170,6 +172,18 @@ function validateIntegrationQueue(
   }
 
   const queueItemByTaskId = new Map(integrationQueue.map((item) => [item.taskId, item]));
+
+  for (const task of tasks) {
+    const queueItem = queueItemByTaskId.get(task.taskId);
+    if (queueItem === undefined) continue;
+    for (const expectedCommand of task.expectedVerifyCommands) {
+      if (!queueItem.focusedVerifyCommands.includes(expectedCommand)) {
+        violations.push(
+          `integrationQueue[].focusedVerifyCommands must include expected verify command: ${task.taskId} requires ${expectedCommand}`,
+        );
+      }
+    }
+  }
 
   for (const dependency of dependencies) {
     const dependentQueueItem = queueItemByTaskId.get(dependency.after);
