@@ -490,6 +490,35 @@ describe("samantha cli", () => {
     );
   });
 
+  test("parses batch execution arguments", () => {
+    expect(
+      parseCliArgs([
+        "batches:execute",
+        "--batch-id=cli-preflight",
+        "--batches-dir=references/batch-specs",
+        "--agent=references/agent-profiles/codex-worker.json",
+        "--worktrees-dir=.worktrees",
+        "--runs-dir=runs",
+        "--state-dir=runs",
+        "--target-branch=main",
+        "--codex-bin=/tmp/fake-codex",
+      ]),
+    ).toEqual({
+      command: "batches:execute",
+      batchId: "cli-preflight",
+      batchesDir: "references/batch-specs",
+      agentPath: "references/agent-profiles/codex-worker.json",
+      worktreesDir: ".worktrees",
+      runsDir: "runs",
+      stateDir: "runs",
+      targetBranch: "main",
+      codexBin: "/tmp/fake-codex",
+    });
+    expect(() => parseCliArgs(["batches:execute"])).toThrow(
+      "usage: bun run samantha batches:execute --batch=<path> OR --batch-id=<id> [--batches-dir=<dir>] [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--state-dir=<dir>] [--target-branch=<branch>] [--codex-bin=<path>]",
+    );
+  });
+
   test("parses batch list and show arguments", () => {
     expect(parseCliArgs(["batches:list", "--batches-dir=references/batch-specs"])).toEqual({
       command: "batches:list",

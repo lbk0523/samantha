@@ -34,6 +34,7 @@ import { reviewLessonInbox } from "./core/lesson-inbox-review";
 import { summarizeReportOnlyReviews } from "./core/report-review";
 import { preflightBatchSpec, type BatchSpec } from "./core/batch-spec";
 import { listBatchSpecs, readBatchSpecById } from "./core/batch-spec-store";
+import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -144,6 +145,13 @@ export interface BatchesPreflightCliArgs {
   batchesDir?: string;
 }
 
+export interface BatchesExecuteCliArgs extends Omit<ExecuteBatchInput, "spec"> {
+  command: "batches:execute";
+  batchPath?: string;
+  batchId?: string;
+  batchesDir?: string;
+}
+
 export interface BatchesListCliArgs {
   command: "batches:list";
   batchesDir?: string;
@@ -174,6 +182,7 @@ export type SamanthaCliArgs =
   | TasksFromTemplateCliArgs
   | TasksFromRunCliArgs
   | BatchesPreflightCliArgs
+  | BatchesExecuteCliArgs
   | BatchesListCliArgs
   | BatchesShowCliArgs;
 
@@ -508,7 +517,31 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight");
+  if (command === "batches:execute") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const batchPath = flags.get("batch");
+    const batchId = flags.get("batch-id");
+    if (batchPath && batchId) {
+      throw new Error("usage: batches:execute accepts either --batch=<path> or --batch-id=<id>, not both");
+    }
+    if (!batchPath && !batchId) {
+      throw new Error("usage: bun run samantha batches:execute --batch=<path> OR --batch-id=<id> [--batches-dir=<dir>] [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--state-dir=<dir>] [--target-branch=<branch>] [--codex-bin=<path>]");
+    }
+    return {
+      command: "batches:execute",
+      ...(batchPath ? { batchPath } : {}),
+      ...(batchId ? { batchId } : {}),
+      ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("agent") ? { agentPath: flags.get("agent") } : {}),
+      ...(flags.get("worktrees-dir") ? { worktreesDir: flags.get("worktrees-dir") } : {}),
+      ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
+      ...(flags.get("state-dir") ? { stateDir: flags.get("state-dir") } : {}),
+      ...(flags.get("codex-bin") ? { codexBin: flags.get("codex-bin") } : {}),
+      ...(flags.get("target-branch") ? { targetBranch: flags.get("target-branch") } : {}),
+    };
+  }
+
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -698,6 +731,25 @@ export async function main(argv: string[]): Promise<number> {
     const result = await preflightBatchSpec(spec);
     console.log(JSON.stringify(result, null, 2));
     return result.mayDispatch ? 0 : 1;
+  }
+
+  if (args.command === "batches:execute") {
+    if (!args.batchPath && !args.batchId) {
+      throw new Error("batches:execute requires --batch=<path> or --batch-id=<id>");
+    }
+    let spec: BatchSpec;
+    if (args.batchPath) {
+      spec = await readBatchSpec(resolve(args.batchPath));
+    } else {
+      const batchId = args.batchId;
+      if (!batchId) {
+        throw new Error("batches:execute requires --batch=<path> or --batch-id=<id>");
+      }
+      spec = await readBatchSpecById({ batchId, batchesDir: args.batchesDir });
+    }
+    const result = await executeBatch({ ...args, spec });
+    console.log(JSON.stringify(result, null, 2));
+    return result.pass ? 0 : 1;
   }
 
   if (args.command === "worktree:cleanup") {

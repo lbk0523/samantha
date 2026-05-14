@@ -16,6 +16,7 @@ export interface PrepareWorkerDispatchInput {
   repoRoot: string;
   worktreesDir?: string;
   codexBin?: string;
+  baseRef?: string;
 }
 
 export interface WorkerDispatchPreparation {
@@ -92,6 +93,7 @@ export async function prepareWorkerDispatch(
           repoRoot: input.repoRoot,
           taskId: input.task.id,
           worktreesDir: input.worktreesDir,
+          baseRef: input.baseRef,
         })
       : undefined;
   const worktreePath = allocation?.worktreePath ?? input.repoRoot;

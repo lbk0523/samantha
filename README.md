@@ -1,6 +1,6 @@
 # Samantha Harness
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
 
 ## Decision
 
@@ -47,9 +47,10 @@ execution should be introduced only as reviewed product slices with explicit
 authority and verification gates.
 
 Single-writer execution is an MVP constraint, not a permanent doctrine:
-post-MVP parallelism should start with report-only workers and later move to
-speculative writer batches only after batch orchestration, ordered integration,
-and post-merge verification are designed.
+post-MVP parallelism starts with report-only workers and can use speculative
+writer batches only through Samantha-owned BatchSpec gates, isolated worktrees,
+ordered integration, and post-merge verification. This does not raise
+`writerCap` or give workers orchestration authority.
 
 ## Repository Boundary
 
@@ -61,6 +62,9 @@ Current package shape:
 src/
   cli.ts
   core/
+    batch-execution.ts
+    batch-spec-store.ts
+    batch-spec.ts
     codex-dispatch.ts
     contracts.ts
     git.ts
@@ -135,6 +139,10 @@ bun run samantha lessons:promote <candidate.md> --playbook-id=<id>
 bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>
 bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]...
 bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
+bun run samantha batches:list
+bun run samantha batches:show --batch-id=<id>
+bun run samantha batches:preflight --batch=<path>
+bun run samantha batches:execute --batch=<path> --target-branch=<branch>
 ```
 
 Current task templates:
@@ -161,3 +169,7 @@ Samantha's core loop is credible when:
   review, promotion, and later evidence recording remain explicit operations
 - report-only runs allocate no worktree, create no commit, and remain advice-only
   evidence for a Samantha decision point
+- BatchSpec writer batches re-run preflight, dispatch only eligible writer
+  groups from `baseCommit`, integrate candidates in queue order, verify after
+  accepted merges, record lifecycle evidence, and clean up only after terminal
+  accepted evidence

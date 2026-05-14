@@ -1,12 +1,13 @@
 # Phase 5 Writer Batch Execution Design
 
-Status: report-only design artifact.
+Status: reviewed design artifact; execution baseline implemented in
+`src/core/batch-execution.ts` and exposed through `batches:execute`.
 
-This document defines the reviewed batch design Samantha needs before any
-writer batch execution implementation. It starts after the `BatchSpec` contract
-and preflight gates have accepted a batch plan. It does not authorize writer
-parallelism, does not raise `writerCap`, and does not implement worker dispatch,
-candidate merge, cleanup, or `BatchSpec` status mutation.
+This document defines the reviewed batch design Samantha needs for writer batch
+execution. It starts after the `BatchSpec` contract and preflight gates have
+accepted a batch plan. The implemented baseline still does not authorize
+worker-owned orchestration, worker-owned rebase, worker-owned cleanup,
+`writerCap` changes, or source `BatchSpec` lifecycle mutation.
 
 ## Current Implemented Baseline
 
@@ -176,23 +177,27 @@ Cleanup policy is `explicit_per_worker_lifecycle_after_resolution`. Cleanup can
 run only after every worker has a terminal decision recorded. Cleanup execution
 must reject unresolved, dirty, missing, or unintegrated worker worktrees.
 
-## Not Implemented By This Artifact
+## Implemented Baseline
 
-These execution items remain deliberately unimplemented:
+The execution baseline now implements:
 
-- raising `writerCap`
 - writer batch dispatch
 - worker worktree creation for batch execution
-- parallel writer process management
 - candidate commit merge or cherry-pick execution
 - merge queue execution
 - focused verification execution after candidate integration
 - final batch verification execution
-- stale-base replan execution
-- Samantha-owned rebase execution
 - partial-failure status transitions
 - cleanup execution
-- `BatchSpec` lifecycle or status mutation
+
+These items remain deliberately outside the routine baseline:
+
+- raising `writerCap`
+- worker-owned orchestration, rebase, merge order, cleanup, or lifecycle
+  mutation
+- automatic stale-base replan execution
+- Samantha-owned rebase execution without a reviewed rebase task
+- source `BatchSpec` lifecycle or status mutation
 
 ## Stop Conditions For Implementation Work
 

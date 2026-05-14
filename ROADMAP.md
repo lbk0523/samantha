@@ -217,8 +217,8 @@ evidence only.
 
 ## Phase 5: Speculative Writer Batches
 
-Status: planning and preflight baseline implemented; execution remains
-deferred.
+Status: BatchSpec planning, preflight, execution, ordered integration,
+verification, and cleanup evidence baseline implemented.
 
 Design artifacts:
 
@@ -257,20 +257,30 @@ Implemented planning gates:
 - verification and lifecycle policy contract validation
 - CLI preflight that reports whether a batch may dispatch
 
-Still deferred execution items:
+Implemented execution gates:
+
+- `batches:execute` re-runs preflight immediately before dispatch
+- eligible dispatch groups run writer tasks from the BatchSpec `baseCommit`
+- each worker records an independent run log and candidate commit evidence
+- dependency failures block dependents while independent candidates can proceed
+- serial-only authority-boundary changes are blocked from the routine writer
+  batch path and require a separate doctrine or policy task
+- integration follows `integrationQueue` order and is Samantha-owned
+- focused verification runs after each accepted candidate integration
+- final batch verification runs after the last accepted candidate
+- stale `baseCommit` is blocked by preflight, and unexpected target `HEAD`
+  movement during integration is treated as `block_and_replan`
+- cleanup runs only after accepted candidates have lifecycle evidence and final
+  verification passes
+
+Still deferred or explicit-only items:
 
 - raising `writerCap`
-- writer batch dispatch
-- worker worktree creation for batch execution
-- parallel writer process management
-- candidate merge or cherry-pick execution
-- merge queue execution
-- focused verification execution after accepted candidate integration
-- final batch verification execution
-- stale-base replan or Samantha-owned rebase execution
-- partial-failure status transitions
-- cleanup execution
-- BatchSpec lifecycle or status mutation
+- worker-owned orchestration, rebase, merge order, cleanup, or lifecycle
+  mutation
+- automatic stale-base replan execution
+- Samantha-owned rebase execution without a reviewed rebase task
+- mutating the source BatchSpec artifact as lifecycle state
 
 Acceptance evidence:
 
@@ -278,6 +288,8 @@ Acceptance evidence:
 - failed batch members do not contaminate accepted work
 - every accepted writer output is reverified after integration
 - cleanup/lifecycle evidence is recorded per worker
+- focused tests cover happy path, stale-base rejection, partial failure, and
+  authority-boundary serial-only blocking
 
 Promotion rule:
 
