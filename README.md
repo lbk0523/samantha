@@ -1,6 +1,6 @@
 # Samantha Harness
 
-Last updated: 2026-05-14
+Last updated: 2026-05-15
 
 ## Decision
 
@@ -52,6 +52,11 @@ checks, deterministic verification, run evidence, or Samantha-owned lifecycle
 gates.
 
 See `OPERATING_GUIDE.md` for the full protocol and examples.
+
+`Samantha brainstorm` is the pre-execution direction surface for product and MVP
+UI/UX discussion. It may use temporary browser mockups as conversation aids, but
+it should end in a Brainstorm Brief rather than code, task specs, worker
+dispatches, or committed UX specs by default.
 
 For cross-repo Codex Chat use, activation is provided by the global
 `samantha-operator` skill; this README and the operating guides describe the

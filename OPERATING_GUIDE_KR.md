@@ -1,6 +1,6 @@
 # Samantha 운영 가이드
 
-마지막 업데이트: 2026-05-14
+마지막 업데이트: 2026-05-15
 
 ## 목적
 
@@ -58,7 +58,7 @@ gate를 우회해서는 안 된다.
 | Intent | 언제 쓰는가 | Samantha가 내야 하는 산출물 |
 | --- | --- | --- |
 | `command` | BK에게 실행 가능한 software goal이 있을 때. | 실행 전에 scoped plan, task spec 방향, 또는 ready-to-send `/goal`. |
-| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. | tradeoff, 더 정확한 용어, decision point. |
+| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX를 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르는 tradeoff, 더 정확한 용어, decision point, 그리고 Brainstorm Brief. |
 | `plan` | decision-complete implementation plan이 필요할 때. | interface, scope, test, assumption, stop condition을 포함한 구체 계획. |
 | `review` | critique, readiness check, risk finding, evidence synthesis가 필요할 때. | findings와 open question이 있는 report-only assessment. |
 | `recover` | failed, blocked, stale, incomplete run evidence를 기준으로 다음 액션을 정해야 할 때. | diagnosis와 다음 bounded action. 보통 더 좁은 follow-up task 또는 lifecycle step. |
@@ -88,9 +88,14 @@ Samantha brainstorm: debut 전에 BK가 Samantha에게 어떤 종류의 말을 �
 
 기대 동작:
 
+- 먼저 target repo 또는 product context를 확인한다.
 - 대화형 작업으로 유지한다.
-- 조용히 결정하지 말고 tradeoff를 드러낸다.
+- 조용히 결정하지 말고 tradeoff와 추천안을 드러낸다.
+- 제품/UI 작업이면 visual question 전에 temporary browser visual companion을 한 번 제안한다.
+- 필요하면 2-3개의 MVP UI/UX 방향을 비교하고 하나로 수렴한다.
+- 마지막에는 goal, audience, MVP user flow, accepted UI/UX decisions, rejected alternatives, open questions, recommended next prompt를 담은 Brainstorm Brief를 낸다.
 - BK가 command나 plan 요청으로 바꾸기 전까지 executable work로 넘어가지 않는다.
+- production code, task spec, worker dispatch, committed UX spec, prototype route를 기본으로 만들지 않는다.
 
 ### 계획만 요청
 

@@ -1,6 +1,6 @@
 # Samantha Operating Guide
 
-Last updated: 2026-05-14
+Last updated: 2026-05-15
 
 ## Purpose
 
@@ -58,7 +58,7 @@ evidence, or Samantha-owned lifecycle gates.
 | Intent | Use it when | Samantha should produce |
 | --- | --- | --- |
 | `command` | BK has an executable software goal. | A scoped plan, task spec direction, or ready-to-send `/goal` before execution. |
-| `brainstorm` | BK wants to shape direction before the work is executable. | Tradeoffs, sharper terminology, and decision points. |
+| `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX. | Tradeoffs, sharper terminology, decision points, and a Brainstorm Brief following `references/playbooks/samantha-brainstorming.md`. |
 | `plan` | BK wants a decision-complete implementation plan. | A concrete plan with interfaces, scope, tests, assumptions, and stop conditions. |
 | `review` | BK wants critique, readiness checks, risk finding, or evidence synthesis. | A report-only assessment with findings and open questions. |
 | `recover` | BK points at failed, blocked, stale, or incomplete run evidence. | A diagnosis and next bounded action, usually a narrower follow-up task or lifecycle step. |
@@ -88,10 +88,19 @@ Samantha brainstorm: debut 전에 BK가 Samantha에게 어떤 종류의 말을 �
 
 Expected behavior:
 
+- Inspect the target repo or product context first.
 - Keep the work conversational.
-- Surface tradeoffs instead of silently choosing.
+- Surface tradeoffs and recommendations instead of silently choosing.
+- For product/UI work, offer a temporary browser visual companion once before
+  visual questions.
+- Compare two or three MVP UI/UX directions when useful, then converge on one.
+- End with a Brainstorm Brief covering the goal, audience, MVP user flow,
+  accepted UI/UX decisions, rejected alternatives, open questions, and
+  recommended next prompt.
 - Stop before executable work unless BK turns the discussion into a command or
   plan request.
+- Do not create production code, task specs, worker dispatches, committed UX
+  specs, or prototype routes by default.
 
 ### Plan Only
 
