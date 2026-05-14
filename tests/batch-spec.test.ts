@@ -1,6 +1,12 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { BatchSpec } from "../src/core/batch-spec";
-import { validateMinimalBatchSpec } from "../src/core/batch-spec";
+import { DEFAULT_SERIAL_ONLY_RULES, preflightBatchSpec, validateMinimalBatchSpec } from "../src/core/batch-spec";
+import type { TaskSpec } from "../src/core/contracts";
+
+let tmpRoots: string[] = [];
 
 function task(
   taskId: string,
@@ -12,7 +18,7 @@ function task(
     taskSpecPath: `references/tasks/${taskId}.json`,
     targetAgent: "codex-worker",
     declaredTargetFiles: [`tests/${taskId}.test.ts`],
-    declaredForbiddenChanges: ["src/core/policy.ts"],
+    declaredForbiddenChanges: ["runs/**"],
     expectedVerifyCommands,
     writeSetClassification: "parallel_eligible",
     classificationReasons: [],
@@ -39,6 +45,7 @@ function batchSpec(overrides: Partial<BatchSpec> = {}): BatchSpec {
     repoRoot: "/repo",
     baseCommit: "0123456789abcdef0123456789abcdef01234567",
     status: "planned",
+    serialOnlyRules: DEFAULT_SERIAL_ONLY_RULES,
     tasks: [
       task("task-a"),
       task("task-b"),
@@ -56,6 +63,39 @@ function batchSpec(overrides: Partial<BatchSpec> = {}): BatchSpec {
     ...overrides,
   };
 }
+
+function taskSpecFor(batchTask: BatchSpec["tasks"][number], overrides: Partial<TaskSpec> = {}): TaskSpec {
+  return {
+    id: batchTask.taskId,
+    title: `Task ${batchTask.taskId}`,
+    targetAgent: batchTask.targetAgent,
+    targetFiles: batchTask.declaredTargetFiles,
+    forbiddenChanges: batchTask.declaredForbiddenChanges,
+    verifyCommands: batchTask.expectedVerifyCommands,
+    instructions: "Make the requested focused change.",
+    status: "pending",
+    ...overrides,
+  };
+}
+
+async function makeRepoFixture(tasks: BatchSpec["tasks"]): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-batch-preflight-"));
+  tmpRoots.push(root);
+  await mkdir(join(root, "references", "tasks"), { recursive: true });
+  for (const batchTask of tasks) {
+    await writeFile(
+      join(root, batchTask.taskSpecPath),
+      `${JSON.stringify(taskSpecFor(batchTask), null, 2)}\n`,
+      "utf8",
+    );
+  }
+  return root;
+}
+
+afterEach(async () => {
+  await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
+  tmpRoots = [];
+});
 
 describe("minimal BatchSpec validation", () => {
   test("accepts the Phase 5 minimal identity and dependency shape", () => {
@@ -377,6 +417,238 @@ describe("minimal BatchSpec validation", () => {
       ),
     ).toContain(
       "integrationQueue[].focusedVerifyCommands must include expected verify command: task-c requires bun test task-c",
+    );
+  });
+});
+
+describe("BatchSpec preflight validation", () => {
+  test("parses referenced TaskSpec files and accepts normalized disjoint writer tasks", async () => {
+    const tasks = [
+      task("task-a", ["bun test task-a"], {
+        declaredTargetFiles: ["./src/core/task-a.ts"],
+        declaredForbiddenChanges: ["runs/**"],
+      }),
+      task("task-b", ["bun test task-b"], {
+        declaredTargetFiles: ["tests/task-b.test.ts"],
+        declaredForbiddenChanges: ["worktrees/**"],
+      }),
+    ];
+    const root = await makeRepoFixture(tasks);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
+      }),
+    );
+
+    expect(result.violations).toEqual([]);
+    expect(result.mayDispatch).toBe(true);
+    expect(result.tasks.find((item) => item.taskId === "task-a")?.normalizedTargetFiles).toEqual([
+      "src/core/task-a.ts",
+    ]);
+    expect(result.writeSetProofs).toContainEqual({
+      dispatchGroup: "group-1",
+      taskIds: ["task-a", "task-b"],
+      normalizedTargetFilesByTaskId: {
+        "task-a": ["src/core/task-a.ts"],
+        "task-b": ["tests/task-b.test.ts"],
+      },
+    });
+  });
+
+  test("requires batch declarations to match referenced TaskSpec files", async () => {
+    const tasks = [task("task-a")];
+    const root = await makeRepoFixture(tasks);
+    await writeFile(
+      join(root, tasks[0].taskSpecPath),
+      `${JSON.stringify(
+        taskSpecFor(tasks[0], {
+          targetFiles: ["src/different.ts"],
+          verifyCommands: ["bun test different"],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      "tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: task-a",
+    );
+    expect(result.violations).toContain(
+      "tasks[].expectedVerifyCommands must match referenced TaskSpec verifyCommands: task-a",
+    );
+    expect(result.mayDispatch).toBe(false);
+  });
+
+  test("rejects absolute and parent-relative repo paths before dispatch", async () => {
+    const tasks = [
+      task("task-a", ["bun test task-a"], {
+        taskSpecPath: "/tmp/task-a.json",
+        declaredTargetFiles: ["../outside.ts"],
+      }),
+    ];
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: await makeRepoFixture([]),
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      "tasks[].taskSpecPath for task-a must be a repo-relative path without .. segments: /tmp/task-a.json",
+    );
+    expect(result.violations).toContain(
+      "tasks[].declaredTargetFiles for task-a must be a repo-relative path without .. segments: ../outside.ts",
+    );
+    expect(result.mayDispatch).toBe(false);
+  });
+
+  test("rejects overlapping write sets in the same dispatch group", async () => {
+    const tasks = [
+      task("task-a", ["bun test task-a"], { declaredTargetFiles: ["src/core"] }),
+      task("task-b", ["bun test task-b"], { declaredTargetFiles: ["src/core/policy.ts"] }),
+    ];
+    const root = await makeRepoFixture(tasks);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      "dispatchGroup targetFiles must be disjoint: task-a src/core overlaps task-b src/core/policy.ts",
+    );
+  });
+
+  test("rejects write sets that match another task's forbidden changes in the same dispatch group", async () => {
+    const tasks = [
+      task("task-a", ["bun test task-a"], {
+        declaredTargetFiles: ["src/core/task-a.ts"],
+        declaredForbiddenChanges: ["tests/**"],
+      }),
+      task("task-b", ["bun test task-b"], {
+        declaredTargetFiles: ["tests/task-b.test.ts"],
+      }),
+    ];
+    const root = await makeRepoFixture(tasks);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      "dispatchGroup targetFiles must not match another task's forbiddenChanges: task-b tests/task-b.test.ts matches task-a tests/**",
+    );
+  });
+
+  test("enforces serialOnlyRules and single-member serial dispatch groups", async () => {
+    const tasks = [
+      task("task-a", ["bun test task-a"], {
+        declaredTargetFiles: ["src/core/policy.ts"],
+        writeSetClassification: "parallel_eligible",
+      }),
+      task("task-b", ["bun test task-b"], {
+        declaredTargetFiles: ["tests/task-b.test.ts"],
+      }),
+      task("task-c", ["bun test task-c"], {
+        declaredTargetFiles: ["references/task-templates/new-template.json"],
+        writeSetClassification: "serial_only",
+        classificationReasons: ["task template changes define future worker authority"],
+        dispatchGroup: "group-2",
+      }),
+    ];
+    const root = await makeRepoFixture(tasks);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b"), queueItem(3, "task-c")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      "tasks[].writeSetClassification must be serial_only when target matches serialOnlyRules: task-a",
+    );
+    expect(result.violations).toContain(
+      "parallel_eligible task targetFiles must not match serialOnlyRules: task-a",
+    );
+    expect(result.violations).not.toContain("serial_only task must be the only member of its dispatchGroup: task-c");
+    expect(result.tasks.find((item) => item.taskId === "task-c")?.serialOnlyMatches.map((rule) => rule.id)).toEqual([
+      "task-templates",
+    ]);
+  });
+
+  test("rejects serial-only tasks that share a dispatch group", async () => {
+    const tasks = [
+      task("task-a", ["bun test task-a"], {
+        declaredTargetFiles: ["references/task-templates/new-template.json"],
+        writeSetClassification: "serial_only",
+        classificationReasons: ["task template changes define future worker authority"],
+      }),
+      task("task-b", ["bun test task-b"], {
+        declaredTargetFiles: ["tests/task-b.test.ts"],
+      }),
+    ];
+    const root = await makeRepoFixture(tasks);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a"), queueItem(2, "task-b")],
+      }),
+    );
+
+    expect(result.violations).toContain("serial_only task must be the only member of its dispatchGroup: task-a");
+  });
+
+  test("rejects wildcard target files for parallel-eligible disjoint proof", async () => {
+    const tasks = [
+      task("task-a", ["bun test task-a"], {
+        declaredTargetFiles: ["src/core/*.ts"],
+      }),
+    ];
+    const root = await makeRepoFixture(tasks);
+
+    const result = await preflightBatchSpec(
+      batchSpec({
+        repoRoot: root,
+        tasks,
+        dependencies: [],
+        integrationQueue: [queueItem(1, "task-a")],
+      }),
+    );
+
+    expect(result.violations).toContain(
+      "parallel_eligible task targetFiles must be literal paths for disjoint preflight: task-a",
     );
   });
 });
