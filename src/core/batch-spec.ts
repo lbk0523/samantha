@@ -34,6 +34,7 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
   }
 
   violations.push(...validateUniqueTaskIds(spec.tasks));
+  violations.push(...validateDependencies(spec.tasks, spec.dependencies));
   if (hasDependencyCycle(spec.tasks, spec.dependencies)) {
     violations.push("dependencies must be acyclic");
   }
@@ -55,6 +56,28 @@ function validateUniqueTaskIds(tasks: MinimalBatchTaskSpec[]): string[] {
 
   for (const taskId of duplicates) {
     violations.push(`tasks[].taskId must be unique: ${taskId}`);
+  }
+
+  return violations;
+}
+
+function validateDependencies(
+  tasks: MinimalBatchTaskSpec[],
+  dependencies: MinimalBatchDependency[],
+): string[] {
+  const violations: string[] = [];
+  const taskIds = new Set(tasks.map((task) => task.taskId));
+
+  for (const dependency of dependencies) {
+    if (!taskIds.has(dependency.before)) {
+      violations.push(`dependencies[].before must reference an existing taskId: ${dependency.before}`);
+    }
+    if (!taskIds.has(dependency.after)) {
+      violations.push(`dependencies[].after must reference an existing taskId: ${dependency.after}`);
+    }
+    if (dependency.before === dependency.after) {
+      violations.push(`dependencies must not point a task at itself: ${dependency.before}`);
+    }
   }
 
   return violations;

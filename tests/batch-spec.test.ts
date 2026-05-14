@@ -56,6 +56,34 @@ describe("minimal BatchSpec validation", () => {
     ).toContain("tasks[].taskId must be unique: task-a");
   });
 
+  test("requires dependency endpoints to reference existing task ids", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          dependencies: [{ before: "task-a", after: "missing-task" }],
+        }),
+      ),
+    ).toContain("dependencies[].after must reference an existing taskId: missing-task");
+
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          dependencies: [{ before: "missing-task", after: "task-a" }],
+        }),
+      ),
+    ).toContain("dependencies[].before must reference an existing taskId: missing-task");
+  });
+
+  test("rejects self-dependencies", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          dependencies: [{ before: "task-a", after: "task-a" }],
+        }),
+      ),
+    ).toContain("dependencies must not point a task at itself: task-a");
+  });
+
   test("rejects cyclic dependencies", () => {
     expect(
       validateMinimalBatchSpec(
