@@ -103,15 +103,23 @@ Before the final response on Samantha self-build work, explicitly check:
   - completed now
   - recommended autonomous `/goal`
   - blocked on BK decision
-- after any `/goal` work completes, propose the next highest-value action as
-  either a ready-to-send `/goal`, a direct BK decision, or "no next action
-  recommended" when continuing would be low-value
+- after any `/goal` work completes, include the next highest-value action:
+  - default to a ready-to-send `/goal` for the next cohesive autonomous slice
+  - use a direct BK decision only for genuine BK judgment or authority needs
+  - use "no next action recommended" only when no meaningful cohesive slice
+    remains, and state that reason explicitly
 
 Prefer "completed now" when Codex can finish the work in the current session.
 Prefer a recommended autonomous `/goal` when meaningful engineering work remains
 and can be delegated to a fresh Codex session without BK taking over the next
 step. Use "blocked on BK decision" only when BK's product judgment, credentials,
 external authority, or explicit review is required before work can continue.
+
+After completing a user-started `/goal`, do not stop at the outcome label alone.
+If there is any plausible next cohesive engineering, documentation, verification,
+or dogfood slice, provide a ready-to-send `/goal` prompt for it. If continuing
+would be low-value, say why no next autonomous goal is recommended instead of
+leaving the absence unexplained.
 
 Before proposing any direct BK action, first check whether Codex can either do it
 now or fold it into a larger autonomous `/goal`. Direct BK actions are allowed
