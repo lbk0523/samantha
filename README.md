@@ -28,6 +28,31 @@ minimal user goal
 -> Samantha-owned commit/report
 ```
 
+## How To Use Samantha
+
+Samantha v0 is operated through Codex Chat with an explicit operating prefix:
+
+```text
+Samantha <intent>: <natural language request>
+```
+
+Official debut intents are `command`, `brainstorm`, `plan`, `review`,
+`recover`, `inspect`, and `learn`.
+
+Example:
+
+```text
+Samantha command: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 run의 상태와 다음 액션을 한눈에 보이게 개선해줘.
+```
+
+Only explicit `Samantha <intent>:` messages activate the operating protocol.
+`Samantha command:` normalizes executable work into a bounded plan, task spec,
+or ready-to-send `/goal` first; it does not bypass worktree isolation, scope
+checks, deterministic verification, run evidence, or Samantha-owned lifecycle
+gates.
+
+See `OPERATING_GUIDE.md` for the full protocol and examples.
+
 ## Product Shape
 
 Samantha should help BK run software work with discipline:
