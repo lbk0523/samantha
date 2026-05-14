@@ -3,6 +3,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main, parseCliArgs } from "../src/cli";
+import type { BatchSpec } from "../src/core/batch-spec";
+import { DEFAULT_SERIAL_ONLY_RULES } from "../src/core/batch-spec";
+import type { TaskSpec } from "../src/core/contracts";
 
 let tmpRoots: string[] = [];
 
@@ -10,6 +13,73 @@ afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
 });
+
+function cliBatchTask(
+  taskId: string,
+  overrides: Partial<BatchSpec["tasks"][number]> = {},
+): BatchSpec["tasks"][number] {
+  return {
+    taskId,
+    taskSpecPath: `references/tasks/${taskId}.json`,
+    targetAgent: "codex-worker",
+    declaredTargetFiles: [`tests/${taskId}.test.ts`],
+    declaredForbiddenChanges: ["runs/**"],
+    expectedVerifyCommands: [`bun test ${taskId}`],
+    writeSetClassification: "parallel_eligible",
+    classificationReasons: [],
+    dispatchGroup: "group-1",
+    status: "planned",
+    ...overrides,
+  };
+}
+
+function cliTaskSpecFor(batchTask: BatchSpec["tasks"][number], overrides: Partial<TaskSpec> = {}): TaskSpec {
+  return {
+    id: batchTask.taskId,
+    title: `Task ${batchTask.taskId}`,
+    targetAgent: batchTask.targetAgent,
+    targetFiles: batchTask.declaredTargetFiles,
+    forbiddenChanges: batchTask.declaredForbiddenChanges,
+    verifyCommands: batchTask.expectedVerifyCommands,
+    instructions: "Make the requested focused change.",
+    status: "pending",
+    ...overrides,
+  };
+}
+
+async function writeCliBatchPreflightFixture(taskSpecOverrides: Partial<TaskSpec> = {}): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-cli-batch-"));
+  tmpRoots.push(root);
+  await mkdir(join(root, "references", "tasks"), { recursive: true });
+  const batchTask = cliBatchTask("task-a");
+  await writeFile(
+    join(root, batchTask.taskSpecPath),
+    `${JSON.stringify(cliTaskSpecFor(batchTask, taskSpecOverrides), null, 2)}\n`,
+    "utf8",
+  );
+  const batch: BatchSpec = {
+    schemaVersion: 1,
+    batchId: "cli-preflight",
+    repoRoot: root,
+    baseCommit: "0123456789abcdef0123456789abcdef01234567",
+    status: "planned",
+    serialOnlyRules: DEFAULT_SERIAL_ONLY_RULES,
+    tasks: [batchTask],
+    dependencies: [],
+    integrationQueue: [
+      {
+        order: 1,
+        taskId: "task-a",
+        requiresAccepted: [],
+        focusedVerifyCommands: ["bun test task-a"],
+        status: "pending",
+      },
+    ],
+  };
+  const batchPath = join(root, "batch.json");
+  await writeFile(batchPath, `${JSON.stringify(batch, null, 2)}\n`, "utf8");
+  return batchPath;
+}
 
 describe("samantha cli", () => {
   test("parses run-task arguments", () => {
@@ -351,5 +421,70 @@ describe("samantha cli", () => {
       title: "Follow up task",
       repoRoot: "/tmp/samantha-repo",
     });
+  });
+
+  test("parses batch preflight arguments", () => {
+    expect(parseCliArgs(["batches:preflight", "--batch=references/batches/batch-1.json"])).toEqual({
+      command: "batches:preflight",
+      batchPath: "references/batches/batch-1.json",
+    });
+  });
+
+  test("batch preflight command prints passing preflight result", async () => {
+    const batchPath = await writeCliBatchPreflightFixture();
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batches:preflight", `--batch=${batchPath}`])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      mayDispatch: true,
+      violations: [],
+      tasks: [
+        {
+          taskId: "task-a",
+          taskSpecPath: "references/tasks/task-a.json",
+          normalizedTargetFiles: ["tests/task-a.test.ts"],
+          normalizedForbiddenChanges: ["runs/**"],
+          serialOnlyMatches: [],
+        },
+      ],
+    });
+    expect(result.writeSetProofs).toContainEqual({
+      dispatchGroup: "group-1",
+      taskIds: ["task-a"],
+      normalizedTargetFilesByTaskId: {
+        "task-a": ["tests/task-a.test.ts"],
+      },
+    });
+  });
+
+  test("batch preflight command returns non-zero when preflight rejects dispatch", async () => {
+    const batchPath = await writeCliBatchPreflightFixture({ targetFiles: ["src/different.ts"] });
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batches:preflight", `--batch=${batchPath}`])).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      "tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: task-a",
+    );
   });
 });

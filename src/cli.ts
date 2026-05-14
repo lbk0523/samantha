@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
 import {
@@ -31,6 +32,7 @@ import { diagnoseRun } from "./core/run-diagnose";
 import { createTaskFromRun } from "./core/task-from-run";
 import { reviewLessonInbox } from "./core/lesson-inbox-review";
 import { summarizeReportOnlyReviews } from "./core/report-review";
+import { preflightBatchSpec, type BatchSpec } from "./core/batch-spec";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -134,6 +136,11 @@ export interface TasksFromRunCliArgs {
   repoRoot?: string;
 }
 
+export interface BatchesPreflightCliArgs {
+  command: "batches:preflight";
+  batchPath: string;
+}
+
 export type SamanthaCliArgs =
   | RunTaskCliArgs
   | RunsListCliArgs
@@ -151,7 +158,8 @@ export type SamanthaCliArgs =
   | LessonsPromoteCliArgs
   | LessonsRecordEvidenceCliArgs
   | TasksFromTemplateCliArgs
-  | TasksFromRunCliArgs;
+  | TasksFromRunCliArgs
+  | BatchesPreflightCliArgs;
 
 function parseFlags(args: string[]): Map<string, string> {
   const flags = new Map<string, string>();
@@ -445,7 +453,19 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run");
+  if (command === "batches:preflight") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const batchPath = flags.get("batch");
+    if (!batchPath) {
+      throw new Error("usage: bun run samantha batches:preflight --batch=<path>");
+    }
+    return {
+      command: "batches:preflight",
+      batchPath,
+    };
+  }
+
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:preflight");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -458,6 +478,10 @@ function isRunLifecycleEvent(value: unknown): value is RunLifecycleEvent {
 
 function isPlaybookEvidenceAssessment(value: unknown): value is PlaybookEvidenceAssessment {
   return value === "helped" || value === "not-helped" || value === "unclear";
+}
+
+async function readBatchSpec(batchPath: string): Promise<BatchSpec> {
+  return JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec;
 }
 
 async function markLifecycle(input: {
@@ -602,6 +626,12 @@ export async function main(argv: string[]): Promise<number> {
     });
     console.log(JSON.stringify(result, null, 2));
     return result.created ? 0 : 1;
+  }
+
+  if (args.command === "batches:preflight") {
+    const result = await preflightBatchSpec(await readBatchSpec(resolve(args.batchPath)));
+    console.log(JSON.stringify(result, null, 2));
+    return result.mayDispatch ? 0 : 1;
   }
 
   if (args.command === "worktree:cleanup") {
