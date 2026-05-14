@@ -106,3 +106,41 @@ Every ready-to-send `/goal` prompt must:
 - define verification commands or explain why no code verification is needed
 - define reporting expectations
 - define stop conditions
+
+### Ready-To-Send `/goal` Prompt Format
+
+Do not compress ready-to-send `/goal` prompts into one dense line. Use a
+multiline fenced `text` block so BK can read, edit, and paste the prompt without
+reconstructing it.
+
+Use this shape by default:
+
+```text
+/goal <repo path> 에서 <objective>. 답변은 반드시 한국어로 해줘.
+
+맥락:
+- <prior evidence or current state>
+- <important prior decision>
+
+범위:
+- 포함: <allowed work>
+- 제외: <forbidden work>
+
+검증:
+- <command or deterministic check>
+- <command or deterministic check>
+
+보고:
+- <what final answer must report>
+
+Stop condition:
+- <condition that must stop work>
+- <condition that must stop work>
+```
+
+If the prompt is very small, the `맥락` or `보고` sections may be omitted, but
+keep line breaks and keep `범위`, `검증`, and `Stop condition` visible as separate
+sections. If no code verification applies, say that explicitly under `검증`.
+
+Do not suggest turning this into a global skill until the same formatting need
+recurs outside this repository. For now, this repo rule is the source of truth.
