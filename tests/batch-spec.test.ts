@@ -117,4 +117,69 @@ describe("minimal BatchSpec validation", () => {
       ),
     ).toContain("integrationQueue must order dependencies before dependents: task-a before task-b");
   });
+
+  test("requires integrationQueue to include every task exactly once", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          integrationQueue: [
+            { order: 1, taskId: "task-a" },
+            { order: 2, taskId: "task-b" },
+          ],
+        }),
+      ),
+    ).toContain("integrationQueue must include every task exactly once: missing task-c");
+
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          integrationQueue: [
+            { order: 1, taskId: "task-a" },
+            { order: 2, taskId: "task-b" },
+            { order: 3, taskId: "task-b" },
+          ],
+        }),
+      ),
+    ).toContain("integrationQueue must include every task exactly once: duplicate task-b");
+  });
+
+  test("requires integrationQueue task ids to reference existing tasks", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          integrationQueue: [
+            { order: 1, taskId: "task-a" },
+            { order: 2, taskId: "task-b" },
+            { order: 3, taskId: "missing-task" },
+          ],
+        }),
+      ),
+    ).toContain("integrationQueue[].taskId must reference an existing taskId: missing-task");
+  });
+
+  test("requires integrationQueue order values to start at 1 and be contiguous", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          integrationQueue: [
+            { order: 0, taskId: "task-a" },
+            { order: 1, taskId: "task-b" },
+            { order: 2, taskId: "task-c" },
+          ],
+        }),
+      ),
+    ).toContain("integrationQueue[].order must start at 1 and be contiguous");
+
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          integrationQueue: [
+            { order: 1, taskId: "task-a" },
+            { order: 3, taskId: "task-b" },
+            { order: 3, taskId: "task-c" },
+          ],
+        }),
+      ),
+    ).toContain("integrationQueue[].order must start at 1 and be contiguous");
+  });
 });

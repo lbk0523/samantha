@@ -44,7 +44,7 @@ export function validateMinimalBatchSpec(spec: BatchSpec): string[] {
   if (hasDependencyCycle(spec.tasks, spec.dependencies)) {
     violations.push("dependencies must be acyclic");
   }
-  violations.push(...validateIntegrationQueueOrder(spec.dependencies, spec.integrationQueue));
+  violations.push(...validateIntegrationQueue(spec.tasks, spec.dependencies, spec.integrationQueue));
 
   return violations;
 }
@@ -124,11 +124,37 @@ function hasDependencyCycle(
   return false;
 }
 
-function validateIntegrationQueueOrder(
+function validateIntegrationQueue(
+  tasks: MinimalBatchTaskSpec[],
   dependencies: MinimalBatchDependency[],
   integrationQueue: MinimalBatchIntegrationQueueItem[],
 ): string[] {
   const violations: string[] = [];
+  const taskIds = new Set(tasks.map((task) => task.taskId));
+  const queueCountByTaskId = new Map<string, number>();
+
+  for (const item of integrationQueue) {
+    if (!taskIds.has(item.taskId)) {
+      violations.push(`integrationQueue[].taskId must reference an existing taskId: ${item.taskId}`);
+    }
+    queueCountByTaskId.set(item.taskId, (queueCountByTaskId.get(item.taskId) ?? 0) + 1);
+  }
+
+  for (const task of tasks) {
+    const count = queueCountByTaskId.get(task.taskId) ?? 0;
+    if (count === 0) {
+      violations.push(`integrationQueue must include every task exactly once: missing ${task.taskId}`);
+    }
+    if (count > 1) {
+      violations.push(`integrationQueue must include every task exactly once: duplicate ${task.taskId}`);
+    }
+  }
+
+  const sortedOrders = integrationQueue.map((item) => item.order).sort((a, b) => a - b);
+  if (sortedOrders.some((order, index) => order !== index + 1)) {
+    violations.push("integrationQueue[].order must start at 1 and be contiguous");
+  }
+
   const orderByTaskId = new Map(integrationQueue.map((item) => [item.taskId, item.order]));
 
   for (const dependency of dependencies) {
