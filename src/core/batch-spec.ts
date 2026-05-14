@@ -10,6 +10,7 @@ export interface MinimalBatchDependency {
 export interface MinimalBatchIntegrationQueueItem {
   order: number;
   taskId: string;
+  requiresAccepted: string[];
 }
 
 export interface BatchSpec {
@@ -164,6 +165,18 @@ function validateIntegrationQueue(
     if (beforeOrder >= afterOrder) {
       violations.push(
         `integrationQueue must order dependencies before dependents: ${dependency.before} before ${dependency.after}`,
+      );
+    }
+  }
+
+  const queueItemByTaskId = new Map(integrationQueue.map((item) => [item.taskId, item]));
+
+  for (const dependency of dependencies) {
+    const dependentQueueItem = queueItemByTaskId.get(dependency.after);
+    if (dependentQueueItem === undefined) continue;
+    if (!dependentQueueItem.requiresAccepted.includes(dependency.before)) {
+      violations.push(
+        `integrationQueue[].requiresAccepted must include direct dependency: ${dependency.after} requires ${dependency.before}`,
       );
     }
   }

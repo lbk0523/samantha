@@ -19,9 +19,9 @@ function batchSpec(overrides: Partial<BatchSpec> = {}): BatchSpec {
       { before: "task-b", after: "task-c" },
     ],
     integrationQueue: [
-      { order: 1, taskId: "task-a" },
-      { order: 2, taskId: "task-b" },
-      { order: 3, taskId: "task-c" },
+      { order: 1, taskId: "task-a", requiresAccepted: [] },
+      { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
+      { order: 3, taskId: "task-c", requiresAccepted: ["task-b"] },
     ],
     ...overrides,
   };
@@ -109,9 +109,9 @@ describe("minimal BatchSpec validation", () => {
         batchSpec({
           dependencies: [{ before: "task-a", after: "task-b" }],
           integrationQueue: [
-            { order: 1, taskId: "task-b" },
-            { order: 2, taskId: "task-a" },
-            { order: 3, taskId: "task-c" },
+            { order: 1, taskId: "task-b", requiresAccepted: ["task-a"] },
+            { order: 2, taskId: "task-a", requiresAccepted: [] },
+            { order: 3, taskId: "task-c", requiresAccepted: [] },
           ],
         }),
       ),
@@ -123,8 +123,8 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a" },
-            { order: 2, taskId: "task-b" },
+            { order: 1, taskId: "task-a", requiresAccepted: [] },
+            { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
           ],
         }),
       ),
@@ -134,9 +134,9 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a" },
-            { order: 2, taskId: "task-b" },
-            { order: 3, taskId: "task-b" },
+            { order: 1, taskId: "task-a", requiresAccepted: [] },
+            { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
+            { order: 3, taskId: "task-b", requiresAccepted: ["task-a"] },
           ],
         }),
       ),
@@ -148,9 +148,9 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a" },
-            { order: 2, taskId: "task-b" },
-            { order: 3, taskId: "missing-task" },
+            { order: 1, taskId: "task-a", requiresAccepted: [] },
+            { order: 2, taskId: "task-b", requiresAccepted: ["task-a"] },
+            { order: 3, taskId: "missing-task", requiresAccepted: [] },
           ],
         }),
       ),
@@ -162,9 +162,9 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 0, taskId: "task-a" },
-            { order: 1, taskId: "task-b" },
-            { order: 2, taskId: "task-c" },
+            { order: 0, taskId: "task-a", requiresAccepted: [] },
+            { order: 1, taskId: "task-b", requiresAccepted: ["task-a"] },
+            { order: 2, taskId: "task-c", requiresAccepted: ["task-b"] },
           ],
         }),
       ),
@@ -174,12 +174,27 @@ describe("minimal BatchSpec validation", () => {
       validateMinimalBatchSpec(
         batchSpec({
           integrationQueue: [
-            { order: 1, taskId: "task-a" },
-            { order: 3, taskId: "task-b" },
-            { order: 3, taskId: "task-c" },
+            { order: 1, taskId: "task-a", requiresAccepted: [] },
+            { order: 3, taskId: "task-b", requiresAccepted: ["task-a"] },
+            { order: 3, taskId: "task-c", requiresAccepted: ["task-b"] },
           ],
         }),
       ),
     ).toContain("integrationQueue[].order must start at 1 and be contiguous");
+  });
+
+  test("requires integrationQueue requiresAccepted to include direct dependencies", () => {
+    expect(
+      validateMinimalBatchSpec(
+        batchSpec({
+          dependencies: [{ before: "task-a", after: "task-c" }],
+          integrationQueue: [
+            { order: 1, taskId: "task-a", requiresAccepted: [] },
+            { order: 2, taskId: "task-b", requiresAccepted: [] },
+            { order: 3, taskId: "task-c", requiresAccepted: [] },
+          ],
+        }),
+      ),
+    ).toContain("integrationQueue[].requiresAccepted must include direct dependency: task-c requires task-a");
   });
 });
