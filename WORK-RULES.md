@@ -150,8 +150,11 @@ Every ready-to-send `/goal` prompt must:
 
 - explicitly require answers in Korean
 - name the repo
+- state the objective and verifiable end state in the first line
 - summarize relevant evidence or prior results
+- define observable success criteria
 - define scope
+- define autonomy expectations
 - define verification commands or explain why no code verification is needed
 - define reporting expectations
 - define stop conditions
@@ -169,34 +172,48 @@ reconstructing it.
 Use this shape by default:
 
 ```text
-/goal <repo path> 에서 <objective>. 답변은 반드시 한국어로 해줘.
+/goal <repo path> 에서 <objective>를 완료해줘. <verifiable end state>가 충족될 때까지 중간에 BK에게 작은 다음 액션을 넘기지 말고 진행해줘. 답변은 반드시 한국어로 해줘.
 
 맥락:
 - <prior evidence or current state>
 - <important prior decision>
 
+성공 기준:
+- <observable behavior after the change>
+- <what should be true in CLI/API/artifact/output>
+- <what remains explicitly out of scope>
+
 범위:
 - 포함: <allowed work>
 - 제외: <forbidden work>
 
+자율성:
+- 기존 코드 패턴을 우선하고, 사소한 구현 선택은 직접 결정
+- 작은 후속 작업은 BK에게 넘기지 말고 현재 goal 안에서 처리
+- 아래 Stop condition에 걸릴 때만 멈춤
+
 검증:
-- <command or deterministic check>
-- <command or deterministic check>
+- <exact command>
+- <exact command>
+- <manual/CLI observable check if useful>
 
 보고:
-- <what final answer must report>
+- deterministic verification 결과
+- 변경 파일이 의도 범위인지
+- 구현된 coverage와 남긴 항목
+- commit/push 여부
 
 Stop condition:
-- <condition that must stop work>
-- <condition that must stop work>
+- <authority boundary / policy decision / credential / destructive operation>
+- <scope expansion that must not be crossed>
 ```
 
 If a possible prompt feels very small, do not emit it by default. Either do the
 work now, omit it, or enlarge it into the nearest cohesive autonomous objective.
-For valid small-but-real autonomous prompts, the `맥락` or `보고` sections may be
-omitted, but keep line breaks and keep `범위`, `검증`, and `Stop condition`
-visible as separate sections. If no code verification applies, say that
-explicitly under `검증`.
+For valid small-but-real autonomous prompts, the `맥락` section may be omitted,
+but keep line breaks and keep `성공 기준`, `범위`, `자율성`, `검증`, `보고`, and
+`Stop condition` visible as separate sections. If no code verification applies,
+say that explicitly under `검증`.
 
 Do not suggest turning this into a global skill until the same formatting need
 recurs outside this repository. For now, this repo rule is the source of truth.
