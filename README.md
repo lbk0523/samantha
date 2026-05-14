@@ -144,6 +144,7 @@ bun run samantha batches:list
 bun run samantha batches:show --batch-id=<id>
 bun run samantha batches:preflight --batch=<path>
 bun run samantha batches:execute --batch=<path> --target-branch=<branch>
+bun run samantha batches:reject --batch=<path> --reason=<reason>
 ```
 
 Current task templates:
@@ -173,4 +174,6 @@ Samantha's core loop is credible when:
 - BatchSpec writer batches re-run preflight, dispatch only eligible writer
   groups from `baseCommit`, integrate candidates in queue order, verify after
   accepted merges, record stale-base `block_and_replan` evidence, record
-  lifecycle evidence, and clean up only after terminal accepted evidence
+  lifecycle evidence, clean up only after terminal accepted evidence, and allow
+  source BatchSpec rejection only through an explicit Samantha-owned command
+  with before/after audit

@@ -33,7 +33,8 @@ import { createTaskFromRun } from "./core/task-from-run";
 import { reviewLessonInbox } from "./core/lesson-inbox-review";
 import { summarizeReportOnlyReviews } from "./core/report-review";
 import { preflightBatchSpec, type BatchSpec } from "./core/batch-spec";
-import { listBatchSpecs, readBatchSpecById } from "./core/batch-spec-store";
+import { markBatchSpecRejected } from "./core/batch-spec-mutation";
+import { listBatchSpecs, readBatchSpecById, readBatchSpecRecordById } from "./core/batch-spec-store";
 import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
@@ -152,6 +153,15 @@ export interface BatchesExecuteCliArgs extends Omit<ExecuteBatchInput, "spec"> {
   batchesDir?: string;
 }
 
+export interface BatchesRejectCliArgs {
+  command: "batches:reject";
+  batchPath?: string;
+  batchId?: string;
+  batchesDir?: string;
+  stateDir?: string;
+  reason: string;
+}
+
 export interface BatchesListCliArgs {
   command: "batches:list";
   batchesDir?: string;
@@ -183,6 +193,7 @@ export type SamanthaCliArgs =
   | TasksFromRunCliArgs
   | BatchesPreflightCliArgs
   | BatchesExecuteCliArgs
+  | BatchesRejectCliArgs
   | BatchesListCliArgs
   | BatchesShowCliArgs;
 
@@ -541,7 +552,28 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute");
+  if (command === "batches:reject") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const batchPath = flags.get("batch");
+    const batchId = flags.get("batch-id");
+    const reason = flags.get("reason");
+    if (batchPath && batchId) {
+      throw new Error("usage: batches:reject accepts either --batch=<path> or --batch-id=<id>, not both");
+    }
+    if ((!batchPath && !batchId) || !reason) {
+      throw new Error("usage: bun run samantha batches:reject --batch=<path> OR --batch-id=<id> --reason=<reason> [--batches-dir=<dir>] [--state-dir=<dir>]");
+    }
+    return {
+      command: "batches:reject",
+      ...(batchPath ? { batchPath } : {}),
+      ...(batchId ? { batchId } : {}),
+      ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("state-dir") ? { stateDir: flags.get("state-dir") } : {}),
+      reason,
+    };
+  }
+
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -750,6 +782,31 @@ export async function main(argv: string[]): Promise<number> {
     const result = await executeBatch({ ...args, spec });
     console.log(JSON.stringify(result, null, 2));
     return result.pass ? 0 : 1;
+  }
+
+  if (args.command === "batches:reject") {
+    if (!args.batchPath && !args.batchId) {
+      throw new Error("batches:reject requires --batch=<path> or --batch-id=<id>");
+    }
+    const batchPath = args.batchPath
+      ? resolve(args.batchPath)
+      : (await readBatchSpecRecordById({
+          batchId: args.batchId ?? "",
+          batchesDir: args.batchesDir,
+        })).path;
+    console.log(
+      JSON.stringify(
+        await markBatchSpecRejected({
+          batchPath,
+          authority: "samantha_cli",
+          reason: args.reason,
+          stateDir: args.stateDir,
+        }),
+        null,
+        2,
+      ),
+    );
+    return 0;
   }
 
   if (args.command === "worktree:cleanup") {

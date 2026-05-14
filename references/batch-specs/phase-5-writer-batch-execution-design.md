@@ -7,7 +7,9 @@ This document defines the reviewed batch design Samantha needs for writer batch
 execution. It starts after the `BatchSpec` contract and preflight gates have
 accepted a batch plan. The implemented baseline still does not authorize
 worker-owned orchestration, worker-owned rebase, worker-owned cleanup,
-`writerCap` changes, or source `BatchSpec` lifecycle mutation.
+`writerCap` changes, or automatic source `BatchSpec` lifecycle mutation. The
+only implemented source mutation is explicit Samantha-owned rejection through
+`batches:reject`.
 
 ## Current Implemented Baseline
 
@@ -208,8 +210,29 @@ These items remain deliberately outside the routine baseline:
 - automatic stale-base generation of a replacement `BatchSpec`
 - Samantha-owned rebase execution until a reviewed rebase task and evidence
   contract exists
-- source `BatchSpec` lifecycle or status mutation until a Samantha-owned
-  mutation API with before/after audit exists
+- source `BatchSpec` task status, candidate evidence, `integrationQueue`, or
+  non-rejected lifecycle mutation until a reviewed Samantha-owned mutation
+  contract exists
+
+## Source BatchSpec Rejection Mutation
+
+The implemented mutation surface is intentionally narrow:
+
+```text
+batches:reject
+-> validate the current source BatchSpec
+-> set only top-level status to rejected
+-> validate the mutated BatchSpec
+-> write before/after audit evidence to batch-lifecycle-audit.jsonl
+```
+
+`batches:reject` is Samantha-owned lifecycle closure for an invalidated or
+abandoned source plan. It does not consume worker output or `HARNESS_RESULT`, it
+does not update task statuses, it does not fill `runLogPath` or
+`candidateCommit`, and it does not reorder or mark `integrationQueue` entries.
+Execution paths such as stale-base preflight/integration still record
+`sourceBatchSpecMutation: "not_performed"` unless this explicit command is run
+afterward.
 
 ## Stop Conditions For Implementation Work
 

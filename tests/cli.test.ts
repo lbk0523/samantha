@@ -519,6 +519,27 @@ describe("samantha cli", () => {
     );
   });
 
+  test("parses batch rejection arguments", () => {
+    expect(
+      parseCliArgs([
+        "batches:reject",
+        "--batch-id=cli-preflight",
+        "--batches-dir=references/batch-specs",
+        "--state-dir=runs",
+        "--reason=stale base closure",
+      ]),
+    ).toEqual({
+      command: "batches:reject",
+      batchId: "cli-preflight",
+      batchesDir: "references/batch-specs",
+      stateDir: "runs",
+      reason: "stale base closure",
+    });
+    expect(() => parseCliArgs(["batches:reject", "--batch=references/batch-specs/one.json"])).toThrow(
+      "usage: bun run samantha batches:reject --batch=<path> OR --batch-id=<id> --reason=<reason> [--batches-dir=<dir>] [--state-dir=<dir>]",
+    );
+  });
+
   test("parses batch list and show arguments", () => {
     expect(parseCliArgs(["batches:list", "--batches-dir=references/batch-specs"])).toEqual({
       command: "batches:list",
@@ -855,5 +876,49 @@ describe("samantha cli", () => {
     expect(await readFile(batchPath, "utf8")).toBe(beforeBatchJson);
     const evidence = JSON.parse(await readFile(join(root, "runs", "batch-replan-evidence.jsonl"), "utf8"));
     expect(evidence).toEqual(result.staleBaseReplan);
+  });
+
+  test("batch reject command mutates only source BatchSpec status and writes lifecycle audit", async () => {
+    const { batchPath, batchesDir, root } = await writeCliBatchStoreFixture();
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batches:reject",
+          "--batch-id=cli-preflight",
+          `--batches-dir=${batchesDir}`,
+          `--state-dir=${join(root, "runs")}`,
+          "--reason=stale base closure",
+        ]),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.evidence).toMatchObject({
+      batchId: "cli-preflight",
+      operation: "mark_rejected",
+      authority: "samantha_cli",
+      sourceBatchSpecMutation: "performed",
+      reason: "stale base closure",
+      before: { status: "planned" },
+      after: { status: "rejected" },
+    });
+    const mutated = JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec;
+    expect(mutated.status).toBe("rejected");
+    expect(mutated.tasks).toEqual([
+      expect.objectContaining({ taskId: "task-a", status: "planned" }),
+    ]);
+    expect(mutated.integrationQueue).toEqual([
+      expect.objectContaining({ taskId: "task-a", status: "pending" }),
+    ]);
+    const audit = JSON.parse(await readFile(join(root, "runs", "batch-lifecycle-audit.jsonl"), "utf8"));
+    expect(audit).toEqual(result.evidence);
   });
 });

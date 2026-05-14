@@ -218,8 +218,8 @@ evidence only.
 ## Phase 5: Speculative Writer Batches
 
 Status: BatchSpec planning, preflight, execution, ordered integration,
-verification, stale-base replan evidence, and cleanup evidence baseline
-implemented.
+verification, stale-base replan evidence, cleanup evidence, and explicit
+Samantha-owned source BatchSpec rejection baseline implemented.
 
 Design artifacts:
 
@@ -273,6 +273,10 @@ Implemented execution gates:
   movement during integration is treated as `block_and_replan`
 - stale-base closure records Samantha-owned terminal replan evidence in
   `batch-replan-evidence.jsonl` without mutating the source `BatchSpec`
+- source BatchSpecs can be explicitly marked `rejected` only through the
+  Samantha-owned `batches:reject` mutation surface, which records before/after
+  audit evidence and does not mutate task statuses, candidate evidence, or
+  `integrationQueue`
 - cleanup runs only after accepted candidates have lifecycle evidence and final
   verification passes
 
@@ -284,8 +288,9 @@ Still deferred or explicit-only items:
 - automatic stale-base generation of a replacement `BatchSpec`
 - Samantha-owned rebase execution until a reviewed rebase plan/evidence contract
   exists
-- mutating the source BatchSpec artifact as lifecycle state until a
-  Samantha-owned mutation API with before/after audit exists
+- mutating source BatchSpec task statuses, candidate evidence,
+  `integrationQueue`, or non-rejected lifecycle states until a reviewed
+  Samantha-owned mutation contract exists
 
 Acceptance evidence:
 
@@ -295,11 +300,15 @@ Acceptance evidence:
 - stale preflight and stale integration paths leave `block_and_replan` evidence
   with observed `HEAD`, source `baseCommit`, trigger, violations, and explicit
   `sourceBatchSpecMutation: "not_performed"`
+- explicit source BatchSpec rejection leaves `batch-lifecycle-audit.jsonl`
+  evidence with before/after status snapshots and
+  `sourceBatchSpecMutation: "performed"`
 - cleanup/lifecycle evidence is recorded per worker
 - focused tests cover happy path, stale-base rejection, partial failure, and
   authority-boundary serial-only blocking
 - CLI tests prove stale execution evidence is written without mutating the
-  source `BatchSpec`
+  source `BatchSpec`, and explicit rejection mutates only the source BatchSpec
+  status through Samantha-owned authority
 
 Promotion rule:
 

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES, preflightBatchSpec, validateMinimalBatchSpec } from "../src/core/batch-spec";
+import { markBatchSpecRejected } from "../src/core/batch-spec-mutation";
 import { listBatchSpecs, readBatchSpecById } from "../src/core/batch-spec-store";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
@@ -492,6 +493,70 @@ describe("minimal BatchSpec validation", () => {
     ).toContain(
       "integrationQueue[].focusedVerifyCommands must include expected verify command: task-c requires bun test task-c",
     );
+  });
+});
+
+describe("BatchSpec lifecycle mutation", () => {
+  test("marks a source BatchSpec rejected through Samantha-owned API and records before/after audit", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-mutation-"));
+    tmpRoots.push(root);
+    const batchPath = join(root, "references", "batch-specs", "phase-5-minimal.json");
+    const stateDir = join(root, "runs");
+    await mkdir(join(root, "references", "batch-specs"), { recursive: true });
+    await writeFile(batchPath, `${JSON.stringify(batchSpec({ repoRoot: root }), null, 2)}\n`, "utf8");
+
+    const result = await markBatchSpecRejected({
+      batchPath,
+      authority: "samantha_api",
+      reason: "stale base closure requires a replacement BatchSpec",
+      stateDir,
+      createdAt: "2026-05-14T00:00:00.000Z",
+    });
+
+    const mutated = JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec;
+    expect(mutated.status).toBe("rejected");
+    expect(mutated.tasks.map((task) => [task.taskId, task.status])).toEqual([
+      ["task-a", "planned"],
+      ["task-b", "planned"],
+      ["task-c", "planned"],
+    ]);
+    expect(mutated.integrationQueue.map((item) => [item.taskId, item.status])).toEqual([
+      ["task-a", "pending"],
+      ["task-b", "pending"],
+      ["task-c", "pending"],
+    ]);
+    expect(validateMinimalBatchSpec(mutated)).toEqual([]);
+    expect(result.evidence).toMatchObject({
+      schemaVersion: 1,
+      batchId: "phase-5-minimal",
+      operation: "mark_rejected",
+      authority: "samantha_api",
+      sourceBatchSpecMutation: "performed",
+      reason: "stale base closure requires a replacement BatchSpec",
+      before: { status: "planned" },
+      after: { status: "rejected" },
+      createdAt: "2026-05-14T00:00:00.000Z",
+    });
+    const audit = JSON.parse(await readFile(join(stateDir, "batch-lifecycle-audit.jsonl"), "utf8"));
+    expect(audit).toEqual(result.evidence);
+  });
+
+  test("rejects worker-owned lifecycle mutation attempts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-mutation-"));
+    tmpRoots.push(root);
+    const batchPath = join(root, "phase-5-minimal.json");
+    await writeFile(batchPath, `${JSON.stringify(batchSpec({ repoRoot: root }), null, 2)}\n`, "utf8");
+
+    await expect(
+      markBatchSpecRejected({
+        batchPath,
+        authority: "worker_harness_result",
+        reason: "worker asked to close the batch",
+      }),
+    ).rejects.toThrow("BatchSpec lifecycle mutation must be Samantha-owned: worker_harness_result");
+
+    const unchanged = JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec;
+    expect(unchanged.status).toBe("planned");
   });
 });
 

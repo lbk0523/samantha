@@ -1,10 +1,12 @@
 # Phase 5 Minimal BatchSpec Draft
 
-Status: contract draft only.
+Status: contract and preflight reference; execution and mutation closure are
+tracked in `phase-5-writer-batch-execution-design.md`.
 
 This document narrows the minimum artifact Samantha needs before speculative
 writer batches can be implemented. It does not authorize writer parallelism,
-does not raise `writerCap`, and does not define merge or cleanup execution.
+does not raise `writerCap`, and does not itself define merge or cleanup
+execution.
 
 ## Boundary
 
@@ -301,9 +303,12 @@ perform cleanup.
 - Failed worker output remains evidence only. It cannot be merged, used as a
   trusted base, or used to update the batch artifact except through
   Samantha-owned failure status.
-- Source `BatchSpec` lifecycle/status mutation remains deferred. Worker output
-  cannot change batch status, `integrationQueue`, or lifecycle state; the
-  current closure records separate audit evidence instead.
+- Source `BatchSpec` lifecycle/status mutation is limited to explicit
+  Samantha-owned rejection through `batches:reject`. That command records
+  before/after audit evidence in `batch-lifecycle-audit.jsonl`, mutates only the
+  top-level `status` to `rejected`, and does not update task statuses,
+  candidate evidence, or `integrationQueue`. Worker output cannot change batch
+  status, `integrationQueue`, or lifecycle state.
 - `cleanup` is `explicit_per_worker_lifecycle_after_resolution`: cleanup is
   allowed only after each worker has a recorded terminal decision such as
   accepted, rejected, superseded, or abandoned.

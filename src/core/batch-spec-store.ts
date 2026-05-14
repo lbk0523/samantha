@@ -16,7 +16,7 @@ export interface BatchSpecSummary {
   taskCount: number;
 }
 
-interface BatchSpecRecord {
+export interface BatchSpecRecord {
   path: string;
   spec: BatchSpec;
 }
@@ -35,12 +35,18 @@ export async function listBatchSpecs(input: BatchSpecStoreInput = {}): Promise<B
 }
 
 export async function readBatchSpecById(input: BatchSpecStoreInput & { batchId: string }): Promise<BatchSpec> {
+  return (await readBatchSpecRecordById(input)).spec;
+}
+
+export async function readBatchSpecRecordById(
+  input: BatchSpecStoreInput & { batchId: string },
+): Promise<BatchSpecRecord> {
   const records = await readBatchSpecRecords(input);
   const record = records.find((item) => item.spec.batchId === input.batchId);
   if (!record) {
     throw new Error(`batch not found: ${input.batchId}`);
   }
-  return record.spec;
+  return record;
 }
 
 async function readBatchSpecRecords(input: BatchSpecStoreInput): Promise<BatchSpecRecord[]> {
