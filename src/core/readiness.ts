@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { TaskSpec } from "./contracts";
+import { auditOperationsEvidence, type OperationsEvidenceAudit } from "./evidence-audit";
 import { readWorkerRunLog } from "./merge-gate";
 import type { WorkerRunLog } from "./run-log";
 
@@ -40,12 +41,19 @@ export interface PlanCompletionAudit {
   checks: ReadinessCheck[];
 }
 
+export interface OperationsReadiness {
+  evidence: OperationsEvidenceAudit;
+  status: ReadinessStatus;
+  checks: ReadinessCheck[];
+}
+
 export interface ReadinessReport {
   schemaVersion: 1;
   overallStatus: ReadinessStatus;
   recommendation: string;
   initiative: InitiativeReadiness | null;
   planCompletion: PlanCompletionAudit | null;
+  operations: OperationsReadiness | null;
   checks: ReadinessCheck[];
 }
 
@@ -53,6 +61,7 @@ export interface BuildReadinessReportInput {
   initiativePath?: string;
   taskPath?: string;
   runLogPath?: string;
+  repoRoot?: string;
 }
 
 const INITIATIVE_SLICE_STATUSES = new Set([
@@ -468,6 +477,7 @@ function recommendationForReport(input: {
   overallStatus: ReadinessStatus;
   initiative: InitiativeReadiness | null;
   planCompletion: PlanCompletionAudit | null;
+  operations: OperationsReadiness | null;
   checks: ReadinessCheck[];
 }): string {
   const firstProblem = input.checks.find((check) => check.status !== "clear");
@@ -479,6 +489,9 @@ function recommendationForReport(input: {
   }
   if (input.planCompletion) {
     return "plan completion evidence is clear; proceed to the next Samantha-owned gate";
+  }
+  if (input.operations) {
+    return "operations evidence audit is clear";
   }
   return `readiness ${input.overallStatus}`;
 }
@@ -493,7 +506,19 @@ export async function buildReadinessReport(
       })
     : null;
   const planCompletion = await buildPlanCompletionAudit(input);
-  const checks = [...(initiative?.checks ?? []), ...(planCompletion?.checks ?? [])];
+  const operationsAudit = input.repoRoot ? await auditOperationsEvidence({ repoRoot: input.repoRoot }) : null;
+  const operations: OperationsReadiness | null = operationsAudit
+    ? {
+        evidence: operationsAudit,
+        status: operationsAudit.status,
+        checks: operationsAudit.checks,
+      }
+    : null;
+  const checks = [
+    ...(initiative?.checks ?? []),
+    ...(planCompletion?.checks ?? []),
+    ...(operations?.checks ?? []),
+  ];
   const overallStatus = combineStatus(checks);
 
   return {
@@ -503,10 +528,12 @@ export async function buildReadinessReport(
       overallStatus,
       initiative,
       planCompletion,
+      operations,
       checks,
     }),
     initiative,
     planCompletion,
+    operations,
     checks,
   };
 }

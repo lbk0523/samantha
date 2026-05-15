@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
+import { git, gitHead } from "../src/core/git";
+import { RunIndex, type RunSummary } from "../src/core/ledger";
 import { buildReadinessReport, summarizeInitiativeBrief } from "../src/core/readiness";
 import type { WorkerRunLog } from "../src/core/run-log";
 
@@ -130,6 +132,40 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+async function initReadinessRepo(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-readiness-repo-"));
+  tmpRoots.push(root);
+  await git(["init"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
+  return root;
+}
+
+async function commitReadinessFixture(root: string, subject: string): Promise<string> {
+  await writeFile(join(root, "fixture.txt"), `${subject}\n`, "utf8");
+  await git(["add", "fixture.txt"], root);
+  await git(["commit", "-m", subject], root);
+  return gitHead(root);
+}
+
+function readinessRunSummary(root: string, runId: string, commit: string): RunSummary {
+  return {
+    schemaVersion: 1,
+    runId,
+    taskId: runId,
+    taskTitle: `Task ${runId}`,
+    agentId: "codex-worker",
+    repoRoot: root,
+    worktreePath: join(root, "worktrees", runId),
+    logPath: join(root, "runs", `${runId}.json`),
+    startedAt: "2026-05-15T10:00:00.000Z",
+    finishedAt: "2026-05-15T10:01:00.000Z",
+    outcome: "pass",
+    pass: true,
+    commit,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -220,5 +256,27 @@ describe("readiness", () => {
         status: "blocked",
       }),
     );
+  });
+
+  test("includes operations evidence audit when repoRoot is provided", async () => {
+    const root = await initReadinessRepo();
+    const runBacked = await commitReadinessFixture(root, "feat: run-backed change");
+    const unevidenced = await commitReadinessFixture(root, "chore: manual change");
+    await new RunIndex(join(root, "runs", "index.jsonl")).append(
+      readinessRunSummary(root, "run-backed-change", runBacked),
+    );
+
+    const report = await buildReadinessReport({ repoRoot: root });
+
+    expect(report.overallStatus).toBe("blocked");
+    expect(report.operations?.status).toBe("blocked");
+    expect(report.operations?.evidence.commitHistory.unevidencedCommits).toEqual([unevidenced]);
+    expect(report.checks).toContainEqual(
+      expect.objectContaining({
+        id: "operations.evidence.commit-history",
+        status: "blocked",
+      }),
+    );
+    expect(report.recommendation).toBe("blocked: first-parent history has commits without run summary evidence");
   });
 });

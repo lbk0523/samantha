@@ -1,0 +1,237 @@
+import { readdir, readFile } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { RunIndex, type RunSummary } from "./ledger";
+import { git, GitError } from "./git";
+
+export type EvidenceAuditStatus = "clear" | "missing" | "stale" | "blocked";
+
+export interface EvidenceAuditCheck {
+  id: string;
+  status: EvidenceAuditStatus;
+  reason: string;
+  evidence: string[];
+}
+
+export interface CommitEvidenceAudit {
+  anchorCommit: string | null;
+  auditedCommits: string[];
+  runSummaryCommits: string[];
+  unevidencedCommits: string[];
+  check: EvidenceAuditCheck;
+}
+
+export interface LessonInboxEvidenceAudit {
+  inboxPath: string;
+  reviewIndexPath: string;
+  candidatePaths: string[];
+  uncoveredCandidatePaths: string[];
+  check: EvidenceAuditCheck;
+}
+
+export interface OperationsEvidenceAudit {
+  repoRoot: string;
+  status: EvidenceAuditStatus;
+  commitHistory: CommitEvidenceAudit;
+  lessonInbox: LessonInboxEvidenceAudit;
+  checks: EvidenceAuditCheck[];
+}
+
+export interface AuditOperationsEvidenceInput {
+  repoRoot: string;
+}
+
+interface LessonInboxReviewIndex {
+  candidates?: Array<{
+    candidatePath?: string;
+  }>;
+}
+
+function combineStatus(checks: EvidenceAuditCheck[]): EvidenceAuditStatus {
+  if (checks.some((check) => check.status === "blocked")) return "blocked";
+  if (checks.some((check) => check.status === "stale")) return "stale";
+  if (checks.some((check) => check.status === "missing")) return "missing";
+  return "clear";
+}
+
+function isMissingPath(error: unknown): boolean {
+  return error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT";
+}
+
+function shortCommit(commit: string): string {
+  return commit.slice(0, 12);
+}
+
+function repoRelativePath(repoRoot: string, path: string): string {
+  return relative(repoRoot, path).split(sep).join("/");
+}
+
+async function firstParentHistory(repoRoot: string): Promise<string[]> {
+  try {
+    const out = await git(["rev-list", "--first-parent", "--reverse", "HEAD"], repoRoot);
+    return out.split("\n").filter(Boolean);
+  } catch (error) {
+    if (error instanceof GitError && error.stderr.includes("ambiguous argument 'HEAD'")) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+function summaryCommits(summaries: RunSummary[]): string[] {
+  return Array.from(
+    new Set(
+      summaries
+        .map((summary) => summary.commit.trim())
+        .filter((commit) => commit.length > 0),
+    ),
+  ).sort();
+}
+
+async function auditCommitEvidence(repoRoot: string): Promise<CommitEvidenceAudit> {
+  const runSummaryCommits = summaryCommits(await new RunIndex(join(repoRoot, "runs", "index.jsonl")).list());
+  const runSummaryCommitSet = new Set(runSummaryCommits);
+  const firstParentCommits = await firstParentHistory(repoRoot);
+  const anchorIndex = firstParentCommits.findIndex((commit) => runSummaryCommitSet.has(commit));
+
+  if (anchorIndex === -1) {
+    return {
+      anchorCommit: null,
+      auditedCommits: [],
+      runSummaryCommits,
+      unevidencedCommits: [],
+      check: {
+        id: "operations.evidence.commit-history",
+        status: "missing",
+        reason: "no reachable run summary commit exists on first-parent history",
+        evidence: runSummaryCommits.map(shortCommit),
+      },
+    };
+  }
+
+  const auditedCommits = firstParentCommits.slice(anchorIndex);
+  const unevidencedCommits = auditedCommits.filter((commit) => !runSummaryCommitSet.has(commit));
+  const anchorCommit = firstParentCommits[anchorIndex] ?? null;
+
+  return {
+    anchorCommit,
+    auditedCommits,
+    runSummaryCommits,
+    unevidencedCommits,
+    check: {
+      id: "operations.evidence.commit-history",
+      status: unevidencedCommits.length === 0 ? "clear" : "blocked",
+      reason:
+        unevidencedCommits.length === 0
+          ? `all first-parent commits since ${shortCommit(anchorCommit ?? "")} have run summary evidence`
+          : "first-parent history has commits without run summary evidence",
+      evidence: unevidencedCommits.map(shortCommit),
+    },
+  };
+}
+
+async function listLessonCandidates(inboxPath: string): Promise<string[]> {
+  try {
+    const entries = await readdir(inboxPath, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+      .map((entry) => join(inboxPath, entry.name))
+      .sort();
+  } catch (error) {
+    if (isMissingPath(error)) return [];
+    throw error;
+  }
+}
+
+async function readReviewIndex(path: string): Promise<LessonInboxReviewIndex | null> {
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as LessonInboxReviewIndex;
+  } catch (error) {
+    if (isMissingPath(error)) return null;
+    throw error;
+  }
+}
+
+function candidateKeys(repoRoot: string, path: string): string[] {
+  const absolute = isAbsolute(path) ? resolve(path) : resolve(repoRoot, path);
+  return [absolute, repoRelativePath(repoRoot, absolute)];
+}
+
+async function auditLessonInboxEvidence(repoRoot: string): Promise<LessonInboxEvidenceAudit> {
+  const inboxPath = join(repoRoot, "references", "lessons", "inbox");
+  const reviewIndexPath = join(repoRoot, "references", "lessons", "reviews", "index.json");
+  const candidatePaths = await listLessonCandidates(inboxPath);
+  const candidateEvidence = candidatePaths.map((path) => repoRelativePath(repoRoot, path));
+
+  if (candidatePaths.length === 0) {
+    return {
+      inboxPath,
+      reviewIndexPath,
+      candidatePaths,
+      uncoveredCandidatePaths: [],
+      check: {
+        id: "operations.evidence.lesson-inbox",
+        status: "clear",
+        reason: "lesson inbox has no candidates awaiting review coverage",
+        evidence: [],
+      },
+    };
+  }
+
+  const index = await readReviewIndex(reviewIndexPath);
+  if (!index) {
+    return {
+      inboxPath,
+      reviewIndexPath,
+      candidatePaths,
+      uncoveredCandidatePaths: candidatePaths,
+      check: {
+        id: "operations.evidence.lesson-inbox",
+        status: "missing",
+        reason: "lesson inbox candidates exist but no review index exists",
+        evidence: candidateEvidence,
+      },
+    };
+  }
+
+  const covered = new Set(
+    (index.candidates ?? []).flatMap((candidate) =>
+      candidate.candidatePath ? candidateKeys(repoRoot, candidate.candidatePath) : [],
+    ),
+  );
+  const uncoveredCandidatePaths = candidatePaths.filter((path) =>
+    candidateKeys(repoRoot, path).every((key) => !covered.has(key)),
+  );
+
+  return {
+    inboxPath,
+    reviewIndexPath,
+    candidatePaths,
+    uncoveredCandidatePaths,
+    check: {
+      id: "operations.evidence.lesson-inbox",
+      status: uncoveredCandidatePaths.length === 0 ? "clear" : "stale",
+      reason:
+        uncoveredCandidatePaths.length === 0
+          ? "lesson review index covers current inbox candidates"
+          : "lesson review index does not cover current inbox candidates",
+      evidence: uncoveredCandidatePaths.map((path) => repoRelativePath(repoRoot, path)),
+    },
+  };
+}
+
+export async function auditOperationsEvidence(
+  input: AuditOperationsEvidenceInput,
+): Promise<OperationsEvidenceAudit> {
+  const repoRoot = resolve(input.repoRoot);
+  const commitHistory = await auditCommitEvidence(repoRoot);
+  const lessonInbox = await auditLessonInboxEvidence(repoRoot);
+  const checks = [commitHistory.check, lessonInbox.check];
+
+  return {
+    repoRoot,
+    status: combineStatus(checks),
+    commitHistory,
+    lessonInbox,
+    checks,
+  };
+}

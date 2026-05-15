@@ -476,15 +476,21 @@ describe("samantha cli", () => {
         "--initiative=references/initiatives/one.md",
         "--task=references/tasks/one.json",
         "--run-log=runs/one.json",
+        "--repo-root=/tmp/samantha-repo",
       ]),
     ).toEqual({
       command: "readiness:check",
       initiativePath: "references/initiatives/one.md",
       taskPath: "references/tasks/one.json",
       runLogPath: "runs/one.json",
+      repoRoot: "/tmp/samantha-repo",
+    });
+    expect(parseCliArgs(["readiness:check", "--repo-root=/tmp/samantha-repo"])).toEqual({
+      command: "readiness:check",
+      repoRoot: "/tmp/samantha-repo",
     });
     expect(() => parseCliArgs(["readiness:check"])).toThrow(
-      "usage: bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>]",
+      "usage: bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>] [--repo-root=<repo>]",
     );
   });
 

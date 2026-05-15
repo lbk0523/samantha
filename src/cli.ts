@@ -409,14 +409,16 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     const initiativePath = flags.get("initiative");
     const taskPath = flags.get("task");
     const runLogPath = flags.get("run-log");
-    if (!initiativePath && !taskPath && !runLogPath) {
-      throw new Error("usage: bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>]");
+    const repoRoot = flags.get("repo-root");
+    if (!initiativePath && !taskPath && !runLogPath && !repoRoot) {
+      throw new Error("usage: bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>] [--repo-root=<repo>]");
     }
     return {
       command: "readiness:check",
       ...(initiativePath ? { initiativePath } : {}),
       ...(taskPath ? { taskPath } : {}),
       ...(runLogPath ? { runLogPath } : {}),
+      ...(repoRoot ? { repoRoot } : {}),
     };
   }
 
