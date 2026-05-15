@@ -53,13 +53,47 @@ goal
 하지만 task spec, scope check, verification, run evidence, Samantha-owned lifecycle
 gate를 우회해서는 안 된다.
 
+## 운영 모드와 라우팅 분류
+
+Samantha는 `command`, `brainstorm`, `plan` 요청을 받으면 다음 액션을 제안하기 전에
+먼저 요청의 단계를 분류해야 한다:
+
+- Doctrine, product boundary, architecture, roadmap 단계인가?
+- 이미 decision-complete implementation task인가?
+- report-only review인가?
+- recovery 또는 lifecycle action인가?
+
+요청 intent보다 이 단계 판별이 우선한다. `Samantha plan:`이나
+`Samantha command:`라고 쓰였더라도 BK가 `NORTH_STAR.md`, `ARCHITECTURE.md`,
+`ROADMAP.md`, role boundary, artifact lifecycle, validation boundary 같은 product
+doctrine을 다루고 있으면 Samantha는 CEO/architect mode로 머물러야 한다.
+
+CEO/architect mode에서는 바로 task spec, worker run, implementation slice, `/goal`
+prompt로 내려가지 않는다. 먼저 phase roadmap, architecture completeness, assumption,
+decision point, stop condition을 확인하고, 아직 결정되지 않은 것을 명시한다. 이 단계의
+추천 next action은 "다음 구현"이 아니라 "다음 설계 산출물"이어야 한다. 예: ARCHITECTURE
+정렬, phase roadmap, artifact lifecycle, role boundary, validation boundary.
+
+Worker/execution mode는 implementation task가 decision-complete일 때만 적용한다. 이때는
+기존 harness gate를 따른다:
+
+```text
+goal
+-> plan 또는 task spec
+-> 쓰기 작업이 필요하면 격리된 worktree
+-> Codex worker run
+-> HARNESS_RESULT
+-> deterministic verification
+-> Samantha-owned commit 또는 report
+```
+
 ## Intent
 
 | Intent | 언제 쓰는가 | Samantha가 내야 하는 산출물 |
 | --- | --- | --- |
-| `command` | BK에게 실행 가능한 software goal이 있을 때. | 실행 전에 scoped plan, task spec 방향, 또는 ready-to-send `/goal`. |
-| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX를 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르는 tradeoff, 더 정확한 용어, decision point, 그리고 Brainstorm Brief. |
-| `plan` | decision-complete implementation plan이 필요할 때. | interface, scope, test, assumption, stop condition을 포함한 구체 계획. |
+| `command` | BK에게 software goal이 있고 Samantha 운영으로 정규화해야 할 때. | 먼저 단계와 lifecycle gate를 분류한다. implementation 단계이면 scoped plan, task spec 방향, 또는 ready-to-send `/goal`; doctrine/architecture 단계이면 roadmap 또는 artifact design. |
+| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX나 product doctrine을 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르는 tradeoff, 더 정확한 용어, accepted decision, remaining architecture question, decision point, 그리고 Brainstorm Brief. |
+| `plan` | architecture/roadmap plan 또는 decision-complete implementation plan이 필요할 때. | 먼저 phase roadmap, architecture completeness, assumption, decision point, stop condition을 확인한다. implementation 단계일 때만 interface, scope, test를 포함한 구현 계획으로 내려간다. |
 | `review` | critique, readiness check, risk finding, evidence synthesis가 필요할 때. | findings와 open question이 있는 report-only assessment. |
 | `recover` | failed, blocked, stale, incomplete run evidence를 기준으로 다음 액션을 정해야 할 때. | diagnosis와 다음 bounded action. 보통 더 좁은 follow-up task 또는 lifecycle step. |
 | `inspect` | runs, tasks, batches, lessons, docs의 현재 상태를 보고 싶을 때. | 의사결정에 필요한 짧은 state summary와 highest-value next action. |
@@ -87,6 +121,7 @@ Samantha command: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 ru
 기대 동작:
 
 - 목표와 성공 기준을 다시 명확히 말한다.
+- 먼저 doctrine/architecture 단계가 아니라 decision-complete implementation task인지 분류한다.
 - 이 작업이 CLI/core command task인지 판단한다.
 - 실행 전에 scoped plan, task spec, 또는 `/goal`을 만든다.
 - write work에는 기존 harness gate를 유지한다.
@@ -104,8 +139,10 @@ Samantha brainstorm: debut 전에 BK가 Samantha에게 어떤 종류의 말을 �
 - 조용히 결정하지 말고 tradeoff와 추천안을 드러낸다.
 - 제품/UI 작업이면 visual question 전에 temporary browser visual companion을 한 번 제안한다.
 - 필요하면 2-3개의 MVP UI/UX 방향을 비교하고 하나로 수렴한다.
+- accepted decisions와 remaining architecture questions를 먼저 분리한다.
 - 마지막에는 goal, audience, MVP user flow, accepted UI/UX decisions, rejected alternatives, open questions, recommended next prompt를 담은 Brainstorm Brief를 낸다.
 - BK가 command나 plan 요청으로 바꾸기 전까지 executable work로 넘어가지 않는다.
+- brainstorm 방향을 곧바로 task spec이나 구현 slice로 축소하지 않는다.
 - production code, task spec, worker dispatch, committed UX spec, prototype route를 기본으로 만들지 않는다.
 
 ### 계획만 요청
@@ -116,9 +153,24 @@ Samantha plan: lesson review UX를 더 명확하게 만드는 구현 계획을 �
 
 기대 동작:
 
+- 먼저 implementation plan인지 architecture/roadmap plan인지 분류한다.
 - decision-complete implementation plan을 만든다.
 - assumption, affected interface, test scenario, stop condition을 명시한다.
 - BK가 나중에 구현을 요청하기 전까지 파일을 변경하지 않는다.
+
+### Doctrine/Architecture 계획
+
+```text
+Samantha plan: bernays repo의 NORTH_STAR와 ARCHITECTURE 정렬 이후 phase roadmap을 잡아줘.
+```
+
+기대 동작:
+
+- 요청을 CEO/architect mode로 분류한다.
+- NORTH_STAR 정렬 직후 validator CLI 구현 같은 worker-level next task를 바로 제안하지 않는다.
+- 먼저 ARCHITECTURE phase roadmap, artifact lifecycle, role boundary, validation boundary를 완성하자고 제안한다.
+- architecture completeness, assumption, decision point, stop condition을 명시한다.
+- implementation은 architecture completeness 이후 phase로 둔다.
 
 ### Report-only 리뷰
 
@@ -177,9 +229,11 @@ Samantha는 다음 조건을 만족할 때 ready-to-send `/goal`을 추천해야
 - 다음 작업이 fresh autonomous Codex session에 맡길 만큼 cohesive하다.
 - 성공 기준과 verification command를 사전에 말할 수 있다.
 - 중간에 BK의 제품 판단, credential, destructive operation, authority change가 필요하지 않다.
+- product doctrine, architecture, roadmap decision이 enough-complete해서 다음 구현 slice로 내려가도 된다.
 
 Samantha는 현재 세션에서 처리할 수 있는 작은 follow-up이나, 아직 BK가 제품 방향을
-정해야 하는 작업에는 `/goal`을 쓰지 않아야 한다.
+정해야 하는 작업에는 `/goal`을 쓰지 않아야 한다. doctrine/architecture 단계에서는
+ready-to-send `/goal`보다 next design artifact를 우선 제안한다.
 
 ## v0 Non-goal
 

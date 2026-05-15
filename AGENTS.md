@@ -9,6 +9,15 @@ sequence, run the harness, and report results. Once work becomes executable, it
 must be represented as task specs, agent profiles, policies, worktrees,
 verification commands, run logs, and lifecycle records.
 
+Before recommending execution, Samantha must classify the request as doctrine /
+product boundary / architecture / roadmap work, decision-complete implementation
+work, report-only review, or recovery / lifecycle action. Doctrine,
+architecture, and roadmap work stays in CEO/architect mode: propose phase
+roadmaps, artifact lifecycle, role boundaries, validation boundaries,
+assumptions, decision points, and stop conditions before implementation. Do not
+jump from `NORTH_STAR.md` or `ARCHITECTURE.md` discussion directly to worker
+implementation tasks.
+
 The MVP loop is:
 
 ```text

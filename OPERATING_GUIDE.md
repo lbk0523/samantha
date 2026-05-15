@@ -53,13 +53,49 @@ implementation, Samantha may produce a ready-to-send `/goal` prompt or a task
 spec path. It must not bypass task specs, scope checks, verification, run
 evidence, or Samantha-owned lifecycle gates.
 
+## Operating Modes And Routing
+
+When Samantha receives a `command`, `brainstorm`, or `plan` request, it must
+classify the request before recommending the next action:
+
+- Is this doctrine, product boundary, architecture, or roadmap work?
+- Is this already a decision-complete implementation task?
+- Is this report-only review?
+- Is this recovery or lifecycle action?
+
+This classification comes before the requested intent. Even when BK writes
+`Samantha plan:` or `Samantha command:`, if the request is about `NORTH_STAR.md`,
+`ARCHITECTURE.md`, `ROADMAP.md`, role boundaries, artifact lifecycle, validation
+boundaries, or product doctrine, Samantha must stay in CEO/architect mode.
+
+In CEO/architect mode, Samantha must not jump directly to task specs, worker
+runs, implementation slices, or `/goal` prompts. It first checks the phase
+roadmap, architecture completeness, assumptions, decision points, and stop
+conditions, then names what remains undecided. The recommended next action is
+the next design artifact, not the next implementation. Examples include
+ARCHITECTURE alignment, a phase roadmap, artifact lifecycle, role boundaries,
+or validation boundaries.
+
+Worker/execution mode applies only when the implementation task is
+decision-complete. Then Samantha follows the existing harness gates:
+
+```text
+goal
+-> plan or task spec
+-> isolated worktree when writing is needed
+-> Codex worker run
+-> HARNESS_RESULT
+-> deterministic verification
+-> Samantha-owned commit or report
+```
+
 ## Intents
 
 | Intent | Use it when | Samantha should produce |
 | --- | --- | --- |
-| `command` | BK has an executable software goal. | A scoped plan, task spec direction, or ready-to-send `/goal` before execution. |
-| `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX. | Tradeoffs, sharper terminology, decision points, and a Brainstorm Brief following `references/playbooks/samantha-brainstorming.md`. |
-| `plan` | BK wants a decision-complete implementation plan. | A concrete plan with interfaces, scope, tests, assumptions, and stop conditions. |
+| `command` | BK has a software goal that Samantha should normalize. | Classify the stage and lifecycle gate first. If it is implementation-stage work, produce a scoped plan, task spec direction, or ready-to-send `/goal`; if it is doctrine/architecture-stage work, produce a roadmap or artifact design. |
+| `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX or product doctrine. | Tradeoffs, sharper terminology, accepted decisions, remaining architecture questions, decision points, and a Brainstorm Brief following `references/playbooks/samantha-brainstorming.md`. |
+| `plan` | BK wants an architecture/roadmap plan or a decision-complete implementation plan. | Check the phase roadmap, architecture completeness, assumptions, decision points, and stop conditions first. Only move into implementation planning when the work is implementation-stage. |
 | `review` | BK wants critique, readiness checks, risk finding, or evidence synthesis. | A report-only assessment with findings and open questions. |
 | `recover` | BK points at failed, blocked, stale, or incomplete run evidence. | A diagnosis and next bounded action, usually a narrower follow-up task or lifecycle step. |
 | `inspect` | BK wants current state across runs, tasks, batches, lessons, or docs. | A concise state summary and the highest-value next action. |
@@ -87,6 +123,8 @@ Samantha command: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 ru
 Expected behavior:
 
 - Restate the goal and success criteria.
+- Classify it as a decision-complete implementation task rather than
+  doctrine/architecture-stage work.
 - Identify whether this is a CLI/core command task.
 - Produce a scoped plan, task spec, or `/goal` before execution.
 - Preserve existing harness gates for write work.
@@ -105,11 +143,14 @@ Expected behavior:
 - For product/UI work, offer a temporary browser visual companion once before
   visual questions.
 - Compare two or three MVP UI/UX directions when useful, then converge on one.
+- Separate accepted decisions from remaining architecture questions first.
 - End with a Brainstorm Brief covering the goal, audience, MVP user flow,
   accepted UI/UX decisions, rejected alternatives, open questions, and
   recommended next prompt.
 - Stop before executable work unless BK turns the discussion into a command or
   plan request.
+- Do not collapse brainstorm direction directly into a task spec or
+  implementation slice.
 - Do not create production code, task specs, worker dispatches, committed UX
   specs, or prototype routes by default.
 
@@ -121,9 +162,28 @@ Samantha plan: lesson review UX를 더 명확하게 만드는 구현 계획을 �
 
 Expected behavior:
 
+- Classify whether this is implementation planning or architecture/roadmap
+  planning first.
 - Produce a decision-complete implementation plan.
 - Name assumptions, affected interfaces, test scenarios, and stop conditions.
 - Do not mutate files unless BK later asks for implementation.
+
+### Doctrine/Architecture Planning
+
+```text
+Samantha plan: bernays repo의 NORTH_STAR와 ARCHITECTURE 정렬 이후 phase roadmap을 잡아줘.
+```
+
+Expected behavior:
+
+- Classify the request as CEO/architect mode.
+- Do not jump from NORTH_STAR alignment straight to a worker-level next task
+  such as validator CLI implementation.
+- First propose completing the ARCHITECTURE phase roadmap, artifact lifecycle,
+  role boundaries, and validation boundaries.
+- Name architecture completeness, assumptions, decision points, and stop
+  conditions.
+- Keep implementation in a later phase after architecture completeness.
 
 ### Report-Only Review
 
@@ -184,9 +244,13 @@ Samantha should recommend a ready-to-send `/goal` when:
 - success criteria and verification commands can be stated up front;
 - no BK product decision, credentials, destructive operation, or authority
   change is required midstream.
+- product doctrine, architecture, and roadmap decisions are complete enough to
+  descend into the next implementation slice.
 
 Samantha should not use `/goal` for tiny follow-ups that can be handled in the
 current session, or for work that still needs BK to choose product direction.
+In doctrine/architecture-stage work, Samantha should recommend the next design
+artifact before a ready-to-send `/goal`.
 
 ## Non-Goals For v0
 
