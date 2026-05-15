@@ -37,6 +37,7 @@ import { markBatchSpecRejected } from "./core/batch-spec-mutation";
 import { createReplacementBatchSpec } from "./core/batch-spec-replacement";
 import { listBatchSpecs, readBatchSpecById, readBatchSpecRecordById } from "./core/batch-spec-store";
 import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
+import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -92,6 +93,10 @@ export interface ReportsSummarizeCliArgs {
 
 export interface ReportsOrchestrateCliArgs extends OrchestrateReportOnlyReviewsInput {
   command: "reports:orchestrate";
+}
+
+export interface ReadinessCheckCliArgs extends BuildReadinessReportInput {
+  command: "readiness:check";
 }
 
 export interface LessonsDraftCliArgs {
@@ -196,6 +201,7 @@ export type SamanthaCliArgs =
   | RunsDiagnoseCliArgs
   | ReportsSummarizeCliArgs
   | ReportsOrchestrateCliArgs
+  | ReadinessCheckCliArgs
   | LessonsDraftCliArgs
   | LessonsReviewCliArgs
   | LessonsReviewInboxCliArgs
@@ -395,6 +401,22 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(flags.get("agent") ? { agentPath: flags.get("agent") } : {}),
       ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
       ...(flags.get("codex-bin") ? { codexBin: flags.get("codex-bin") } : {}),
+    };
+  }
+
+  if (command === "readiness:check") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const initiativePath = flags.get("initiative");
+    const taskPath = flags.get("task");
+    const runLogPath = flags.get("run-log");
+    if (!initiativePath && !taskPath && !runLogPath) {
+      throw new Error("usage: bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>]");
+    }
+    return {
+      command: "readiness:check",
+      ...(initiativePath ? { initiativePath } : {}),
+      ...(taskPath ? { taskPath } : {}),
+      ...(runLogPath ? { runLogPath } : {}),
     };
   }
 
@@ -611,7 +633,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -756,6 +778,12 @@ export async function main(argv: string[]): Promise<number> {
   if (args.command === "reports:orchestrate") {
     console.log(JSON.stringify(await orchestrateReportOnlyReviews(args), null, 2));
     return 0;
+  }
+
+  if (args.command === "readiness:check") {
+    const result = await buildReadinessReport(args);
+    console.log(JSON.stringify(result, null, 2));
+    return result.overallStatus === "clear" ? 0 : 1;
   }
 
   if (args.command === "tasks:from-template") {

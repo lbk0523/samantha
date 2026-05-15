@@ -469,6 +469,91 @@ describe("samantha cli", () => {
     });
   });
 
+  test("parses readiness check arguments", () => {
+    expect(
+      parseCliArgs([
+        "readiness:check",
+        "--initiative=references/initiatives/one.md",
+        "--task=references/tasks/one.json",
+        "--run-log=runs/one.json",
+      ]),
+    ).toEqual({
+      command: "readiness:check",
+      initiativePath: "references/initiatives/one.md",
+      taskPath: "references/tasks/one.json",
+      runLogPath: "runs/one.json",
+    });
+    expect(() => parseCliArgs(["readiness:check"])).toThrow(
+      "usage: bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>]",
+    );
+  });
+
+  test("readiness check command prints the current initiative slice", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-readiness-"));
+    tmpRoots.push(root);
+    await mkdir(join(root, "references", "initiatives"), { recursive: true });
+    const initiativePath = join(root, "references", "initiatives", "one.md");
+    await writeFile(
+      initiativePath,
+      `# Initiative: CLI readiness fixture
+
+Status: active
+Source: test fixture
+
+## Goal
+
+Keep context.
+
+## Accepted Decisions
+
+- Use an initiative brief.
+
+## Non-Goals
+
+- No daemon.
+
+## Invariants
+
+- Preserve gates.
+
+## Slice Queue
+
+| Slice | Status | Objective | Depends on | Verification | Next prompt |
+| --- | --- | --- | --- | --- | --- |
+| S1 | completed | Seed. | none | docs. | n/a |
+| S2 | ready | Check readiness. | S1 | cli. | prompt |
+
+## Current Next Slice
+
+Start S2.
+
+## End-of-Session Update Rule
+
+Update the next slice.
+
+## Completion Rule
+
+All slices complete.
+`,
+      "utf8",
+    );
+    let stdout = "";
+    const originalLog = console.log;
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["readiness:check", `--initiative=${initiativePath}`])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result.overallStatus).toBe("clear");
+    expect(result.initiative.currentSlice.slice).toBe("S2");
+    expect(result.recommendation).toContain("start S2");
+  });
+
   test("parses batch preflight arguments", () => {
     expect(parseCliArgs(["batches:preflight", "--batch=references/batches/batch-1.json"])).toEqual({
       command: "batches:preflight",

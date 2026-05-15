@@ -177,6 +177,7 @@ bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
 bun run samantha runs:diagnose --run-log=<path>
 bun run samantha reports:summarize --run-log=<path> [--run-log=<path>]...
 bun run samantha reports:orchestrate --repo-root=<repo> --task=<task.json> --task=<task.json>...
+bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>]
 bun run samantha lessons:draft --run-log=<path>
 bun run samantha lessons:review <candidate.md>
 bun run samantha lessons:review-inbox [--repo-root=<repo>]
@@ -213,6 +214,13 @@ Current task templates:
 - `references/task-templates/core-module-with-tests.json`
 - `references/task-templates/cli-command-with-tests.json`
 - `references/task-templates/report-only-review.json`
+
+`readiness:check` is a deterministic report-only surface. With `--initiative`,
+it checks an Initiative Continuity Brief for required sections, valid slice
+statuses, blockers, and a current next slice. With `--task` and `--run-log`, it
+audits plan completion by comparing the task spec against run evidence,
+declared verification, scope evaluation, HARNESS_RESULT, and candidate commit
+state.
 
 ## Acceptance Baseline
 

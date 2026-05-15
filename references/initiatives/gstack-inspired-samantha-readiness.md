@@ -1,6 +1,6 @@
 # Initiative: gstack-inspired Samantha readiness loop
 
-Status: active
+Status: completed
 Source: Samantha brainstorm on 2026-05-15 comparing Samantha with garrytan/gstack
 Last updated: 2026-05-15
 
@@ -21,6 +21,7 @@ authority boundaries.
 - Bring over gstack ideas as Samantha-shaped artifacts and checks, not as a
   direct import of gstack's generated skills, browser daemon, or automatic
   memory.
+- Use `readiness:check` as the v0 deterministic readiness surface.
 
 ## Non-Goals
 
@@ -41,23 +42,62 @@ authority boundaries.
 - Every slice should leave a fresh session with a concrete next action or a
   named stop condition.
 
+## Readiness v0 Design
+
+`readiness:check` is the first gstack-inspired readiness surface.
+
+Inputs:
+
+- `--initiative=<path>` checks an Initiative Continuity Brief.
+- `--task=<task.json>` loads a task spec as the plan source.
+- `--run-log=<path>` loads completed run evidence.
+
+Output:
+
+- JSON with `overallStatus`, `recommendation`, optional `initiative`, optional
+  `planCompletion`, and flat `checks`.
+- Check statuses are `clear`, `missing`, `stale`, or `blocked`.
+
+Initiative checks:
+
+- top-level status exists;
+- required continuity sections exist;
+- slice statuses use the approved vocabulary;
+- at most one active slice, or one ready slice when no active slice exists;
+- blocked slices are exposed;
+- `Current Next Slice` points at the active or ready slice.
+
+Plan completion checks:
+
+- task source is loaded;
+- run evidence exists;
+- run task id matches the plan task id;
+- HARNESS_RESULT is present and passing;
+- scope violations are absent;
+- declared verify commands are present and passing;
+- writer runs have a candidate commit and report-only runs do not;
+- Samantha evaluation passed.
+
+Stop condition:
+
+- `overallStatus: "clear"` means the evidence is ready for the next
+  Samantha-owned gate.
+- Any non-clear status names the first missing, stale, or blocked reason in
+  `recommendation`.
+
 ## Slice Queue
 
 | Slice | Status | Objective | Depends on | Verification | Next prompt |
 | --- | --- | --- | --- | --- | --- |
 | S1 | completed | Inspect gstack and identify Samantha-shaped gaps to fill. | none | Report-only gstack code/docs inspection. | n/a |
 | S2 | completed | Introduce Initiative Continuity Brief guidance and seed this initiative artifact. | S1 | `git diff --check HEAD -- '*.md' 'references/**/*.md'` passed on 2026-05-15. | n/a |
-| S3 | ready | Design Plan Completion Audit plus Review Readiness Report v0. | S2 | Decision-complete plan with artifact shape, scope, tests, and stop conditions. | See Current Next Slice. |
-| S4 | pending | Implement the first deterministic readiness artifact or CLI surface. | S3 | Focused tests plus `bun run typecheck` and `bun test`. | To be written after S3. |
-| S5 | pending | Dogfood the continuity flow across a fresh session. | S4 | Fresh session starts from this brief, performs one slice, and updates the brief. | To be written after S4. |
+| S3 | completed | Design Plan Completion Audit plus Review Readiness Report v0. | S2 | Design captured in `Readiness v0 Design`. | n/a |
+| S4 | completed | Implement the first deterministic readiness artifact or CLI surface. | S3 | `bun test tests/readiness.test.ts`, `bun test tests/cli.test.ts`, `bun run typecheck`, and `bun test` passed on 2026-05-15. | n/a |
+| S5 | completed | Dogfood the continuity flow across a fresh session. | S4 | `bun run samantha readiness:check --initiative=references/initiatives/gstack-inspired-samantha-readiness.md` returned `overallStatus: "clear"` before closure and identified S3 as the next slice; after closure it returns `overallStatus: "clear"` with no current slice. | n/a |
 
 ## Current Next Slice
 
-Start S3.
-
-```text
-Samantha plan: gstack에서 빌릴 첫 product slice로 Plan Completion Audit + Review Readiness Report v0를 설계해줘. 먼저 /Users/byung/Documents/samantha/references/initiatives/gstack-inspired-samantha-readiness.md 와 /Users/byung/Documents/samantha/references/playbooks/initiative-continuity-brief.md 를 읽어. 아직 코드는 바꾸지 말고, artifact 위치, 입력/출력 schema, Samantha brainstorm/plan/command와의 연결, deterministic verification, task spec으로 승격할 stop condition을 포함한 decision-complete implementation plan을 한국어로 작성해줘.
-```
+No next slice. This initiative is complete.
 
 ## End-of-Session Update Rule
 
