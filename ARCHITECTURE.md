@@ -1,6 +1,6 @@
 # Samantha Architecture
 
-Last updated: 2026-05-14
+Last updated: 2026-05-15
 
 ## System Shape
 
@@ -51,6 +51,69 @@ Efficiency should come from:
 - cheaper verification that is still connected to the changed surface
 - failure evidence that creates narrower follow-up tasks
 - concise run summaries instead of broad UI or runtime scope
+
+## Thin Harness, Fat Skills Interpretation
+
+Samantha should stay a thin harness around strong model judgment and
+deterministic local tooling.
+
+The harness owns only the loop, file and worktree access, context routing,
+dispatch boundaries, safety gates, verification, lifecycle records, and
+Samantha-owned integration decisions. Judgment procedures belong in markdown
+artifacts such as operating guides, work rules, playbooks, task templates, and
+reviewed lessons. Trust decisions belong in deterministic code, policy checks,
+scope checks, verification commands, and run evidence.
+
+The rule is:
+
+```text
+Push judgment up into reviewable procedures.
+Push trust down into deterministic checks.
+Keep authority in Samantha-owned gates.
+```
+
+This interpretation does not grant new worker authority. "Fat skills" means
+better reviewable procedures, not broader permissions. A playbook can guide
+decomposition, diagnosis, synthesis, or next-action recommendation, but it
+cannot make worker output trusted, bypass worktree isolation, accept a run,
+merge, clean up, push, or rewrite policy.
+
+Samantha should not import these adjacent patterns as v0 scope:
+
+- automatic skill self-rewrite
+- hidden memory
+- cron, daemon, watch, or routine trigger behavior
+- worker-owned orchestration
+- resolver implementation that silently loads or mutates context without a
+  reviewed artifact
+
+## Context Resolver Principle
+
+A resolver is a routing rule for context: when a task type, intent, or artifact
+surface appears, load the relevant document or playbook before deciding. Skills
+and playbooks say how to reason. Resolver rules say what context to read when.
+
+For now, Samantha's resolver should remain a documented routing principle, not
+a new runtime system. Repeated evidence may justify a future resolver artifact
+or deterministic resolver code, but that promotion must be reviewed like any
+other learning or policy change.
+
+Current routing examples:
+
+- `brainstorm` intent reads `OPERATING_GUIDE_KR.md` and
+  `references/playbooks/samantha-brainstorming.md`.
+- `doctrine-update` work reads `AGENTS.md`, `NORTH_STAR.md`,
+  `ARCHITECTURE.md`, `ROADMAP.md`, and `WORK-RULES.md` as relevant to the
+  proposed boundary.
+- `policy-change` work reads `ARCHITECTURE.md`, `src/core/policy.ts`,
+  `tests/policy.test.ts`, and the task templates or profiles whose authority
+  would change.
+- failed-run recovery reads the source run log, run diagnosis behavior, and
+  task-from-run rules before producing a follow-up task.
+
+Resolver rules must reduce context bloat. Do not move every lesson, quirk, or
+preference into `AGENTS.md`; keep top-level documents as pointers to narrower
+artifacts and load the narrower artifact only when it matters.
 
 ## Task Classes / Execution Modes
 
@@ -464,6 +527,21 @@ Promotion force should stay proportional to evidence:
 - gates live in TypeScript policy and focused tests
 - doctrine lives in `AGENTS.md`, `NORTH_STAR.md`, `ARCHITECTURE.md`, or
   `ROADMAP.md`
+
+Playbooks should be treated as method calls, not loose advice piles. A durable
+playbook should make its invocation shape clear:
+
+- when to use it
+- required inputs
+- procedure
+- output shape
+- evidence or verification expectations
+- authority limits
+
+The invocation supplies the concrete repo, task, run log, question, or evidence
+set. The playbook supplies the repeatable judgment procedure. If a playbook is
+only useful after adding hidden assumptions, it is not ready to guide worker or
+Samantha behavior.
 
 Workers do not learn directly. Worker behavior changes only when Samantha
 updates the task instructions, agent profile, blocked skills, target files,

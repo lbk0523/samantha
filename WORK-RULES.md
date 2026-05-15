@@ -36,6 +36,51 @@ For multi-step work, state a short plan:
 Prefer tests or deterministic checks that prove the changed surface. Weak goals
 such as "make it work" need clarification or a tighter local interpretation.
 
+## Skill / Code Boundary
+
+Before adding a new Samantha behavior, decide whether it belongs in a
+reviewable procedure or deterministic code.
+
+Use a playbook, skill, operating guide, or direction document when the work
+requires judgment, adaptation, questioning, synthesis, tradeoff analysis, or
+conversation-aware behavior. These artifacts describe how Samantha or Codex
+should reason.
+
+Use code, policy, tests, task templates, or CLI commands when the same input
+should produce the same output. Lookup, list, status, validation, scope checks,
+placeholder detection, dispatch eligibility, verification, and lifecycle state
+belong on the deterministic side.
+
+The boundary is:
+
+```text
+If the agent needs to think, use a reviewable procedure.
+If the result must be trusted, use deterministic checks.
+```
+
+Do not use a markdown procedure to replace a trust gate. A playbook can advise
+what to inspect, how to diagnose, or how to shape a follow-up task, but worker
+output becomes trusted only through Samantha-owned scope checks, verification,
+run evidence, and lifecycle gates.
+
+## Latent And Deterministic Work
+
+Keep latent and deterministic work on the correct side of the system.
+
+Latent work includes decomposition, diagnosis narrative, evidence synthesis,
+tradeoff framing, terminology sharpening, and next-action recommendation. It
+may produce advice, plans, reports, task instructions, lesson candidates, or
+playbook candidates.
+
+Deterministic work includes policy decisions, changed-file scope checks,
+verify-command results, lifecycle status, placeholder detection, JSON parsing,
+task template substitution, and commit or merge eligibility.
+
+Do not turn deterministic work into an LLM judgment to save time. If a latent
+judgment should change future behavior, route it through the explicit learning
+flow: lesson candidate, review, promotion, and focused enforcement or guidance
+only when justified.
+
 ## Implementation Rules
 
 - Keep changes surgical and test-driven.
