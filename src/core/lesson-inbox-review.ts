@@ -1,5 +1,5 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { recordLessonReview, type LessonReviewArtifact, type LessonReviewClassification } from "./lesson-review";
 
 export interface LessonInboxReviewInput {
@@ -61,6 +61,10 @@ async function listInboxCandidates(inboxPath: string): Promise<string[]> {
   }
 }
 
+function repoRelativePath(repoRoot: string, path: string): string {
+  return relative(repoRoot, path).split(sep).join("/");
+}
+
 function indexEntry(input: {
   candidatePath: string;
   reviewPath: string;
@@ -94,15 +98,21 @@ export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Pro
   const entries: LessonInboxReviewIndexEntry[] = [];
 
   for (const candidatePath of candidates) {
-    const result = await recordLessonReview({ candidatePath });
-    entries.push(indexEntry({ candidatePath, reviewPath: result.path, review: result.review }));
+    const result = await recordLessonReview({ candidatePath, repoRoot });
+    entries.push(
+      indexEntry({
+        candidatePath: repoRelativePath(repoRoot, candidatePath),
+        reviewPath: repoRelativePath(repoRoot, result.path),
+        review: result.review,
+      }),
+    );
   }
 
   const index: LessonInboxReviewIndex = {
     schemaVersion: 1,
     reviewedAt: new Date().toISOString(),
-    inboxPath,
-    reviewsPath,
+    inboxPath: repoRelativePath(repoRoot, inboxPath),
+    reviewsPath: repoRelativePath(repoRoot, reviewsPath),
     summary: {
       total: entries.length,
       autoRejected: countClassification(entries, "auto_rejected"),

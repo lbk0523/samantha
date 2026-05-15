@@ -1,0 +1,400 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-05-15T00:00:00.000Z",
+  "source": "bun run samantha readiness:check --repo-root=\"$PWD\"",
+  "reason": "Closes only historical pre-audit first-parent commits that currently lack run summary evidence. This baseline does not create, replace, or imply run logs; future unevidenced commits not listed here remain blocked.",
+  "commits": [
+    {
+      "commit": "5ec1c628bac04763da658ab30514ec9c63a95d69",
+      "subject": "feat: bootstrap Samantha harness"
+    },
+    {
+      "commit": "63116cb8092096ac4ca0e382955489fd5989a3f5",
+      "subject": "feat: add run inspection and merge gate"
+    },
+    {
+      "commit": "ce186199b66a40903cd2beed0add89246d7cf0d7",
+      "subject": "feat: add run lifecycle and worktree cleanup"
+    },
+    {
+      "commit": "a4241fa9a5ff14fdfb515c623ac874343d4a30ca",
+      "subject": "feat: add reviewable learning loop"
+    },
+    {
+      "commit": "ca622545823b3411ee4b61c72eab4c1ff1d10588",
+      "subject": "feat: add report-only reviewer dogfood"
+    },
+    {
+      "commit": "2eb7bdbcdb96ffaf6f9a4b97f12a0c6309b885b9",
+      "subject": "fix: harden report-only setup policy"
+    },
+    {
+      "commit": "28aef9a09fbe2d4b7c03353ef6618a29392fb417",
+      "subject": "fix: forbid report-only verify commands"
+    },
+    {
+      "commit": "1ff4048ea6ff8d81337ad9769ff687335f699e87",
+      "subject": "docs: clarify task verification boundaries"
+    },
+    {
+      "commit": "691e0f36a28a2c5b527acea3dda018e811d81315",
+      "subject": "fix: ignore report-only harness commits"
+    },
+    {
+      "commit": "b8aefd0a4c7574c7026cec7988c8c761625a9da6",
+      "subject": "fix: trust only samantha-owned commits"
+    },
+    {
+      "commit": "44fe8118de2f0b7449278988ce3d6cba516f12ca",
+      "subject": "Update README.md"
+    },
+    {
+      "commit": "33d0f98b3d8cc269fe070a8373649de9f7c3237a",
+      "subject": "fix: stop prompting workers for commit hashes"
+    },
+    {
+      "commit": "484f09a52343d155af5caf7c7677061f4a9426a1",
+      "subject": "feat: add run accept command"
+    },
+    {
+      "commit": "d2681471f4147568dab6cf6ddb7c27db1034e40c",
+      "subject": "docs: add next action proposal rules"
+    },
+    {
+      "commit": "9db72737e21d5872801ed31319d2f5769ba0ea76",
+      "subject": "docs: list run accept command"
+    },
+    {
+      "commit": "8a0adb6d38f4e5ff9dc34346862e761b28a59530",
+      "subject": "Update AGENTS.md"
+    },
+    {
+      "commit": "e91afcc306126fb33e0ebed228cdb07fdad19b7a",
+      "subject": "chore: add runs diagnose task spec"
+    },
+    {
+      "commit": "78207da03eb88fac1baea7436d95d0e8c3f227ae",
+      "subject": "feat: add runs diagnose command"
+    },
+    {
+      "commit": "702882beff9b306148a588b8c801cd61b2c0f8bf",
+      "subject": "docs: list run diagnose command"
+    },
+    {
+      "commit": "b3fc7ecbe28dc6ba158f6ec118496729cab6ef2d",
+      "subject": "Update AGENTS.md"
+    },
+    {
+      "commit": "f7c9b87baee8df2bb9e955764dc7223505d0d5e7",
+      "subject": "feat: add tasks from run command"
+    },
+    {
+      "commit": "4273a322c78528e8f28120155eb952589f6426bc",
+      "subject": "docs: mark samantha-codex migration complete"
+    },
+    {
+      "commit": "ed8babaa9a36de3ac48dfc40b318df21f0f7e158",
+      "subject": "docs: define Samantha completion rule"
+    },
+    {
+      "commit": "969851a18944185d6702b63b01f62faa2994ecf1",
+      "subject": "fix: keep report follow-up tasks dispatch-safe"
+    },
+    {
+      "commit": "7f90d565f95c745266e9dcf87e551df71bf3c56a",
+      "subject": "docs: clarify goal prompt handoff rule"
+    },
+    {
+      "commit": "48f1bad25a781d4b71f98b85f38202c39e8b2a45",
+      "subject": "docs: require Korean answers in handoff prompts"
+    },
+    {
+      "commit": "b11b84335ed5cfb23633c24f8bdfe40fbb83eff8",
+      "subject": "feat: expose run lifecycle in runs show"
+    },
+    {
+      "commit": "0cbab7b18792136068fcbde69e8db8723a978657",
+      "subject": "feat: expose lifecycle in runs list"
+    },
+    {
+      "commit": "2de57c77572c23bc214bbe97f958605cb9b73019",
+      "subject": "docs: split work rules from agent instructions"
+    },
+    {
+      "commit": "f39f7a91ee84da6a9dd433a902d250587bf8d8b7",
+      "subject": "fix: refuse superseded run follow-ups"
+    },
+    {
+      "commit": "c5094361b5eb47e175aa68ad5f1c5420afceb8df",
+      "subject": "fix: refuse superseded report follow-ups"
+    },
+    {
+      "commit": "e6a948182d6f4117096c6d04ee9d161c21b96895",
+      "subject": "Delete IMPLEMENTATION_PLAN.md"
+    },
+    {
+      "commit": "7fdc98bd74f8da2a1c435e73664475938b9965ac",
+      "subject": "fix: include superseded context in lesson drafts"
+    },
+    {
+      "commit": "acb3728292845236a609d8e376a900cf9d89edca",
+      "subject": "docs: add Samantha roadmap"
+    },
+    {
+      "commit": "b16c32d4f6ce57e9f5654c4a82e9f32e0664cd31",
+      "subject": "docs: sync architecture file listings"
+    },
+    {
+      "commit": "323fa7a126d7743cfc2108c363d47e9a54e0aed7",
+      "subject": "fix: close phase 1 recovery baseline"
+    },
+    {
+      "commit": "d52bcf02b15b34d8d76c06cb39d642bc4c5c5ea0",
+      "subject": "feat: add lesson review promotion mvp"
+    },
+    {
+      "commit": "cfb4b7329e2ce896b333bbc9d0b421a7912d6ed3",
+      "subject": "feat: record promoted playbook evidence"
+    },
+    {
+      "commit": "8c3a5d5bc3f080455d272d605450e0a246ccda92",
+      "subject": "docs: add tasks from run lesson candidate"
+    },
+    {
+      "commit": "c84b7f8f2a2f22127bcc1e2672620b096daec4e2",
+      "subject": "docs: promote cli core command playbook"
+    },
+    {
+      "commit": "0035cfbcadef9ebc839dde65786468d9692f4431",
+      "subject": "feat: expose repo root for task creation"
+    },
+    {
+      "commit": "a824f543ad143a0e16fbf932753b09db90f7a66a",
+      "subject": "docs: record cli core playbook evidence"
+    },
+    {
+      "commit": "810cb9d766ed96341b4915a16c1569e335690abd",
+      "subject": "Add lesson inbox batch review"
+    },
+    {
+      "commit": "4de42fc0b58a3d2279145229c142b89b5eb94459",
+      "subject": "fix: tighten lesson review promotion gates"
+    },
+    {
+      "commit": "230a6f0d8061f0907d1705037a956c324a695df9",
+      "subject": "Add lesson recurrence review gate"
+    },
+    {
+      "commit": "56dcdb739afa6e783b6b55bd46e4064813c2ba30",
+      "subject": "fix: bound lesson recurrence to prior runs"
+    },
+    {
+      "commit": "534538c0948a8a1aee06bd337cadded3e5e4762e",
+      "subject": "docs: sync phase 2 learning loop"
+    },
+    {
+      "commit": "ddfa453e911bae326245afdbc7105d4f560c0a75",
+      "subject": "feat: narrow task template placeholders"
+    },
+    {
+      "commit": "bd355431dff7fdfc612f92266f1984e1adae890a",
+      "subject": "feat: block unresolved task placeholders"
+    },
+    {
+      "commit": "883edf91b47e8720a3e63c32f2b9c40ba4a1a05a",
+      "subject": "feat: record dispatch-blocked runs"
+    },
+    {
+      "commit": "edb9eb280f7fb1ae7f5f7af8c6981c51118496c9",
+      "subject": "chore: add task placeholders test spec"
+    },
+    {
+      "commit": "4163efd4f555f117839eaf7a60e3ac682c63afb9",
+      "subject": "chore: add task placeholders test spec v2"
+    },
+    {
+      "commit": "fa372a19a7de4c0717c6661fc8124717c870c3ad",
+      "subject": "feat: add task-placeholders core behavior"
+    },
+    {
+      "commit": "dd900704f6738dc72d90e00dfd21975e8078991f",
+      "subject": "feat: summarize report-only review evidence"
+    },
+    {
+      "commit": "65415893a69f3db4afe8562d8add52d7ec9ecc62",
+      "subject": "docs: record report review summary dogfood"
+    },
+    {
+      "commit": "feb64cbb6d3da1ce90a5bfeea351f16ea70f4a1c",
+      "subject": "feat: orchestrate report-only reviews"
+    },
+    {
+      "commit": "e5f3c5ee8c9206f7225c1e5853b5c0bc894db24a",
+      "subject": "docs: align report-only orchestration evidence"
+    },
+    {
+      "commit": "03f5bea862491246316bbaa163e5408a43e49ed4",
+      "subject": "docs: draft phase 5 batch spec"
+    },
+    {
+      "commit": "f97d46c87e7f0efda0f7d1bc0e65c8cc7a8063cc",
+      "subject": "Update WORK-RULES.md"
+    },
+    {
+      "commit": "e6cce05ea1fce568aab32f29f59f57a66db89182",
+      "subject": "feat: validate minimal batch specs"
+    },
+    {
+      "commit": "69b438cbbb2eb55ae6d63315edc50594f22ace8e",
+      "subject": "Validate BatchSpec dependency endpoints"
+    },
+    {
+      "commit": "867ccfd24164b5cd6c6873999a6dc5d031c482d2",
+      "subject": "Validate BatchSpec integration queue order"
+    },
+    {
+      "commit": "3cebab440d654fb1ffa41c07d591e5a5c253b657",
+      "subject": "Clarify goal prompt sizing"
+    },
+    {
+      "commit": "d88f76223f448f957ee57fbd4412143e6ad6d71f",
+      "subject": "Validate BatchSpec integration queue structure"
+    },
+    {
+      "commit": "5f377465ca21292d4a8eec499e8a9acbe85e44d4",
+      "subject": "Validate integration queue accepted dependencies"
+    },
+    {
+      "commit": "311252ccf6ee106dd95e34fa120da2f37513058f",
+      "subject": "Validate focused verify commands"
+    },
+    {
+      "commit": "9a506b23f795397671c6e9124ca5d70a033c5d03",
+      "subject": "Clarify cohesive implementation slice sizing"
+    },
+    {
+      "commit": "7e48f2a76b3fe5c8c2a1cecfbf13c3a3765c5be8",
+      "subject": "Validate BatchSpec planning state"
+    },
+    {
+      "commit": "77280c78b18946c79d6e26f82aaf50d459bdf3a4",
+      "subject": "Complete Phase 5 BatchSpec planning validation"
+    },
+    {
+      "commit": "dd7af6e0c1ebfb1ce5855f1c38d1563918de58ff",
+      "subject": "feat: add batch spec preflight validation"
+    },
+    {
+      "commit": "a463c63ba0b55a8cc030441de824a8266fec2e26",
+      "subject": "feat: add batch preflight cli"
+    },
+    {
+      "commit": "c3eee81ffe22992e3ff4a43158c0dc8f482d335e",
+      "subject": "docs: prefer autonomous goal handoffs"
+    },
+    {
+      "commit": "0c8409b78a05379599c7088276cf638a69b6e10e",
+      "subject": "docs: strengthen goal prompt contract"
+    },
+    {
+      "commit": "d654e45a5314ac3b4528ab1b1ac9eda84cfb003f",
+      "subject": "Add BatchSpec artifact store CLI"
+    },
+    {
+      "commit": "ffc2c03bdacc975fed70595849e5e45925b43172",
+      "subject": "feat: gate batch preflight on git base"
+    },
+    {
+      "commit": "259d6d86bd47365cae148de27cfaf4fc685205e5",
+      "subject": "Add BatchSpec verification lifecycle policy"
+    },
+    {
+      "commit": "326eb03762a7a21b19cfe2463a93d30fe20b5d85",
+      "subject": "docs: design phase 5 writer batch execution"
+    },
+    {
+      "commit": "f78d0a63ce839c4145f2060442e57680bc24740a",
+      "subject": "feat: execute speculative writer batches"
+    },
+    {
+      "commit": "267aa2375679aa672ed04237fc5503009398eff1",
+      "subject": "feat: record stale batch replan evidence"
+    },
+    {
+      "commit": "83af60b63e302106350c4eef284910e865e4773b",
+      "subject": "Add BatchSpec rejection mutation surface"
+    },
+    {
+      "commit": "038325bc9cf298e443ffcf5457158736f2c5336a",
+      "subject": "Require next action after goals"
+    },
+    {
+      "commit": "dc4399e0254b4faf9b3a8a27d3080742b75203c5",
+      "subject": "Add explicit batch replacement generation"
+    },
+    {
+      "commit": "0bb54cd65df98860d7f5ba5ed081141bdd000b78",
+      "subject": "Add batch replacement dogfood fixture"
+    },
+    {
+      "commit": "08d44bbe24a0994cb7b6ed297595769de14af9db",
+      "subject": "Require next goal after completed goals"
+    },
+    {
+      "commit": "9f14a748b79abcd3f5a884b599b5b11a0591480d",
+      "subject": "Route final response rules to work rules"
+    },
+    {
+      "commit": "b48e7e5a2d64a84bdf14683f24f242689d58e5d3",
+      "subject": "test: cover batch replacement evidence boundaries"
+    },
+    {
+      "commit": "ed94efd4cf692f0f705fe5d5f3dec904a2a4067a",
+      "subject": "test: strengthen batch rejection boundary coverage"
+    },
+    {
+      "commit": "61b5f6bae97886efcca1e7d2b72fd6fd576319d3",
+      "subject": "docs: retire stale learning research docs"
+    },
+    {
+      "commit": "7246e260ff2b826f35171f32e65a12a59b8ed03d",
+      "subject": "docs: add Samantha operating protocol"
+    },
+    {
+      "commit": "b4f349baf0460be158cc308e0a8a4e75f24220dc",
+      "subject": "docs: add Korean operating guide"
+    },
+    {
+      "commit": "cc89c09824076f66ef88beae93253dfb4c24b80a",
+      "subject": "Document Samantha global operator activation"
+    },
+    {
+      "commit": "e04f24c25572a3b88f73b0059912edcf6cf5dae4",
+      "subject": "docs: add Samantha brainstorm protocol"
+    },
+    {
+      "commit": "a71dbc2e26b8fb738d8441fcc5f4ece6fcd8e0b5",
+      "subject": "docs: define Samantha skill and code boundaries"
+    },
+    {
+      "commit": "a1536766afb225c3a128c1b08063453a92f603bb",
+      "subject": "docs: add initiative continuity brief"
+    },
+    {
+      "commit": "e385fa4e0c1743a2c0ed41bf717828ca05b31469",
+      "subject": "feat: add readiness check"
+    },
+    {
+      "commit": "dff3cd93b3c89510254c02cc22a24329cb93b265",
+      "subject": "docs: add bernays harness doctrine"
+    },
+    {
+      "commit": "1dbbe8706d13597cd179bd6b5ea5b38656f2b989",
+      "subject": "docs: remove misplaced bernays doctrine"
+    },
+    {
+      "commit": "01bee5d1af56c7dc583025c4bf0e53a9b0b8cbd6",
+      "subject": "feat: add readiness evidence audit"
+    }
+  ]
+}

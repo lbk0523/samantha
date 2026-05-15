@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { taskFamily } from "./task-family";
 
 export type LessonRecommendedAction = "promote_playbook" | "reject" | "manual_review";
@@ -19,6 +19,7 @@ export interface LessonRecurrence {
 
 export interface LessonReviewInput {
   candidatePath: string;
+  repoRoot?: string;
 }
 
 export interface LessonReviewArtifact {
@@ -121,6 +122,14 @@ function reviewArtifactPath(input: { candidatePath: string; runId: string }): st
   return join(dirname(dirname(input.candidatePath)), "reviews", `${input.runId}.json`);
 }
 
+function candidateRepoRoot(candidatePath: string): string {
+  return dirname(dirname(dirname(dirname(candidatePath))));
+}
+
+function repoRelativePath(repoRoot: string, path: string): string {
+  return relative(repoRoot, path).split(sep).join("/");
+}
+
 export function classifyLessonReview(review: LessonReview): LessonReviewClassification {
   if (review.recommendedAction === "reject") return "auto_rejected";
   if (review.recommendedAction === "promote_playbook") return "promotion_candidate";
@@ -128,10 +137,14 @@ export function classifyLessonReview(review: LessonReview): LessonReviewClassifi
   return "manual_review";
 }
 
-function toReviewArtifact(input: { review: LessonReview; reviewedAt: string }): LessonReviewArtifact {
+function toReviewArtifact(input: {
+  review: LessonReview;
+  repoRoot: string;
+  reviewedAt: string;
+}): LessonReviewArtifact {
   return {
     schemaVersion: 1,
-    candidatePath: input.review.sourcePath,
+    candidatePath: repoRelativePath(input.repoRoot, input.review.sourcePath),
     reviewedAt: input.reviewedAt,
     runId: input.review.runId,
     taskId: input.review.taskId,
@@ -200,7 +213,8 @@ export async function reviewLessonCandidate(input: LessonReviewInput): Promise<L
 
 export async function recordLessonReview(input: LessonReviewInput): Promise<LessonReviewArtifactResult> {
   const review = await reviewLessonCandidate(input);
-  const artifact = toReviewArtifact({ review, reviewedAt: new Date().toISOString() });
+  const repoRoot = resolve(input.repoRoot ?? candidateRepoRoot(review.sourcePath));
+  const artifact = toReviewArtifact({ review, repoRoot, reviewedAt: new Date().toISOString() });
   const path = reviewArtifactPath({ candidatePath: review.sourcePath, runId: review.runId });
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");

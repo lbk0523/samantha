@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-13T05-59-31-842Z-expose-runs-show-lifecycle.md",
+  "reviewedAt": "2026-05-15T11:52:19.599Z",
+  "runId": "2026-05-13T05-59-31-842Z-expose-runs-show-lifecycle",
+  "taskId": "expose-runs-show-lifecycle",
+  "observedOutcome": "blocked",
+  "suggestedArtifactType": "run summary / no promotion",
+  "superseded": {
+    "stale": true,
+    "status": "superseded by accepted and cleaned run",
+    "supersedingRunId": "2026-05-13T06-03-53-985Z-expose-runs-show-lifecycle-v2"
+  },
+  "recurrence": {
+    "taskFamily": "expose-runs-show-lifecycle",
+    "outcome": "blocked",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "reject",
+  "classification": "auto_rejected",
+  "reason": "superseded: superseded by accepted and cleaned run; suggested artifact type marks no promotion"
+}

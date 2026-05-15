@@ -148,6 +148,20 @@ async function commitReadinessFixture(root: string, subject: string): Promise<st
   return gitHead(root);
 }
 
+async function writeReadinessBaseline(
+  root: string,
+  commits: Array<{ commit: string; subject: string }>,
+): Promise<void> {
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  await writeJson(join(root, "references", "operations", "evidence-baseline.json"), {
+    schemaVersion: 1,
+    reviewedAt: "2026-05-15T10:00:00.000Z",
+    reason:
+      "Test baseline closes only historical pre-audit evidence gaps and does not fabricate run logs.",
+    commits,
+  });
+}
+
 function readinessRunSummary(root: string, runId: string, commit: string): RunSummary {
   return {
     schemaVersion: 1,
@@ -277,6 +291,23 @@ describe("readiness", () => {
         status: "blocked",
       }),
     );
-    expect(report.recommendation).toBe("blocked: first-parent history has commits without run summary evidence");
+    expect(report.recommendation).toBe(
+      "blocked: first-parent history has commits without run summary evidence or reviewed baseline coverage",
+    );
+  });
+
+  test("treats reviewed baseline commits as covered operations history", async () => {
+    const root = await initReadinessRepo();
+    const historical = await commitReadinessFixture(root, "feat: historical readiness change");
+    await writeReadinessBaseline(root, [
+      { commit: historical, subject: "feat: historical readiness change" },
+    ]);
+
+    const report = await buildReadinessReport({ repoRoot: root });
+
+    expect(report.overallStatus).toBe("clear");
+    expect(report.operations?.status).toBe("clear");
+    expect(report.operations?.evidence.commitHistory.baselineCoveredCommits).toEqual([historical]);
+    expect(report.recommendation).toBe("operations evidence audit is clear");
   });
 });

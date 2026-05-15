@@ -17,6 +17,9 @@ export interface CommitEvidenceAudit {
   auditedCommits: string[];
   runSummaryCommits: string[];
   unevidencedCommits: string[];
+  baselinePath: string;
+  baselineCoveredCommits: string[];
+  unreviewedCommits: string[];
   check: EvidenceAuditCheck;
 }
 
@@ -46,6 +49,21 @@ interface LessonInboxReviewIndex {
   }>;
 }
 
+interface EvidenceBaselineCommit {
+  commit?: string;
+  subject?: string;
+}
+
+interface EvidenceBaselineArtifact {
+  schemaVersion?: number;
+  commits?: EvidenceBaselineCommit[];
+}
+
+interface FirstParentCommit {
+  commit: string;
+  subject: string;
+}
+
 function combineStatus(checks: EvidenceAuditCheck[]): EvidenceAuditStatus {
   if (checks.some((check) => check.status === "blocked")) return "blocked";
   if (checks.some((check) => check.status === "stale")) return "stale";
@@ -65,10 +83,16 @@ function repoRelativePath(repoRoot: string, path: string): string {
   return relative(repoRoot, path).split(sep).join("/");
 }
 
-async function firstParentHistory(repoRoot: string): Promise<string[]> {
+async function firstParentHistory(repoRoot: string): Promise<FirstParentCommit[]> {
   try {
-    const out = await git(["rev-list", "--first-parent", "--reverse", "HEAD"], repoRoot);
-    return out.split("\n").filter(Boolean);
+    const out = await git(["log", "--first-parent", "--reverse", "--format=%H%x00%s", "HEAD"], repoRoot);
+    return out
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [commit, subject = ""] = line.split("\0");
+        return { commit, subject };
+      });
   } catch (error) {
     if (error instanceof GitError && error.stderr.includes("ambiguous argument 'HEAD'")) {
       return [];
@@ -87,44 +111,131 @@ function summaryCommits(summaries: RunSummary[]): string[] {
   ).sort();
 }
 
+async function readEvidenceBaseline(path: string): Promise<EvidenceBaselineArtifact | null> {
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as EvidenceBaselineArtifact;
+  } catch (error) {
+    if (isMissingPath(error)) return null;
+    throw error;
+  }
+}
+
+function baselineCoverage(input: {
+  baseline: EvidenceBaselineArtifact | null;
+  firstParentSubjects: Map<string, string>;
+}): {
+  mentionedCommits: Set<string>;
+  compatibleCommits: Set<string>;
+  problems: string[];
+} {
+  const mentionedCommits = new Set<string>();
+  const compatibleCommits = new Set<string>();
+  const problems: string[] = [];
+  if (!input.baseline) return { mentionedCommits, compatibleCommits, problems };
+
+  if (input.baseline.schemaVersion !== 1) {
+    problems.push("schemaVersion must be 1");
+  }
+  if (!Array.isArray(input.baseline.commits)) {
+    problems.push("commits must be an array");
+    return { mentionedCommits, compatibleCommits, problems };
+  }
+
+  for (const [index, entry] of input.baseline.commits.entries()) {
+    const commit = entry.commit?.trim() ?? "";
+    const subject = entry.subject?.trim() ?? "";
+    if (!/^[0-9a-f]{40}$/.test(commit)) {
+      problems.push(`commits[${index}].commit must be a 40-character lowercase git hash`);
+      continue;
+    }
+    if (mentionedCommits.has(commit)) {
+      problems.push(`${shortCommit(commit)} is duplicated in evidence baseline`);
+      continue;
+    }
+    mentionedCommits.add(commit);
+
+    const currentSubject = input.firstParentSubjects.get(commit);
+    if (!currentSubject) {
+      problems.push(`${shortCommit(commit)} is not on current first-parent history`);
+      continue;
+    }
+    if (subject !== currentSubject) {
+      problems.push(`${shortCommit(commit)} subject mismatch`);
+      continue;
+    }
+    compatibleCommits.add(commit);
+  }
+
+  return { mentionedCommits, compatibleCommits, problems };
+}
+
 async function auditCommitEvidence(repoRoot: string): Promise<CommitEvidenceAudit> {
+  const baselinePath = join(repoRoot, "references", "operations", "evidence-baseline.json");
   const runSummaryCommits = summaryCommits(await new RunIndex(join(repoRoot, "runs", "index.jsonl")).list());
   const runSummaryCommitSet = new Set(runSummaryCommits);
-  const firstParentCommits = await firstParentHistory(repoRoot);
+  const firstParentEntries = await firstParentHistory(repoRoot);
+  const firstParentSubjects = new Map(firstParentEntries.map((entry) => [entry.commit, entry.subject]));
+  const firstParentCommits = firstParentEntries.map((entry) => entry.commit);
   const anchorIndex = firstParentCommits.findIndex((commit) => runSummaryCommitSet.has(commit));
 
-  if (anchorIndex === -1) {
+  if (firstParentCommits.length === 0) {
     return {
       anchorCommit: null,
       auditedCommits: [],
       runSummaryCommits,
       unevidencedCommits: [],
+      baselinePath,
+      baselineCoveredCommits: [],
+      unreviewedCommits: [],
       check: {
         id: "operations.evidence.commit-history",
         status: "missing",
-        reason: "no reachable run summary commit exists on first-parent history",
+        reason: "no first-parent commits exist to audit",
         evidence: runSummaryCommits.map(shortCommit),
       },
     };
   }
 
-  const auditedCommits = firstParentCommits.slice(anchorIndex);
+  const auditedCommits = anchorIndex === -1 ? firstParentCommits : firstParentCommits.slice(anchorIndex);
   const unevidencedCommits = auditedCommits.filter((commit) => !runSummaryCommitSet.has(commit));
-  const anchorCommit = firstParentCommits[anchorIndex] ?? null;
+  const anchorCommit = anchorIndex === -1 ? null : (firstParentCommits[anchorIndex] ?? null);
+  const baseline = await readEvidenceBaseline(baselinePath);
+  const baselineAudit = baselineCoverage({ baseline, firstParentSubjects });
+  const unreviewedCommits = unevidencedCommits.filter((commit) => !baselineAudit.mentionedCommits.has(commit));
+  const baselineCoveredCommits = unevidencedCommits.filter((commit) => baselineAudit.compatibleCommits.has(commit));
+
+  let status: EvidenceAuditStatus = "clear";
+  let reason =
+    anchorCommit === null
+      ? "all first-parent commits have run summary evidence or reviewed baseline coverage"
+      : `all first-parent commits since ${shortCommit(anchorCommit)} have run summary evidence or reviewed baseline coverage`;
+  let evidence = baselineCoveredCommits.map(shortCommit);
+
+  if (unreviewedCommits.length > 0) {
+    status = "blocked";
+    reason = "first-parent history has commits without run summary evidence or reviewed baseline coverage";
+    evidence = unreviewedCommits.map(shortCommit);
+  } else if (baselineAudit.problems.length > 0 && unevidencedCommits.length > 0) {
+    status = "stale";
+    reason = "historical evidence baseline is stale or mismatched";
+    evidence = baselineAudit.problems;
+  } else if (baselineCoveredCommits.length > 0) {
+    reason = "historical first-parent evidence gaps are covered by reviewed baseline";
+  }
 
   return {
     anchorCommit,
     auditedCommits,
     runSummaryCommits,
     unevidencedCommits,
+    baselinePath,
+    baselineCoveredCommits,
+    unreviewedCommits,
     check: {
       id: "operations.evidence.commit-history",
-      status: unevidencedCommits.length === 0 ? "clear" : "blocked",
-      reason:
-        unevidencedCommits.length === 0
-          ? `all first-parent commits since ${shortCommit(anchorCommit ?? "")} have run summary evidence`
-          : "first-parent history has commits without run summary evidence",
-      evidence: unevidencedCommits.map(shortCommit),
+      status,
+      reason,
+      evidence,
     },
   };
 }

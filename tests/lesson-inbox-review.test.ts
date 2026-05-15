@@ -126,9 +126,17 @@ describe("lesson inbox review", () => {
       "reviews",
       "promotion-candidate-run.json",
     );
+    const staleCandidate = "references/lessons/inbox/stale-run.md";
+    const playbookCandidate = "references/lessons/inbox/playbook-run.md";
+    const promotionCandidate = "references/lessons/inbox/promotion-candidate-run.md";
+    const staleReview = "references/lessons/reviews/stale-run.json";
+    const playbookReview = "references/lessons/reviews/playbook-run.json";
+    const promotionCandidateReview = "references/lessons/reviews/promotion-candidate-run.json";
 
     expect(result.indexPath).toBe(indexPath);
     expect(result.index.schemaVersion).toBe(1);
+    expect(result.index.inboxPath).toBe("references/lessons/inbox");
+    expect(result.index.reviewsPath).toBe("references/lessons/reviews");
     expect(result.index.summary).toEqual({
       total: 3,
       autoRejected: 1,
@@ -138,8 +146,8 @@ describe("lesson inbox review", () => {
     });
     expect(result.index.candidates).toEqual([
       {
-        candidatePath: playbookPath,
-        reviewPath: playbookReviewPath,
+        candidatePath: playbookCandidate,
+        reviewPath: playbookReview,
         runId: "playbook-run",
         taskId: "add-cli-command",
         suggestedArtifactType: "playbook",
@@ -155,8 +163,8 @@ describe("lesson inbox review", () => {
         reason: "playbook candidate needs more evidence before promotion (1/2)",
       },
       {
-        candidatePath: promotionCandidatePath,
-        reviewPath: promotionCandidateReviewPath,
+        candidatePath: promotionCandidate,
+        reviewPath: promotionCandidateReview,
         runId: "promotion-candidate-run",
         taskId: "repeated-cli-command",
         suggestedArtifactType: "playbook",
@@ -172,8 +180,8 @@ describe("lesson inbox review", () => {
         reason: "playbook candidate is ready for manual promotion",
       },
       {
-        candidatePath: stalePath,
-        reviewPath: staleReviewPath,
+        candidatePath: staleCandidate,
+        reviewPath: staleReview,
         runId: "stale-run",
         taskId: "inspect-only",
         suggestedArtifactType: "run summary / no promotion",
@@ -191,17 +199,17 @@ describe("lesson inbox review", () => {
     ]);
     expect(JSON.parse(await readFile(indexPath, "utf8"))).toEqual(result.index);
     expect(JSON.parse(await readFile(staleReviewPath, "utf8"))).toMatchObject({
-      candidatePath: stalePath,
+      candidatePath: staleCandidate,
       classification: "auto_rejected",
       recommendedAction: "reject",
     });
     expect(JSON.parse(await readFile(playbookReviewPath, "utf8"))).toMatchObject({
-      candidatePath: playbookPath,
+      candidatePath: playbookCandidate,
       classification: "needs_more_evidence",
       recommendedAction: "manual_review",
     });
     expect(JSON.parse(await readFile(promotionCandidateReviewPath, "utf8"))).toMatchObject({
-      candidatePath: promotionCandidatePath,
+      candidatePath: promotionCandidate,
       classification: "promotion_candidate",
       recommendedAction: "promote_playbook",
     });

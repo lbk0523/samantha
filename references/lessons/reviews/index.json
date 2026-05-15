@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-05-15T11:52:19.599Z",
+  "inboxPath": "references/lessons/inbox",
+  "reviewsPath": "references/lessons/reviews",
+  "summary": {
+    "total": 2,
+    "autoRejected": 1,
+    "needsMoreEvidence": 1,
+    "promotionCandidates": 0,
+    "manualReview": 0
+  },
+  "candidates": [
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-13T03-48-10-822Z-add-tasks-from-run-command.md",
+      "reviewPath": "references/lessons/reviews/2026-05-13T03-48-10-822Z-add-tasks-from-run-command.json",
+      "runId": "2026-05-13T03-48-10-822Z-add-tasks-from-run-command",
+      "taskId": "add-tasks-from-run-command",
+      "suggestedArtifactType": "playbook",
+      "recurrence": {
+        "taskFamily": "add-tasks-from-run-command",
+        "outcome": "pass",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-13T05-59-31-842Z-expose-runs-show-lifecycle.md",
+      "reviewPath": "references/lessons/reviews/2026-05-13T05-59-31-842Z-expose-runs-show-lifecycle.json",
+      "runId": "2026-05-13T05-59-31-842Z-expose-runs-show-lifecycle",
+      "taskId": "expose-runs-show-lifecycle",
+      "suggestedArtifactType": "run summary / no promotion",
+      "recurrence": {
+        "taskFamily": "expose-runs-show-lifecycle",
+        "outcome": "blocked",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "reject",
+      "classification": "auto_rejected",
+      "reason": "superseded: superseded by accepted and cleaned run; suggested artifact type marks no promotion"
+    }
+  ]
+}

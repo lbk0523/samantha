@@ -349,7 +349,7 @@ describe("samantha cli", () => {
     const artifactPath = join(root, "references", "lessons", "reviews", "run-1.json");
     expect(result.path).toBe(artifactPath);
     expect(JSON.parse(await readFile(artifactPath, "utf8"))).toMatchObject({
-      candidatePath,
+      candidatePath: "references/lessons/inbox/run-1.md",
       runId: "run-1",
       taskId: "inspect-only",
       observedOutcome: "stale evidence",
@@ -411,6 +411,8 @@ describe("samantha cli", () => {
     expect(result.indexPath).toBe(indexPath);
     expect(JSON.parse(await readFile(indexPath, "utf8"))).toMatchObject({
       schemaVersion: 1,
+      inboxPath: "references/lessons/inbox",
+      reviewsPath: "references/lessons/reviews",
       summary: {
         total: 1,
         autoRejected: 1,
@@ -420,6 +422,8 @@ describe("samantha cli", () => {
       },
       candidates: [
         {
+          candidatePath: "references/lessons/inbox/run-1.md",
+          reviewPath: "references/lessons/reviews/run-1.json",
           runId: "run-1",
           classification: "auto_rejected",
         },

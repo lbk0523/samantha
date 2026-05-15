@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-13T03-48-10-822Z-add-tasks-from-run-command.md",
+  "reviewedAt": "2026-05-15T11:52:19.599Z",
+  "runId": "2026-05-13T03-48-10-822Z-add-tasks-from-run-command",
+  "taskId": "add-tasks-from-run-command",
+  "observedOutcome": "pass",
+  "suggestedArtifactType": "playbook",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "add-tasks-from-run-command",
+    "outcome": "pass",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "needs_more_evidence",
+  "reason": "playbook candidate needs more evidence before promotion (1/2)"
+}
