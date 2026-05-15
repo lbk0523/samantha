@@ -32,7 +32,10 @@ what the user sees, what decisions remain open, and what should become a later
 6. Use terminal conversation for scope, terminology, constraints, priority,
    success criteria, and technical tradeoffs.
 7. When useful, show two or three MVP UI/UX directions, then converge on one.
-8. End with a Brainstorm Brief.
+8. If the result naturally decomposes into multiple follow-up slices, ask BK
+   whether to preserve it as an Initiative Continuity Brief under
+   `references/initiatives/`.
+9. End with a Brainstorm Brief.
 
 ## Visual Companion
 
@@ -49,6 +52,19 @@ It must not become trusted implementation state:
 
 If BK wants the visual direction preserved as a durable artifact, convert the
 accepted decisions into a later `Samantha plan` or `Samantha command` scope.
+
+## Multi-Slice Continuity
+
+If a brainstorm creates multiple dependent slices, the chat transcript must not
+be the only source of truth. Recommend an Initiative Continuity Brief when a
+fresh session would otherwise lose the broader objective, accepted decisions, or
+remaining slice queue.
+
+Continuity briefs live under `references/initiatives/` and follow
+`references/playbooks/initiative-continuity-brief.md`.
+
+Do not create the brief silently. Ask BK first, then create or update it through
+a later `Samantha plan` or `Samantha command` scope.
 
 ## Default Boundaries
 
@@ -84,6 +100,7 @@ Brainstorm Brief
 - Accepted UI/UX decisions:
 - Rejected alternatives:
 - Open questions:
+- Continuity artifact:
 - Recommended next prompt:
 ```
 

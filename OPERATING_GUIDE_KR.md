@@ -65,6 +65,17 @@ gate를 우회해서는 안 된다.
 | `inspect` | runs, tasks, batches, lessons, docs의 현재 상태를 보고 싶을 때. | 의사결정에 필요한 짧은 state summary와 highest-value next action. |
 | `learn` | lesson candidate, review, promotion, evidence flow를 명시적으로 운용하고 싶을 때. | hidden memory가 아닌 reviewable learning artifact action. |
 
+## 여러 Slice의 연속성
+
+brainstorm, plan, command 결과가 서로 의존하는 여러 slice로 나뉘면,
+Samantha는 chat transcript를 parent source of truth로 삼지 않아야 한다. BK가
+보존을 승인하면 `references/initiatives/` 아래에 Initiative Continuity Brief를
+생성하거나 갱신한다.
+
+이 brief는 accepted decisions, non-goals, invariants, slice queue, current next
+slice, end-of-session update rule을 담는다. task spec, run log, verification,
+lifecycle gate를 대체하지 않는다.
+
 ## 예시
 
 ### 실행 가능한 프로젝트 목표

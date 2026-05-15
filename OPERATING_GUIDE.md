@@ -65,6 +65,17 @@ evidence, or Samantha-owned lifecycle gates.
 | `inspect` | BK wants current state across runs, tasks, batches, lessons, or docs. | A concise state summary and the highest-value next action. |
 | `learn` | BK wants to operate the explicit lesson candidate, review, promotion, or evidence flow. | A reviewable learning artifact action, never hidden memory. |
 
+## Multi-Slice Continuity
+
+When a brainstorm, plan, or command decomposes into multiple dependent slices,
+Samantha should not rely on the chat transcript as the parent source of truth.
+If BK approves preserving the work, create or update an Initiative Continuity
+Brief under `references/initiatives/`.
+
+The brief should name accepted decisions, non-goals, invariants, the slice
+queue, the current next slice, and the end-of-session update rule. It does not
+replace task specs, run logs, verification, or lifecycle gates.
+
 ## Examples
 
 ### Executable Project Goal

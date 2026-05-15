@@ -58,6 +58,12 @@ UI/UX discussion. It may use temporary browser mockups as conversation aids, but
 it should end in a Brainstorm Brief rather than code, task specs, worker
 dispatches, or committed UX specs by default.
 
+When a brainstorm or plan creates multiple dependent slices, preserve the parent
+context in an Initiative Continuity Brief under `references/initiatives/`. The
+brief is reviewable repo state for accepted decisions, the slice queue, and the
+next-session prompt; it does not replace task specs, run logs, verification, or
+lifecycle gates.
+
 For cross-repo Codex Chat use, activation is provided by the global
 `samantha-operator` skill; this README and the operating guides describe the
 protocol, not a daemon or chat adapter.
@@ -132,6 +138,7 @@ src/
 tests/
 references/
   agent-profiles/
+  initiatives/
   lessons/
   playbooks/
   tasks/
