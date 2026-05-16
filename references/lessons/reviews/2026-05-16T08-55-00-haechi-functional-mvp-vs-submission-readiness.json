@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-16T08-55-00-haechi-functional-mvp-vs-submission-readiness.md",
+  "reviewedAt": "2026-05-15T23:55:30.492Z",
+  "runId": "2026-05-16T08-55-00-haechi-functional-mvp-vs-submission-readiness",
+  "taskId": "haechi-functional-mvp-vs-submission-readiness",
+  "observedOutcome": "the core app flow reached functional MVP closure, but BK",
+  "suggestedArtifactType": "initiative continuity brief or readiness checklist",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "haechi-functional-mvp-vs-submission-readiness",
+    "outcome": "the core app flow reached functional MVP closure, but BK",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}

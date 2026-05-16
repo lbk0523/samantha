@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-16T08-39-19-haechi-reading-animation-css-cascade.md",
+  "reviewedAt": "2026-05-15T23:39:51.624Z",
+  "runId": "2026-05-16T08-39-19-haechi-reading-animation-css-cascade",
+  "taskId": "haechi-reading-animation-css-cascade",
+  "observedOutcome": "initial verification was misleading, then corrected after BK reported the visible failure persisted.",
+  "suggestedArtifactType": "playbook update",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "haechi-reading-animation-css-cascade",
+    "outcome": "initial verification was misleading, then corrected after BK reported the visible failure persisted.",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}
