@@ -169,7 +169,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
             command: run.dispatch.command,
             exitCode: 1,
             stdout: finalResponse,
-            stderr: message,
+            stderr: `codex-sdk runtime failed: ${message}`,
           },
           runtime: {
             kind: "codex-sdk",

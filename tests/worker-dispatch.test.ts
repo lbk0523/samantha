@@ -67,6 +67,31 @@ async function makeFakeCodex(lines: string[]): Promise<string> {
   return path;
 }
 
+function reviewerAgent(): AgentProfile {
+  return {
+    ...agent,
+    id: "codex-reviewer",
+    role: "reviewer",
+    writerClass: "non-writer",
+    worktreePolicy: "none",
+    mergePolicy: "none",
+  };
+}
+
+function sdkReportTask(id: string): TaskSpec {
+  return {
+    id,
+    title: "Review SDK runtime fixture",
+    targetAgent: "codex-reviewer",
+    targetFiles: [],
+    forbiddenChanges: ["**/*"],
+    verifyCommands: [],
+    instructions: "Review evidence and report only.",
+    resultMode: "report",
+    status: "pending",
+  };
+}
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -230,25 +255,8 @@ describe("worker dispatch", () => {
 
   test("can run a codex-sdk runtime adapter without changing Samantha-owned gates", async () => {
     const repo = await makeRepo();
-    const reviewer: AgentProfile = {
-      ...agent,
-      id: "codex-reviewer",
-      role: "reviewer",
-      writerClass: "non-writer",
-      worktreePolicy: "none",
-      mergePolicy: "none",
-    };
-    const reportTask: TaskSpec = {
-      id: "sdk-review-fixture",
-      title: "Review SDK runtime fixture",
-      targetAgent: "codex-reviewer",
-      targetFiles: [],
-      forbiddenChanges: ["**/*"],
-      verifyCommands: [],
-      instructions: "Review evidence and report only.",
-      resultMode: "report",
-      status: "pending",
-    };
+    const reviewer = reviewerAgent();
+    const reportTask = sdkReportTask("sdk-review-fixture");
     const sdkAdapter = createCodexSdkWorkerRuntimeAdapter({
       createClient: () => ({
         startThread: (options) => ({
@@ -309,6 +317,125 @@ describe("worker dispatch", () => {
     });
     expect(result.evaluation?.changedFiles).toEqual([]);
     expect(result.evaluation?.verifyResults).toEqual([]);
+    expect(result.commit).toBeUndefined();
+  });
+
+  test("captures codex-sdk turn.failed errors as diagnosable runtime evidence", async () => {
+    const repo = await makeRepo();
+    const sdkAdapter = createCodexSdkWorkerRuntimeAdapter({
+      createClient: () => ({
+        startThread: () => ({
+          id: "thread-from-turn-failed",
+          async runStreamed() {
+            async function* events() {
+              yield { type: "thread.started", thread_id: "thread-from-turn-failed" } as const;
+              yield { type: "turn.started" } as const;
+              yield {
+                type: "turn.failed",
+                error: { message: "model rejected the request" },
+              } as const;
+            }
+            return { events: events() };
+          },
+        }),
+      }),
+    });
+
+    const result = await executeWorkerDispatch({
+      task: sdkReportTask("sdk-turn-failed-fixture"),
+      agent: reviewerAgent(),
+      repoRoot: repo,
+      runtimeAdapter: sdkAdapter,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.command).toMatchObject({
+      exitCode: 1,
+      stderr: "model rejected the request",
+    });
+    expect(result.runtime).toEqual({
+      kind: "codex-sdk",
+      threadId: "thread-from-turn-failed",
+      eventCounts: {
+        "thread.started": 1,
+        "turn.started": 1,
+        "turn.failed": 1,
+      },
+    });
+    expect(result.evaluation?.parseError).toBe("missing HARNESS_RESULT line");
+    expect(result.commit).toBeUndefined();
+  });
+
+  test("captures codex-sdk stream error events as diagnosable runtime evidence", async () => {
+    const repo = await makeRepo();
+    const sdkAdapter = createCodexSdkWorkerRuntimeAdapter({
+      createClient: () => ({
+        startThread: () => ({
+          id: "thread-from-stream-error",
+          async runStreamed() {
+            async function* events() {
+              yield { type: "thread.started", thread_id: "thread-from-stream-error" } as const;
+              yield {
+                type: "error",
+                message: "stream lost connection",
+              } as const;
+            }
+            return { events: events() };
+          },
+        }),
+      }),
+    });
+
+    const result = await executeWorkerDispatch({
+      task: sdkReportTask("sdk-stream-error-fixture"),
+      agent: reviewerAgent(),
+      repoRoot: repo,
+      runtimeAdapter: sdkAdapter,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.command).toMatchObject({
+      exitCode: 1,
+      stderr: "stream lost connection",
+    });
+    expect(result.runtime).toEqual({
+      kind: "codex-sdk",
+      threadId: "thread-from-stream-error",
+      eventCounts: {
+        "thread.started": 1,
+        error: 1,
+      },
+    });
+    expect(result.commit).toBeUndefined();
+  });
+
+  test("captures thrown codex-sdk client exceptions as diagnosable runtime evidence", async () => {
+    const repo = await makeRepo();
+    const sdkAdapter = createCodexSdkWorkerRuntimeAdapter({
+      createClient: () => ({
+        startThread: () => {
+          throw new Error("client could not start thread");
+        },
+      }),
+    });
+
+    const result = await executeWorkerDispatch({
+      task: sdkReportTask("sdk-client-exception-fixture"),
+      agent: reviewerAgent(),
+      repoRoot: repo,
+      runtimeAdapter: sdkAdapter,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.command).toMatchObject({
+      exitCode: 1,
+      stderr: "codex-sdk runtime failed: client could not start thread",
+    });
+    expect(result.runtime).toEqual({
+      kind: "codex-sdk",
+      eventCounts: {},
+    });
+    expect(result.evaluation?.parseError).toBe("missing HARNESS_RESULT line");
     expect(result.commit).toBeUndefined();
   });
 
