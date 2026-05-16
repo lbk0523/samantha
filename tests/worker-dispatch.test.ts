@@ -202,7 +202,7 @@ describe("worker dispatch", () => {
     expect(result.setupResults[0]?.exitCode).toBe(0);
     expect(result.command?.command[0]).toBe(fakeCodex);
     expect(result.command?.command).toEqual(result.preparation.codex.command);
-    expect(result.runtime).toEqual({ kind: "exec-json" });
+    expect(result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(result.evaluation?.changedFiles).toEqual(["README.md"]);
     expect(result.commit?.subject).toBe("test: dispatch worker fixture");
     expect(result.commit?.commitHash).toHaveLength(40);
@@ -308,6 +308,7 @@ describe("worker dispatch", () => {
     expect(result.command?.stdout).toContain("HARNESS_RESULT");
     expect(result.runtime).toEqual({
       kind: "codex-sdk",
+      approvalPolicy: "never",
       threadId: "thread-from-fake-sdk",
       eventCounts: {
         "thread.started": 1,
@@ -356,6 +357,7 @@ describe("worker dispatch", () => {
     });
     expect(result.runtime).toEqual({
       kind: "codex-sdk",
+      approvalPolicy: "never",
       threadId: "thread-from-turn-failed",
       eventCounts: {
         "thread.started": 1,
@@ -401,6 +403,7 @@ describe("worker dispatch", () => {
     });
     expect(result.runtime).toEqual({
       kind: "codex-sdk",
+      approvalPolicy: "never",
       threadId: "thread-from-stream-error",
       eventCounts: {
         "thread.started": 1,
@@ -434,6 +437,7 @@ describe("worker dispatch", () => {
     });
     expect(result.runtime).toEqual({
       kind: "codex-sdk",
+      approvalPolicy: "never",
       eventCounts: {},
     });
     expect(result.evaluation?.parseError).toBe("missing HARNESS_RESULT line");

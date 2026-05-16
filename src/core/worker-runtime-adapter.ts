@@ -71,7 +71,7 @@ export const execJsonWorkerRuntimeAdapter: WorkerRuntimeAdapter = {
   async execute(input) {
     return {
       command: await runCommand(input.dispatch.command),
-      runtime: { kind: "exec-json" },
+      runtime: { kind: "exec-json", approvalPolicy: "never" },
     };
   },
 };
@@ -161,6 +161,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
           },
           runtime: {
             kind: "codex-sdk",
+            approvalPolicy: "never",
             ...(threadId ? { threadId } : {}),
             eventCounts,
           },
@@ -176,6 +177,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
           },
           runtime: {
             kind: "codex-sdk",
+            approvalPolicy: "never",
             ...(threadId ? { threadId } : {}),
             eventCounts,
           },

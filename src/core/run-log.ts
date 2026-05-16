@@ -118,6 +118,9 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
           details: {
             command: execution.command.command,
             ...(execution.runtime ? { runtimeKind: execution.runtime.kind } : {}),
+            ...(execution.runtime?.approvalPolicy
+              ? { approvalPolicy: execution.runtime.approvalPolicy }
+              : {}),
           },
         }
       : {

@@ -70,6 +70,7 @@ const execution: WorkerDispatchExecution = {
   },
   runtime: {
     kind: "exec-json",
+    approvalPolicy: "never",
   },
   evaluation: {
     pass: true,
@@ -133,7 +134,7 @@ describe("worker run logs", () => {
       worktreesDir: "worktrees",
     });
     expect(log.result.preparation.codex.command).toEqual(["codex", "exec"]);
-    expect(log.result.runtime).toEqual({ kind: "exec-json" });
+    expect(log.result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(log.result.evaluation?.changedFiles).toEqual(["allowed.txt"]);
     expect(log.result.commit?.commitHash).toBe("a".repeat(40));
     expect(log.trajectory?.map((entry) => entry.event)).toEqual([
@@ -150,6 +151,7 @@ describe("worker run logs", () => {
       event: "worker_dispatched",
       details: {
         runtimeKind: "exec-json",
+        approvalPolicy: "never",
       },
     });
     expect(log.trajectory?.at(-1)).toMatchObject({
@@ -182,7 +184,7 @@ describe("worker run logs", () => {
     expect(raw).toContain('\n  "schemaVersion": 1,\n');
     expect(parsed.trajectory[0].event).toBe("planned");
     expect(parsed.result.pass).toBe(true);
-    expect(parsed.result.runtime).toEqual({ kind: "exec-json" });
+    expect(parsed.result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(parsed.result.preparation.codex.prompt).toBe("prompt");
   });
 
@@ -208,5 +210,6 @@ describe("worker run logs", () => {
       },
     });
     expect(log.trajectory?.[2]?.details).not.toHaveProperty("runtimeKind");
+    expect(log.trajectory?.[2]?.details).not.toHaveProperty("approvalPolicy");
   });
 });
