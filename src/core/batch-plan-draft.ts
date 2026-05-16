@@ -73,6 +73,19 @@ export interface BatchPlanDraft {
 const DRAFT_ID_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/;
 const REPO_RELATIVE_FORBIDDEN_PATTERN = /^[A-Za-z]:[\\/]/;
 const GLOB_CHARS_PATTERN = /[*?[\]]/;
+const UNRESOLVED_PLACEHOLDER_TEXT_PATTERN = /\b(?:TODO|TBD|unknown|guess|maybe|placeholder)\b|<[^>\n]+>/i;
+const AUTHORITY_BOUNDARY_TARGET_FILES = new Set([
+  "AGENTS.md",
+  "NORTH_STAR.md",
+  "ARCHITECTURE.md",
+  "ROADMAP.md",
+  "WORK-RULES.md",
+  "src/core/policy.ts",
+  "src/core/contracts.ts",
+  "package.json",
+  "bun.lock",
+]);
+const AUTHORITY_BOUNDARY_TARGET_PREFIXES = ["references/agent-profiles/", "references/task-templates/"];
 const CLASSIFICATIONS = new Set<BatchPlanDraftClassification>([
   "routine_writer_batch",
   "report_only",
@@ -119,7 +132,7 @@ export function validateBatchPlanDraft(draft: BatchPlanDraft): string[] {
 
   violations.push(...validateRepoInspection(candidate.repoInspection));
   violations.push(...validateStructuredPlaceholders(candidate.structuredPlaceholders));
-  violations.push(...validateProposedTasks(candidate.proposedTasks));
+  violations.push(...validateProposedTasks(candidate.proposedTasks, candidate));
   violations.push(...validateDependencyHints(candidate.dependencyHints, candidate.proposedTasks));
   violations.push(...validateParallelizationHints(candidate.parallelizationHints, candidate.proposedTasks));
   violations.push(...validateAutonomyEnvelope(candidate.autonomyEnvelope));
@@ -156,6 +169,10 @@ export function canPromoteBatchPlanDraft(draft: BatchPlanDraft): { mayPromote: b
     "structuredPlaceholders must not contain blocking placeholders to promote",
   );
 
+  if (candidate.classification === "routine_writer_batch") {
+    violations.push(...validatePromotableTargetFileHints(candidate.proposedTasks));
+  }
+
   return { mayPromote: violations.length === 0, violations };
 }
 
@@ -178,6 +195,7 @@ function validateRepoInspection(value: unknown): string[] {
   if (!isNonEmptyString(value.currentStateSummary)) {
     violations.push("repoInspection.currentStateSummary must be a non-empty string");
   }
+  violations.push(...validateNoUnresolvedPlaceholderText(value.assumptions, "repoInspection.assumptions"));
 
   return violations;
 }
@@ -212,7 +230,7 @@ function validateStructuredPlaceholders(value: unknown): string[] {
   return violations;
 }
 
-function validateProposedTasks(value: unknown): string[] {
+function validateProposedTasks(value: unknown, draft: Record<string, unknown>): string[] {
   if (!Array.isArray(value)) {
     return ["proposedTasks must be an array"];
   }
@@ -241,8 +259,13 @@ function validateProposedTasks(value: unknown): string[] {
     if (!isNonEmptyString(task.summary)) {
       violations.push(`proposedTasks[].summary must be a non-empty string: ${taskId}`);
     }
+    violations.push(...validateNoUnresolvedPlaceholderText(task.summary, "proposedTasks[].summary", taskId));
+
+    const canDeferTargetFileHints = canDeferIncompleteProposedTaskField(draft, index, "targetFileHints");
     if (!hasOnlyNonEmptyStrings(task.targetFileHints, { allowEmpty: false })) {
-      violations.push(`proposedTasks[].targetFileHints must be a non-empty string array: ${taskId}`);
+      if (!canDeferTargetFileHints || !isMissingOrEmptyArray(task.targetFileHints)) {
+        violations.push(`proposedTasks[].targetFileHints must be a non-empty string array: ${taskId}`);
+      }
     } else {
       for (const targetFileHint of task.targetFileHints) {
         if (!isConcreteRepoFileHint(targetFileHint)) {
@@ -252,15 +275,33 @@ function validateProposedTasks(value: unknown): string[] {
         }
       }
     }
+    violations.push(...validateNoUnresolvedPlaceholderText(task.targetFileHints, "proposedTasks[].targetFileHints", taskId));
+
     if (!hasOnlyNonEmptyStrings(task.forbiddenChangeHints, { allowEmpty: false })) {
       violations.push(`proposedTasks[].forbiddenChangeHints must be a non-empty string array: ${taskId}`);
     }
+    violations.push(
+      ...validateNoUnresolvedPlaceholderText(task.forbiddenChangeHints, "proposedTasks[].forbiddenChangeHints", taskId),
+    );
+
+    const canDeferVerifyCommandHints = canDeferIncompleteProposedTaskField(draft, index, "verifyCommandHints");
     if (!hasOnlyNonEmptyStrings(task.verifyCommandHints, { allowEmpty: false })) {
-      violations.push(`proposedTasks[].verifyCommandHints must be a non-empty string array: ${taskId}`);
+      if (!canDeferVerifyCommandHints || !isMissingOrEmptyArray(task.verifyCommandHints)) {
+        violations.push(`proposedTasks[].verifyCommandHints must be a non-empty string array: ${taskId}`);
+      }
     }
+    violations.push(...validateNoUnresolvedPlaceholderText(task.verifyCommandHints, "proposedTasks[].verifyCommandHints", taskId));
+
     if (!isNonEmptyString(task.independentlyVerifiableRationale)) {
       violations.push(`proposedTasks[].independentlyVerifiableRationale must be a non-empty string: ${taskId}`);
     }
+    violations.push(
+      ...validateNoUnresolvedPlaceholderText(
+        task.independentlyVerifiableRationale,
+        "proposedTasks[].independentlyVerifiableRationale",
+        taskId,
+      ),
+    );
   });
 
   for (const taskId of duplicates) {
@@ -268,6 +309,105 @@ function validateProposedTasks(value: unknown): string[] {
   }
 
   return violations;
+}
+
+function validatePromotableTargetFileHints(proposedTasks: unknown): string[] {
+  if (!Array.isArray(proposedTasks)) {
+    return [];
+  }
+
+  const violations: string[] = [];
+  proposedTasks.forEach((task, index) => {
+    if (!isRecord(task) || !Array.isArray(task.targetFileHints)) {
+      return;
+    }
+
+    const taskId = isNonEmptyString(task.id) ? task.id : `index ${index}`;
+    for (const targetFileHint of task.targetFileHints) {
+      if (typeof targetFileHint !== "string") {
+        continue;
+      }
+      if (isAuthorityBoundaryTargetHint(targetFileHint)) {
+        violations.push(
+          `proposedTasks[].targetFileHints must not include authority-boundary surfaces to promote: ${taskId} has ${targetFileHint}`,
+        );
+      }
+    }
+  });
+
+  return violations;
+}
+
+function validateNoUnresolvedPlaceholderText(value: unknown, fieldName: string, context?: string): string[] {
+  const values = typeof value === "string" ? [value] : Array.isArray(value) ? value.filter(isString) : [];
+  const violations: string[] = [];
+
+  for (const text of values) {
+    const normalized = text.trim();
+    if (UNRESOLVED_PLACEHOLDER_TEXT_PATTERN.test(normalized)) {
+      violations.push(
+        `${fieldName} must not contain unresolved placeholder text: ${context === undefined ? normalized : `${context} has ${normalized}`}`,
+      );
+    }
+  }
+
+  return violations;
+}
+
+function canDeferIncompleteProposedTaskField(
+  draft: Record<string, unknown>,
+  taskIndex: number,
+  fieldName: "targetFileHints" | "verifyCommandHints",
+): boolean {
+  const readiness = draft.promotionReadiness;
+  if (
+    !isRecord(readiness) ||
+    (readiness.status !== "needs_placeholders_resolved" && readiness.status !== "blocked")
+  ) {
+    return false;
+  }
+
+  return hasBlockingPlaceholderForField(draft.structuredPlaceholders, [
+    `proposedTasks[${taskIndex}].${fieldName}`,
+    `proposedTasks[].${fieldName}`,
+  ]);
+}
+
+function hasBlockingPlaceholderForField(value: unknown, fieldNames: string[]): boolean {
+  return (
+    Array.isArray(value) &&
+    value.some(
+      (placeholder) =>
+        isRecord(placeholder) &&
+        placeholder.blocksPromotion === true &&
+        typeof placeholder.field === "string" &&
+        fieldNames.includes(placeholder.field.trim()),
+    )
+  );
+}
+
+function isMissingOrEmptyArray(value: unknown): boolean {
+  return value === undefined || (Array.isArray(value) && value.length === 0);
+}
+
+function isAuthorityBoundaryTargetHint(value: string): boolean {
+  const normalized = normalizeRepoFileHint(value);
+  return (
+    AUTHORITY_BOUNDARY_TARGET_FILES.has(normalized) ||
+    AUTHORITY_BOUNDARY_TARGET_PREFIXES.some((prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix))
+  );
+}
+
+function normalizeRepoFileHint(value: string): string {
+  let normalized = value.trim().replaceAll("\\", "/");
+  while (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  return normalized;
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
 }
 
 function validateDependencyHints(value: unknown, proposedTasks: unknown): string[] {
@@ -291,6 +431,7 @@ function validateDependencyHints(value: unknown, proposedTasks: unknown): string
     if (!isNonEmptyString(hint.reason)) {
       violations.push(`dependencyHints[${index}].reason must be a non-empty string`);
     }
+    violations.push(...validateNoUnresolvedPlaceholderText(hint.reason, `dependencyHints[${index}].reason`));
     if (isNonEmptyString(hint.before) && isNonEmptyString(hint.after) && hint.before === hint.after) {
       violations.push(`dependencyHints[${index}] must not point a task at itself: ${hint.before}`);
     }
@@ -329,6 +470,7 @@ function validateParallelizationHints(value: unknown, proposedTasks: unknown): s
     if (!isNonEmptyString(hint.rationale)) {
       violations.push(`parallelizationHints[${index}].rationale must be a non-empty string`);
     }
+    violations.push(...validateNoUnresolvedPlaceholderText(hint.rationale, `parallelizationHints[${index}].rationale`));
   });
 
   return violations;
@@ -378,9 +520,11 @@ function validateReport(value: unknown): string[] {
   if (!isNonEmptyString(value.summary)) {
     violations.push("report.summary must be a non-empty string");
   }
+  violations.push(...validateNoUnresolvedPlaceholderText(value.summary, "report.summary"));
   if (!isNonEmptyString(value.nextAction)) {
     violations.push("report.nextAction must be a non-empty string");
   }
+  violations.push(...validateNoUnresolvedPlaceholderText(value.nextAction, "report.nextAction"));
 
   return violations;
 }
@@ -423,7 +567,7 @@ function hasBlockingPlaceholder(value: unknown): boolean {
 }
 
 function isConcreteRepoFileHint(value: string): boolean {
-  const normalized = value.trim().replaceAll("\\", "/");
+  const normalized = normalizeRepoFileHint(value);
   const segments = normalized.split("/");
   return (
     normalized.length > 0 &&

@@ -199,4 +199,123 @@ describe("BatchPlanDraft validation", () => {
       "proposedTasks[].independentlyVerifiableRationale must be a non-empty string: draft-validator-contract",
     );
   });
+
+  test("blocks promotion when target hints point at policy authority surfaces", () => {
+    const policyDraft = draft({
+      proposedTasks: [
+        proposedTask({
+          targetFileHints: ["src/core/policy.ts"],
+        }),
+      ],
+    });
+
+    expect(validateBatchPlanDraft(policyDraft)).toEqual([]);
+    expect(canPromoteBatchPlanDraft(policyDraft)).toEqual({
+      mayPromote: false,
+      violations: [
+        "proposedTasks[].targetFileHints must not include authority-boundary surfaces to promote: draft-validator-contract has src/core/policy.ts",
+      ],
+    });
+  });
+
+  test("blocks promotion when target hints point under glob authority surfaces", () => {
+    const agentProfileDraft = draft({
+      proposedTasks: [
+        proposedTask({
+          targetFileHints: ["references/agent-profiles/writer.md"],
+        }),
+      ],
+    });
+
+    expect(validateBatchPlanDraft(agentProfileDraft)).toEqual([]);
+    expect(canPromoteBatchPlanDraft(agentProfileDraft).violations).toContain(
+      "proposedTasks[].targetFileHints must not include authority-boundary surfaces to promote: draft-validator-contract has references/agent-profiles/writer.md",
+    );
+  });
+
+  test("rejects unstructured TODO text in verify command hints", () => {
+    expect(
+      validateBatchPlanDraft(
+        draft({
+          proposedTasks: [
+            proposedTask({
+              verifyCommandHints: ["TODO choose focused verification"],
+            }),
+          ],
+        }),
+      ),
+    ).toContain(
+      "proposedTasks[].verifyCommandHints must not contain unresolved placeholder text: draft-validator-contract has TODO choose focused verification",
+    );
+  });
+
+  test("rejects unresolved angle-bracket placeholders in report fields", () => {
+    expect(
+      validateBatchPlanDraft(
+        draft({
+          report: {
+            summary: "BatchPlanDraft validator can be promoted after deterministic assembly checks.",
+            nextAction: "Promote after <owner confirms scope>.",
+          },
+        }),
+      ),
+    ).toContain("report.nextAction must not contain unresolved placeholder text: Promote after <owner confirms scope>.");
+  });
+
+  test("allows incomplete target and verify hints for blocked placeholder storage", () => {
+    const incompleteDraft = draft({
+      proposedTasks: [
+        proposedTask({
+          targetFileHints: [],
+          verifyCommandHints: [],
+        }),
+      ],
+      structuredPlaceholders: [
+        {
+          field: "proposedTasks[0].targetFileHints",
+          reason: "CEO must resolve the intended write scope before promotion.",
+          resolutionOwner: "ceo",
+          blocksPromotion: true,
+        },
+        {
+          field: "proposedTasks[0].verifyCommandHints",
+          reason: "Deterministic assembly must resolve the exact verification commands.",
+          resolutionOwner: "deterministic_assembly",
+          blocksPromotion: true,
+        },
+      ],
+      promotionReadiness: {
+        status: "needs_placeholders_resolved",
+        reasons: ["Target and verify hints are blocked by structured placeholders."],
+      },
+    });
+
+    expect(validateBatchPlanDraft(incompleteDraft)).toEqual([]);
+    expect(canPromoteBatchPlanDraft(incompleteDraft)).toEqual({
+      mayPromote: false,
+      violations: [
+        "promotionReadiness.status must be ready to promote",
+        "structuredPlaceholders must not contain blocking placeholders to promote",
+      ],
+    });
+  });
+
+  test("still rejects ready routine drafts with missing target and verify hints", () => {
+    const missingHintsTask = proposedTask() as unknown as Record<string, unknown>;
+    delete missingHintsTask.targetFileHints;
+    delete missingHintsTask.verifyCommandHints;
+
+    const violations = validateBatchPlanDraft(
+      draft({
+        proposedTasks: [missingHintsTask as unknown as BatchPlanDraft["proposedTasks"][number]],
+      }),
+    );
+
+    expect(violations).toContain(
+      "proposedTasks[].targetFileHints must be a non-empty string array: draft-validator-contract",
+    );
+    expect(violations).toContain(
+      "proposedTasks[].verifyCommandHints must be a non-empty string array: draft-validator-contract",
+    );
+  });
 });
