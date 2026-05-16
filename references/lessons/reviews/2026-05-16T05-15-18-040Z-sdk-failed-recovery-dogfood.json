@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood.md",
+  "reviewedAt": "2026-05-16T08:51:51.824Z",
+  "runId": "2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood",
+  "taskId": "sdk-failed-recovery-dogfood",
+  "observedOutcome": "verify_failed",
+  "suggestedArtifactType": "playbook or dogfood task template guidance",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "sdk-failed-recovery-dogfood",
+    "outcome": "verify_failed",
+    "count": 2,
+    "threshold": 2,
+    "thresholdMet": true
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}

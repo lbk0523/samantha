@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-05-15T00:00:00.000Z",
+  "reviewedAt": "2026-05-16T08:54:02.217Z",
   "source": "bun run samantha readiness:check --repo-root=\"$PWD\"",
-  "reason": "Closes only historical pre-audit first-parent commits that currently lack run summary evidence. This baseline does not create, replace, or imply run logs; future unevidenced commits not listed here remain blocked.",
+  "reason": "Closes reviewed historical evidence gaps for explicit first-parent commits that currently lack run summary evidence. This baseline does not fabricate run logs, create lifecycle evidence, or cover future unevidenced commits.",
   "commits": [
     {
       "commit": "5ec1c628bac04763da658ab30514ec9c63a95d69",
@@ -395,6 +395,114 @@
     {
       "commit": "01bee5d1af56c7dc583025c4bf0e53a9b0b8cbd6",
       "subject": "feat: add readiness evidence audit"
+    },
+    {
+      "commit": "7c16145c238a68401a0e6297bff75886069278df",
+      "subject": "plan 관련 운영 기능 강화"
+    },
+    {
+      "commit": "e4963e36acfa9598c3f53c325b0054c1a5b3e56c",
+      "subject": "docs: enhance Samantha brainstorm protocol"
+    },
+    {
+      "commit": "0723a12ef9b871a2b483f80a991e95c130160611",
+      "subject": "version up to V1"
+    },
+    {
+      "commit": "34e9a8c2e00f914be9176d6e6a047bd789ad113f",
+      "subject": "Update ROADMAP.md"
+    },
+    {
+      "commit": "54098612a516a9323db7e9e94ca18e2fd552f265",
+      "subject": "lessons updated"
+    },
+    {
+      "commit": "c8e8f93e11642c8cf767930020923c2834f3bf6b",
+      "subject": "docs: plan codex sdk adapter initiative"
+    },
+    {
+      "commit": "c3d904a02685ed3ca55dc08f6622a0e3a6c25801",
+      "subject": "feat: extract exec worker runtime adapter"
+    },
+    {
+      "commit": "19a0265585dd6368c83b8e77f8b6915c2fd0f8db",
+      "subject": "feat: record worker runtime metadata"
+    },
+    {
+      "commit": "67601a221dda580407219040c97cd229e6714d76",
+      "subject": "docs: record sdk adapter s4 spike"
+    },
+    {
+      "commit": "fc96108496641936e5ef433f2ed1ebc47f006b00",
+      "subject": "feat: add guarded codex sdk runtime"
+    },
+    {
+      "commit": "cf11be2f31b6a45d6f67ce95e3d587c82a3670d3",
+      "subject": "feat: bound sdk failed-run recovery context"
+    },
+    {
+      "commit": "dc165adab4e94298459a3cf5b9efbe4a3a26a22c",
+      "subject": "docs: decide sdk runtime promotion status"
+    },
+    {
+      "commit": "50e017b249124dcdc7bf4846d1486b2df5250b3d",
+      "subject": "test: add sdk dogfood task specs"
+    },
+    {
+      "commit": "68cda0eb00a2cd192da00a04f12010bdded33b13",
+      "subject": "docs: record sdk dogfood verification"
+    },
+    {
+      "commit": "5395ebda7b4cb6fc7f275bfbc0f484d0fd10848e",
+      "subject": "Create 2026-05-16T05-21-22-haechi-native-companion-visual-qa.md"
+    },
+    {
+      "commit": "d2f490dbd05b2cd052752fc91f3167905b1a8c18",
+      "subject": "docs: add sdk promotion plan"
+    },
+    {
+      "commit": "20637aada2972346ff3bd99e938a7adaa3b10480",
+      "subject": "docs: draft sdk recovery dogfood lesson"
+    },
+    {
+      "commit": "53d7f0f8d750837c1550ba24ea137ad3872318c6",
+      "subject": "test: cover sdk runtime failures"
+    },
+    {
+      "commit": "9e52f87e7444d52b55c654a74b40f2310648733f",
+      "subject": "docs: add sdk dependency policy"
+    },
+    {
+      "commit": "3c3f67726800b825a013387e0c0f259ef1c1acf1",
+      "subject": "docs: refresh sdk promotion decision"
+    },
+    {
+      "commit": "7b622cf45a16e8b391feea4ea3ed97f6df975549",
+      "subject": "docs: guide sdk dogfood runtime use"
+    },
+    {
+      "commit": "3dd51077a7e557c9a8ef0b9564d82666e2b901c5",
+      "subject": "feat: auto draft lessons after accepted runs"
+    },
+    {
+      "commit": "87bf8fe6b9b6a970fe9238d4f808219af588b3ce",
+      "subject": "feat: surface learning review queue"
+    },
+    {
+      "commit": "8e22544b9d5cf01b2a1d68568dace6e9adeac6b9",
+      "subject": "feat: close operations evidence gaps"
+    },
+    {
+      "commit": "93974ae6d4606c85a835370846aec6e44b879961",
+      "subject": "docs: add sdk writer dogfood evidence"
+    },
+    {
+      "commit": "1423d4ae1e07176a937567edaa0d997781acf83e",
+      "subject": "fix: Recover SDK failed dogfood"
+    },
+    {
+      "commit": "fb1b5697806ceb6fec4b54c6ca82b3e82ac21419",
+      "subject": "docs: require sdk evidence for self-build"
     }
   ]
 }

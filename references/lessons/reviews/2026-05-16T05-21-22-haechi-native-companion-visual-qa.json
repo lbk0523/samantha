@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-16T05-21-22-haechi-native-companion-visual-qa.md",
+  "reviewedAt": "2026-05-16T08:51:51.824Z",
+  "runId": "2026-05-16T05-21-22-haechi-native-companion-visual-qa",
+  "taskId": "haechi-native-companion-visual-qa",
+  "observedOutcome": "the Haechi app reached a stable first implementation scope",
+  "suggestedArtifactType": "frontend companion UI playbook or project readiness",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "haechi-native-companion-visual-qa",
+    "outcome": "the Haechi app reached a stable first implementation scope",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}
