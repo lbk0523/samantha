@@ -15,28 +15,29 @@ CEO batch planning starts from a natural language goal and may create a
 advice and planning evidence only. It is not a `BatchSpec`, does not authorize
 dispatch, and cannot mutate trusted lifecycle state.
 
-Actual drafts are always stored as JSON under
+Actual `BatchPlanDraft` evidence remains JSON under
 `references/batch-plans/{draft-id}.json`. Storing the draft is mandatory even
 when the plan is incomplete, blocked, or intentionally uses structured
 placeholders.
 
 The CEO layer may inspect the repo, decompose the goal, propose small writer
-tasks, suggest dependencies, and recommend parallelization. Deterministic
-assembly and preflight own `dispatchGroup`, serial-only classification,
-disjoint write-set proof, target `HEAD` safety, and dispatch eligibility.
+tasks, suggest dependencies, and recommend parallelization, but
+`BatchPlanDraft` remains untrusted planning evidence. Deterministic
+assembly/preflight owns `dispatchGroup`, serial-only classification, disjoint
+write-set proof, target HEAD/base safety, and dispatch eligibility.
 
-This design explicitly forbids worker-owned orchestration,
-natural-language-only dispatch, `writerCap` increases, push automation,
+This design explicitly forbids worker-owned orchestration, `writerCap`
+increases, natural-language-only dispatch, hidden memory, remote adapters,
+daemon/watch behavior, dashboards, routine triggers,
 policy/doctrine/contract/profile/template/package/lockfile auto-execution,
-hidden memory, remote adapters, daemon/watch behavior, dashboards, routine
-triggers, and broad CEO planning framework scope.
+push automation, and broad CEO planning framework scope.
 
 ## User Flow
 
 1. BK gives Samantha a natural language goal.
 2. CEO planning classifies whether the request is eligible for routine writer
-   batch planning or must stay in doctrine, product boundary, architecture,
-   roadmap, report-only review, or recovery mode.
+   batch planning or must route to report-only, recovery, doctrine, product
+   boundary, architecture, roadmap, or blocked handling.
 3. CEO planning performs lightweight repo inspection and records the summary in
    the `BatchPlanDraft`.
 4. CEO planning writes the draft JSON to
@@ -55,13 +56,31 @@ triggers, and broad CEO planning framework scope.
 `BatchPlanDraft` is a stored, untrusted planning evidence artifact:
 
 ```ts
+type BatchPlanDraftClassification =
+  | "routine_writer_batch"
+  | "report_only"
+  | "recovery"
+  | "doctrine"
+  | "product_boundary"
+  | "architecture"
+  | "roadmap"
+  | "blocked";
+
+interface StructuredPlaceholder {
+  field: string;
+  reason: string;
+  resolutionOwner: "ceo" | "deterministic_assembly" | "bk";
+  blocksPromotion: boolean;
+}
+
 interface BatchPlanDraft {
   schemaVersion: 1;
   draftId: string;
   createdAt: string;
   sourceGoal: string;
-  classification: "routine_writer_batch" | "blocked" | "report_only" | "doctrine_or_policy";
+  classification: BatchPlanDraftClassification;
   repoInspection: RepoInspectionEvidence;
+  structuredPlaceholders: StructuredPlaceholder[];
   proposedTasks: ProposedTask[];
   dependencyHints: DependencyHint[];
   parallelizationHints: ParallelizationHint[];
@@ -81,6 +100,14 @@ interface BatchPlanDraft {
 }
 ```
 
+Only `routine_writer_batch` is eligible for routine writer batch dispatch. All
+non-routine classifications stop before routine writer batch dispatch:
+`report_only` routes to the matching report path, `recovery` routes to the
+matching recovery path, `doctrine` routes to doctrine handling,
+`product_boundary` routes to product-boundary clarification, `architecture`
+routes to architecture planning, `roadmap` routes to roadmap planning, and
+`blocked` routes to a blocked report with the unresolved reason.
+
 Proposed tasks must be small, independently verifiable writer surfaces. Each
 task proposal should name the intended file surface, forbidden surfaces,
 focused verification, and why the slice can stand alone. A broad implementation
@@ -92,8 +119,9 @@ preflight.
 
 ## Structured Placeholder Contract
 
-Placeholders are allowed only when they are structured fields, not free-text
-ambiguity. A placeholder must include:
+Placeholders are allowed only through the first-class
+`structuredPlaceholders` field, not free-text ambiguity. Each
+`StructuredPlaceholder` must include:
 
 - `field`: the missing draft field.
 - `reason`: why the planner cannot fill it safely.
@@ -121,6 +149,21 @@ Repo inspection evidence remains untrusted. Preflight still owns actual file
 existence checks, task-spec parsing, target-file matching, base commit equality,
 serial-only classification, and disjoint write-set proof.
 
+## Clean-State And BaseCommit Gate
+
+Generated `BatchPlanDraft` and `TaskSpec` artifacts that are intended as
+durable repo evidence may be locally committed by Samantha in a planning
+artifact commit before execution. After that commit, executable `BatchSpec`
+generation must use the planning commit `HEAD` as the BatchSpec baseCommit.
+
+execution BatchSpec must not be committed into the target repo before dispatch.
+Committing the execution `BatchSpec` into the target repo would make its own
+`baseCommit` circular, because the commit hash it needs to name would not exist
+until after the artifact was included. The execution `BatchSpec` should live in
+a clean-target-preserving execution store outside the target repo dirty tree or
+another explicitly ignored state location. Then `batches:execute` can run
+against a clean target whose `HEAD` equals the BatchSpec baseCommit.
+
 ## Promotion And Execution Gates
 
 Promotion converts a `BatchPlanDraft` into ordinary task specs and a Phase 5
@@ -129,6 +172,10 @@ Promotion converts a `BatchPlanDraft` into ordinary task specs and a Phase 5
 Promotion must stop when:
 
 - the draft is not classified as `routine_writer_batch`;
+- the draft is classified as `report_only`, `recovery`, `doctrine`,
+  `product_boundary`, `architecture`, `roadmap`, or `blocked`, in which case it
+  routes to the matching report, plan, doctrine, architecture, roadmap, or
+  recovery path before any routine writer batch dispatch;
 - any blocking structured placeholder remains;
 - proposed tasks are not small independently verifiable writer surfaces;
 - the plan targets policy, doctrine, contracts, agent profiles, task templates,
@@ -141,6 +188,8 @@ Execution remains the existing Phase 5 path:
 ```text
 BatchPlanDraft
 -> deterministic promotion into task specs and BatchSpec
+-> planning artifact commit for durable draft and task specs
+-> execution BatchSpec stored outside the target repo dirty tree
 -> BatchSpec preflight
 -> isolated worker runs
 -> independent run logs and candidate commits
@@ -175,8 +224,18 @@ autonomyEnvelope:
 
 Routine writer batches may be promoted, preflighted, executed, locally
 committed, and followed up autonomously when gates pass. Push automation is not
-part of Phase 5.5. Rework is limited to one cycle; after `maxReworkCycles: 1`,
-Samantha must report the stop condition and next action instead of looping.
+part of Phase 5.5 and remains excluded with `pushAllowed: false`.
+
+Successful continuation is a success follow-up: post-pass continuation from
+completed evidence after the ordinary Phase 5 gates pass. A success follow-up
+is not counted against `maxReworkCycles: 1`; if it becomes new writer work, it
+must start from a new planning and deterministic gate cycle.
+
+Failure handling is failed-evidence rework: one narrow rework cycle from failed
+preflight, execution, integration, or verification evidence. `maxReworkCycles:
+1` applies only to failed-evidence rework, not normal successful continuation.
+After that one failed-evidence rework cycle, Samantha must report the stop
+condition and next action instead of looping.
 
 ## Report Contract
 
@@ -188,6 +247,9 @@ Every Phase 5.5 report must include:
 - repo inspection summary;
 - proposed task count and any blocked placeholders;
 - preflight, execution, verification, and local commit outcomes when run;
+- planning artifact commit outcome when durable planning evidence was committed;
+- whether any post-pass continuation was a success follow-up or any failed
+  continuation was failed-evidence rework;
 - explicit statement that push was not performed;
 - next action.
 
