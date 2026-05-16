@@ -1,6 +1,6 @@
 # Samantha Architecture
 
-Last updated: 2026-05-15
+Last updated: 2026-05-16
 
 ## System Shape
 
@@ -78,14 +78,23 @@ decomposition, diagnosis, synthesis, or next-action recommendation, but it
 cannot make worker output trusted, bypass worktree isolation, accept a run,
 merge, clean up, push, or rewrite policy.
 
-Samantha should not import these adjacent patterns as v0 scope:
+Samantha v1 evaluates adjacent patterns as candidate surfaces, not inherited
+scope and not automatic rejections. Each candidate needs a reviewed product
+slice with authority, verification, lifecycle, and evidence boundaries before it
+can become product behavior:
 
+- chat or remote-control adapters
+- daemon, watch, dashboard, cron, or routine trigger behavior
+- budget governance or multi-project orchestration
 - automatic skill self-rewrite
-- hidden memory
-- cron, daemon, watch, or routine trigger behavior
-- worker-owned orchestration
-- resolver implementation that silently loads or mutates context without a
-  reviewed artifact
+- resolver implementation that loads or mutates context
+
+The following remain hard gates, not candidate conveniences:
+
+- no hidden memory
+- no worker-owned orchestration
+- no trusted state change without deterministic verification
+- no worker merge, push, cleanup, policy, or doctrine authority
 
 ## Context Resolver Principle
 
@@ -583,8 +592,10 @@ bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```
 
 The CLI currently stays local and explicit. Remote adapters, daemon operation,
-or chat command surfaces require separate product design and authority gates;
-they should not be inherited from historical migration scope.
+and chat command surfaces are v1 candidate surfaces. They should not be rejected
+solely as v0 non-goals, but they require separate product design and authority,
+verification, lifecycle, and evidence gates before becoming Samantha scope.
+They should not be inherited from historical migration scope.
 
 ## Responsibility Model
 

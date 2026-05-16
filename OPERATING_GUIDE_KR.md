@@ -4,30 +4,50 @@
 
 ## 목적
 
-이 문서는 Samantha의 debut 사용자-facing 운영 프로토콜을 정의한다.
+이 문서는 Samantha의 사용자-facing 운영 프로토콜을 정의한다.
 
-Samantha v0는 Codex Chat에서 운용한다. 새 CLI 명령, chat adapter, daemon,
-dashboard, routine trigger, remote control plane이 아니다.
+현재 운영 기준은 Samantha v1이다. v1은 Codex Chat 기반 운영 프로토콜을
+유지하면서, Samantha를 실제 Codex 작업에 사용해 run evidence, lesson evidence,
+task evidence를 쌓고 하네스 성능과 편의성을 고도화하는 버전이다.
+
+Samantha v1은 chat adapter, daemon/watch, dashboard, routine trigger,
+remote/control plane을 operator activation에 자동으로 추가하지 않는다. 그러나 이
+표면들은 더 이상 v0 non-goal이라는 이유만으로 부적합 판정하지 않는다. 별도
+reviewed product slice와 authority, verification, lifecycle 설계가 있으면 v1
+candidate surface로 검토한다.
 
 이 문서는 프로토콜 사양이다. 다른 repo의 Codex 세션에서 이 프로토콜을
 활성화하는 실제 장치는 전역 Codex skill
 `~/.codex/skills/samantha-operator/SKILL.md`이다.
 
-공식 문법은 다음과 같다:
+공식 문법은 긴 문법과 짧은 alias를 모두 허용한다:
 
 ```text
 Samantha <intent>: <자연어 요청>
+sam <alias>: <자연어 요청>
 ```
 
-명시적인 `Samantha <intent>:` 메시지만 이 프로토콜을 활성화한다. BK가
-명시적으로 Samantha 운영 요청으로 표현하지 않은 일반 채팅은 평소 Codex 대화로
-취급한다.
+짧은 alias는 타이핑 편의만 위한 표면이며, canonical intent는 바꾸지 않는다:
+
+| Alias | Canonical intent |
+| --- | --- |
+| `sam c:` | `Samantha command:` |
+| `sam b:` | `Samantha brainstorm:` |
+| `sam p:` | `Samantha plan:` |
+| `sam r:` | `Samantha review:` |
+| `sam re:` | `Samantha recover:` |
+| `sam i:` | `Samantha inspect:` |
+| `sam l:` | `Samantha learn:` |
+
+`sam:`처럼 intent가 없는 기본 호출은 없다. 명시적인 `Samantha <intent>:` 또는
+`sam <alias>:` 메시지만 이 프로토콜을 활성화한다. BK가 명시적으로 Samantha 운영
+요청으로 표현하지 않은 일반 채팅은 평소 Codex 대화로 취급한다.
 
 전역 skill이 활성화된 세션에서는 현재 Codex 작업 디렉토리를 target repo로 보고,
 Samantha harness repo는 항상 `/Users/byung/Documents/samantha`로 고정한다. 터미널
 편의를 위한 얇은 `samantha` wrapper가 있을 수 있지만, wrapper는 CLI 실행만
 돕는다. Codex Chat activation은 여전히 전역 skill과 명시적인
-`Samantha <intent>:` prefix가 담당한다.
+`Samantha <intent>:` prefix 또는 `sam <alias>:` prefix가 담당한다.
 
 ## 권한 경계
 
@@ -55,16 +75,16 @@ gate를 우회해서는 안 된다.
 
 ## 운영 모드와 라우팅 분류
 
-Samantha는 `command`, `brainstorm`, `plan` 요청을 받으면 다음 액션을 제안하기 전에
-먼저 요청의 단계를 분류해야 한다:
+Samantha는 canonical 또는 alias 형태의 `command`, `brainstorm`, `plan` 요청을 받으면
+다음 액션을 제안하기 전에 먼저 요청의 단계를 분류해야 한다:
 
 - Doctrine, product boundary, architecture, roadmap 단계인가?
 - 이미 decision-complete implementation task인가?
 - report-only review인가?
 - recovery 또는 lifecycle action인가?
 
-요청 intent보다 이 단계 판별이 우선한다. `Samantha plan:`이나
-`Samantha command:`라고 쓰였더라도 BK가 `NORTH_STAR.md`, `ARCHITECTURE.md`,
+요청 intent보다 이 단계 판별이 우선한다. `Samantha plan:`, `Samantha command:`,
+`sam p:`, `sam c:`라고 쓰였더라도 BK가 `NORTH_STAR.md`, `ARCHITECTURE.md`,
 `ROADMAP.md`, role boundary, artifact lifecycle, validation boundary 같은 product
 doctrine을 다루고 있으면 Samantha는 CEO/architect mode로 머물러야 한다.
 
@@ -237,9 +257,12 @@ Samantha는 현재 세션에서 처리할 수 있는 작은 follow-up이나, 아
 정해야 하는 작업에는 `/goal`을 쓰지 않아야 한다. doctrine/architecture 단계에서는
 ready-to-send `/goal`보다 next design artifact를 우선 제안한다.
 
-## v0 Non-goal
+## v1 Candidate Surface와 Hard Gate
 
-Samantha Operating Protocol v0는 다음을 추가하지 않는다:
+Samantha Operating Protocol v1은 다음 표면을 현재 operator activation에 자동으로
+추가하지 않는다. 단, 이들은 v0 non-goal이 아니라 v1 candidate surface다. Samantha가
+각 표면을 제품 범위로 받아들이려면 별도 reviewed product slice와 명시적인
+authority, verification, lifecycle gate가 필요하다:
 
 - `bun run samantha ask`
 - slash-command parsing
@@ -248,8 +271,14 @@ Samantha Operating Protocol v0는 다음을 추가하지 않는다:
 - dashboard
 - routine trigger
 - budget governance
-- hidden memory
-- worker-owned orchestration
+- remote/control plane
+- multi-project orchestration
 
-이 표면들은 Samantha scope가 되기 전에 별도 product design과 authority gate가
-필요하다.
+다음 gate는 v1에서도 완화하지 않는다:
+
+- hidden memory 금지
+- worker-owned orchestration 금지
+- deterministic verification 없는 trusted state change 금지
+- worker merge, push, cleanup authority 금지
+
+candidate surface 검토는 이 hard gate를 통과하는 설계를 요구한다.

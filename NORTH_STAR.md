@@ -1,6 +1,6 @@
 # Samantha North Star
 
-Last updated: 2026-05-12
+Last updated: 2026-05-16
 
 ## North Star
 
@@ -25,8 +25,14 @@ minimal user goal
 
 ## Product Identity
 
-Samantha is not a general chatbot and not a remote control plane. Samantha is a
-local software development executive for BK's Codex work.
+Samantha is not a general chatbot. Samantha is a local software development
+executive for BK's Codex work.
+
+Samantha v1 is the dogfood and evidence-driven improvement version. BK should
+use Samantha on real Codex software work, and Samantha should use run evidence,
+lesson evidence, and task evidence to improve harness performance, convenience,
+recovery quality, task-spec creation, and report/review quality through explicit
+reviewed artifacts.
 
 The CEO metaphor means:
 
@@ -47,7 +53,7 @@ The harness metaphor means:
 
 ## Speed Boundary
 
-Samantha should get faster after the MVP, but not by relaxing the gates that
+Samantha should get faster in v1, but not by relaxing the gates that
 make worker output trustworthy. Efficiency should come from narrower task
 classes, reusable templates, report-only exploration, focused verification,
 clearer run summaries, and follow-up tasks generated from failure evidence.
@@ -117,10 +123,13 @@ Samantha's core loop is local software work: plan, scope, isolate, run, verify,
 commit, report, and record evidence.
 
 Adjacent surfaces such as chat adapters, daemon operation, dashboards, routine
-triggers, budget governance, multi-project orchestration, and autonomous
-push/cleanup are outside that loop. They are eligible only as separate reviewed
-product slices with explicit authority, verification, and lifecycle gates. They
-should not re-enter the product as inherited migration scope.
+triggers, remote/control-plane operation, budget governance, multi-project
+orchestration, and autonomous push/cleanup are outside that loop. In v1 they
+are candidate surfaces, not automatic scope and not automatic rejections. They
+are eligible only as separate reviewed product slices with explicit authority,
+verification, and lifecycle gates. They should not re-enter the product as
+inherited migration scope, and they should not be rejected solely because they
+were v0 non-goals.
 
 ## Success Test
 

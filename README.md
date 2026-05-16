@@ -30,22 +30,41 @@ minimal user goal
 
 ## How To Use Samantha
 
-Samantha v0 is operated through Codex Chat with an explicit operating prefix:
+Samantha v1 is operated through Codex Chat with an explicit operating prefix.
+v1 is the dogfood and evidence-driven improvement version: use Samantha on real
+Codex work, accumulate run, lesson, and task evidence, and improve harness
+performance and convenience through reviewed artifacts.
 
 ```text
 Samantha <intent>: <natural language request>
+sam <alias>: <natural language request>
 ```
 
 Official debut intents are `command`, `brainstorm`, `plan`, `review`,
 `recover`, `inspect`, and `learn`.
 
+Short aliases are:
+
+| Alias | Intent |
+| --- | --- |
+| `sam c:` | `command` |
+| `sam b:` | `brainstorm` |
+| `sam p:` | `plan` |
+| `sam r:` | `review` |
+| `sam re:` | `recover` |
+| `sam i:` | `inspect` |
+| `sam l:` | `learn` |
+
+Bare `sam:` has no default intent.
+
 Example:
 
 ```text
 Samantha command: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 run의 상태와 다음 액션을 한눈에 보이게 개선해줘.
+sam c: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 run의 상태와 다음 액션을 한눈에 보이게 개선해줘.
 ```
 
-Only explicit `Samantha <intent>:` messages activate the operating protocol.
+Only explicit `Samantha <intent>:` or `sam <alias>:` messages activate the operating protocol.
 `Samantha command:` normalizes executable work into a bounded plan, task spec,
 or ready-to-send `/goal` first; it does not bypass worktree isolation, scope
 checks, deterministic verification, run evidence, or Samantha-owned lifecycle
@@ -83,9 +102,11 @@ Samantha should help BK run software work with discipline:
 - keep merge, push, cleanup, recovery, and authority changes explicit
 
 Adjacent surfaces such as chat adapters, daemon operation, dashboards, routine
-triggers, budget governance, multi-project orchestration, and multi-writer
-execution should be introduced only as reviewed product slices with explicit
-authority and verification gates.
+triggers, remote/control-plane operation, budget governance, multi-project
+orchestration, and multi-writer execution are v1 candidate surfaces, not
+automatic scope and not automatic rejections. They should be introduced only as
+reviewed product slices with explicit authority, verification, evidence, and
+lifecycle gates.
 
 Single-writer execution is an MVP constraint, not a permanent doctrine:
 post-MVP parallelism starts with report-only workers and can use speculative

@@ -4,30 +4,55 @@ Last updated: 2026-05-16
 
 ## Purpose
 
-This guide defines the debut user-facing operating protocol for Samantha.
+This guide defines the user-facing operating protocol for Samantha.
 
-Samantha v0 is operated through Codex Chat. It is not a new CLI command, chat
-adapter, daemon, dashboard, routine trigger, or remote control plane.
+The current operating baseline is Samantha v1. v1 keeps the Codex Chat-based
+operating protocol while using Samantha on real Codex work to accumulate run
+evidence, lesson evidence, and task evidence, then improve harness performance
+and convenience from that evidence.
+
+Samantha v1 does not automatically add chat adapters, daemon/watch behavior,
+dashboards, routine triggers, or remote/control-plane operation to operator
+activation. Those surfaces are no longer rejected merely because they were v0
+non-goals. With a separate reviewed product slice and explicit authority,
+verification, and lifecycle design, they may be evaluated as v1 candidate
+surfaces.
 
 This document is the protocol specification. Cross-repo activation in Codex
 sessions is handled by the global Codex skill at
 `~/.codex/skills/samantha-operator/SKILL.md`.
 
-The official syntax is:
+The official syntax allows both the long form and short aliases:
 
 ```text
 Samantha <intent>: <natural language request>
+sam <alias>: <natural language request>
 ```
 
-Only explicit `Samantha <intent>:` messages activate this protocol. Ordinary
-chat messages stay ordinary Codex conversation unless BK explicitly frames them
-as Samantha operation.
+Short aliases are only a typing convenience; they do not change the canonical
+intent:
+
+| Alias | Canonical intent |
+| --- | --- |
+| `sam c:` | `Samantha command:` |
+| `sam b:` | `Samantha brainstorm:` |
+| `sam p:` | `Samantha plan:` |
+| `sam r:` | `Samantha review:` |
+| `sam re:` | `Samantha recover:` |
+| `sam i:` | `Samantha inspect:` |
+| `sam l:` | `Samantha learn:` |
+
+There is no default intent for bare `sam:`. Only explicit
+`Samantha <intent>:` or `sam <alias>:` messages activate this protocol.
+Ordinary chat messages stay ordinary Codex conversation unless BK explicitly
+frames them as Samantha operation.
 
 When the global skill activates in another repo, the current Codex working
 directory is the target repo and the Samantha harness repo remains
 `/Users/byung/Documents/samantha`. A thin terminal `samantha` wrapper may exist
 for CLI convenience, but it does not activate Samantha in Codex Chat. Chat
-activation is the global skill plus the explicit `Samantha <intent>:` prefix.
+activation is the global skill plus the explicit `Samantha <intent>:` prefix or
+`sam <alias>:` prefix.
 
 ## Authority Boundary
 
@@ -55,8 +80,9 @@ evidence, or Samantha-owned lifecycle gates.
 
 ## Operating Modes And Routing
 
-When Samantha receives a `command`, `brainstorm`, or `plan` request, it must
-classify the request before recommending the next action:
+When Samantha receives a canonical or aliased `command`, `brainstorm`, or
+`plan` request, it must classify the request before recommending the next
+action:
 
 - Is this doctrine, product boundary, architecture, or roadmap work?
 - Is this already a decision-complete implementation task?
@@ -64,9 +90,10 @@ classify the request before recommending the next action:
 - Is this recovery or lifecycle action?
 
 This classification comes before the requested intent. Even when BK writes
-`Samantha plan:` or `Samantha command:`, if the request is about `NORTH_STAR.md`,
-`ARCHITECTURE.md`, `ROADMAP.md`, role boundaries, artifact lifecycle, validation
-boundaries, or product doctrine, Samantha must stay in CEO/architect mode.
+`Samantha plan:`, `Samantha command:`, `sam p:`, or `sam c:`, if the request is
+about `NORTH_STAR.md`, `ARCHITECTURE.md`, `ROADMAP.md`, role boundaries,
+artifact lifecycle, validation boundaries, or product doctrine, Samantha must
+stay in CEO/architect mode.
 
 In CEO/architect mode, Samantha must not jump directly to task specs, worker
 runs, implementation slices, or `/goal` prompts. It first checks the phase
@@ -256,9 +283,13 @@ current session, or for work that still needs BK to choose product direction.
 In doctrine/architecture-stage work, Samantha should recommend the next design
 artifact before a ready-to-send `/goal`.
 
-## Non-Goals For v0
+## v1 Candidate Surfaces And Hard Gates
 
-Samantha Operating Protocol v0 does not add:
+Samantha Operating Protocol v1 does not automatically add these surfaces to the
+current operator activation. They are v1 candidate surfaces, not v0 non-goals.
+Before Samantha accepts any of them as product scope, each needs a separate
+reviewed product slice with explicit authority, verification, and lifecycle
+gates:
 
 - `bun run samantha ask`
 - slash-command parsing
@@ -267,8 +298,14 @@ Samantha Operating Protocol v0 does not add:
 - dashboards
 - routine triggers
 - budget governance
-- hidden memory
-- worker-owned orchestration
+- remote/control-plane operation
+- multi-project orchestration
 
-Those surfaces require separate product design and authority gates before they
-become Samantha scope.
+These gates are not relaxed in v1:
+
+- no hidden memory
+- no worker-owned orchestration
+- no trusted state change without deterministic verification
+- no worker merge, push, or cleanup authority
+
+Candidate surface review must produce a design that preserves those hard gates.
