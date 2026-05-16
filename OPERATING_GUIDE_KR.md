@@ -61,7 +61,7 @@ Samantha는 방향을 논의하고, 목표를 분해하고, task spec을 제안�
 goal
 -> plan 또는 task spec
 -> 쓰기 작업이 필요하면 격리된 worktree
--> Codex worker run
+-> Samantha worker run
 -> HARNESS_RESULT
 -> deterministic verification
 -> Samantha-owned commit 또는 report
@@ -72,6 +72,16 @@ goal
 적합하면 Samantha는 ready-to-send `/goal` prompt나 task spec path를 만들 수 있다.
 하지만 task spec, scope check, verification, run evidence, Samantha-owned lifecycle
 gate를 우회해서는 안 된다.
+
+특히 Samantha repo 안에서 `Samantha command:` 또는 `sam c:`가 활성화되었고 요청이
+이미 decision-complete writer implementation이라면, Codex Desktop이 implementation
+파일을 직접 수정해서는 안 된다. 이 작업은 반드시 task spec, 격리된 worktree,
+`--runtime=codex-sdk`를 사용한 SDK-backed Samantha worker run, `HARNESS_RESULT`,
+deterministic verification, Samantha-owned commit/report로 표현되어야 한다.
+
+Samantha self-build implementation을 완료, commit, push된 것으로 보고하려면 SDK run
+evidence가 있어야 한다. 또는 worker run evidence, `HARNESS_RESULT`, 변경 파일 scope,
+verification output을 포함한 동등한 run log가 있어야 한다.
 
 ## 운영 모드와 라우팅 분류
 
@@ -101,11 +111,17 @@ Worker/execution mode는 implementation task가 decision-complete일 때만 적�
 goal
 -> plan 또는 task spec
 -> 쓰기 작업이 필요하면 격리된 worktree
--> Codex worker run
+-> Samantha worker run
 -> HARNESS_RESULT
 -> deterministic verification
 -> Samantha-owned commit 또는 report
 ```
+
+Samantha repo 자신의 self-build writer implementation에서는 위 gate의 worker run이
+`--runtime=codex-sdk`를 사용한 SDK-backed Samantha worker run이어야 한다. `command`,
+`plan`, `review`의 intent 의미는 유지한다. `command`는 executable work를 gate로
+정규화하고, `plan`은 요청이 plan-only이면 plan으로 남으며, `review`는 명시적인 구현
+요청 전까지 report-only이다.
 
 ## Intent
 
@@ -272,6 +288,10 @@ ready-to-send `/goal`보다 next design artifact를 우선 제안한다.
 
 ## SDK Dogfood Runtime 선택
 
+Samantha repo 안에서 `Samantha command:` 또는 `sam c:`로 활성화된
+decision-complete self-build writer implementation은 authority gate 때문에
+`--runtime=codex-sdk`를 사용해야 한다.
+
 Samantha self-build task에서 Codex SDK runtime을 dogfood하려면 operator 또는 실행
 명령이 명시적으로 선택해야 한다:
 
@@ -280,9 +300,13 @@ bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samanth
 ```
 
 기본 `run-task` runtime은 계속 `exec-json`이다. `codex-sdk`를 선택하지 않은 일반
-worker 실행, batch execution, report orchestration은 기본 runtime을 사용한다.
+worker 실행, batch execution, report orchestration은 기본 runtime을 사용한다. 단,
+위 self-build writer authority gate가 적용되는 작업은 예외다. 이 gate가 적용되는데
+SDK runtime evidence 또는 동등한 run log를 만들 수 없으면 직접 구현으로 우회하지
+말고 blocked 또는 rework로 보고한다.
 
-`codex-sdk`는 다음 조건을 모두 만족할 때만 우선 dogfood 대상으로 선택한다:
+Authority gate가 적용되지 않는 optional dogfood에서는 `codex-sdk`를 다음 조건을 모두
+만족할 때만 우선 대상으로 선택한다:
 
 - Samantha repo 자신의 bounded self-build task다.
 - task spec의 target files, forbidden changes, verify commands가 충분히 좁다.
@@ -290,7 +314,7 @@ worker 실행, batch execution, report orchestration은 기본 runtime을 사용
 - SDK credential/local runtime 상태가 준비되어 있고 실패해도 `exec-json`으로 명시
   fallback할 수 있다.
 
-다음 경우에는 `exec-json`을 사용한다:
+Authority gate가 적용되지 않는 다음 경우에는 `exec-json`을 사용한다:
 
 - 일반 작업이거나 SDK evidence를 추가로 쌓을 이유가 없다.
 - SDK runtime failure를 진단 중이거나 SDK local state가 불안정하다.

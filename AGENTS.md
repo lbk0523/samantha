@@ -25,11 +25,24 @@ minimal user goal
 -> Samantha CEO decomposition
 -> task spec
 -> isolated worktree
--> Codex run
+-> Samantha worker run
 -> HARNESS_RESULT
 -> deterministic verification
 -> Samantha-owned commit/report
 ```
+
+For Samantha self-build writer implementation, there is a stricter authority
+gate. When `Samantha command:` or `sam c:` is activated from inside the Samantha
+repo and the request is already decision-complete implementation work, Codex
+Desktop must not directly edit implementation files. The work must be
+represented as a task spec, isolated worktree, SDK-backed Samantha worker run
+using `--runtime=codex-sdk`, `HARNESS_RESULT`, deterministic verification, and
+Samantha-owned commit/report.
+
+Do not report Samantha self-build implementation as complete, committed, or
+pushed unless SDK run evidence exists, or an equivalent run log contains the
+worker run evidence, `HARNESS_RESULT`, changed-file scope, and verification
+results Samantha needs to audit the lifecycle.
 
 Read these direction documents before broad architectural changes:
 

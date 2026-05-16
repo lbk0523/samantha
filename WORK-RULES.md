@@ -111,17 +111,46 @@ only when justified.
 - Do not create "light" writer tasks that skip worktree isolation, scope checks,
   deterministic verification, run evidence, or Samantha-owned transitions.
 
+## Self-Build SDK Authority Gate
+
+When `Samantha command:` or `sam c:` is activated in the Samantha repo and the
+request is decision-complete writer implementation, Codex Desktop must not
+directly edit implementation files. Codex Desktop may clarify scope, classify
+the request, draft the task spec, or report the required next gate, but trusted
+implementation must go through:
+
+```text
+task spec
+-> isolated worktree
+-> SDK-backed Samantha worker run using --runtime=codex-sdk
+-> HARNESS_RESULT
+-> deterministic verification
+-> Samantha-owned commit/report
+```
+
+Preserve intent semantics. `command` normalizes executable work through the
+harness gate; `plan` may remain plan-only; `review` remains report-only unless
+BK explicitly asks for implementation and the request is decision-complete. This
+gate does not add daemon/watch behavior, App Server authority, automatic worker
+dispatch, lifecycle authority changes, hidden memory, automatic promotion, or
+playbook/policy/template promotion.
+
 ## Completion Rules
 
 For Samantha self-build implementation work, the default completion standard is:
 
 ```text
+SDK-backed worker run evidence, or equivalent run log with HARNESS_RESULT
+-> changed-file scope matches the task
 deterministic verification passes
--> intended files only
 -> commit
 -> push
 -> close out or propose the next autonomous goal
 ```
+
+Do not report Samantha self-build implementation as complete, committed, or
+pushed unless the final evidence includes the SDK run, or an equivalent run log
+with `HARNESS_RESULT`, changed-file scope, and verification output.
 
 Do not leave BK with "push this" as the next action when the work can be pushed
 safely by Codex.
@@ -140,6 +169,8 @@ explicit review before publication.
 
 Before the final response on Samantha self-build work, explicitly check:
 
+- SDK run evidence exists, or an equivalent run log includes `HARNESS_RESULT`
+  and the verification output needed to audit the worker lifecycle
 - deterministic verification was run and passed, or the stop condition is named
 - changed files are intended for the request
 - commit and push were completed when safe
