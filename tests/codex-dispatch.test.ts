@@ -133,4 +133,24 @@ describe("codex dispatch preparation", () => {
 
     expect(prepared.command[0]).toBe("/opt/codex/bin/codex");
   });
+
+  test("exec-json adapter returns runtime evidence without changing command output", async () => {
+    const prepared = execJsonWorkerRuntimeAdapter.prepare({
+      task,
+      agent: worker,
+      worktreePath: "/tmp/samantha-worktree",
+      codexBin: "printf",
+    });
+    prepared.command = ["bash", "-lc", "printf ok"];
+
+    const result = await execJsonWorkerRuntimeAdapter.execute(prepared);
+
+    expect(result.runtime).toEqual({ kind: "exec-json" });
+    expect(result.command).toMatchObject({
+      command: ["bash", "-lc", "printf ok"],
+      exitCode: 0,
+      stdout: "ok",
+      stderr: "",
+    });
+  });
 });

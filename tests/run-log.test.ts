@@ -68,6 +68,9 @@ const execution: WorkerDispatchExecution = {
     stdout: 'HARNESS_RESULT: {"status":"pass","note":"ok","commit":""}',
     stderr: "",
   },
+  runtime: {
+    kind: "exec-json",
+  },
   evaluation: {
     pass: true,
     harness: {
@@ -130,6 +133,7 @@ describe("worker run logs", () => {
       worktreesDir: "worktrees",
     });
     expect(log.result.preparation.codex.command).toEqual(["codex", "exec"]);
+    expect(log.result.runtime).toEqual({ kind: "exec-json" });
     expect(log.result.evaluation?.changedFiles).toEqual(["allowed.txt"]);
     expect(log.result.commit?.commitHash).toBe("a".repeat(40));
     expect(log.trajectory?.map((entry) => entry.event)).toEqual([
@@ -142,6 +146,12 @@ describe("worker run logs", () => {
       "verification_finished",
     ]);
     expect(log.trajectory?.map((entry) => entry.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(log.trajectory?.[2]).toMatchObject({
+      event: "worker_dispatched",
+      details: {
+        runtimeKind: "exec-json",
+      },
+    });
     expect(log.trajectory?.at(-1)).toMatchObject({
       event: "verification_finished",
       status: "completed",
@@ -172,6 +182,31 @@ describe("worker run logs", () => {
     expect(raw).toContain('\n  "schemaVersion": 1,\n');
     expect(parsed.trajectory[0].event).toBe("planned");
     expect(parsed.result.pass).toBe(true);
+    expect(parsed.result.runtime).toEqual({ kind: "exec-json" });
     expect(parsed.result.preparation.codex.prompt).toBe("prompt");
+  });
+
+  test("keeps legacy run logs compatible when runtime metadata is absent", () => {
+    const legacyExecution: WorkerDispatchExecution = {
+      ...execution,
+      runtime: undefined,
+    };
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: legacyExecution,
+    });
+
+    expect(log.result.runtime).toBeUndefined();
+    expect(log.trajectory?.[2]).toMatchObject({
+      event: "worker_dispatched",
+      details: {
+        command: ["codex", "exec"],
+      },
+    });
+    expect(log.trajectory?.[2]?.details).not.toHaveProperty("runtimeKind");
   });
 });

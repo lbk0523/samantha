@@ -372,18 +372,42 @@ source of truth for Samantha lifecycle decisions.
 
 | Slice | Status | Objective | Depends on | Verification | Next prompt |
 | --- | --- | --- | --- | --- | --- |
-| S1 | ready | Turn this initiative into an ADR and adapter-boundary design. | none | `git diff --check HEAD -- '*.md' 'references/**/*.md'` | `sam p: references/initiatives/sdk-adapter-samantha.md 를 읽고 S1을 진행해. SDK Adapter ADR과 WorkerRuntimeAdapter boundary를 설계하되 구현은 하지 말고, Samantha authority invariants와 첫 구현 slice 성공 기준까지 정리해줘.` |
-| S2 | pending | Extract current exec-json behavior behind the adapter boundary without changing behavior. | S1 | `bun test tests/codex-dispatch.test.ts`; `bun test tests/worker-dispatch.test.ts`; `bun run typecheck` | `sam c: references/initiatives/sdk-adapter-samantha.md 의 S2를 수행해. 현재 codex exec --json 경로를 exec runtime adapter로 추출하되 사용자-visible behavior는 바꾸지 말고 focused tests와 typecheck까지 완료해줘.` |
-| S3 | pending | Add optional runtime metadata to run evidence. | S2 | focused run-log tests; `bun run typecheck`; broader `bun test` if shared evidence behavior changes | `sam c: SDK Adapter initiative S3를 수행해. run evidence에 optional runtime metadata를 추가하되 old run log compatibility와 Samantha-owned gates를 유지해줘.` |
-| S4 | pending | Run a report-only SDK capability spike and record findings. | S3 | report-only evidence; no production writes unless separately approved | `sam r: SDK Adapter initiative S4를 수행해. 공식 Codex SDK가 Samantha worker prompt, thread id, resume, result output, HARNESS_RESULT, error/approval 상태를 어떻게 제공하는지 report-only로 검토해줘.` |
+| S1 | completed | Turn this initiative into an ADR and adapter-boundary design. | none | `git diff --check HEAD -- '*.md' 'references/**/*.md'` | `sam p: references/initiatives/sdk-adapter-samantha.md 를 읽고 S1을 진행해. SDK Adapter ADR과 WorkerRuntimeAdapter boundary를 설계하되 구현은 하지 말고, Samantha authority invariants와 첫 구현 slice 성공 기준까지 정리해줘.` |
+| S2 | completed | Extract current exec-json behavior behind the adapter boundary without changing behavior. | S1 | `bun test tests/codex-dispatch.test.ts`; `bun test tests/worker-dispatch.test.ts`; `bun run typecheck` | `sam c: references/initiatives/sdk-adapter-samantha.md 의 S2를 수행해. 현재 codex exec --json 경로를 exec runtime adapter로 추출하되 사용자-visible behavior는 바꾸지 말고 focused tests와 typecheck까지 완료해줘.` |
+| S3 | completed | Add optional runtime metadata to run evidence. | S2 | focused run-log tests; `bun run typecheck`; broader `bun test` if shared evidence behavior changes | `sam c: SDK Adapter initiative S3를 수행해. run evidence에 optional runtime metadata를 추가하되 old run log compatibility와 Samantha-owned gates를 유지해줘.` |
+| S4 | ready | Run a report-only SDK capability spike and record findings. | S3 | report-only evidence; no production writes unless separately approved | `sam r: SDK Adapter initiative S4를 수행해. 공식 Codex SDK가 Samantha worker prompt, thread id, resume, result output, HARNESS_RESULT, error/approval 상태를 어떻게 제공하는지 report-only로 검토해줘.` |
 | S5 | pending | Implement guarded SDK runtime adapter behind an explicit option. | S4 | fake SDK adapter tests; existing exec-json tests; `bun run typecheck`; bounded dogfood run | `sam c: SDK Adapter initiative S5를 수행해. SDK runtime adapter를 explicit option 뒤에 추가하고 exec-json default와 fallback을 유지한 채 focused tests와 bounded dogfood evidence까지 남겨줘.` |
 | S6 | pending | Add rework/resume semantics for SDK-backed failed runs. | S5 | recovery-focused tests; dogfood failed-run recovery evidence | `sam c: SDK Adapter initiative S6를 수행해. SDK thread continuity를 failed-run recovery에만 bounded하게 연결하고, task spec과 verification gate를 유지하는 rework/resume 흐름을 구현해줘.` |
 | S7 | pending | Decide whether to promote, retain as experimental, or reject SDK runtime. | S5 or S6 | report-only promotion review; documented decision | `sam r: SDK Adapter initiative S7을 수행해. S5/S6 evidence를 기준으로 SDK runtime을 normal path로 promote할지, experimental로 유지할지, reject할지 findings-first로 검토해줘.` |
 
 ## Current Next Slice
 
-S1 is ready: create the ADR and adapter-boundary design before any production
-code change.
+S4 is ready: run a report-only SDK capability spike before adding any
+SDK-backed runtime implementation or runtime selector.
+
+## 2026-05-16 S3 Update
+
+Completed:
+
+- Added optional runtime metadata evidence for exec-json worker runs.
+- Preserved old run log compatibility by keeping runtime metadata optional.
+- Kept Samantha-owned scope checks, deterministic verification, commits, report
+  authority, lifecycle evidence, and merge decisions outside the runtime
+  adapter.
+
+Verification:
+
+- `bun test tests/run-log.test.ts` passed.
+- `bun test tests/codex-dispatch.test.ts` passed.
+- `bun test tests/worker-dispatch.test.ts` passed.
+- `bun run typecheck` passed.
+- `bun test` passed.
+
+Decision changes:
+
+- Runtime metadata is evidence only. It is not trusted state and does not affect
+  verification, scope checks, commit eligibility, lifecycle transitions, or
+  report authority.
 
 ## End-of-Session Update Rule
 

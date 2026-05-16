@@ -176,6 +176,7 @@ describe("worker dispatch", () => {
     expect(result.setupResults[0]?.exitCode).toBe(0);
     expect(result.command?.command[0]).toBe(fakeCodex);
     expect(result.command?.command).toEqual(result.preparation.codex.command);
+    expect(result.runtime).toEqual({ kind: "exec-json" });
     expect(result.evaluation?.changedFiles).toEqual(["README.md"]);
     expect(result.commit?.subject).toBe("test: dispatch worker fixture");
     expect(result.commit?.commitHash).toHaveLength(40);

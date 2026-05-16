@@ -117,6 +117,7 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
           note: "worker command started",
           details: {
             command: execution.command.command,
+            ...(execution.runtime ? { runtimeKind: execution.runtime.kind } : {}),
           },
         }
       : {

@@ -5,6 +5,7 @@ import { validateDispatch } from "./policy";
 import { unresolvedDispatchPlaceholders } from "./task-placeholders";
 import { runCommand as runProcessCommand, type CommandRunResult } from "./command-runner";
 import { execJsonWorkerRuntimeAdapter } from "./worker-runtime-adapter";
+import type { WorkerRuntimeMetadata } from "./worker-runtime-metadata";
 import {
   collectChangedFileSnapshots,
   evaluateWorkerResult,
@@ -44,6 +45,7 @@ export interface WorkerDispatchExecution {
   setupResults: CommandRunResult[];
   dispatchError?: string;
   command?: CommandRunResult;
+  runtime?: WorkerRuntimeMetadata;
   evaluation?: WorkerResultEvaluation;
   commit?: WorkerCommitResult;
   pass: boolean;
@@ -159,7 +161,8 @@ export async function executeWorkerDispatch(
     };
   }
 
-  const command = await execJsonWorkerRuntimeAdapter.execute(preparation.codex);
+  const runtimeExecution = await execJsonWorkerRuntimeAdapter.execute(preparation.codex);
+  const command = runtimeExecution.command;
   const output = [command.stdout, command.stderr].filter(Boolean).join("\n");
   const evaluation = await evaluateWorkerResult({
     task: input.task,
@@ -187,6 +190,7 @@ export async function executeWorkerDispatch(
     preparation,
     setupResults,
     command,
+    runtime: runtimeExecution.runtime,
     evaluation,
     commit,
     pass: command.exitCode === 0 && evaluation.pass && commitPassed,

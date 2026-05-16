@@ -1,6 +1,12 @@
 import { runCommand, type CommandRunResult } from "./command-runner";
 import type { AgentProfile, TaskSpec } from "./contracts";
 import { buildCodexWorkerPrompt, type PreparedCodexDispatch } from "./codex-dispatch";
+import type { WorkerRuntimeMetadata } from "./worker-runtime-metadata";
+
+export interface WorkerRuntimeExecution {
+  command: CommandRunResult;
+  runtime: WorkerRuntimeMetadata;
+}
 
 export interface WorkerRuntimeAdapter {
   kind: "exec-json";
@@ -10,7 +16,7 @@ export interface WorkerRuntimeAdapter {
     worktreePath: string;
     codexBin?: string;
   }): PreparedCodexDispatch;
-  execute(dispatch: PreparedCodexDispatch): Promise<CommandRunResult>;
+  execute(dispatch: PreparedCodexDispatch): Promise<WorkerRuntimeExecution>;
 }
 
 export function buildExecJsonCommand(input: {
@@ -54,7 +60,10 @@ export const execJsonWorkerRuntimeAdapter: WorkerRuntimeAdapter = {
       }),
     };
   },
-  execute(dispatch) {
-    return runCommand(dispatch.command);
+  async execute(dispatch) {
+    return {
+      command: await runCommand(dispatch.command),
+      runtime: { kind: "exec-json" },
+    };
   },
 };
