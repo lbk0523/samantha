@@ -152,7 +152,7 @@ describe("codex dispatch preparation", () => {
       worktreePath: "/tmp/samantha-worktree",
     });
 
-    expect(result.runtime).toEqual({ kind: "exec-json" });
+    expect(result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(result.command).toMatchObject({
       command: ["bash", "-lc", "printf ok"],
       exitCode: 0,
