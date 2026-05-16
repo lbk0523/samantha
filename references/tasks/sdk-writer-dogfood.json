@@ -1,0 +1,30 @@
+{
+  "id": "sdk-writer-dogfood",
+  "title": "Dogfood SDK writer runtime",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sdk-adapter-s7-writer-dogfood.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "package.json",
+    "bun.lock",
+    "runs/**",
+    "worktrees/**",
+    "references/tasks/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/initiatives/sdk-adapter-samantha.md",
+    "references/initiatives/sdk-adapter-s7-decision.md",
+    "references/initiatives/sdk-adapter-s7-failed-dogfood.md"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "test -f references/initiatives/sdk-adapter-s7-writer-dogfood.md",
+    "grep -F 'SDK writer dogfood marker: 2026-05-16 explicit experimental runtime' references/initiatives/sdk-adapter-s7-writer-dogfood.md"
+  ],
+  "instructions": "Create only references/initiatives/sdk-adapter-s7-writer-dogfood.md. Keep it short: include a heading, one sentence saying this file was created by a bounded SDK writer dogfood run, and the exact line `SDK writer dogfood marker: 2026-05-16 explicit experimental runtime`. Do not edit any other file. End with exactly one HARNESS_RESULT line with status pass and an empty commit.",
+  "expectedCommitSubject": "docs: add sdk writer dogfood evidence",
+  "status": "pending"
+}

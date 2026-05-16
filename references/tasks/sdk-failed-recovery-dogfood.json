@@ -1,0 +1,29 @@
+{
+  "id": "sdk-failed-recovery-dogfood",
+  "title": "Dogfood SDK failed-run recovery",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sdk-adapter-s7-failed-dogfood.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "package.json",
+    "bun.lock",
+    "runs/**",
+    "worktrees/**",
+    "references/tasks/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/initiatives/sdk-adapter-samantha.md",
+    "references/initiatives/sdk-adapter-s7-decision.md",
+    "references/initiatives/sdk-adapter-s7-writer-dogfood.md"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bash -lc 'echo intentional sdk failed-run recovery dogfood >&2; exit 7'"
+  ],
+  "instructions": "Create only references/initiatives/sdk-adapter-s7-failed-dogfood.md. The file should be short and say this is an intentional SDK failed-run recovery dogfood artifact. Do not edit any other file. End with exactly one HARNESS_RESULT line with status pass and an empty commit.",
+  "expectedCommitSubject": "docs: add sdk failed recovery dogfood artifact",
+  "status": "pending"
+}
