@@ -383,8 +383,55 @@ source of truth for Samantha lifecycle decisions.
 ## Current Next Slice
 
 No next implementation slice is ready. The S7 decision keeps `codex-sdk` as an
-explicit experimental runtime and keeps `exec-json` as the default. Future SDK
-promotion needs new live writer and real failed-run recovery evidence.
+explicit experimental runtime and keeps `exec-json` as the default. Live writer
+and real failed-run recovery evidence now exist, but future SDK promotion still
+needs repeated runtime-error diagnosability evidence and an explicit dependency
+maintenance plan.
+
+## 2026-05-16 SDK Verification Update
+
+Completed:
+
+- Added bounded SDK dogfood task specs:
+  `references/tasks/sdk-writer-dogfood.json` and
+  `references/tasks/sdk-failed-recovery-dogfood.json`.
+- Ran a live SDK writer task:
+  `runs/2026-05-16T05-12-54-588Z-sdk-writer-dogfood.json`.
+- Accepted and cleaned writer commit
+  `93974ae6d4606c85a835370846aec6e44b879961`.
+- Ran a real SDK failed-run recovery source:
+  `runs/2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood.json`.
+- Generated `references/tasks/sdk-failed-recovery-follow-up.json` with
+  `tasks:from-run`; it preserved the failed verify command and included SDK
+  thread id `019e2f35-d859-7502-8c09-56b364b0cf4b` only as optional context.
+- Ran the generated SDK recovery follow-up:
+  `runs/2026-05-16T05-16-42-812Z-sdk-failed-recovery-follow-up.json`.
+- Accepted and cleaned recovery commit
+  `1423d4ae1e07176a937567edaa0d997781acf83e`.
+
+Verification:
+
+- `bun test tests/task-template.test.ts tests/cli.test.ts` passed before live
+  dogfood task execution.
+- The SDK writer run passed with changed files limited to
+  `references/initiatives/sdk-adapter-s7-writer-dogfood.md`, zero scope
+  violations, passing verify commands, runtime kind `codex-sdk`, and SDK thread
+  id `019e2f33-a8d0-7a33-be08-40eb9790f71d`.
+- The SDK failed run failed only deterministic verification, changed only
+  `references/initiatives/sdk-adapter-s7-failed-dogfood.md`, had zero scope
+  violations, and recorded runtime kind `codex-sdk`.
+- The generated recovery follow-up passed with changed files limited to
+  `references/initiatives/sdk-adapter-s7-failed-dogfood.md`, zero scope
+  violations, passing verify commands, runtime kind `codex-sdk`, and SDK thread
+  id `019e2f37-2536-7160-a768-953e10feccd2`.
+
+Status:
+
+- `codex-sdk` is implemented as a guarded, explicit runtime and now has live
+  report-only, writer, failed-run, and recovery-follow-up evidence.
+- `exec-json` remains the default runtime.
+- SDK is still not promoted to the default path because runtime-error
+  diagnosability and dependency maintenance are not yet evidenced enough.
 
 ## 2026-05-16 S7 Update
 

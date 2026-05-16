@@ -1,0 +1,29 @@
+{
+  "id": "sdk-failed-recovery-follow-up",
+  "title": "Recover SDK failed dogfood",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sdk-adapter-s7-failed-dogfood.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "package.json",
+    "bun.lock",
+    "runs/**",
+    "worktrees/**",
+    "references/tasks/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/initiatives/sdk-adapter-samantha.md",
+    "references/initiatives/sdk-adapter-s7-decision.md",
+    "references/initiatives/sdk-adapter-s7-writer-dogfood.md"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "grep -F 'SDK failed recovery marker: follow-up can fix this' references/initiatives/sdk-adapter-s7-failed-dogfood.md"
+  ],
+  "instructions": "Create a narrowed follow-up from Samantha run evidence.\nRun log: /Users/byung/Documents/samantha/runs/2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood.json\nOriginal run: 2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood\nOriginal task: sdk-failed-recovery-dogfood - Dogfood SDK failed-run recovery\nDiagnosis: verify_failed (verify command failed (1): grep -F 'SDK failed recovery marker: follow-up can fix this' references/initiatives/sdk-adapter-s7-failed-dogfood.md).\n\nSDK resume candidate thread id: 019e2f35-d859-7502-8c09-56b364b0cf4b\nUse this thread only as optional context if the next runner explicitly supports SDK resume.\nThe follow-up task spec, repository state, target files, and verifyCommands remain authoritative.\n\nCreate a rework fix for the failed verification.\nKeep this failed verify command in verifyCommands: grep -F 'SDK failed recovery marker: follow-up can fix this' references/initiatives/sdk-adapter-s7-failed-dogfood.md\nDo not treat the previous worker output as accepted work until Samantha verification passes in the new run.\n\nDo not retry the previous run, dispatch agents, merge, clean up worktrees, push, draft lessons, promote learning artifacts, create hidden memory, or change lifecycle state. Samantha owns those transitions.",
+  "expectedCommitSubject": "fix: Recover SDK failed dogfood",
+  "status": "pending"
+}

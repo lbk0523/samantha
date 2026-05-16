@@ -97,6 +97,30 @@ Reconsider promotion only after evidence includes all of the following:
 
 Until then, SDK runtime usage should stay deliberate and bounded.
 
+## Additional Dogfood Verification
+
+After the initial S7 decision, BK requested the missing verification work. The
+following live SDK runs were completed on 2026-05-16:
+
+| Run | Outcome | Evidence |
+| --- | --- | --- |
+| `2026-05-16T05-12-54-588Z-sdk-writer-dogfood` | pass | SDK writer run created Samantha-owned commit `93974ae6d4606c85a835370846aec6e44b879961`, later accepted and cleaned. |
+| `2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood` | verify_failed | Real SDK run preserved `threadId` `019e2f35-d859-7502-8c09-56b364b0cf4b`, changed only the declared target file, and failed only the declared verify command. |
+| `2026-05-16T05-16-42-812Z-sdk-failed-recovery-follow-up` | pass | `tasks:from-run` generated a bounded follow-up task that kept the failed verify command and SDK thread id as optional context; the follow-up SDK run created Samantha-owned commit `1423d4ae1e07176a937567edaa0d997781acf83e`, later accepted and cleaned. |
+
+This upgrades the implementation evidence:
+
+- SDK writer execution has now produced and accepted a Samantha-owned commit.
+- Real SDK failed-run recovery has now gone through `tasks:from-run` and a
+  passing follow-up run.
+- SDK thread continuity remained optional context; the follow-up task spec,
+  target files, forbidden changes, and verify command stayed authoritative.
+- Existing lifecycle and cleanup authority remained Samantha-owned.
+
+The decision still does not promote SDK to the default runtime. The remaining
+promotion gaps are repeated runtime-error diagnosability evidence and an
+explicit dependency/version maintenance plan for `@openai/codex-sdk`.
+
 ## Authority Invariants
 
 - Runtime metadata is evidence only.
@@ -120,4 +144,3 @@ Until then, SDK runtime usage should stay deliberate and bounded.
 - Reviewed focused tests:
   `tests/worker-dispatch.test.ts`, `tests/codex-dispatch.test.ts`, and
   `tests/task-from-run.test.ts`.
-

@@ -21,9 +21,9 @@
   ],
   "setupCommands": [],
   "verifyCommands": [
-    "bash -lc 'echo intentional sdk failed-run recovery dogfood >&2; exit 7'"
+    "grep -F 'SDK failed recovery marker: follow-up can fix this' references/initiatives/sdk-adapter-s7-failed-dogfood.md"
   ],
-  "instructions": "Create only references/initiatives/sdk-adapter-s7-failed-dogfood.md. The file should be short and say this is an intentional SDK failed-run recovery dogfood artifact. Do not edit any other file. End with exactly one HARNESS_RESULT line with status pass and an empty commit.",
+  "instructions": "Create only references/initiatives/sdk-adapter-s7-failed-dogfood.md. The file should be short and say this is an intentional SDK failed-run recovery dogfood artifact. Do not include the exact text `SDK failed recovery marker: follow-up can fix this`; the first run is expected to fail verification so tasks:from-run can generate a bounded recovery task. Do not edit any other file. End with exactly one HARNESS_RESULT line with status pass and an empty commit.",
   "expectedCommitSubject": "docs: add sdk failed recovery dogfood artifact",
   "status": "pending"
 }
