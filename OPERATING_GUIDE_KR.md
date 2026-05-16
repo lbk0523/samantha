@@ -257,6 +257,36 @@ Samantha는 현재 세션에서 처리할 수 있는 작은 follow-up이나, 아
 정해야 하는 작업에는 `/goal`을 쓰지 않아야 한다. doctrine/architecture 단계에서는
 ready-to-send `/goal`보다 next design artifact를 우선 제안한다.
 
+## SDK Dogfood Runtime 선택
+
+Samantha self-build task에서 Codex SDK runtime을 dogfood하려면 operator 또는 실행
+명령이 명시적으로 선택해야 한다:
+
+```bash
+bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samantha --runtime=codex-sdk
+```
+
+기본 `run-task` runtime은 계속 `exec-json`이다. `codex-sdk`를 선택하지 않은 일반
+worker 실행, batch execution, report orchestration은 기본 runtime을 사용한다.
+
+`codex-sdk`는 다음 조건을 모두 만족할 때만 우선 dogfood 대상으로 선택한다:
+
+- Samantha repo 자신의 bounded self-build task다.
+- task spec의 target files, forbidden changes, verify commands가 충분히 좁다.
+- SDK thread/runtime metadata가 다음 recovery 또는 diagnosability에 실제로 도움이 된다.
+- SDK credential/local runtime 상태가 준비되어 있고 실패해도 `exec-json`으로 명시
+  fallback할 수 있다.
+
+다음 경우에는 `exec-json`을 사용한다:
+
+- 일반 작업이거나 SDK evidence를 추가로 쌓을 이유가 없다.
+- SDK runtime failure를 진단 중이거나 SDK local state가 불안정하다.
+- batch/report orchestration처럼 별도 runtime selector architecture가 필요한 표면이다.
+- default runtime 변경, App Server 통합, lifecycle/verification/scope/commit/cleanup
+  authority 변경이 필요해진다.
+
+상세 기준은 `references/playbooks/sdk-dogfood-runtime-selection.md`를 따른다.
+
 ## v1 Candidate Surface와 Hard Gate
 
 Samantha Operating Protocol v1은 다음 표면을 현재 operator activation에 자동으로
