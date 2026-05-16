@@ -1,6 +1,6 @@
 # Samantha 운영 가이드
 
-마지막 업데이트: 2026-05-15
+마지막 업데이트: 2026-05-16
 
 ## 목적
 
@@ -92,7 +92,7 @@ goal
 | Intent | 언제 쓰는가 | Samantha가 내야 하는 산출물 |
 | --- | --- | --- |
 | `command` | BK에게 software goal이 있고 Samantha 운영으로 정규화해야 할 때. | 먼저 단계와 lifecycle gate를 분류한다. implementation 단계이면 scoped plan, task spec 방향, 또는 ready-to-send `/goal`; doctrine/architecture 단계이면 roadmap 또는 artifact design. |
-| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX나 product doctrine을 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르는 tradeoff, 더 정확한 용어, accepted decision, remaining architecture question, decision point, 그리고 Brainstorm Brief. |
+| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX나 product doctrine을 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르는 문답식 수렴, tradeoff, 더 정확한 용어, 2-3개 방향 비교, accepted decision, rejected alternative, remaining architecture question, decision point, self-review, 그리고 Brainstorm Brief. |
 | `plan` | architecture/roadmap plan 또는 decision-complete implementation plan이 필요할 때. | 먼저 phase roadmap, architecture completeness, assumption, decision point, stop condition을 확인한다. implementation 단계일 때만 interface, scope, test를 포함한 구현 계획으로 내려간다. |
 | `review` | critique, readiness check, risk finding, evidence synthesis가 필요할 때. | findings와 open question이 있는 report-only assessment. |
 | `recover` | failed, blocked, stale, incomplete run evidence를 기준으로 다음 액션을 정해야 할 때. | diagnosis와 다음 bounded action. 보통 더 좁은 follow-up task 또는 lifecycle step. |
@@ -136,14 +136,16 @@ Samantha brainstorm: debut 전에 BK가 Samantha에게 어떤 종류의 말을 �
 
 - 먼저 target repo 또는 product context를 확인한다.
 - 대화형 작업으로 유지한다.
+- 한 번에 하나의 결정을 묻고, 추천 답과 tradeoff를 같이 제시한다.
 - 조용히 결정하지 말고 tradeoff와 추천안을 드러낸다.
-- 제품/UI 작업이면 visual question 전에 temporary browser visual companion을 한 번 제안한다.
-- 필요하면 2-3개의 MVP UI/UX 방향을 비교하고 하나로 수렴한다.
+- 제품/UI 작업이면 visual question 전에 temporary browser visual companion을 한 번 제안한다. 단 companion은 mode가 아니라 tool이며, 각 질문마다 "보는 것이 읽는 것보다 나은가"를 기준으로 사용 여부를 정한다.
+- 필요하면 2-3개의 MVP 방향을 비교하고 하나로 수렴한다.
 - accepted decisions와 remaining architecture questions를 먼저 분리한다.
-- 마지막에는 goal, audience, MVP user flow, accepted UI/UX decisions, rejected alternatives, open questions, recommended next prompt를 담은 Brainstorm Brief를 낸다.
+- 마지막에는 placeholder, contradiction, ambiguity, scope creep, YAGNI를 self-review한다.
+- 마지막에는 goal, audience, MVP user flow, recommended direction, accepted decisions, rejected alternatives, open questions, self-review notes, recommended next prompt를 담은 Brainstorm Brief를 낸다.
 - BK가 command나 plan 요청으로 바꾸기 전까지 executable work로 넘어가지 않는다.
 - brainstorm 방향을 곧바로 task spec이나 구현 slice로 축소하지 않는다.
-- production code, task spec, worker dispatch, committed UX spec, prototype route를 기본으로 만들지 않는다.
+- production code, task spec, worker dispatch, committed UX/design spec, prototype route를 기본으로 만들지 않는다.
 
 ### 계획만 요청
 

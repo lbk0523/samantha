@@ -1,6 +1,6 @@
 # Samantha Harness
 
-Last updated: 2026-05-15
+Last updated: 2026-05-16
 
 ## Decision
 
@@ -53,10 +53,12 @@ gates.
 
 See `OPERATING_GUIDE.md` for the full protocol and examples.
 
-`Samantha brainstorm` is the pre-execution direction surface for product and MVP
-UI/UX discussion. It may use temporary browser mockups as conversation aids, but
-it should end in a Brainstorm Brief rather than code, task specs, worker
-dispatches, or committed UX specs by default.
+`Samantha brainstorm` is the pre-execution direction surface for product,
+architecture, and MVP UI/UX discussion. It should inspect context, ask one
+narrowing question at a time, compare two or three directions when useful, and
+use temporary browser visuals only when seeing the artifact is better than
+reading about it. It should end in a self-reviewed Brainstorm Brief rather than
+code, task specs, worker dispatches, or committed design specs by default.
 
 When a brainstorm or plan creates multiple dependent slices, preserve the parent
 context in an Initiative Continuity Brief under `references/initiatives/`. The

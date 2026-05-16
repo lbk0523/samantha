@@ -1,6 +1,6 @@
 # Samantha Operating Guide
 
-Last updated: 2026-05-15
+Last updated: 2026-05-16
 
 ## Purpose
 
@@ -94,7 +94,7 @@ goal
 | Intent | Use it when | Samantha should produce |
 | --- | --- | --- |
 | `command` | BK has a software goal that Samantha should normalize. | Classify the stage and lifecycle gate first. If it is implementation-stage work, produce a scoped plan, task spec direction, or ready-to-send `/goal`; if it is doctrine/architecture-stage work, produce a roadmap or artifact design. |
-| `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX or product doctrine. | Tradeoffs, sharper terminology, accepted decisions, remaining architecture questions, decision points, and a Brainstorm Brief following `references/playbooks/samantha-brainstorming.md`. |
+| `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX or product doctrine. | Question-driven convergence, tradeoffs, sharper terminology, two or three direction options, accepted decisions, rejected alternatives, remaining architecture questions, decision points, self-review, and a Brainstorm Brief following `references/playbooks/samantha-brainstorming.md`. |
 | `plan` | BK wants an architecture/roadmap plan or a decision-complete implementation plan. | Check the phase roadmap, architecture completeness, assumptions, decision points, and stop conditions first. Only move into implementation planning when the work is implementation-stage. |
 | `review` | BK wants critique, readiness checks, risk finding, or evidence synthesis. | A report-only assessment with findings and open questions. |
 | `recover` | BK points at failed, blocked, stale, or incomplete run evidence. | A diagnosis and next bounded action, usually a narrower follow-up task or lifecycle step. |
@@ -139,20 +139,24 @@ Expected behavior:
 
 - Inspect the target repo or product context first.
 - Keep the work conversational.
+- Ask one decision at a time, with a recommended answer and tradeoff.
 - Surface tradeoffs and recommendations instead of silently choosing.
 - For product/UI work, offer a temporary browser visual companion once before
-  visual questions.
-- Compare two or three MVP UI/UX directions when useful, then converge on one.
+  visual questions. The companion is a tool, not a mode; use it per question
+  only when seeing the artifact is better than reading about it.
+- Compare two or three MVP directions when useful, then converge on one.
 - Separate accepted decisions from remaining architecture questions first.
+- Self-review the direction for placeholders, contradictions, ambiguity, scope
+  creep, and YAGNI before closing.
 - End with a Brainstorm Brief covering the goal, audience, MVP user flow,
-  accepted UI/UX decisions, rejected alternatives, open questions, and
-  recommended next prompt.
+  recommended direction, accepted decisions, rejected alternatives, open
+  questions, self-review notes, and recommended next prompt.
 - Stop before executable work unless BK turns the discussion into a command or
   plan request.
 - Do not collapse brainstorm direction directly into a task spec or
   implementation slice.
 - Do not create production code, task specs, worker dispatches, committed UX
-  specs, or prototype routes by default.
+  or design specs, or prototype routes by default.
 
 ### Plan Only
 
