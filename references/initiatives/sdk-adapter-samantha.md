@@ -386,7 +386,8 @@ No next implementation slice is ready. The S7 decision keeps `codex-sdk` as an
 explicit experimental runtime and keeps `exec-json` as the default. Live writer
 and real failed-run recovery evidence now exist, but future SDK promotion still
 needs repeated runtime-error diagnosability evidence and an explicit dependency
-maintenance plan.
+maintenance plan. The follow-up S8-S11 promotion and application plan is
+tracked in `references/initiatives/sdk-adapter-promotion-plan.md`.
 
 ## 2026-05-16 SDK Verification Update
 
