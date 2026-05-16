@@ -1,6 +1,6 @@
 # Initiative: Weekly Promotion Review
 
-Status: proposed
+Status: decisions recorded
 Source: Samantha self-build learning UX slice, 2026-05-16
 
 ## Goal
@@ -16,6 +16,14 @@ routine trigger behavior in this slice.
 - The report may summarize `lessons:promotion-queue` output and recommend
   explicit manual promotion candidates.
 - Promotion remains explicit and manual through `lessons:promote`.
+- The review cadence is every Saturday at 00:00 Asia/Seoul.
+- The source-of-truth output is a repository artifact, not a thread report,
+  because Samantha learning and audit evidence must be reviewable repository
+  artifacts.
+- A thread report may exist only as an optional derived notification from the
+  repository artifact.
+- If the inbox or promotion queue is empty, the review should stop without
+  creating a weekly report.
 
 ## Non-Goals
 
@@ -28,21 +36,23 @@ routine trigger behavior in this slice.
 
 ## Decision Points Before Implementation
 
-- Should the weekly report be written as a repo artifact, posted as a thread
-  report, or both?
-- What review cadence and owner should the report use?
-- Should the report run only when inbox candidates exist, or also when the queue
-  is empty as a heartbeat?
-- What exact artifact should represent the scheduler authority and audit trail?
+- What exact repository artifact path and schema should represent the weekly
+  report?
+- What future reviewed authority artifact, if any, should represent the routine
+  trigger and audit trail?
+- What optional thread notification metadata should derive from the repository
+  artifact, if notification is added?
 
 ## Candidate Report Shape
 
 ```text
 weekly promotion review
 -> read references/lessons/reviews/index.json or run lessons:promotion-queue
+-> stop without creating a weekly report if the inbox or promotion queue is empty
 -> group queue by promote_candidate, manual_review, needs_more_evidence, reject_candidate
--> report counts and top candidate paths
--> stop before promotion or artifact mutation
+-> write a repository artifact with counts and top candidate paths
+-> optionally derive a thread notification from that repository artifact
+-> stop before promotion or repository mutation beyond the weekly report artifact
 ```
 
 ## Verification For Future Slice
