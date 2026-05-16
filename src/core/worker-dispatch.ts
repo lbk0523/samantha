@@ -1,14 +1,18 @@
 import type { AgentProfile, TaskSpec, WorktreeAllocation } from "./contracts";
-import { prepareCodexDispatch, type PreparedCodexDispatch } from "./codex-dispatch";
+import type { PreparedCodexDispatch } from "./codex-dispatch";
 import { gitHead } from "./git";
 import { validateDispatch } from "./policy";
 import { unresolvedDispatchPlaceholders } from "./task-placeholders";
+import { runCommand as runProcessCommand, type CommandRunResult } from "./command-runner";
+import { execJsonWorkerRuntimeAdapter } from "./worker-runtime-adapter";
 import {
   collectChangedFileSnapshots,
   evaluateWorkerResult,
   type WorkerResultEvaluation,
 } from "./worker-result";
 import { allocateWorktree } from "./worktree";
+
+export { runCommand, type CommandRunResult } from "./command-runner";
 
 export interface PrepareWorkerDispatchInput {
   task: TaskSpec;
@@ -27,13 +31,6 @@ export interface WorkerDispatchPreparation {
   codex: PreparedCodexDispatch;
 }
 
-export interface CommandRunResult {
-  command: string[];
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
 export interface WorkerCommitResult {
   subject: string;
   files: string[];
@@ -50,27 +47,6 @@ export interface WorkerDispatchExecution {
   evaluation?: WorkerResultEvaluation;
   commit?: WorkerCommitResult;
   pass: boolean;
-}
-
-const WORKER_ENV_KEYS = [
-  "PATH",
-  "HOME",
-  "TMPDIR",
-  "TMP",
-  "TEMP",
-  "LANG",
-  "LC_ALL",
-  "LC_CTYPE",
-] as const;
-
-function workerSubprocessEnv(source: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const key of WORKER_ENV_KEYS) {
-    const value = source[key];
-    if (value) env[key] = value;
-  }
-  env.PATH ??= "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
-  return env;
 }
 
 export async function prepareWorkerDispatch(
@@ -103,35 +79,20 @@ export async function prepareWorkerDispatch(
     agentId: input.agent.id,
     worktreePath,
     allocation,
-    codex: prepareCodexDispatch(input.task, input.agent, worktreePath, input.codexBin),
+    codex: execJsonWorkerRuntimeAdapter.prepare({
+      task: input.task,
+      agent: input.agent,
+      worktreePath,
+      codexBin: input.codexBin,
+    }),
   };
-}
-
-export async function runCommand(
-  command: string[],
-  options: { cwd?: string } = {},
-): Promise<CommandRunResult> {
-  const child = Bun.spawn(command, {
-    cwd: options.cwd,
-    env: workerSubprocessEnv(),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-
-  return { command, exitCode, stdout, stderr };
 }
 
 export async function runSetupCommands(commands: string[], cwd: string): Promise<CommandRunResult[]> {
   const results: CommandRunResult[] = [];
 
   for (const command of commands) {
-    const result = await runCommand(["bash", "-lc", command], { cwd });
+    const result = await runProcessCommand(["bash", "-lc", command], { cwd });
     results.push(result);
     if (result.exitCode !== 0) break;
   }
@@ -152,7 +113,7 @@ export async function commitWorkerChanges(input: {
   const subject = commitSubjectForTask(input.task);
   const add =
     files.length > 0
-      ? await runCommand(["git", "add", "--", ...files], { cwd: input.cwd })
+      ? await runProcessCommand(["git", "add", "--", ...files], { cwd: input.cwd })
       : {
           command: ["git", "add", "--"],
           exitCode: 1,
@@ -161,7 +122,7 @@ export async function commitWorkerChanges(input: {
         };
   const commit =
     add.exitCode === 0
-      ? await runCommand(["git", "commit", "-m", subject], { cwd: input.cwd })
+      ? await runProcessCommand(["git", "commit", "-m", subject], { cwd: input.cwd })
       : {
           command: ["git", "commit", "-m", subject],
           exitCode: 1,
@@ -198,7 +159,7 @@ export async function executeWorkerDispatch(
     };
   }
 
-  const command = await runCommand(preparation.codex.command);
+  const command = await execJsonWorkerRuntimeAdapter.execute(preparation.codex);
   const output = [command.stdout, command.stderr].filter(Boolean).join("\n");
   const evaluation = await evaluateWorkerResult({
     task: input.task,

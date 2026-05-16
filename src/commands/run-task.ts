@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { prepareCodexDispatch } from "../core/codex-dispatch";
 import type { AgentProfile, TaskSpec } from "../core/contracts";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "../core/ledger";
 import { writeWorkerRunLog, type WorkerRunLogWrite } from "../core/run-log";
 import { executeWorkerDispatch, type WorkerDispatchExecution } from "../core/worker-dispatch";
+import { execJsonWorkerRuntimeAdapter } from "../core/worker-runtime-adapter";
 
 export interface RunTaskCommandInput {
   taskPath: string;
@@ -45,7 +45,12 @@ function blockedExecution(input: {
       taskId: input.task.id,
       agentId: input.agent.id,
       worktreePath: input.repoRoot,
-      codex: prepareCodexDispatch(input.task, input.agent, input.repoRoot, input.codexBin),
+      codex: execJsonWorkerRuntimeAdapter.prepare({
+        task: input.task,
+        agent: input.agent,
+        worktreePath: input.repoRoot,
+        codexBin: input.codexBin,
+      }),
     },
     setupResults: [],
     dispatchError: input.error.message,

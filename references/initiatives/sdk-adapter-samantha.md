@@ -87,6 +87,38 @@ pain points harder than they need to be:
 - The existing `codex exec --json` path remains available as a fallback until a
   later reviewed decision removes it.
 
+## S1+S2 ADR: Worker Runtime Adapter Boundary
+
+Decision:
+
+Introduce `WorkerRuntimeAdapter` as a narrow runtime boundary. The adapter owns
+only worker prompt preparation, runtime-specific command construction, worker
+invocation, and raw runtime stdout/stderr/exit-code capture. The first concrete
+adapter is the existing `codex exec --json` subprocess path.
+
+Authority that remains outside the adapter:
+
+- Samantha-owned task specs and agent profiles define worker authority.
+- `worker-dispatch` owns dispatch policy checks, unresolved placeholder
+  rejection, worktree allocation, setup commands, baseline dirty-file capture,
+  worker output evaluation, scope checks, deterministic verification, and
+  Samantha-owned commit creation.
+- Run logs, lifecycle records, report authority, merge checks, cleanup, and
+  commit/push decisions remain Samantha-owned evidence and gates.
+
+Non-decisions for this slice:
+
+- No SDK dependency is installed.
+- No App Server integration is added.
+- No runtime selector is added.
+- No run log schema change is made.
+- No runtime adapter may accept, reject, verify, merge, commit, push, clean up,
+  or mutate lifecycle state.
+
+This boundary is decision-complete for extracting the current exec-json behavior:
+the extraction does not require moving verification, scope checks, commits, or
+lifecycle decisions into the adapter.
+
 ## Phase Plan
 
 ### Phase 0: Architecture Decision And Adapter Boundary

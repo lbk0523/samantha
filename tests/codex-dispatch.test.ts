@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
-import { buildCodexWorkerPrompt, prepareCodexDispatch } from "../src/core/codex-dispatch";
+import { buildCodexWorkerPrompt } from "../src/core/codex-dispatch";
+import { execJsonWorkerRuntimeAdapter } from "../src/core/worker-runtime-adapter";
 
 const worker: AgentProfile = {
   id: "codex-worker",
@@ -61,8 +62,13 @@ describe("codex dispatch preparation", () => {
   });
 
   test("builds a non-interactive codex exec command rooted at the worktree", () => {
-    const prepared = prepareCodexDispatch(task, worker, "/tmp/samantha-worktree");
+    const prepared = execJsonWorkerRuntimeAdapter.prepare({
+      task,
+      agent: worker,
+      worktreePath: "/tmp/samantha-worktree",
+    });
 
+    expect(execJsonWorkerRuntimeAdapter.kind).toBe("exec-json");
     expect(prepared.command.slice(0, 7)).toEqual([
       "codex",
       "exec",
@@ -78,8 +84,8 @@ describe("codex dispatch preparation", () => {
   });
 
   test("uses a read-only sandbox for non-writer agents", () => {
-    const prepared = prepareCodexDispatch(
-      {
+    const prepared = execJsonWorkerRuntimeAdapter.prepare({
+      task: {
         ...task,
         targetAgent: "codex-reviewer",
         resultMode: "report",
@@ -87,7 +93,7 @@ describe("codex dispatch preparation", () => {
         forbiddenChanges: ["**/*"],
         verifyCommands: [],
       },
-      {
+      agent: {
         ...worker,
         id: "codex-reviewer",
         role: "reviewer",
@@ -95,8 +101,8 @@ describe("codex dispatch preparation", () => {
         worktreePolicy: "none",
         mergePolicy: "none",
       },
-      "/repo",
-    );
+      worktreePath: "/repo",
+    });
 
     expect(prepared.prompt).toContain("This is a report-only task");
     expect(prepared.prompt).toContain("Produce an evidence-based report");
@@ -118,7 +124,12 @@ describe("codex dispatch preparation", () => {
   });
 
   test("can use an explicit codex executable path", () => {
-    const prepared = prepareCodexDispatch(task, worker, "/tmp/samantha-worktree", "/opt/codex/bin/codex");
+    const prepared = execJsonWorkerRuntimeAdapter.prepare({
+      task,
+      agent: worker,
+      worktreePath: "/tmp/samantha-worktree",
+      codexBin: "/opt/codex/bin/codex",
+    });
 
     expect(prepared.command[0]).toBe("/opt/codex/bin/codex");
   });
