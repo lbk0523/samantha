@@ -378,12 +378,47 @@ source of truth for Samantha lifecycle decisions.
 | S4 | completed | Run a report-only SDK capability spike and record findings. | S3 | report-only evidence; no production writes unless separately approved | `sam r: SDK Adapter initiative S4를 수행해. 공식 Codex SDK가 Samantha worker prompt, thread id, resume, result output, HARNESS_RESULT, error/approval 상태를 어떻게 제공하는지 report-only로 검토해줘.` |
 | S5 | completed | Implement guarded SDK runtime adapter behind an explicit option. | S4 plus explicit dependency decision | fake SDK adapter tests; existing exec-json tests; `bun run typecheck`; bounded dogfood run | `sam c: SDK Adapter initiative S5를 수행해. @openai/codex-sdk dependency 설치 또는 fake-only no-dependency slice 중 하나를 명시적으로 선택한 뒤, SDK runtime adapter를 explicit option 뒤에 추가하고 exec-json default와 fallback을 유지해줘.` |
 | S6 | completed | Add rework/resume semantics for SDK-backed failed runs. | S5 | recovery-focused tests; dogfood failed-run recovery evidence | `sam c: SDK Adapter initiative S6를 수행해. SDK thread continuity를 failed-run recovery에만 bounded하게 연결하고, task spec과 verification gate를 유지하는 rework/resume 흐름을 구현해줘.` |
-| S7 | ready | Decide whether to promote, retain as experimental, or reject SDK runtime. | S5 or S6 | report-only promotion review; documented decision | `sam r: SDK Adapter initiative S7을 수행해. S5/S6 evidence를 기준으로 SDK runtime을 normal path로 promote할지, experimental로 유지할지, reject할지 findings-first로 검토해줘.` |
+| S7 | completed | Decide whether to promote, retain as experimental, or reject SDK runtime. | S5 or S6 | report-only promotion review; documented decision | `sam r: SDK Adapter initiative S7을 수행해. S5/S6 evidence를 기준으로 SDK runtime을 normal path로 promote할지, experimental로 유지할지, reject할지 findings-first로 검토해줘.` |
 
 ## Current Next Slice
 
-S7 is ready: decide whether SDK runtime should be promoted, retained as
-experimental, or rejected based on S5/S6 evidence.
+No next implementation slice is ready. The S7 decision keeps `codex-sdk` as an
+explicit experimental runtime and keeps `exec-json` as the default. Future SDK
+promotion needs new live writer and real failed-run recovery evidence.
+
+## 2026-05-16 S7 Update
+
+Completed:
+
+- Recorded the promotion decision in
+  `references/initiatives/sdk-adapter-s7-decision.md`.
+- Decided to retain `codex-sdk` as an explicit experimental runtime.
+- Rejected normal-path promotion for now because live evidence is limited to one
+  report-only SDK dogfood run and synthetic failed-run recovery evidence.
+- Rejected full SDK removal because fake SDK tests and the live report-only
+  dogfood run show the adapter can preserve Samantha-owned gates.
+
+Verification:
+
+- Reviewed S4 capability report:
+  `references/initiatives/sdk-adapter-s4-report.md`.
+- Reviewed S5 live SDK dogfood run:
+  `runs/2026-05-16T04-48-50-868Z-fixture-report-reviewer.json`.
+- Reviewed S5/S6 code and tests for runtime boundary, worker dispatch, and
+  failed-run recovery semantics.
+- `git diff --check -- references/initiatives/sdk-adapter-samantha.md references/initiatives/sdk-adapter-s7-decision.md`
+  passed.
+
+Decision changes:
+
+- `exec-json` remains the default runtime.
+- `codex-sdk` remains available only through the explicit experimental
+  `run-task --runtime=codex-sdk` path.
+- No App Server integration, broader runtime selector, run log schema change,
+  lifecycle authority change, or default runtime promotion is introduced.
+- Future promotion requires at least one bounded SDK writer run and one real
+  failed SDK run recovered through `tasks:from-run` without weakening task
+  specs, scope checks, deterministic verification, or lifecycle authority.
 
 ## 2026-05-16 S6 Update
 
