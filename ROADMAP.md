@@ -1,6 +1,6 @@
 # Samantha Roadmap
 
-Last updated: 2026-05-14
+Last updated: 2026-05-16
 
 ## Purpose
 
@@ -25,9 +25,26 @@ Do not use this roadmap to smuggle in broad backlog scope. When a phase is ready
 for implementation, promote the smallest slice into a task spec with target
 files, forbidden changes, and verification commands.
 
+## Version Boundary: v1
+
+Samantha v1 is the dogfood and evidence-driven improvement version. The goal is
+to use Samantha on real Codex work, accumulate run evidence, lesson evidence,
+and task evidence, and improve harness performance and convenience through
+explicit reviewed artifacts.
+
+Phase 0 is the credible local harness baseline. v1 starts from that baseline and
+prioritizes recovery quality, reviewable learning, task-spec convenience,
+report/review quality, focused verification, and clearer run summaries.
+
+Surfaces such as daemon/watch operation, dashboards, routine triggers, chat or
+remote-control adapters, budget governance, and multi-project orchestration are
+v1 candidate surfaces, not automatic scope. They should not be rejected solely
+as v0 non-goals, but each needs its own reviewed product slice with authority,
+verification, evidence, and lifecycle gates.
+
 ## Phase 0: Credible Local Harness
 
-Status: current baseline.
+Status: v0 baseline completed; retained as the v1 trust baseline.
 
 User capability:
 
@@ -55,7 +72,7 @@ Acceptance evidence:
 - passing writer run logs with Samantha-owned commits
 - failed or out-of-scope run logs rejected without trusted commits
 
-Non-goals:
+Deferred from the v0 baseline:
 
 - chat adapters
 - daemon operation
@@ -64,6 +81,9 @@ Non-goals:
 - budget governance
 - multi-project orchestration
 - parallel writer execution
+
+In v1, these are not automatic rejections. They remain out of the Phase 0
+baseline and require separate reviewed product slices before implementation.
 
 ## Phase 1: Evidence-Driven Recovery Loop
 
@@ -328,7 +348,7 @@ before writer parallelism becomes routine.
 
 ## Deferred Product Surfaces
 
-These are not roadmap phases yet:
+These are v1 candidate surfaces, not roadmap phases yet:
 
 - chat or remote adapters
 - daemon/watch operation
@@ -339,7 +359,8 @@ These are not roadmap phases yet:
 - autonomous push or cleanup
 
 Each surface needs its own reviewed product slice with authority, verification,
-evidence, and lifecycle gates. None should re-enter as inherited migration scope.
+evidence, and lifecycle gates. None should re-enter as inherited migration
+scope, and none should be rejected solely because it was a v0 non-goal.
 
 ## Roadmap Maintenance
 
