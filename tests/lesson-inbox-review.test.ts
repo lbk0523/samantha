@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { reviewLessonInbox } from "../src/core/lesson-inbox-review";
+import { buildLessonPromotionQueue, reviewLessonInbox } from "../src/core/lesson-inbox-review";
 
 let tmpRoots: string[] = [];
 
@@ -144,6 +144,32 @@ describe("lesson inbox review", () => {
       promotionCandidates: 1,
       manualReview: 0,
     });
+    expect(result.index.queue).toEqual([
+      {
+        candidatePath: promotionCandidate,
+        reviewPath: promotionCandidateReview,
+        runId: "promotion-candidate-run",
+        taskId: "repeated-cli-command",
+        action: "promote_candidate",
+        reason: "playbook candidate is ready for manual promotion",
+      },
+      {
+        candidatePath: playbookCandidate,
+        reviewPath: playbookReview,
+        runId: "playbook-run",
+        taskId: "add-cli-command",
+        action: "needs_more_evidence",
+        reason: "playbook candidate needs more evidence before promotion (1/2)",
+      },
+      {
+        candidatePath: staleCandidate,
+        reviewPath: staleReview,
+        runId: "stale-run",
+        taskId: "inspect-only",
+        action: "reject_candidate",
+        reason: "superseded: superseded by accepted and cleaned run; suggested artifact type marks no promotion",
+      },
+    ]);
     expect(result.index.candidates).toEqual([
       {
         candidatePath: playbookCandidate,
@@ -213,5 +239,54 @@ describe("lesson inbox review", () => {
       classification: "promotion_candidate",
       recommendedAction: "promote_playbook",
     });
+  });
+
+  test("builds a promotion queue report without promoting candidates", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-inbox-review-"));
+    tmpRoots.push(root);
+    await writeCandidate(
+      root,
+      "promotion-candidate-run.md",
+      `# Lesson Candidate: promotion-candidate-run
+
+## Source
+- Source run id: promotion-candidate-run
+- Task id: repeated-cli-command
+- Task title: Repeated CLI command
+- Run log: /repo/runs/promotion-candidate-run.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+### Recurrence
+- Task family: repeated-cli-command
+- Recurrence outcome: pass
+- Recurrence count: 2
+- Promotion threshold: 2
+
+## Proposed Lesson
+- Proposed lesson: Promote the repeated CLI command pattern.
+- Affected layer: playbook
+- Suggested artifact type: playbook
+- Risk if adopted: Promotion still requires manual review.
+`,
+    );
+
+    const report = await buildLessonPromotionQueue({ repoRoot: root });
+
+    expect(report.summary.promotionCandidates).toBe(1);
+    expect(report.queue).toEqual([
+      {
+        candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
+        reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+        runId: "promotion-candidate-run",
+        taskId: "repeated-cli-command",
+        action: "promote_candidate",
+        reason: "playbook candidate is ready for manual promotion",
+      },
+    ]);
   });
 });

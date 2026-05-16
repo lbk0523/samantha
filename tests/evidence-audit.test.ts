@@ -192,6 +192,9 @@ describe("auditOperationsEvidence", () => {
     expect(audit.status).toBe("missing");
     expect(audit.lessonInbox.check.status).toBe("missing");
     expect(audit.lessonInbox.uncoveredCandidatePaths).toEqual([join(candidateDir, "run-1.md")]);
+    expect(audit.lessonInbox.unreviewedCandidateCount).toBe(1);
+    expect(audit.lessonInbox.promotionCandidateCount).toBe(0);
+    expect(audit.lessonInbox.check.reason).toContain("unreviewed lesson candidates 1, promotion candidates 0");
   });
 
   test("marks lesson inbox evidence stale when the review index misses current candidates", async () => {
@@ -204,7 +207,11 @@ describe("auditOperationsEvidence", () => {
     await writeFile(candidatePath, "# Lesson Candidate: run-1\n", "utf8");
     await writeFile(
       join(reviewDir, "index.json"),
-      `${JSON.stringify({ schemaVersion: 1, candidates: [{ candidatePath: join(candidateDir, "old.md") }] })}\n`,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        summary: { promotionCandidates: 1 },
+        candidates: [{ candidatePath: join(candidateDir, "old.md"), classification: "promotion_candidate" }],
+      })}\n`,
       "utf8",
     );
 
@@ -213,6 +220,9 @@ describe("auditOperationsEvidence", () => {
     expect(audit.status).toBe("stale");
     expect(audit.lessonInbox.check.status).toBe("stale");
     expect(audit.lessonInbox.uncoveredCandidatePaths).toEqual([candidatePath]);
+    expect(audit.lessonInbox.unreviewedCandidateCount).toBe(1);
+    expect(audit.lessonInbox.promotionCandidateCount).toBe(1);
+    expect(audit.lessonInbox.check.reason).toContain("unreviewed lesson candidates 1, promotion candidates 1");
   });
 
   test("clears lesson inbox evidence when current candidates are covered", async () => {
@@ -234,5 +244,8 @@ describe("auditOperationsEvidence", () => {
     expect(audit.status).toBe("clear");
     expect(audit.lessonInbox.check.status).toBe("clear");
     expect(audit.lessonInbox.uncoveredCandidatePaths).toEqual([]);
+    expect(audit.lessonInbox.unreviewedCandidateCount).toBe(0);
+    expect(audit.lessonInbox.promotionCandidateCount).toBe(0);
+    expect(audit.lessonInbox.check.reason).toContain("unreviewed lesson candidates 0, promotion candidates 0");
   });
 });

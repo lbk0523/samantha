@@ -45,6 +45,11 @@ interface RecurrenceContext {
   threshold: number;
 }
 
+interface LearningTriggerContext {
+  eligible: boolean;
+  reason: string;
+}
+
 const RECURRENCE_PROMOTION_THRESHOLD = 2;
 
 async function readRunLog(path: string): Promise<WorkerRunLog> {
@@ -304,6 +309,46 @@ async function recurrenceContext(input: {
   };
 }
 
+async function learningTriggerContext(input: {
+  log: WorkerRunLog;
+  runLogPath: string;
+}): Promise<LearningTriggerContext> {
+  const evidenceDir = dirname(input.runLogPath);
+  const sourceFamily = taskFamily(input.log.task.id);
+  const summaries = await new RunIndex(join(evidenceDir, "index.jsonl")).list();
+  const priorSameFamily = summaries.filter((summary) => {
+    return (
+      summary.runId !== input.log.runId &&
+      summary.finishedAt <= input.log.finishedAt &&
+      taskFamily(summary.taskId) === sourceFamily
+    );
+  });
+  const priorOutcomes = new Set(priorSameFamily.map((summary) => summary.outcome));
+  const priorFailures = priorSameFamily.filter((summary) => summary.outcome !== "pass");
+
+  if (priorOutcomes.has("verify_failed")) {
+    return { eligible: true, reason: "verify_failed recovery success" };
+  }
+  if (priorOutcomes.has("scope_failed")) {
+    return { eligible: true, reason: "scope violation corrected by accepted run" };
+  }
+  if (priorOutcomes.has("blocked") || priorOutcomes.has("rework")) {
+    return { eligible: true, reason: "blocked or rework run corrected by accepted run" };
+  }
+  if (priorFailures.length >= RECURRENCE_PROMOTION_THRESHOLD) {
+    return { eligible: true, reason: "repeated same-family failures corrected by accepted run" };
+  }
+
+  return {
+    eligible: false,
+    reason: "accepted writer run has no high-signal learning trigger evidence",
+  };
+}
+
+function candidatePathForRun(input: { repoRoot: string; runId: string }): string {
+  return join(input.repoRoot, "references", "lessons", "inbox", `${input.runId}.md`);
+}
+
 function buildLessonMarkdown(input: {
   log: WorkerRunLog;
   runLogPath: string;
@@ -384,7 +429,7 @@ export async function draftLessonFromRunLog(input: LessonDraftInput): Promise<Le
   const superseded = await supersededContext({ log, runLogPath, outcome: summary.outcome });
   const recurrence = await recurrenceContext({ log, runLogPath, outcome: summary.outcome });
   const inboxDir = join(repoRoot, "references", "lessons", "inbox");
-  const path = join(inboxDir, `${log.runId}.md`);
+  const path = candidatePathForRun({ repoRoot, runId: log.runId });
 
   await mkdir(inboxDir, { recursive: true });
   await writeFile(path, buildLessonMarkdown({ log, runLogPath, lifecycle, superseded, recurrence }), "utf8");
@@ -398,7 +443,7 @@ export async function draftLessonFromAcceptedRun(
   const runLogPath = resolve(input.runLogPath);
   const repoRoot = resolve(input.repoRoot ?? ".");
   const log = await readRunLog(runLogPath);
-  const path = join(repoRoot, "references", "lessons", "inbox", `${log.runId}.md`);
+  const path = candidatePathForRun({ repoRoot, runId: log.runId });
 
   if (isReportOnlyRun(log)) {
     return { status: "skipped", reason: "report-only run is not an automatic lesson draft target" };
@@ -424,11 +469,15 @@ export async function draftLessonFromAcceptedRun(
       runId: log.runId,
     };
   }
+  const trigger = await learningTriggerContext({ log, runLogPath });
+  if (!trigger.eligible) {
+    return { status: "skipped", reason: trigger.reason };
+  }
 
   const draft = await draftLessonFromRunLog(input);
   return {
     status: "created",
-    reason: "accepted and cleaned writer run",
+    reason: trigger.reason,
     path: draft.path,
     runId: draft.runId,
   };

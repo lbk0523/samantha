@@ -30,7 +30,7 @@ import { createTaskFromTemplate } from "./core/task-from-template";
 import { cleanupCompletedWorktree } from "./core/worktree-cleanup";
 import { diagnoseRun } from "./core/run-diagnose";
 import { createTaskFromRun } from "./core/task-from-run";
-import { reviewLessonInbox } from "./core/lesson-inbox-review";
+import { buildLessonPromotionQueue, reviewLessonInbox } from "./core/lesson-inbox-review";
 import { summarizeReportOnlyReviews } from "./core/report-review";
 import { preflightBatchSpec, type BatchSpec } from "./core/batch-spec";
 import { markBatchSpecRejected } from "./core/batch-spec-mutation";
@@ -112,6 +112,11 @@ export interface LessonsReviewCliArgs {
 
 export interface LessonsReviewInboxCliArgs {
   command: "lessons:review-inbox";
+  repoRoot?: string;
+}
+
+export interface LessonsPromotionQueueCliArgs {
+  command: "lessons:promotion-queue";
   repoRoot?: string;
 }
 
@@ -206,6 +211,7 @@ export type SamanthaCliArgs =
   | LessonsDraftCliArgs
   | LessonsReviewCliArgs
   | LessonsReviewInboxCliArgs
+  | LessonsPromotionQueueCliArgs
   | LessonsPromoteCliArgs
   | LessonsRecordEvidenceCliArgs
   | TasksFromTemplateCliArgs
@@ -461,6 +467,14 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "lessons:promotion-queue") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    return {
+      command: "lessons:promotion-queue",
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+    };
+  }
+
   if (command === "lessons:promote") {
     if (!first) {
       throw new Error("usage: bun run samantha lessons:promote <candidate.md> --playbook-id=<id>");
@@ -644,7 +658,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -748,6 +762,11 @@ export async function main(argv: string[]): Promise<number> {
 
   if (args.command === "lessons:review-inbox") {
     console.log(JSON.stringify(await reviewLessonInbox({ repoRoot: args.repoRoot }), null, 2));
+    return 0;
+  }
+
+  if (args.command === "lessons:promotion-queue") {
+    console.log(JSON.stringify(await buildLessonPromotionQueue({ repoRoot: args.repoRoot }), null, 2));
     return 0;
   }
 

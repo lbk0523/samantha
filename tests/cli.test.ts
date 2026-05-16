@@ -284,6 +284,10 @@ describe("samantha cli", () => {
       command: "lessons:review-inbox",
       repoRoot: "/tmp/samantha-repo",
     });
+    expect(parseCliArgs(["lessons:promotion-queue", "--repo-root=/tmp/samantha-repo"])).toEqual({
+      command: "lessons:promotion-queue",
+      repoRoot: "/tmp/samantha-repo",
+    });
     expect(
       parseCliArgs([
         "lessons:promote",
@@ -436,6 +440,72 @@ describe("samantha cli", () => {
           reviewPath: "references/lessons/reviews/run-1.json",
           runId: "run-1",
           classification: "auto_rejected",
+        },
+      ],
+    });
+  });
+
+  test("lesson promotion queue command prints a review queue without promoting", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-"));
+    tmpRoots.push(root);
+    const candidateDir = join(root, "references", "lessons", "inbox");
+    await mkdir(candidateDir, { recursive: true });
+    await writeFile(
+      join(candidateDir, "run-1.md"),
+      `# Lesson Candidate: run-1
+
+## Source
+- Source run id: run-1
+- Task id: cli-pattern-v2
+- Task title: CLI pattern again
+- Run log: /repo/runs/run-1.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+### Recurrence
+- Task family: cli-pattern
+- Recurrence outcome: pass
+- Recurrence count: 2
+- Promotion threshold: 2
+
+## Proposed Lesson
+- Proposed lesson: Keep CLI parser and command tests paired.
+- Affected layer: playbook
+- Suggested artifact type: playbook
+- Risk if adopted: Promotion still requires manual review.
+`,
+      "utf8",
+    );
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["lessons:promotion-queue", `--repo-root=${root}`])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      summary: {
+        total: 1,
+        promotionCandidates: 1,
+      },
+      queue: [
+        {
+          candidatePath: "references/lessons/inbox/run-1.md",
+          reviewPath: "references/lessons/reviews/run-1.json",
+          runId: "run-1",
+          taskId: "cli-pattern-v2",
+          action: "promote_candidate",
+          reason: "playbook candidate is ready for manual promotion",
         },
       ],
     });

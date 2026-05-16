@@ -28,6 +28,8 @@ export interface LessonInboxEvidenceAudit {
   reviewIndexPath: string;
   candidatePaths: string[];
   uncoveredCandidatePaths: string[];
+  unreviewedCandidateCount: number;
+  promotionCandidateCount: number;
   check: EvidenceAuditCheck;
 }
 
@@ -44,8 +46,12 @@ export interface AuditOperationsEvidenceInput {
 }
 
 interface LessonInboxReviewIndex {
+  summary?: {
+    promotionCandidates?: number;
+  };
   candidates?: Array<{
     candidatePath?: string;
+    classification?: string;
   }>;
 }
 
@@ -279,6 +285,8 @@ async function auditLessonInboxEvidence(repoRoot: string): Promise<LessonInboxEv
       reviewIndexPath,
       candidatePaths,
       uncoveredCandidatePaths: [],
+      unreviewedCandidateCount: 0,
+      promotionCandidateCount: 0,
       check: {
         id: "operations.evidence.lesson-inbox",
         status: "clear",
@@ -295,10 +303,12 @@ async function auditLessonInboxEvidence(repoRoot: string): Promise<LessonInboxEv
       reviewIndexPath,
       candidatePaths,
       uncoveredCandidatePaths: candidatePaths,
+      unreviewedCandidateCount: candidatePaths.length,
+      promotionCandidateCount: 0,
       check: {
         id: "operations.evidence.lesson-inbox",
         status: "missing",
-        reason: "lesson inbox candidates exist but no review index exists",
+        reason: `lesson inbox candidates exist but no review index exists; unreviewed lesson candidates ${candidatePaths.length}, promotion candidates 0`,
         evidence: candidateEvidence,
       },
     };
@@ -312,19 +322,24 @@ async function auditLessonInboxEvidence(repoRoot: string): Promise<LessonInboxEv
   const uncoveredCandidatePaths = candidatePaths.filter((path) =>
     candidateKeys(repoRoot, path).every((key) => !covered.has(key)),
   );
+  const promotionCandidateCount =
+    index.summary?.promotionCandidates ??
+    (index.candidates ?? []).filter((candidate) => candidate.classification === "promotion_candidate").length;
 
   return {
     inboxPath,
     reviewIndexPath,
     candidatePaths,
     uncoveredCandidatePaths,
+    unreviewedCandidateCount: uncoveredCandidatePaths.length,
+    promotionCandidateCount,
     check: {
       id: "operations.evidence.lesson-inbox",
       status: uncoveredCandidatePaths.length === 0 ? "clear" : "stale",
       reason:
         uncoveredCandidatePaths.length === 0
-          ? "lesson review index covers current inbox candidates"
-          : "lesson review index does not cover current inbox candidates",
+          ? `lesson review index covers current inbox candidates; unreviewed lesson candidates 0, promotion candidates ${promotionCandidateCount}`
+          : `lesson review index does not cover current inbox candidates; unreviewed lesson candidates ${uncoveredCandidatePaths.length}, promotion candidates ${promotionCandidateCount}`,
       evidence: uncoveredCandidatePaths.map((path) => repoRelativePath(repoRoot, path)),
     },
   };

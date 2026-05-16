@@ -310,4 +310,24 @@ describe("readiness", () => {
     expect(report.operations?.evidence.commitHistory.baselineCoveredCommits).toEqual([historical]);
     expect(report.recommendation).toBe("operations evidence audit is clear");
   });
+
+  test("surfaces unreviewed learning debt in operations readiness", async () => {
+    const root = await initReadinessRepo();
+    const runBacked = await commitReadinessFixture(root, "feat: run-backed change");
+    await new RunIndex(join(root, "runs", "index.jsonl")).append(
+      readinessRunSummary(root, "run-backed-change", runBacked),
+    );
+    const candidateDir = join(root, "references", "lessons", "inbox");
+    await mkdir(candidateDir, { recursive: true });
+    await writeFile(join(candidateDir, "run-backed-change.md"), "# Lesson Candidate: run-backed-change\n", "utf8");
+
+    const report = await buildReadinessReport({ repoRoot: root });
+
+    expect(report.overallStatus).toBe("missing");
+    expect(report.operations?.evidence.lessonInbox.unreviewedCandidateCount).toBe(1);
+    expect(report.operations?.evidence.lessonInbox.promotionCandidateCount).toBe(0);
+    expect(report.recommendation).toBe(
+      "missing: lesson inbox candidates exist but no review index exists; unreviewed lesson candidates 1, promotion candidates 0",
+    );
+  });
 });

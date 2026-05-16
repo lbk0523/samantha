@@ -117,6 +117,25 @@ async function makeRun(): Promise<{
   };
 
   await writeFile(logPath, `${JSON.stringify(log, null, 2)}\n`, "utf8");
+  await writeFile(
+    join(logRoot, "index.jsonl"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      runId: "prior-verify-failed",
+      taskId: "accept-fixture",
+      taskTitle: "Accept fixture prior failure",
+      agentId: "codex-worker",
+      repoRoot: root,
+      worktreePath: join(root, "worktrees", "prior-verify-failed"),
+      logPath: join(logRoot, "prior-verify-failed.json"),
+      startedAt: "2026-05-12T09:00:00.000Z",
+      finishedAt: "2026-05-12T09:01:00.000Z",
+      outcome: "verify_failed",
+      pass: false,
+      commit: "",
+    })}\n`,
+    "utf8",
+  );
   return {
     root,
     logPath,
@@ -167,7 +186,7 @@ describe("acceptRun", () => {
     expect(result.cleanup?.cleaned).toBe(true);
     expect(result.lessonDraft).toMatchObject({
       status: "created",
-      reason: "accepted and cleaned writer run",
+      reason: "verify_failed recovery success",
       path: join(root, "references", "lessons", "inbox", "accept-run.md"),
       runId: "accept-run",
     });

@@ -24,6 +24,21 @@ export interface LessonInboxReviewIndexEntry {
   reason: string;
 }
 
+export type LessonPromotionQueueAction =
+  | "promote_candidate"
+  | "needs_more_evidence"
+  | "reject_candidate"
+  | "manual_review";
+
+export interface LessonPromotionQueueEntry {
+  candidatePath: string;
+  reviewPath: string;
+  runId: string;
+  taskId: string;
+  action: LessonPromotionQueueAction;
+  reason: string;
+}
+
 export interface LessonInboxReviewIndex {
   schemaVersion: 1;
   reviewedAt: string;
@@ -36,12 +51,20 @@ export interface LessonInboxReviewIndex {
     promotionCandidates: number;
     manualReview: number;
   };
+  queue: LessonPromotionQueueEntry[];
   candidates: LessonInboxReviewIndexEntry[];
 }
 
 export interface LessonInboxReviewResult {
   indexPath: string;
   index: LessonInboxReviewIndex;
+}
+
+export interface LessonPromotionQueueReport {
+  indexPath: string;
+  reviewedAt: string;
+  summary: LessonInboxReviewIndex["summary"];
+  queue: LessonPromotionQueueEntry[];
 }
 
 function isMissingDirectory(error: unknown): boolean {
@@ -90,6 +113,36 @@ function countClassification(
   return entries.filter((entry) => entry.classification === classification).length;
 }
 
+function queueAction(classification: LessonReviewClassification): LessonPromotionQueueAction {
+  if (classification === "promotion_candidate") return "promote_candidate";
+  if (classification === "needs_more_evidence") return "needs_more_evidence";
+  if (classification === "auto_rejected") return "reject_candidate";
+  return "manual_review";
+}
+
+function promotionQueue(entries: LessonInboxReviewIndexEntry[]): LessonPromotionQueueEntry[] {
+  const order: Record<LessonPromotionQueueAction, number> = {
+    promote_candidate: 0,
+    manual_review: 1,
+    needs_more_evidence: 2,
+    reject_candidate: 3,
+  };
+  return entries
+    .map((entry) => ({
+      candidatePath: entry.candidatePath,
+      reviewPath: entry.reviewPath,
+      runId: entry.runId,
+      taskId: entry.taskId,
+      action: queueAction(entry.classification),
+      reason: entry.reason,
+    }))
+    .sort(
+      (left, right) =>
+        order[left.action] - order[right.action] ||
+        left.candidatePath.localeCompare(right.candidatePath),
+    );
+}
+
 export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Promise<LessonInboxReviewResult> {
   const repoRoot = resolve(input.repoRoot ?? ".");
   const inboxPath = join(repoRoot, "references", "lessons", "inbox");
@@ -120,6 +173,7 @@ export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Pro
       promotionCandidates: countClassification(entries, "promotion_candidate"),
       manualReview: countClassification(entries, "manual_review"),
     },
+    queue: promotionQueue(entries),
     candidates: entries,
   };
   const indexPath = join(reviewsPath, "index.json");
@@ -127,4 +181,16 @@ export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Pro
   await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
 
   return { indexPath, index };
+}
+
+export async function buildLessonPromotionQueue(
+  input: LessonInboxReviewInput = {},
+): Promise<LessonPromotionQueueReport> {
+  const result = await reviewLessonInbox(input);
+  return {
+    indexPath: result.indexPath,
+    reviewedAt: result.index.reviewedAt,
+    summary: result.index.summary,
+    queue: result.index.queue,
+  };
 }

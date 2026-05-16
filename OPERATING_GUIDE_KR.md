@@ -121,11 +121,16 @@ goal
 
 ## 학습 후보 자동 Draft
 
-`runs:accept`는 writer run이 merge되고 worktree cleanup까지 완료된 뒤에만
-`references/lessons/inbox/<runId>.md` lesson candidate를 자동 생성할 수 있다. 이
-candidate는 reviewable inbox artifact일 뿐이며, `lessons:review` 또는
+`runs:accept`는 writer run이 merge되고 worktree cleanup까지 완료된 뒤, 고신호
+learning trigger evidence가 있을 때만 `references/lessons/inbox/<runId>.md`
+lesson candidate를 자동 생성할 수 있다. 현재 허용 trigger는 같은 task family의
+이전 `verify_failed`, `scope_failed`, `blocked`/`rework`, 또는 반복 실패가 accepted
+writer run으로 수정된 경우다.
+
+이 candidate는 reviewable inbox artifact일 뿐이며, `lessons:review` 또는
 `lessons:promote`를 대신 실행하지 않는다. Report-only, failed, untrusted,
-cleaned lifecycle이 없는 run은 자동 draft 대상이 아니다.
+cleaned lifecycle이 없는 run은 자동 draft 대상이 아니다. 자세한 trigger 정책은
+`references/playbooks/learning-trigger-policy.md`를 따른다.
 
 ## 여러 Slice의 연속성
 

@@ -202,6 +202,18 @@ describe("lesson drafts", () => {
     });
     const runLogPath = await writeRunLog(root, log);
     await mkdir(stateDir, { recursive: true });
+    await writeJsonLines(join(root, "runs", "index.jsonl"), [
+      runSummary(
+        {
+          ...log,
+          runId: "prior-verify-failed",
+          finishedAt: "2026-05-12T09:01:00.000Z",
+          result: execution({ pass: false, commit: undefined }),
+        },
+        join(root, "runs", "prior-verify-failed.json"),
+        { outcome: "verify_failed", pass: false, commit: "" },
+      ),
+    ]);
     await writeJsonLines(join(stateDir, "run-lifecycle.jsonl"), [
       {
         schemaVersion: 1,
@@ -221,11 +233,43 @@ describe("lesson drafts", () => {
 
     expect(draft).toEqual({
       status: "created",
-      reason: "accepted and cleaned writer run",
+      reason: "verify_failed recovery success",
       path: join(root, "references", "lessons", "inbox", `${log.runId}.md`),
       runId: log.runId,
     });
     expect(markdown).toContain("- Lifecycle state: merged and cleaned");
+  });
+
+  test("skips accepted writer runs without high-signal trigger evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
+    tmpRoots.push(root);
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: execution(),
+    });
+    const runLogPath = await writeRunLog(root, log);
+    await writeJsonLines(join(root, "runs", "run-lifecycle.jsonl"), [
+      {
+        schemaVersion: 1,
+        runId: log.runId,
+        taskId: task.id,
+        repoRoot: "/repo",
+        runLogPath,
+        commit: "a".repeat(40),
+        mergedAt: "2026-05-12T10:02:00.000Z",
+        cleanedAt: "2026-05-12T10:03:00.000Z",
+        updatedAt: "2026-05-12T10:03:00.000Z",
+      },
+    ]);
+
+    await expect(draftLessonFromAcceptedRun({ runLogPath, repoRoot: root })).resolves.toEqual({
+      status: "skipped",
+      reason: "accepted writer run has no high-signal learning trigger evidence",
+    });
   });
 
   test("does not overwrite an existing automatic lesson candidate", async () => {
