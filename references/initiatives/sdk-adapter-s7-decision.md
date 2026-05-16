@@ -1,8 +1,9 @@
 # SDK Adapter S7 Promotion Decision
 
 Date: 2026-05-16
-Status: completed
-Decision: retain `codex-sdk` as an explicit experimental runtime
+Status: completed; refreshed by S10
+Decision: S7 retained `codex-sdk` as an explicit experimental runtime; S10
+promotes it to preferred dogfood runtime for Samantha self-build tasks only
 
 ## Findings
 
@@ -119,7 +120,84 @@ This upgrades the implementation evidence:
 
 The decision still does not promote SDK to the default runtime. The remaining
 promotion gaps are repeated runtime-error diagnosability evidence and an
-explicit dependency/version maintenance plan for `@openai/codex-sdk`.
+explicit dependency/version maintenance plan for `@openai/codex-sdk`. The S10
+refresh below supersedes this gap statement after S8 and S9 completion.
+
+## S10 Promotion Decision Refresh
+
+Date: 2026-05-16
+
+Decision: promote `codex-sdk` from explicit experimental runtime to preferred
+dogfood runtime for Samantha self-build tasks only.
+
+This is a documentation-only status decision. It does not change the CLI
+default, runtime selector behavior, batch/report orchestration, App Server
+integration, lifecycle authority, verification authority, scope authority,
+commit authority, cleanup authority, push authority, or recovery authority.
+
+`exec-json` remains the default `run-task` runtime. `codex-sdk` remains
+available only through explicit selection, currently `run-task
+--runtime=codex-sdk`, until a later implementation slice changes operator or
+task authoring guidance.
+
+### Evidence Used
+
+S10 uses the S7 evidence plus the completed S8 and S9 follow-up evidence:
+
+- S8 added fake SDK runtime coverage for `turn.failed`, stream `error`, and
+  thrown SDK/client exceptions in `tests/worker-dispatch.test.ts`.
+- S8 changed thrown SDK/client exceptions to include a diagnosable
+  `codex-sdk runtime failed:` stderr prefix.
+- S8 ran a bounded live SDK runtime failure dogfood under
+  `/tmp/samantha-s8-sdk-runtime-error-runs/2026-05-16T05-46-46-684Z-fixture-report-reviewer.json`.
+  The run log recorded `exitCode` 1, `runtime.kind` `codex-sdk`, empty event
+  counts, no thread id because the subprocess failed before `thread.started`,
+  and no Samantha-owned commit.
+- S9 added `references/initiatives/sdk-adapter-s9-dependency-policy.md`,
+  defining exact SDK pinning, SDK/bundled-Codex version coupling, external CLI
+  separation, upgrade smoke tests, rollback criteria, and BK approval
+  boundaries.
+
+The two S7 promotion gaps are now addressed well enough for preferred dogfood
+use:
+
+- SDK runtime errors are diagnosable from Samantha run logs without hidden Codex
+  UI state or App Server state.
+- SDK dependency and version maintenance has a reviewable policy.
+
+This evidence is still not enough for CLI default promotion. Default promotion
+would change routine worker behavior for every `run-task` invocation, and S10
+does not include that approval or implementation scope.
+
+### Runtime Status Matrix
+
+| Status | Default runtime | Allowed explicit runtimes | Fallback path | Rollback trigger | Evidence required |
+| --- | --- | --- | --- | --- | --- |
+| Baseline default | `exec-json` | `exec-json`, `codex-sdk` | Use `exec-json` by omitting `--runtime` or passing `--runtime=exec-json`. | Baseline regression in command construction, worker dispatch, run logs, or typecheck. | Existing exec-json command construction tests, worker-dispatch tests, run-log compatibility, typecheck. |
+| Preferred dogfood runtime for Samantha self-build | `exec-json` | `exec-json`, `codex-sdk` | Use `exec-json` explicitly when SDK dogfood fails, when credentials/local SDK state are unsuitable, or when the task is not a bounded self-build dogfood task. | SDK runtime errors stop being diagnosable from run logs; `HARNESS_RESULT` preservation regresses; SDK metadata loses `runtime.kind`; SDK behavior pressures Samantha-owned gates into the runtime adapter; bounded SDK dogfood writes outside declared authority. | S7 writer/recovery dogfood evidence; S8 fake and live runtime-failure evidence; S9 dependency policy; focused dispatch/runtime tests; typecheck. |
+| CLI default candidate | `codex-sdk` | `codex-sdk`, `exec-json` | Pass `--runtime=exec-json` for rollback or incompatible tasks. | Any regression in normal-path reliability, failure diagnosis, dependency maintenance, or authority boundaries. | Separate BK approval; repeated successful preferred-dogfood runs; no regression in full test suite; documented rollback path; no App Server or broader selector dependency. |
+
+Selected S10 status: preferred dogfood runtime for Samantha self-build tasks
+only, while keeping `exec-json` as the CLI default.
+
+### Rollback Criteria
+
+Rollback from preferred dogfood status to explicit experimental status if any
+of these occur:
+
+- fake SDK success or failure coverage regresses;
+- live SDK runtime failures cannot be diagnosed from Samantha run logs;
+- SDK runs require hidden Codex UI state or App Server state for diagnosis;
+- `HARNESS_RESULT` output no longer flows through Samantha-owned evaluation;
+- SDK thread state starts driving task specs, verification, scope checks,
+  commits, lifecycle records, cleanup, push, recovery, or orchestration;
+- SDK package movement violates the S9 dependency policy;
+- bounded SDK dogfood produces production writes outside declared task
+  authority.
+
+Rollback means keeping `exec-json` as the default, avoiding SDK-preferred
+dogfood guidance, and using `codex-sdk` only for explicitly requested
+experimental runs until the regression has a reviewed fix.
 
 ## Authority Invariants
 
@@ -144,3 +222,8 @@ explicit dependency/version maintenance plan for `@openai/codex-sdk`.
 - Reviewed focused tests:
   `tests/worker-dispatch.test.ts`, `tests/codex-dispatch.test.ts`, and
   `tests/task-from-run.test.ts`.
+- Reviewed S8 runtime error diagnosability evidence:
+  commit `53d7f0f` and
+  `/tmp/samantha-s8-sdk-runtime-error-runs/2026-05-16T05-46-46-684Z-fixture-report-reviewer.json`.
+- Reviewed S9 dependency policy:
+  `references/initiatives/sdk-adapter-s9-dependency-policy.md`.
