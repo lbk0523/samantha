@@ -37,6 +37,7 @@ describe("codex dispatch preparation", () => {
     const prompt = buildCodexWorkerPrompt(task, worker);
 
     expect(prompt).toContain("Samantha owns orchestration");
+    expect(prompt).toContain("Do not request approvals");
     expect(prompt).toContain("Do not create worktrees");
     expect(prompt).toContain("Do not commit or push");
     expect(prompt).toContain("src/core/codex-dispatch.ts");
@@ -78,6 +79,7 @@ describe("codex dispatch preparation", () => {
       "workspace-write",
       "--json",
     ]);
+    expect(prepared.command.slice(7, 9)).toEqual(["-c", 'approval_policy="never"']);
     expect(prepared.command).toContain("--model");
     expect(prepared.command).toContain("gpt-5.5");
     expect(prepared.command.at(-1)).toBe(prepared.prompt);
@@ -121,6 +123,7 @@ describe("codex dispatch preparation", () => {
       "read-only",
       "--json",
     ]);
+    expect(prepared.command.slice(7, 9)).toEqual(["-c", 'approval_policy="never"']);
   });
 
   test("can use an explicit codex executable path", () => {

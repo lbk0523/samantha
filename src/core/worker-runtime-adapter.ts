@@ -39,6 +39,8 @@ export function buildExecJsonCommand(input: {
     "--sandbox",
     input.agent.writerClass === "non-writer" ? "read-only" : "workspace-write",
     "--json",
+    "-c",
+    'approval_policy="never"',
   ];
 
   if (input.agent.model) {
@@ -132,6 +134,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
           workingDirectory: run.worktreePath,
           model: run.agent.model,
           sandboxMode: run.agent.writerClass === "non-writer" ? "read-only" : "workspace-write",
+          approvalPolicy: "never",
         });
         const stream = await thread.runStreamed(run.dispatch.prompt);
 

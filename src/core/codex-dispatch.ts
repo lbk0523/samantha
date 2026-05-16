@@ -19,6 +19,7 @@ export function buildCodexWorkerPrompt(task: TaskSpec, agent: AgentProfile): str
     `You are ${agent.id}, a Codex worker inside the Samantha development harness.`,
     "Samantha owns orchestration, worktree allocation, verification, commit, and report evidence.",
     "Do not implement Telegram, remote adapters, daemon/watch services, dashboards, CEO-office memory, routines, budget governance, or multi-project orchestration for this MVP.",
+    "Do not request approvals; report blocked commands as HARNESS_RESULT rework/blocked evidence.",
     boundary,
     ...(reportOnly
       ? [

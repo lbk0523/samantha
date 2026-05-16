@@ -264,6 +264,7 @@ describe("worker dispatch", () => {
           async runStreamed(input) {
             expect(options?.workingDirectory).toBe(repo);
             expect(options?.sandboxMode).toBe("read-only");
+            expect(options?.approvalPolicy).toBe("never");
             expect(input).toContain("Review evidence and report only.");
             async function* events() {
               yield { type: "thread.started", thread_id: "thread-from-fake-sdk" } as const;
