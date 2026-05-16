@@ -138,6 +138,7 @@ describe("samantha cli", () => {
         "--worktrees-dir=worktrees",
         "--runs-dir=runs",
         "--codex-bin=/tmp/fake-codex",
+        "--runtime=codex-sdk",
       ]),
     ).toEqual({
       command: "run-task",
@@ -147,7 +148,16 @@ describe("samantha cli", () => {
       worktreesDir: "worktrees",
       runsDir: "runs",
       codexBin: "/tmp/fake-codex",
+      runtimeKind: "codex-sdk",
     });
+    expect(() =>
+      parseCliArgs([
+        "run-task",
+        "references/tasks/fixture-single-writer.json",
+        "--repo-root=.",
+        "--runtime=unknown",
+      ]),
+    ).toThrow("runtime must be exec-json or codex-sdk");
   });
 
   test("parses run inspection and merge check arguments", () => {

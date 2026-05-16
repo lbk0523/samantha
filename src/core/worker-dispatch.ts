@@ -4,8 +4,11 @@ import { gitHead } from "./git";
 import { validateDispatch } from "./policy";
 import { unresolvedDispatchPlaceholders } from "./task-placeholders";
 import { runCommand as runProcessCommand, type CommandRunResult } from "./command-runner";
-import { execJsonWorkerRuntimeAdapter } from "./worker-runtime-adapter";
-import type { WorkerRuntimeMetadata } from "./worker-runtime-metadata";
+import {
+  workerRuntimeAdapterForKind,
+  type WorkerRuntimeAdapter,
+} from "./worker-runtime-adapter";
+import type { WorkerRuntimeKind, WorkerRuntimeMetadata } from "./worker-runtime-metadata";
 import {
   collectChangedFileSnapshots,
   evaluateWorkerResult,
@@ -22,6 +25,8 @@ export interface PrepareWorkerDispatchInput {
   worktreesDir?: string;
   codexBin?: string;
   baseRef?: string;
+  runtimeKind?: WorkerRuntimeKind;
+  runtimeAdapter?: WorkerRuntimeAdapter;
 }
 
 export interface WorkerDispatchPreparation {
@@ -75,13 +80,15 @@ export async function prepareWorkerDispatch(
         })
       : undefined;
   const worktreePath = allocation?.worktreePath ?? input.repoRoot;
+  const runtimeAdapter =
+    input.runtimeAdapter ?? workerRuntimeAdapterForKind(input.runtimeKind ?? "exec-json");
 
   return {
     taskId: input.task.id,
     agentId: input.agent.id,
     worktreePath,
     allocation,
-    codex: execJsonWorkerRuntimeAdapter.prepare({
+    codex: runtimeAdapter.prepare({
       task: input.task,
       agent: input.agent,
       worktreePath,
@@ -161,7 +168,14 @@ export async function executeWorkerDispatch(
     };
   }
 
-  const runtimeExecution = await execJsonWorkerRuntimeAdapter.execute(preparation.codex);
+  const runtimeAdapter =
+    input.runtimeAdapter ?? workerRuntimeAdapterForKind(input.runtimeKind ?? "exec-json");
+  const runtimeExecution = await runtimeAdapter.execute({
+    dispatch: preparation.codex,
+    agent: input.agent,
+    worktreePath: preparation.worktreePath,
+    codexBin: input.codexBin,
+  });
   const command = runtimeExecution.command;
   const output = [command.stdout, command.stderr].filter(Boolean).join("\n");
   const evaluation = await evaluateWorkerResult({

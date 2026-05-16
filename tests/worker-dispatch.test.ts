@@ -11,6 +11,7 @@ import {
   runCommand,
   runSetupCommands,
 } from "../src/core/worker-dispatch";
+import { createCodexSdkWorkerRuntimeAdapter } from "../src/core/worker-runtime-adapter";
 import { runTaskCommand } from "../src/commands/run-task";
 
 let tmpRoots: string[] = [];
@@ -222,6 +223,90 @@ describe("worker dispatch", () => {
     expect(result.pass).toBe(true);
     expect(result.preparation.worktreePath).toBe(repo);
     expect(result.preparation.allocation).toBeUndefined();
+    expect(result.evaluation?.changedFiles).toEqual([]);
+    expect(result.evaluation?.verifyResults).toEqual([]);
+    expect(result.commit).toBeUndefined();
+  });
+
+  test("can run a codex-sdk runtime adapter without changing Samantha-owned gates", async () => {
+    const repo = await makeRepo();
+    const reviewer: AgentProfile = {
+      ...agent,
+      id: "codex-reviewer",
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    const reportTask: TaskSpec = {
+      id: "sdk-review-fixture",
+      title: "Review SDK runtime fixture",
+      targetAgent: "codex-reviewer",
+      targetFiles: [],
+      forbiddenChanges: ["**/*"],
+      verifyCommands: [],
+      instructions: "Review evidence and report only.",
+      resultMode: "report",
+      status: "pending",
+    };
+    const sdkAdapter = createCodexSdkWorkerRuntimeAdapter({
+      createClient: () => ({
+        startThread: (options) => ({
+          id: "thread-from-fake-sdk",
+          async runStreamed(input) {
+            expect(options?.workingDirectory).toBe(repo);
+            expect(options?.sandboxMode).toBe("read-only");
+            expect(input).toContain("Review evidence and report only.");
+            async function* events() {
+              yield { type: "thread.started", thread_id: "thread-from-fake-sdk" } as const;
+              yield { type: "turn.started" } as const;
+              yield {
+                type: "item.completed",
+                item: {
+                  id: "message-1",
+                  type: "agent_message",
+                  text: 'SDK report.\nHARNESS_RESULT: {"status":"pass","note":"sdk report"}',
+                },
+              } as const;
+              yield {
+                type: "turn.completed",
+                usage: {
+                  input_tokens: 1,
+                  cached_input_tokens: 0,
+                  output_tokens: 1,
+                  reasoning_output_tokens: 0,
+                },
+              } as const;
+            }
+            return { events: events() };
+          },
+        }),
+      }),
+    });
+
+    const result = await executeWorkerDispatch({
+      task: reportTask,
+      agent: reviewer,
+      repoRoot: repo,
+      runtimeAdapter: sdkAdapter,
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.command).toMatchObject({
+      command: ["codex-sdk", "run", "--cd", repo, "--sandbox", "read-only", "--model", "gpt-5.5"],
+      exitCode: 0,
+    });
+    expect(result.command?.stdout).toContain("HARNESS_RESULT");
+    expect(result.runtime).toEqual({
+      kind: "codex-sdk",
+      threadId: "thread-from-fake-sdk",
+      eventCounts: {
+        "thread.started": 1,
+        "turn.started": 1,
+        "item.completed": 1,
+        "turn.completed": 1,
+      },
+    });
     expect(result.evaluation?.changedFiles).toEqual([]);
     expect(result.evaluation?.verifyResults).toEqual([]);
     expect(result.commit).toBeUndefined();

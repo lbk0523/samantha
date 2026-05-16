@@ -376,21 +376,56 @@ source of truth for Samantha lifecycle decisions.
 | S2 | completed | Extract current exec-json behavior behind the adapter boundary without changing behavior. | S1 | `bun test tests/codex-dispatch.test.ts`; `bun test tests/worker-dispatch.test.ts`; `bun run typecheck` | `sam c: references/initiatives/sdk-adapter-samantha.md 의 S2를 수행해. 현재 codex exec --json 경로를 exec runtime adapter로 추출하되 사용자-visible behavior는 바꾸지 말고 focused tests와 typecheck까지 완료해줘.` |
 | S3 | completed | Add optional runtime metadata to run evidence. | S2 | focused run-log tests; `bun run typecheck`; broader `bun test` if shared evidence behavior changes | `sam c: SDK Adapter initiative S3를 수행해. run evidence에 optional runtime metadata를 추가하되 old run log compatibility와 Samantha-owned gates를 유지해줘.` |
 | S4 | completed | Run a report-only SDK capability spike and record findings. | S3 | report-only evidence; no production writes unless separately approved | `sam r: SDK Adapter initiative S4를 수행해. 공식 Codex SDK가 Samantha worker prompt, thread id, resume, result output, HARNESS_RESULT, error/approval 상태를 어떻게 제공하는지 report-only로 검토해줘.` |
-| S5 | blocked | Implement guarded SDK runtime adapter behind an explicit option. | S4 plus explicit dependency decision | fake SDK adapter tests; existing exec-json tests; `bun run typecheck`; bounded dogfood run | `sam c: SDK Adapter initiative S5를 수행해. @openai/codex-sdk dependency 설치 또는 fake-only no-dependency slice 중 하나를 명시적으로 선택한 뒤, SDK runtime adapter를 explicit option 뒤에 추가하고 exec-json default와 fallback을 유지해줘.` |
-| S6 | pending | Add rework/resume semantics for SDK-backed failed runs. | S5 | recovery-focused tests; dogfood failed-run recovery evidence | `sam c: SDK Adapter initiative S6를 수행해. SDK thread continuity를 failed-run recovery에만 bounded하게 연결하고, task spec과 verification gate를 유지하는 rework/resume 흐름을 구현해줘.` |
+| S5 | completed | Implement guarded SDK runtime adapter behind an explicit option. | S4 plus explicit dependency decision | fake SDK adapter tests; existing exec-json tests; `bun run typecheck`; bounded dogfood run | `sam c: SDK Adapter initiative S5를 수행해. @openai/codex-sdk dependency 설치 또는 fake-only no-dependency slice 중 하나를 명시적으로 선택한 뒤, SDK runtime adapter를 explicit option 뒤에 추가하고 exec-json default와 fallback을 유지해줘.` |
+| S6 | ready | Add rework/resume semantics for SDK-backed failed runs. | S5 | recovery-focused tests; dogfood failed-run recovery evidence | `sam c: SDK Adapter initiative S6를 수행해. SDK thread continuity를 failed-run recovery에만 bounded하게 연결하고, task spec과 verification gate를 유지하는 rework/resume 흐름을 구현해줘.` |
 | S7 | pending | Decide whether to promote, retain as experimental, or reject SDK runtime. | S5 or S6 | report-only promotion review; documented decision | `sam r: SDK Adapter initiative S7을 수행해. S5/S6 evidence를 기준으로 SDK runtime을 normal path로 promote할지, experimental로 유지할지, reject할지 findings-first로 검토해줘.` |
 
 ## Current Next Slice
 
-S5 is blocked on an explicit dependency decision. Choose either:
+S6 is ready: add bounded rework/resume semantics for SDK-backed failed runs
+without letting SDK thread state replace task specs, verification, scope checks,
+or lifecycle records.
 
-- allow adding `@openai/codex-sdk` so S5 can implement and dogfood a guarded SDK
-  runtime adapter; or
-- run a fake-only no-dependency S5 precursor that adds adapter seams and tests
-  but deliberately does not live-dogfood SDK execution.
+## 2026-05-16 S5 Update
 
-Do not add an SDK runtime selector or production SDK adapter until that decision
-is made.
+Completed:
+
+- Added `@openai/codex-sdk` as an explicit dependency.
+- Added a guarded `codex-sdk` worker runtime adapter behind the explicit
+  `run-task --runtime=codex-sdk` selector.
+- Kept default worker execution on `exec-json`.
+- Kept batch execution and report orchestration on the existing default runtime.
+- Added fake SDK adapter coverage proving SDK runtime output still flows
+  through Samantha-owned output evaluation, report-only scope checks, and commit
+  gates.
+- Ran one bounded report-only SDK dogfood run:
+  `runs/2026-05-16T04-48-50-868Z-fixture-report-reviewer.json`.
+
+Verification:
+
+- `bun test tests/codex-dispatch.test.ts` passed.
+- `bun test tests/worker-dispatch.test.ts` passed.
+- `bun test tests/cli.test.ts` passed.
+- `bun run typecheck` passed.
+- `bun run samantha run-task references/tasks/fixture-report-reviewer.json --repo-root=/Users/byung/Documents/samantha --agent=references/agent-profiles/codex-reviewer.json --runs-dir=runs --runtime=codex-sdk` passed.
+
+Dogfood evidence:
+
+- Runtime kind: `codex-sdk`.
+- SDK thread id: `019e2f1d-a638-78a2-95bf-f1e1d23fdd04`.
+- Event counts included `thread.started`, `turn.started`, `item.started`,
+  `item.completed`, and `turn.completed`.
+- `HARNESS_RESULT` parsed as `pass`.
+- Changed files, scope violations, verify results, and commit remained empty
+  for the report-only run.
+
+Decision changes:
+
+- `codex-sdk` is available only through an explicit runtime selector.
+- `exec-json` remains the default and fallback baseline.
+- SDK thread id and event counts are optional evidence only; they do not affect
+  verification, scope checks, commit eligibility, lifecycle transitions, or
+  report authority.
 
 ## 2026-05-16 S4 Update
 

@@ -4,7 +4,8 @@ import type { AgentProfile, TaskSpec } from "../core/contracts";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "../core/ledger";
 import { writeWorkerRunLog, type WorkerRunLogWrite } from "../core/run-log";
 import { executeWorkerDispatch, type WorkerDispatchExecution } from "../core/worker-dispatch";
-import { execJsonWorkerRuntimeAdapter } from "../core/worker-runtime-adapter";
+import { workerRuntimeAdapterForKind } from "../core/worker-runtime-adapter";
+import type { WorkerRuntimeKind } from "../core/worker-runtime-metadata";
 
 export interface RunTaskCommandInput {
   taskPath: string;
@@ -13,6 +14,7 @@ export interface RunTaskCommandInput {
   worktreesDir?: string;
   runsDir?: string;
   codexBin?: string;
+  runtimeKind?: WorkerRuntimeKind;
 }
 
 export interface RunTaskCommandResult {
@@ -38,14 +40,16 @@ function blockedExecution(input: {
   agent: AgentProfile;
   repoRoot: string;
   codexBin?: string;
+  runtimeKind?: WorkerRuntimeKind;
   error: Error;
 }): WorkerDispatchExecution {
+  const runtimeAdapter = workerRuntimeAdapterForKind(input.runtimeKind ?? "exec-json");
   return {
     preparation: {
       taskId: input.task.id,
       agentId: input.agent.id,
       worktreePath: input.repoRoot,
-      codex: execJsonWorkerRuntimeAdapter.prepare({
+      codex: runtimeAdapter.prepare({
         task: input.task,
         agent: input.agent,
         worktreePath: input.repoRoot,
@@ -72,6 +76,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
       repoRoot,
       worktreesDir: input.worktreesDir,
       codexBin: input.codexBin,
+      runtimeKind: input.runtimeKind,
     });
   } catch (err) {
     if (!isDispatchBlock(err)) throw err;
@@ -80,6 +85,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
       agent,
       repoRoot,
       codexBin: input.codexBin,
+      runtimeKind: input.runtimeKind,
       error: err,
     });
   }

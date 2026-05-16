@@ -38,6 +38,7 @@ import { createReplacementBatchSpec } from "./core/batch-spec-replacement";
 import { listBatchSpecs, readBatchSpecById, readBatchSpecRecordById } from "./core/batch-spec-store";
 import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
 import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
+import type { WorkerRuntimeKind } from "./core/worker-runtime-metadata";
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -252,18 +253,25 @@ function parseRepeatedFlag(args: string[], name: string): string[] {
   return args.filter((arg) => arg.startsWith(prefix)).map((arg) => arg.slice(prefix.length));
 }
 
+function parseWorkerRuntimeKind(value: string | undefined): WorkerRuntimeKind | undefined {
+  if (!value) return undefined;
+  if (value === "exec-json" || value === "codex-sdk") return value;
+  throw new Error("runtime must be exec-json or codex-sdk");
+}
+
 export function parseCliArgs(argv: string[]): SamanthaCliArgs {
   const [command, first, ...rest] = argv;
 
   if (command === "run-task") {
     if (!first) {
-      throw new Error("usage: bun run samantha run-task <task.json> --repo-root=<repo> [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--codex-bin=<path>]");
+      throw new Error("usage: bun run samantha run-task <task.json> --repo-root=<repo> [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--codex-bin=<path>] [--runtime=exec-json|codex-sdk]");
     }
     const flags = parseFlags(rest);
     const repoRoot = flags.get("repo-root");
     if (!repoRoot) {
       throw new Error("usage: run-task requires --repo-root=<repo>");
     }
+    const runtimeKind = parseWorkerRuntimeKind(flags.get("runtime"));
 
     return {
       command: "run-task",
@@ -273,6 +281,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(flags.get("worktrees-dir") ? { worktreesDir: flags.get("worktrees-dir") } : {}),
       ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
       ...(flags.get("codex-bin") ? { codexBin: flags.get("codex-bin") } : {}),
+      ...(runtimeKind ? { runtimeKind } : {}),
     };
   }
 

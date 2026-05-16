@@ -143,7 +143,11 @@ describe("codex dispatch preparation", () => {
     });
     prepared.command = ["bash", "-lc", "printf ok"];
 
-    const result = await execJsonWorkerRuntimeAdapter.execute(prepared);
+    const result = await execJsonWorkerRuntimeAdapter.execute({
+      dispatch: prepared,
+      agent: worker,
+      worktreePath: "/tmp/samantha-worktree",
+    });
 
     expect(result.runtime).toEqual({ kind: "exec-json" });
     expect(result.command).toMatchObject({
