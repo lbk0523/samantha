@@ -10,6 +10,10 @@ import {
   RunLifecycleStore,
   type RunLifecycleRecord,
 } from "./run-lifecycle-store";
+import {
+  draftLessonFromAcceptedRun,
+  type AcceptedRunLessonDraftResult,
+} from "./lesson-draft";
 import { cleanupCompletedWorktree, type WorktreeCleanupResult } from "./worktree-cleanup";
 
 export interface RunAcceptInput {
@@ -38,6 +42,7 @@ export interface RunAcceptResult {
     cleaned?: RunLifecycleRecord;
   };
   cleanup?: WorktreeCleanupResult;
+  lessonDraft?: AcceptedRunLessonDraftResult;
 }
 
 interface RunAcceptDependencies {
@@ -139,6 +144,11 @@ export async function acceptRun(
         stateDir: input.stateDir,
       })
     : undefined;
+  const lessonDraft = await draftLessonFromAcceptedRun({
+    runLogPath,
+    repoRoot,
+    stateDir: input.stateDir,
+  });
 
   return {
     accepted: true,
@@ -150,5 +160,6 @@ export async function acceptRun(
       ...(cleaned ? { cleaned } : {}),
     },
     cleanup,
+    lessonDraft,
   };
 }

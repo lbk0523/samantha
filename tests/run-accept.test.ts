@@ -165,6 +165,12 @@ describe("acceptRun", () => {
     expect(result.lifecycle?.merged.mergedAt).toBeTruthy();
     expect(result.lifecycle?.cleaned?.cleanedAt).toBeTruthy();
     expect(result.cleanup?.cleaned).toBe(true);
+    expect(result.lessonDraft).toMatchObject({
+      status: "created",
+      reason: "accepted and cleaned writer run",
+      path: join(root, "references", "lessons", "inbox", "accept-run.md"),
+      runId: "accept-run",
+    });
     expect(await gitHead(root)).toBe(commit);
     expect(await exists(worktreePath)).toBe(false);
     await expect(git(["rev-parse", "--verify", branch], root)).rejects.toThrow();
@@ -177,6 +183,12 @@ describe("acceptRun", () => {
     });
     expect(lifecycle[0].mergedAt).toBeTruthy();
     expect(lifecycle[0].cleanedAt).toBeTruthy();
+
+    const lessonCandidate = await readFile(join(root, "references", "lessons", "inbox", "accept-run.md"), "utf8");
+    expect(lessonCandidate).toContain("# Lesson Candidate: accept-run");
+    expect(lessonCandidate).toContain("- Observed outcome: pass");
+    expect(lessonCandidate).toContain("- Lifecycle state: merged and cleaned");
+    expect(lessonCandidate).toContain("- Review note: Review manually before promotion.");
 
     const log = await readLog(logPath);
     expect(log.trajectory?.map((entry) => entry.event)).toEqual([

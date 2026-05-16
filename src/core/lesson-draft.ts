@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { RunIndex, summarizeWorkerRun, type RunOutcome, type RunSummary } from "./ledger";
 import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
@@ -8,11 +8,21 @@ import type { WorkerRunLog } from "./run-log";
 export interface LessonDraftInput {
   runLogPath: string;
   repoRoot?: string;
+  stateDir?: string;
 }
 
 export interface LessonDraftWrite {
   path: string;
   runId: string;
+}
+
+export type AcceptedRunLessonDraftStatus = "created" | "already_exists" | "skipped";
+
+export interface AcceptedRunLessonDraftResult {
+  status: AcceptedRunLessonDraftStatus;
+  reason: string;
+  path?: string;
+  runId?: string;
 }
 
 interface LessonClassification {
@@ -41,8 +51,18 @@ async function readRunLog(path: string): Promise<WorkerRunLog> {
   return JSON.parse(await readFile(path, "utf8")) as WorkerRunLog;
 }
 
-function lifecycleStorePath(runLogPath: string): string {
-  return join(dirname(runLogPath), "run-lifecycle.jsonl");
+function lifecycleStorePath(input: { runLogPath: string; stateDir?: string }): string {
+  return join(resolve(input.stateDir ?? dirname(input.runLogPath)), "run-lifecycle.jsonl");
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
+  }
 }
 
 function markdownCode(value: string): string {
@@ -241,7 +261,7 @@ async function supersededContext(input: {
     return undefined;
   }
 
-  const lifecycleRecords = await new RunLifecycleStore(lifecycleStorePath(input.runLogPath)).list();
+  const lifecycleRecords = await new RunLifecycleStore(lifecycleStorePath({ runLogPath: input.runLogPath })).list();
   const lifecycleByRunId = new Map(lifecycleRecords.map((record) => [record.runId, record]));
   const summary = summaries.find((candidate) => {
     return (
@@ -347,7 +367,9 @@ export async function draftLessonFromRunLog(input: LessonDraftInput): Promise<Le
   const runLogPath = resolve(input.runLogPath);
   const repoRoot = resolve(input.repoRoot ?? ".");
   const log = await readRunLog(runLogPath);
-  const lifecycle = await new RunLifecycleStore(lifecycleStorePath(runLogPath)).find(log.runId);
+  const lifecycle = await new RunLifecycleStore(
+    lifecycleStorePath({ runLogPath, stateDir: input.stateDir }),
+  ).find(log.runId);
   const summary = summarizeWorkerRun({
     task: log.task,
     agent: log.agent,
@@ -368,4 +390,46 @@ export async function draftLessonFromRunLog(input: LessonDraftInput): Promise<Le
   await writeFile(path, buildLessonMarkdown({ log, runLogPath, lifecycle, superseded, recurrence }), "utf8");
 
   return { path, runId: log.runId };
+}
+
+export async function draftLessonFromAcceptedRun(
+  input: LessonDraftInput,
+): Promise<AcceptedRunLessonDraftResult> {
+  const runLogPath = resolve(input.runLogPath);
+  const repoRoot = resolve(input.repoRoot ?? ".");
+  const log = await readRunLog(runLogPath);
+  const path = join(repoRoot, "references", "lessons", "inbox", `${log.runId}.md`);
+
+  if (isReportOnlyRun(log)) {
+    return { status: "skipped", reason: "report-only run is not an automatic lesson draft target" };
+  }
+  if (!log.result.pass) {
+    return { status: "skipped", reason: "run did not pass Samantha evaluation" };
+  }
+  if (!log.result.commit?.commitHash) {
+    return { status: "skipped", reason: "writer run has no candidate commit" };
+  }
+
+  const lifecycle = await new RunLifecycleStore(
+    lifecycleStorePath({ runLogPath, stateDir: input.stateDir }),
+  ).find(log.runId);
+  if (!lifecycle?.cleanedAt) {
+    return { status: "skipped", reason: "run is not accepted and cleaned" };
+  }
+  if (await fileExists(path)) {
+    return {
+      status: "already_exists",
+      reason: "lesson candidate already exists",
+      path,
+      runId: log.runId,
+    };
+  }
+
+  const draft = await draftLessonFromRunLog(input);
+  return {
+    status: "created",
+    reason: "accepted and cleaned writer run",
+    path: draft.path,
+    runId: draft.runId,
+  };
 }

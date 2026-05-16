@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
-import { draftLessonFromRunLog } from "../src/core/lesson-draft";
+import { draftLessonFromAcceptedRun, draftLessonFromRunLog } from "../src/core/lesson-draft";
 import type { RunSummary } from "../src/core/ledger";
 import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import { buildWorkerRunLog, type WorkerRunLog } from "../src/core/run-log";
@@ -186,6 +186,157 @@ describe("lesson drafts", () => {
     expect(markdown).toContain("- Affected layer: playbook");
     expect(markdown).toContain("- Suggested artifact type: playbook");
     expect(markdown).toContain("Review manually before promotion.");
+  });
+
+  test("creates an automatic candidate only for accepted and cleaned writer runs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
+    tmpRoots.push(root);
+    const stateDir = join(root, "state");
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: execution(),
+    });
+    const runLogPath = await writeRunLog(root, log);
+    await mkdir(stateDir, { recursive: true });
+    await writeJsonLines(join(stateDir, "run-lifecycle.jsonl"), [
+      {
+        schemaVersion: 1,
+        runId: log.runId,
+        taskId: task.id,
+        repoRoot: "/repo",
+        runLogPath,
+        commit: "a".repeat(40),
+        mergedAt: "2026-05-12T10:02:00.000Z",
+        cleanedAt: "2026-05-12T10:03:00.000Z",
+        updatedAt: "2026-05-12T10:03:00.000Z",
+      },
+    ]);
+
+    const draft = await draftLessonFromAcceptedRun({ runLogPath, repoRoot: root, stateDir });
+    const markdown = await readFile(draft.path ?? "", "utf8");
+
+    expect(draft).toEqual({
+      status: "created",
+      reason: "accepted and cleaned writer run",
+      path: join(root, "references", "lessons", "inbox", `${log.runId}.md`),
+      runId: log.runId,
+    });
+    expect(markdown).toContain("- Lifecycle state: merged and cleaned");
+  });
+
+  test("does not overwrite an existing automatic lesson candidate", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
+    tmpRoots.push(root);
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: execution(),
+    });
+    const runLogPath = await writeRunLog(root, log);
+    const candidatePath = join(root, "references", "lessons", "inbox", `${log.runId}.md`);
+    await mkdir(join(root, "references", "lessons", "inbox"), { recursive: true });
+    await writeFile(candidatePath, "manual review note\n", "utf8");
+    await writeJsonLines(join(root, "runs", "run-lifecycle.jsonl"), [
+      {
+        schemaVersion: 1,
+        runId: log.runId,
+        taskId: task.id,
+        repoRoot: "/repo",
+        runLogPath,
+        commit: "a".repeat(40),
+        mergedAt: "2026-05-12T10:02:00.000Z",
+        cleanedAt: "2026-05-12T10:03:00.000Z",
+        updatedAt: "2026-05-12T10:03:00.000Z",
+      },
+    ]);
+
+    const draft = await draftLessonFromAcceptedRun({ runLogPath, repoRoot: root });
+
+    expect(draft).toEqual({
+      status: "already_exists",
+      reason: "lesson candidate already exists",
+      path: candidatePath,
+      runId: log.runId,
+    });
+    expect(await readFile(candidatePath, "utf8")).toBe("manual review note\n");
+  });
+
+  test("skips report-only and failed runs for automatic lesson drafting", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
+    tmpRoots.push(root);
+    const reportTask: TaskSpec = {
+      ...task,
+      id: "report-only-review",
+      resultMode: "report",
+    };
+    const reportAgent: AgentProfile = {
+      ...agent,
+      role: "reviewer",
+      writerClass: "non-writer",
+      worktreePolicy: "none",
+      mergePolicy: "none",
+    };
+    const reportLog = buildWorkerRunLog({
+      task: reportTask,
+      agent: reportAgent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: execution(),
+    });
+    const failedLog = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T11:00:00.000Z",
+      finishedAt: "2026-05-12T11:01:00.000Z",
+      execution: execution({
+        evaluation: {
+          pass: false,
+          harness: {
+            status: "blocked",
+            note: "blocked by fixture",
+            commit: "",
+          },
+          changedFiles: ["src/allowed.ts"],
+          scopeViolations: [],
+          verifyResults: [],
+        },
+        commit: undefined,
+        pass: false,
+      }),
+    });
+    const reportRunLogPath = await writeRunLog(root, reportLog);
+    const failedRunLogPath = await writeRunLog(root, failedLog);
+    await writeJsonLines(join(root, "runs", "run-lifecycle.jsonl"), [
+      {
+        schemaVersion: 1,
+        runId: reportLog.runId,
+        taskId: reportTask.id,
+        repoRoot: "/repo",
+        runLogPath: reportRunLogPath,
+        commit: "",
+        mergedAt: "2026-05-12T10:02:00.000Z",
+        cleanedAt: "2026-05-12T10:03:00.000Z",
+        updatedAt: "2026-05-12T10:03:00.000Z",
+      },
+    ]);
+
+    await expect(draftLessonFromAcceptedRun({ runLogPath: reportRunLogPath, repoRoot: root })).resolves.toEqual({
+      status: "skipped",
+      reason: "report-only run is not an automatic lesson draft target",
+    });
+    await expect(draftLessonFromAcceptedRun({ runLogPath: failedRunLogPath, repoRoot: root })).resolves.toEqual({
+      status: "skipped",
+      reason: "run did not pass Samantha evaluation",
+    });
   });
 
   test("counts recurring runs by task family and outcome including the source run", async () => {

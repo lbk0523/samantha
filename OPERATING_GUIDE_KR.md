@@ -119,6 +119,14 @@ goal
 | `inspect` | runs, tasks, batches, lessons, docs의 현재 상태를 보고 싶을 때. | 의사결정에 필요한 짧은 state summary와 highest-value next action. |
 | `learn` | lesson candidate, review, promotion, evidence flow를 명시적으로 운용하고 싶을 때. | hidden memory가 아닌 reviewable learning artifact action. |
 
+## 학습 후보 자동 Draft
+
+`runs:accept`는 writer run이 merge되고 worktree cleanup까지 완료된 뒤에만
+`references/lessons/inbox/<runId>.md` lesson candidate를 자동 생성할 수 있다. 이
+candidate는 reviewable inbox artifact일 뿐이며, `lessons:review` 또는
+`lessons:promote`를 대신 실행하지 않는다. Report-only, failed, untrusted,
+cleaned lifecycle이 없는 run은 자동 draft 대상이 아니다.
+
 ## 여러 Slice의 연속성
 
 brainstorm, plan, command 결과가 서로 의존하는 여러 slice로 나뉘면,
