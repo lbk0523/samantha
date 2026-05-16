@@ -377,14 +377,48 @@ source of truth for Samantha lifecycle decisions.
 | S3 | completed | Add optional runtime metadata to run evidence. | S2 | focused run-log tests; `bun run typecheck`; broader `bun test` if shared evidence behavior changes | `sam c: SDK Adapter initiative S3를 수행해. run evidence에 optional runtime metadata를 추가하되 old run log compatibility와 Samantha-owned gates를 유지해줘.` |
 | S4 | completed | Run a report-only SDK capability spike and record findings. | S3 | report-only evidence; no production writes unless separately approved | `sam r: SDK Adapter initiative S4를 수행해. 공식 Codex SDK가 Samantha worker prompt, thread id, resume, result output, HARNESS_RESULT, error/approval 상태를 어떻게 제공하는지 report-only로 검토해줘.` |
 | S5 | completed | Implement guarded SDK runtime adapter behind an explicit option. | S4 plus explicit dependency decision | fake SDK adapter tests; existing exec-json tests; `bun run typecheck`; bounded dogfood run | `sam c: SDK Adapter initiative S5를 수행해. @openai/codex-sdk dependency 설치 또는 fake-only no-dependency slice 중 하나를 명시적으로 선택한 뒤, SDK runtime adapter를 explicit option 뒤에 추가하고 exec-json default와 fallback을 유지해줘.` |
-| S6 | ready | Add rework/resume semantics for SDK-backed failed runs. | S5 | recovery-focused tests; dogfood failed-run recovery evidence | `sam c: SDK Adapter initiative S6를 수행해. SDK thread continuity를 failed-run recovery에만 bounded하게 연결하고, task spec과 verification gate를 유지하는 rework/resume 흐름을 구현해줘.` |
-| S7 | pending | Decide whether to promote, retain as experimental, or reject SDK runtime. | S5 or S6 | report-only promotion review; documented decision | `sam r: SDK Adapter initiative S7을 수행해. S5/S6 evidence를 기준으로 SDK runtime을 normal path로 promote할지, experimental로 유지할지, reject할지 findings-first로 검토해줘.` |
+| S6 | completed | Add rework/resume semantics for SDK-backed failed runs. | S5 | recovery-focused tests; dogfood failed-run recovery evidence | `sam c: SDK Adapter initiative S6를 수행해. SDK thread continuity를 failed-run recovery에만 bounded하게 연결하고, task spec과 verification gate를 유지하는 rework/resume 흐름을 구현해줘.` |
+| S7 | ready | Decide whether to promote, retain as experimental, or reject SDK runtime. | S5 or S6 | report-only promotion review; documented decision | `sam r: SDK Adapter initiative S7을 수행해. S5/S6 evidence를 기준으로 SDK runtime을 normal path로 promote할지, experimental로 유지할지, reject할지 findings-first로 검토해줘.` |
 
 ## Current Next Slice
 
-S6 is ready: add bounded rework/resume semantics for SDK-backed failed runs
-without letting SDK thread state replace task specs, verification, scope checks,
-or lifecycle records.
+S7 is ready: decide whether SDK runtime should be promoted, retained as
+experimental, or rejected based on S5/S6 evidence.
+
+## 2026-05-16 S6 Update
+
+Completed:
+
+- Added bounded SDK resume context to `tasks:from-run` follow-up instructions
+  for failed or incomplete `codex-sdk` runs with a runtime `threadId`.
+- Kept `exec-json` follow-up task generation unchanged.
+- Kept failed-run recovery centered on a narrowed task spec, declared target
+  files, original forbidden changes, and fresh verify commands.
+- Kept Samantha-owned verification, scope checks, commit/report authority,
+  worktree allocation, and lifecycle decisions outside runtime resume state.
+
+Verification:
+
+- `bun test tests/task-from-run.test.ts` passed.
+- `bun test tests/codex-dispatch.test.ts` passed.
+- `bun test tests/worker-dispatch.test.ts` passed.
+- `bun run typecheck` passed.
+- `bun test` passed.
+- Dogfooded `bun run samantha tasks:from-run` against a synthetic failed
+  `codex-sdk` run log under `/tmp/samantha-s6-recovery-*`; the generated task
+  included the SDK thread id as optional context, kept the failed verify command
+  first, and did not include a broad "continue working" prompt.
+
+Decision changes:
+
+- SDK thread continuity is evidence context only. It may be carried into a
+  follow-up task as an optional resume candidate, but the next task spec,
+  current repository state, target files, and verify commands remain
+  authoritative.
+- `tasks:from-run` does not choose a runtime, resume a thread, dispatch a
+  worker, merge, clean up worktrees, push, or mutate lifecycle state.
+- No run log schema change, App Server integration, runtime selector change, or
+  new SDK dependency was introduced in S6.
 
 ## 2026-05-16 S5 Update
 

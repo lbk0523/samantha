@@ -164,6 +164,24 @@ function diagnosisLine(diagnosis: RunDiagnosis): string {
     : `Diagnosis: ${diagnosis.outcome}.`;
 }
 
+function sdkResumeContext(log: WorkerRunLog, diagnosis: RunDiagnosis): string | undefined {
+  const runtime = log.result.runtime;
+  if (
+    diagnosis.outcome === "pass" ||
+    diagnosis.outcome === "commit_failed" ||
+    runtime?.kind !== "codex-sdk" ||
+    !runtime.threadId
+  ) {
+    return undefined;
+  }
+
+  return [
+    `SDK resume candidate thread id: ${runtime.threadId}`,
+    "Use this thread only as optional context if the next runner explicitly supports SDK resume.",
+    "The follow-up task spec, repository state, target files, and verifyCommands remain authoritative.",
+  ].join("\n");
+}
+
 function specificInstructions(log: WorkerRunLog, diagnosis: RunDiagnosis): string {
   if (diagnosis.outcome === "verify_failed") {
     const failed = firstFailedVerifyCommand(log) ?? "the failed verify command";
@@ -219,12 +237,15 @@ function taskInstructions(input: {
   runLogPath: string;
   diagnosis: RunDiagnosis;
 }): string {
+  const resumeContext = sdkResumeContext(input.log, input.diagnosis);
+
   return [
     "Create a narrowed follow-up from Samantha run evidence.",
     `Run log: ${input.runLogPath}`,
     `Original run: ${input.log.runId}`,
     `Original task: ${input.log.task.id} - ${input.log.task.title}`,
     diagnosisLine(input.diagnosis),
+    ...(resumeContext ? ["", resumeContext] : []),
     "",
     specificInstructions(input.log, input.diagnosis),
     "",

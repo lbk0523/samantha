@@ -755,6 +755,89 @@ describe("task creation from run evidence", () => {
     expect(generated.instructions).toContain("Keep this failed verify command in verifyCommands: bun test tests/original.test.ts");
   });
 
+  test("keeps SDK thread continuity bounded to failed-run follow-up context", async () => {
+    const root = await makeRoot();
+    const runLogPath = await writeRunLog(
+      root,
+      baseLog({
+        result: baseExecution({
+          runtime: { kind: "codex-sdk", threadId: "thread-from-failed-sdk-run" },
+          evaluation: {
+            pass: false,
+            harness: { status: "pass", note: "ok", commit: "" },
+            changedFiles: ["src/core/original.ts"],
+            scopeViolations: [],
+            verifyResults: [
+              { command: "bun run typecheck", exitCode: 0, stdout: "", stderr: "" },
+              { command: "bun test tests/original.test.ts", exitCode: 1, stdout: "", stderr: "" },
+            ],
+          },
+          commit: undefined,
+          pass: false,
+        }),
+      }),
+    );
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "sdk-rework-follow-up",
+      title: "Recover failed SDK run",
+    });
+    const generated = await readTask(result.path ?? "");
+
+    expect(result).toMatchObject({
+      status: "created",
+      created: true,
+      outcome: "verify_failed",
+      recommendedNextAction: "create_rework_task_keep_failed_verify_command",
+    });
+    expect(generated.verifyCommands).toEqual([
+      "bun test tests/original.test.ts",
+      "bun run typecheck",
+    ]);
+    expect(generated.instructions).toContain("SDK resume candidate thread id: thread-from-failed-sdk-run");
+    expect(generated.instructions).toContain("Use this thread only as optional context");
+    expect(generated.instructions).toContain("The follow-up task spec, repository state, target files, and verifyCommands remain authoritative.");
+    expect(generated.instructions).not.toContain("continue working");
+  });
+
+  test("does not add SDK resume context for exec-json failed runs", async () => {
+    const root = await makeRoot();
+    const runLogPath = await writeRunLog(
+      root,
+      baseLog({
+        result: baseExecution({
+          runtime: { kind: "exec-json" },
+          evaluation: {
+            pass: false,
+            harness: { status: "pass", note: "ok", commit: "" },
+            changedFiles: ["src/core/original.ts"],
+            scopeViolations: [],
+            verifyResults: [{ command: "bun test tests/original.test.ts", exitCode: 1, stdout: "", stderr: "" }],
+          },
+          commit: undefined,
+          pass: false,
+        }),
+      }),
+    );
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "exec-json-rework-follow-up",
+      title: "Recover failed exec-json run",
+    });
+    const generated = await readTask(result.path ?? "");
+
+    expect(result).toMatchObject({
+      status: "created",
+      created: true,
+      outcome: "verify_failed",
+    });
+    expect(generated.instructions).not.toContain("SDK resume candidate thread id");
+  });
+
   test("creates scope follow-up tasks that cite violations and reject untrusted output", async () => {
     const root = await makeRoot();
     const runLogPath = await writeRunLog(
