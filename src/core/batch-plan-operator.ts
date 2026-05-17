@@ -1,11 +1,13 @@
 import { isAbsolute, relative, resolve } from "node:path";
-import { dryRunStoredBatchPlanAssembly } from "./batch-plan-assembly";
+import { dryRunBatchPlanAssembly } from "./batch-plan-assembly";
 import { dryRunExecutionBatchSpecAssembly } from "./batch-plan-execution-batch-assembly";
 import {
   readExecutionBatchSpecRecordById,
   writeExecutionBatchSpec,
   type ExecutionBatchSpecRecord,
 } from "./batch-plan-execution-batch-store";
+import type { BatchPlanDraft } from "./batch-plan-draft";
+import { readBatchPlanDraftRecordById } from "./batch-plan-draft-store";
 import {
   preflightPlanningArtifactBaseCommit,
   type PlanningArtifactBaseCommitGateResult,
@@ -33,11 +35,16 @@ export interface PrepareBatchPlanReport {
   draftId: string;
   batchId?: string;
   draftPath?: string;
+  sourceGoal?: string;
+  repoInspectionSummary?: string;
+  proposedTaskCount?: number;
   taskSpecWrites: TaskSpecWriteRecord[];
   planningCommit: CommitPlanningArtifactsResult | null;
   baseCommitGate: PlanningArtifactBaseCommitGateResult | null;
   executionBatchSpecRecord: ExecutionBatchSpecRecord | null;
   batchPreflight: BatchPreflightResult | null;
+  prepareOutcome: "passed" | "blocked";
+  preflightOutcome: "passed" | "blocked" | "not_run";
   pushPerformed: false;
   violations: string[];
   nextAction: string;
@@ -52,9 +59,9 @@ const BATCH_PREFLIGHT_NEXT_ACTION = "rework stored execution BatchSpec before ba
 export async function prepareBatchPlan(input: PrepareBatchPlanInput): Promise<PrepareBatchPlanReport> {
   const emptyReport = reportFor(input);
 
-  let assemblyResult;
+  let draftRecord;
   try {
-    assemblyResult = await dryRunStoredBatchPlanAssembly(input);
+    draftRecord = await readBatchPlanDraftRecordById(input);
   } catch (err) {
     return {
       ...emptyReport,
@@ -63,9 +70,14 @@ export async function prepareBatchPlan(input: PrepareBatchPlanInput): Promise<Pr
     };
   }
 
+  const assemblyResult = dryRunBatchPlanAssembly(draftRecord.draft, {
+    draftPath: draftRecord.path,
+    taskSpecDir: input.taskSpecDir,
+    batchId: input.batchId,
+  });
   const draftPath = assemblyResult.draftPath;
   const batchId = assemblyResult.batchSkeleton?.batchId;
-  const baseReport = reportFor(input, { draftPath, batchId });
+  const baseReport = reportFor(input, { draftPath, batchId, draft: draftRecord.draft });
 
   if (!assemblyResult.mayAssemble) {
     return {
@@ -181,6 +193,7 @@ export async function prepareBatchPlan(input: PrepareBatchPlanInput): Promise<Pr
       baseCommitGate,
       executionBatchSpecRecord,
       batchPreflight,
+      preflightOutcome: "blocked",
       violations: [...batchPreflight.violations],
       nextAction: BATCH_PREFLIGHT_NEXT_ACTION,
     };
@@ -190,6 +203,8 @@ export async function prepareBatchPlan(input: PrepareBatchPlanInput): Promise<Pr
     ...baseReport,
     pass: true,
     prepared: true,
+    prepareOutcome: "passed",
+    preflightOutcome: "passed",
     taskSpecWrites,
     planningCommit,
     baseCommitGate,
@@ -202,7 +217,7 @@ export async function prepareBatchPlan(input: PrepareBatchPlanInput): Promise<Pr
 
 function reportFor(
   input: PrepareBatchPlanInput,
-  known: { draftPath?: string; batchId?: string } = {},
+  known: { draftPath?: string; batchId?: string; draft?: BatchPlanDraft } = {},
 ): PrepareBatchPlanReport {
   const report: PrepareBatchPlanReport = {
     pass: false,
@@ -213,6 +228,8 @@ function reportFor(
     baseCommitGate: null,
     executionBatchSpecRecord: null,
     batchPreflight: null,
+    prepareOutcome: "blocked",
+    preflightOutcome: "not_run",
     pushPerformed: false,
     violations: [],
     nextAction: READ_DRAFT_NEXT_ACTION,
@@ -223,6 +240,11 @@ function reportFor(
   }
   if (known.batchId !== undefined) {
     report.batchId = known.batchId;
+  }
+  if (known.draft !== undefined) {
+    report.sourceGoal = known.draft.sourceGoal;
+    report.repoInspectionSummary = known.draft.repoInspection.currentStateSummary;
+    report.proposedTaskCount = known.draft.proposedTasks.length;
   }
 
   return report;

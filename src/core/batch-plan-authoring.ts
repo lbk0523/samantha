@@ -28,10 +28,14 @@ export interface AuthorBatchPlanDraftReport {
   written: boolean;
   draftId: string;
   draftPath?: string;
+  sourceGoal: string;
   classification: BatchPlanDraftClassification;
+  repoInspectionSummary: string;
   promotionReadiness: BatchPlanDraft["promotionReadiness"];
   proposedTaskCount: number;
   blockedPlaceholderCount: number;
+  prepareOutcome: "not_run";
+  preflightOutcome: "not_run";
   pushPerformed: false;
   violations: string[];
   nextAction: string;
@@ -83,10 +87,14 @@ export async function authorBatchPlanDraft(input: AuthorBatchPlanDraftInput): Pr
       written: true,
       draftId: input.draftId,
       draftPath: record.path,
+      sourceGoal: input.sourceGoal,
       classification: input.classification,
+      repoInspectionSummary: input.repoInspection.currentStateSummary,
       promotionReadiness,
       proposedTaskCount: input.proposedTasks.length,
       blockedPlaceholderCount,
+      prepareOutcome: "not_run",
+      preflightOutcome: "not_run",
       pushPerformed: false,
       violations: [],
       nextAction,
@@ -96,10 +104,14 @@ export async function authorBatchPlanDraft(input: AuthorBatchPlanDraftInput): Pr
       pass: false,
       written: false,
       draftId: input.draftId,
+      sourceGoal: input.sourceGoal,
       classification: input.classification,
+      repoInspectionSummary: input.repoInspection.currentStateSummary,
       promotionReadiness,
       proposedTaskCount: input.proposedTasks.length,
       blockedPlaceholderCount,
+      prepareOutcome: "not_run",
+      preflightOutcome: "not_run",
       pushPerformed: false,
       violations: [(err as Error).message],
       nextAction,

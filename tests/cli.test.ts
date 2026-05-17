@@ -1261,9 +1261,14 @@ All slices complete.
       written: true,
       draftId: "cli-authored-batch-plan",
       draftPath: join(draftsDir, "cli-authored-batch-plan.json"),
+      sourceGoal:
+        "Create a local CLI command that turns the CEO's natural-language source goal into BatchPlanDraft evidence.",
       classification: "routine_writer_batch",
+      repoInspectionSummary: "BatchPlanDraft authoring core exists; local CLI authoring command is missing.",
       proposedTaskCount: 1,
       blockedPlaceholderCount: 0,
+      prepareOutcome: "not_run",
+      preflightOutcome: "not_run",
       pushPerformed: false,
       violations: [],
       nextAction: `run batch-plans:prepare --draft-id=cli-authored-batch-plan --execution-batches-dir=${executionBatchesDir}`,
@@ -1320,6 +1325,8 @@ All slices complete.
       written: false,
       draftId: "duplicate-cli-plan",
       violations: ["batch plan draft already exists: duplicate-cli-plan"],
+      prepareOutcome: "not_run",
+      preflightOutcome: "not_run",
       pushPerformed: false,
     });
     await expect(readFile(draftPath, "utf8")).resolves.toBe(before);
@@ -1360,6 +1367,8 @@ All slices complete.
       pass: false,
       written: false,
       draftId: "invalid-placeholder-cli-plan",
+      prepareOutcome: "not_run",
+      preflightOutcome: "not_run",
       pushPerformed: false,
     });
     expect(result.violations[0]).toContain(
@@ -1401,11 +1410,14 @@ All slices complete.
       written: true,
       draftId: "architecture-cli-plan",
       classification: "architecture",
+      repoInspectionSummary: "BatchPlanDraft authoring core exists; local CLI authoring command is missing.",
       promotionReadiness: {
         status: "blocked",
         reasons: ["architecture requests must route before routine writer batch promotion."],
       },
       proposedTaskCount: 0,
+      prepareOutcome: "not_run",
+      preflightOutcome: "not_run",
       pushPerformed: false,
       nextAction: "route to architecture path before routine writer dispatch",
     });
@@ -1451,9 +1463,14 @@ All slices complete.
       pass: false,
       prepared: false,
       draftId: "blocked-cli-plan",
+      sourceGoal: "Expose Phase 5.5 BatchPlan through local CLI commands.",
+      repoInspectionSummary: "BatchPlan operator and draft store exist; CLI wiring is missing.",
+      proposedTaskCount: 0,
       taskSpecWrites: [],
       planningCommit: null,
       executionBatchSpecRecord: null,
+      prepareOutcome: "blocked",
+      preflightOutcome: "not_run",
       nextAction: "route to architecture path before routine writer dispatch",
     });
     expect(result.violations).toContain("classification must be routine_writer_batch to promote");
@@ -1491,6 +1508,11 @@ All slices complete.
       prepared: true,
       draftId: "ready-cli-plan",
       batchId: "ready-cli-execution",
+      sourceGoal: "Expose Phase 5.5 BatchPlan through local CLI commands.",
+      repoInspectionSummary: "BatchPlan operator and draft store exist; CLI wiring is missing.",
+      proposedTaskCount: 1,
+      prepareOutcome: "passed",
+      preflightOutcome: "passed",
       pushPerformed: false,
       executionBatchSpecRecord: {
         batchId: "ready-cli-execution",

@@ -1,0 +1,40 @@
+{
+  "id": "phase-55-batchplan-report-contract",
+  "title": "Align Phase 5.5 BatchPlanDraft report contract",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/batch-specs/phase-5-5-ceo-batch-planning.md",
+    "src/core/batch-plan-authoring.ts",
+    "src/core/batch-plan-operator.ts",
+    "tests/batch-plan-authoring.test.ts",
+    "tests/batch-plan-operator.test.ts",
+    "tests/cli.test.ts"
+  ],
+  "forbiddenChanges": [
+    "src/core/batch-spec.ts",
+    "src/core/batch-execution.ts",
+    "src/core/batch-replan.ts",
+    "src/core/batch-spec-replacement.ts",
+    "src/core/batch-spec-mutation.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "src/commands/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "bun.lock",
+    "tsconfig.json"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/batch-plan-authoring.test.ts tests/batch-plan-operator.test.ts tests/cli.test.ts",
+    "bun test tests/batch-spec.test.ts tests/batch-execution.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Align Phase 5.5 CEO BatchPlanDraft lifecycle docs and low-risk report fields. Update references/batch-specs/phase-5-5-ceo-batch-planning.md so already implemented schema validation, placeholder validation, batch-plans:draft, and batch-plans:prepare are described as current baseline, not future/open work. Clarify report ownership for batch-plans:draft, batch-plans:prepare, and batches:execute. If needed, add only low-risk fields to AuthorBatchPlanDraftReport and PrepareBatchPlanReport / their CLI JSON output so report contract exposes sourceGoal, repoInspection summary, proposed task count, preflight/prepare outcomes, pushPerformed false, and nextAction. Do not implement natural-language goal parsing, natural-language-only dispatch, push automation, writerCap changes, worker-owned orchestration, hidden memory, daemon/watch behavior, dashboards, or changes to existing Phase 5 BatchSpec gates. Keep changes surgical and only in targetFiles. Run the verify commands before final response. Final response must include exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: align phase 5.5 batchplan report contract",
+  "status": "pending"
+}

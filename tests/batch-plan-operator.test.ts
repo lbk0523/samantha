@@ -136,6 +136,13 @@ describe("BatchPlan operator core", () => {
     expect(result.pushPerformed).toBe(false);
     expect(result.violations).toEqual([]);
     expect(result.draftPath).toBe(join(draftsDir, "operator-happy-draft.json"));
+    expect(result.sourceGoal).toBe("Add the deterministic BatchPlan operator core.");
+    expect(result.repoInspectionSummary).toBe(
+      "BatchPlan primitives exist and need a thin operator composition layer.",
+    );
+    expect(result.proposedTaskCount).toBe(1);
+    expect(result.prepareOutcome).toBe("passed");
+    expect(result.preflightOutcome).toBe("passed");
     expect(result.batchId).toBe("operator-happy-batch");
     expect(result.taskSpecWrites.map((record) => record.path)).toEqual([
       "references/tasks/batch-plan-operator-core-task.json",
@@ -183,6 +190,13 @@ describe("BatchPlan operator core", () => {
 
     expect(result.pass).toBe(false);
     expect(result.prepared).toBe(false);
+    expect(result.sourceGoal).toBe("Add the deterministic BatchPlan operator core.");
+    expect(result.repoInspectionSummary).toBe(
+      "BatchPlan primitives exist and need a thin operator composition layer.",
+    );
+    expect(result.proposedTaskCount).toBe(0);
+    expect(result.prepareOutcome).toBe("blocked");
+    expect(result.preflightOutcome).toBe("not_run");
     expect(result.taskSpecWrites).toEqual([]);
     expect(result.planningCommit).toBeNull();
     expect(result.executionBatchSpecRecord).toBeNull();
@@ -212,6 +226,13 @@ describe("BatchPlan operator core", () => {
     });
 
     expect(result.pass).toBe(false);
+    expect(result.sourceGoal).toBe("Add the deterministic BatchPlan operator core.");
+    expect(result.repoInspectionSummary).toBe(
+      "BatchPlan primitives exist and need a thin operator composition layer.",
+    );
+    expect(result.proposedTaskCount).toBe(1);
+    expect(result.prepareOutcome).toBe("blocked");
+    expect(result.preflightOutcome).toBe("not_run");
     expect(result.taskSpecWrites).toEqual([]);
     expect(result.planningCommit).toBeNull();
     expect(result.executionBatchSpecRecord).toBeNull();
@@ -239,6 +260,8 @@ describe("BatchPlan operator core", () => {
 
     expect(result.pass).toBe(false);
     expect(result.taskSpecWrites).toHaveLength(1);
+    expect(result.prepareOutcome).toBe("blocked");
+    expect(result.preflightOutcome).toBe("not_run");
     expect(result.planningCommit?.pass).toBe(false);
     expect(result.planningCommit?.violations).toContain(
       "repoRoot has dirty files outside requested planning artifacts: notes.txt",
@@ -266,6 +289,8 @@ describe("BatchPlan operator core", () => {
     expect(result.pass).toBe(false);
     expect(result.planningCommit?.pass).toBe(true);
     expect(result.baseCommitGate?.mayUseBaseCommit).toBe(true);
+    expect(result.prepareOutcome).toBe("blocked");
+    expect(result.preflightOutcome).toBe("not_run");
     expect(result.executionBatchSpecRecord).toBeNull();
     expect(result.violations[0]).toContain("Execution BatchSpec store must be outside repoRoot or git-ignored");
     expect(result.nextAction).toBe("rework execution BatchSpec storage before stored BatchSpec preflight");

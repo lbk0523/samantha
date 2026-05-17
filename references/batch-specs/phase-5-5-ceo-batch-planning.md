@@ -1,6 +1,6 @@
 # Phase 5.5 CEO Batch Planning Design
 
-Status: design artifact for a Phase 5 sub-design. Phase 5.5 is not a new
+Status: implemented baseline for a Phase 5 sub-design. Phase 5.5 is not a new
 roadmap phase.
 
 This document defines how the CEO layer may turn a natural language goal into a
@@ -31,6 +31,25 @@ increases, natural-language-only dispatch, hidden memory, remote adapters,
 daemon/watch behavior, dashboards, routine triggers,
 policy/doctrine/contract/profile/template/package/lockfile auto-execution,
 push automation, and broad CEO planning framework scope.
+
+## Current Implemented Baseline
+
+The Phase 5.5 baseline already includes:
+
+- deterministic `BatchPlanDraft` schema validation;
+- deterministic structured placeholder validation;
+- `batch-plans:draft`, which writes validated draft evidence and returns an
+  authoring report without preparing, preflighting, dispatching, or pushing;
+- `batch-plans:prepare`, which reads a stored draft, writes deterministic
+  TaskSpec planning artifacts, commits those planning artifacts when the repo
+  state permits it, writes the execution `BatchSpec` outside the target repo
+  dirty tree, and runs ordinary Phase 5 BatchSpec preflight before reporting
+  the next `batches:execute` action.
+
+This baseline still does not implement natural-language goal parsing,
+natural-language-only dispatch, push automation, `writerCap` changes,
+worker-owned orchestration, hidden memory, daemon/watch behavior, dashboards,
+remote adapters, or changes to existing Phase 5 BatchSpec gates.
 
 ## User Flow
 
@@ -256,6 +275,25 @@ Every Phase 5.5 report must include:
 Reports must not imply trusted completion from draft text alone. Trusted
 completion requires the ordinary Phase 5 evidence chain.
 
+Report ownership is split by lifecycle surface:
+
+- `batch-plans:draft` owns the draft authoring report. It reports the
+  `sourceGoal`, draft id/path, classification, promotion readiness, repo
+  inspection summary, proposed task count, blocked placeholder count,
+  `prepareOutcome: "not_run"`, `preflightOutcome: "not_run"`,
+  `pushPerformed: false`, violations, and next action.
+- `batch-plans:prepare` owns the preparation report. It reports the
+  `sourceGoal`, draft id/path, batch id when known, repo inspection summary,
+  proposed task count, TaskSpec writes, planning commit result, base commit
+  gate, execution BatchSpec storage result, BatchSpec preflight result,
+  prepare/preflight outcomes, `pushPerformed: false`, violations, and next
+  action.
+- `batches:execute` remains the Phase 5 execution owner. It owns worker run,
+  candidate commit, integration, verification, stale-base, cleanup, and local
+  accepted-batch lifecycle evidence. Phase 5.5 reports may point to
+  `batches:execute` as the next action, but they do not claim execution,
+  integration, verification, cleanup, trusted completion, or push completion.
+
 ## Non-Goals
 
 Phase 5.5 does not implement or authorize:
@@ -277,9 +315,6 @@ Phase 5.5 does not implement or authorize:
 
 ## Future Candidates
 
-- Deterministic draft schema validation and placeholder validation.
-- A promotion command that writes task specs and `BatchSpec` artifacts only
-  after validating the draft.
 - Report-only review for repeated planner quality issues.
 - A reviewed push authority design after Phase 5.5, if local routine authority
   proves stable.
@@ -288,8 +323,6 @@ Phase 5.5 does not implement or authorize:
 
 - Should `BatchPlanDraft` ids be user-facing, timestamp-based, or derived from
   the source goal plus repo state?
-- What exact command should own promotion from draft JSON to task specs and a
-  `BatchSpec`?
 - Which repo inspection fields should become required deterministic validation
   inputs versus retained as planning evidence only?
 - Should blocked drafts have a separate lifecycle status, or is
