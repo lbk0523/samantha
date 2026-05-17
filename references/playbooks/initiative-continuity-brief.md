@@ -9,7 +9,7 @@ multiple follow-up slices that must survive context resets or separate Codex
 sessions.
 
 The brief is the durable parent artifact for the work. It prevents slice-level
-task specs, `/goal` prompts, or chat transcripts from becoming the only source
+task specs, handoff prompts, or chat transcripts from becoming the only source
 of truth.
 
 ## When To Create One

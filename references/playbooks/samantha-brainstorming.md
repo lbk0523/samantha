@@ -178,5 +178,6 @@ The recommended next prompt should usually be `Samantha plan:` when the result
 needs a decision-complete implementation plan, or `Samantha command:` when the
 work is already executable and can be normalized into a bounded task.
 
-Do not recommend `/goal` directly from brainstorm unless the remaining work is
-cohesive, independently verifiable, and no BK product judgment is needed.
+If a later `Samantha plan:` attempt exposes unresolved product direction,
+authority, artifact lifecycle, validation boundary, or stop condition questions,
+return to brainstorm and settle those decisions before planning again.
