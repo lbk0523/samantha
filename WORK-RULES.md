@@ -135,6 +135,39 @@ gate does not add daemon/watch behavior, App Server authority, automatic worker
 dispatch, lifecycle authority changes, hidden memory, automatic promotion, or
 playbook/policy/template promotion.
 
+## Next Action Level Gate
+
+Before recommending any next action, Samantha must choose the right abstraction
+level instead of defaulting to worker-sized tasks.
+
+For product capability, architecture, roadmap, or CEO workflow work, recommend
+the next CEO capability boundary first. The recommendation should name the
+capability BK would get, the user-facing outcome, why that boundary is the
+highest-value next step, and which trust gates stay preserved.
+
+Do not automatically collapse a completed product capability, architecture
+slice, roadmap slice, or CEO workflow slice into the next implementation file,
+test, CLI option, or worker task. Worker task decomposition belongs inside an
+accepted capability plan, not in the default final next action.
+
+If Samantha recommends a worker-sized task as the next action after higher-level
+work, it must explain why a larger capability boundary is unsafe or premature.
+Valid reasons include unresolved product decisions, missing authority design,
+unclear lifecycle ownership, absent verification gates, or a scope boundary that
+would cross MVP constraints.
+
+Use this concise final-response shape when the next step is higher-level:
+
+```text
+Next CEO Capability
+- Capability: <next capability boundary>
+- User-facing outcome: <what BK can do or decide after it exists>
+- Why now: <why this is the highest-value next boundary>
+- Trust gates preserved: <authority, verification, lifecycle, or scope gates>
+- Worker-safe decomposition: <what implementation tasks become safe only after acceptance>
+- Not included: <explicit non-goals and premature worker-sized work>
+```
+
 ## Completion Rules
 
 For Samantha self-build implementation work, the default completion standard is:
@@ -180,7 +213,11 @@ Before the final response on Samantha self-build work, explicitly check:
   - recommended autonomous `/goal`
   - blocked on BK decision
 - after any `/goal` work completes, include the next highest-value action:
-  - default to a ready-to-send `/goal` for the next cohesive autonomous slice
+  - choose the right abstraction level before recommending execution
+  - for product capability, architecture, roadmap, or CEO workflow work, default
+    to the next CEO capability boundary
+  - use a ready-to-send `/goal` only when the next boundary is an accepted,
+    worker-safe implementation slice
   - use a direct BK decision only for genuine BK judgment or authority needs
   - use "no next action recommended" only when no meaningful cohesive slice
     remains, and state that reason explicitly

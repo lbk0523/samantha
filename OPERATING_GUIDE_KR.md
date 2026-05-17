@@ -104,6 +104,12 @@ decision point, stop condition을 확인하고, 아직 결정되지 않은 것�
 추천 next action은 "다음 구현"이 아니라 "다음 설계 산출물"이어야 한다. 예: ARCHITECTURE
 정렬, phase roadmap, artifact lifecycle, role boundary, validation boundary.
 
+다음 액션을 추천할 때는 먼저 레벨을 고른다. product capability, architecture,
+roadmap, CEO workflow 작업 이후에는 worker-sized task가 아니라 다음 CEO capability
+boundary를 먼저 추천한다. worker-sized task를 바로 추천하려면 더 큰 capability
+boundary가 아직 안전하지 않거나 premature한 이유를 명시해야 한다. Worker task
+decomposition은 accepted capability plan 안에 둔다.
+
 Worker/execution mode는 implementation task가 decision-complete일 때만 적용한다. 이때는
 기존 harness gate를 따른다:
 
