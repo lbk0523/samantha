@@ -20,6 +20,7 @@ export interface AuthorBatchPlanDraftInput {
   parallelizationHints?: ParallelizationHint[];
   structuredPlaceholders?: StructuredPlaceholder[];
   draftsDir?: string;
+  executionBatchesDirHint?: string;
 }
 
 export interface AuthorBatchPlanDraftReport {
@@ -50,6 +51,7 @@ export async function authorBatchPlanDraft(input: AuthorBatchPlanDraftInput): Pr
     draftId: input.draftId,
     classification: input.classification,
     promotionReadinessStatus: promotionReadiness.status,
+    executionBatchesDirHint: input.executionBatchesDirHint,
   });
   const draft: BatchPlanDraft = {
     schemaVersion: 1,
@@ -138,9 +140,13 @@ function nextActionFor(input: {
   draftId: string;
   classification: BatchPlanDraftClassification;
   promotionReadinessStatus: BatchPlanDraft["promotionReadiness"]["status"];
+  executionBatchesDirHint?: string;
 }): string {
   if (input.classification === "routine_writer_batch" && input.promotionReadinessStatus === "ready") {
-    return `run batch-plans:prepare for draft ${input.draftId}`;
+    return (
+      `run batch-plans:prepare --draft-id=${input.draftId} ` +
+      `--execution-batches-dir=${input.executionBatchesDirHint ?? "../samantha-execution-batches"}`
+    );
   }
   if (input.classification !== "routine_writer_batch") {
     return `route to ${routePathForClassification(input.classification)} path before routine writer dispatch`;

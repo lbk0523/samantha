@@ -42,6 +42,7 @@ function input(overrides: Partial<AuthorBatchPlanDraftInput> = {}): AuthorBatchP
     },
     proposedTasks: [proposedTask()],
     dependencyHints: [],
+    executionBatchesDirHint: join(tmpdir(), "samantha-execution-batches"),
     parallelizationHints: [
       {
         taskIds: ["authoring-core-task"],
@@ -81,6 +82,9 @@ describe("BatchPlanDraft authoring core", () => {
     const draftsDir = await makeDraftsDir();
     const result = await authorBatchPlanDraft(input({ draftsDir, draftId: "ready-authoring-draft" }));
     const expectedPath = join(draftsDir, "ready-authoring-draft.json");
+    const expectedNextAction =
+      "run batch-plans:prepare --draft-id=ready-authoring-draft --execution-batches-dir=" +
+      join(tmpdir(), "samantha-execution-batches");
 
     expect(result).toEqual({
       pass: true,
@@ -96,12 +100,12 @@ describe("BatchPlanDraft authoring core", () => {
       blockedPlaceholderCount: 0,
       pushPerformed: false,
       violations: [],
-      nextAction: "run batch-plans:prepare for draft ready-authoring-draft",
+      nextAction: expectedNextAction,
     });
 
     const stored = JSON.parse(await readFile(expectedPath, "utf8")) as BatchPlanDraft;
     expect(stored.draftId).toBe("ready-authoring-draft");
-    expect(stored.report.nextAction).toBe("run batch-plans:prepare for draft ready-authoring-draft");
+    expect(stored.report.nextAction).toBe(expectedNextAction);
     expect(stored.autonomyEnvelope.pushAllowed).toBe(false);
   });
 
