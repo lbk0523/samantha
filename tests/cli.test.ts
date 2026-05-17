@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main, parseCliArgs } from "../src/cli";
+import type { AuthorBatchPlanDraftInput } from "../src/core/batch-plan-authoring";
 import type { BatchPlanDraft } from "../src/core/batch-plan-draft";
 import { writeBatchPlanDraft } from "../src/core/batch-plan-draft-store";
 import type { BatchSpec } from "../src/core/batch-spec";
@@ -131,6 +132,44 @@ function cliBatchPlanDraft(overrides: Partial<BatchPlanDraft> = {}): BatchPlanDr
   };
 }
 
+function cliBatchPlanDraftInput(overrides: Partial<AuthorBatchPlanDraftInput> = {}): AuthorBatchPlanDraftInput {
+  return {
+    draftId: "cli-authored-batch-plan",
+    createdAt: "2026-05-17T00:00:00.000Z",
+    sourceGoal:
+      "Create a local CLI command that turns the CEO's natural-language source goal into BatchPlanDraft evidence.",
+    classification: "routine_writer_batch",
+    repoInspection: {
+      inspectedPaths: ["src/cli.ts", "tests/cli.test.ts", "src/core/batch-plan-authoring.ts"],
+      currentStateSummary: "BatchPlanDraft authoring core exists; local CLI authoring command is missing.",
+      candidateWriteSurfaces: ["src/cli.ts", "tests/cli.test.ts"],
+      authorityBoundarySurfaces: ["src/core/batch-plan-operator.ts", "src/core/batch-execution.ts"],
+      assumptions: ["Authoring writes draft evidence only and leaves preparation and dispatch to later commands."],
+    },
+    proposedTasks: [
+      {
+        id: "cli-authoring-command",
+        title: "Add BatchPlan draft CLI command",
+        summary: "Wire the existing BatchPlanDraft authoring core into the local CLI.",
+        targetFileHints: ["src/cli.ts", "tests/cli.test.ts"],
+        forbiddenChangeHints: ["src/core/batch-plan-authoring.ts", "runs/**", "worktrees/**"],
+        verifyCommandHints: ["bun test tests/cli.test.ts tests/batch-plan-authoring.test.ts"],
+        independentlyVerifiableRationale:
+          "Parser and command tests prove authoring succeeds without preparing or dispatching a batch.",
+      },
+    ],
+    dependencyHints: [],
+    parallelizationHints: [
+      {
+        taskIds: ["cli-authoring-command"],
+        rationale: "Single focused CLI task with deterministic tests.",
+      },
+    ],
+    structuredPlaceholders: [],
+    ...overrides,
+  };
+}
+
 async function writeCliBatchStoreFixture(
   taskSpecOverrides: Partial<TaskSpec> = {},
   batchOverrides: Partial<BatchSpec> = {},
@@ -222,6 +261,22 @@ async function pathExists(path: string): Promise<boolean> {
       return false;
     }
     throw err;
+  }
+}
+
+async function runCliCapturingStdout(argv: string[]): Promise<{ exitCode: number; stdout: string }> {
+  const originalLog = console.log;
+  let stdout = "";
+  console.log = (message?: unknown) => {
+    stdout = String(message);
+  };
+  try {
+    return {
+      exitCode: await main(argv),
+      stdout,
+    };
+  } finally {
+    console.log = originalLog;
   }
 }
 
@@ -849,7 +904,7 @@ All slices complete.
     });
   });
 
-  test("parses BatchPlan list, show, and prepare arguments", () => {
+  test("parses BatchPlan list, show, draft, and prepare arguments", () => {
     expect(parseCliArgs(["batch-plans:list", "--drafts-dir=references/batch-plans"])).toEqual({
       command: "batch-plans:list",
       draftsDir: "references/batch-plans",
@@ -864,6 +919,19 @@ All slices complete.
       command: "batch-plans:show",
       draftId: "cli-batch-plan-draft",
       draftsDir: "references/batch-plans",
+    });
+    expect(
+      parseCliArgs([
+        "batch-plans:draft",
+        "--input=references/batch-plans/input.json",
+        "--drafts-dir=references/batch-plans",
+        "--execution-batches-dir=/tmp/execution-batches",
+      ]),
+    ).toEqual({
+      command: "batch-plans:draft",
+      inputPath: "references/batch-plans/input.json",
+      draftsDir: "references/batch-plans",
+      executionBatchesDir: "/tmp/execution-batches",
     });
     expect(
       parseCliArgs([
@@ -886,6 +954,9 @@ All slices complete.
     });
     expect(() => parseCliArgs(["batch-plans:show"])).toThrow(
       "usage: bun run samantha batch-plans:show --draft-id=<id> [--drafts-dir=<dir>]",
+    );
+    expect(() => parseCliArgs(["batch-plans:draft"])).toThrow(
+      "usage: bun run samantha batch-plans:draft --input=<json> [--drafts-dir=<dir>] [--execution-batches-dir=<dir>]",
     );
     expect(() => parseCliArgs(["batch-plans:prepare", "--draft-id=cli-batch-plan-draft"])).toThrow(
       "usage: bun run samantha batch-plans:prepare --draft-id=<id> --execution-batches-dir=<dir> [--drafts-dir=<dir>] [--repo-root=<repo>] [--task-spec-dir=<dir>] [--batch-id=<id>]",
@@ -1119,6 +1190,179 @@ All slices complete.
       sourceGoal: "Show this stored BatchPlan draft.",
       proposedTasks: [{ id: "cli-batch-plan-task" }],
     });
+  });
+
+  test("BatchPlan draft command authors a draft from JSON input without preparing or dispatching", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-author-batch-plan-"));
+    tmpRoots.push(root);
+    const draftsDir = join(root, "references", "batch-plans");
+    const executionBatchesDir = join(root, "execution-batches");
+    const inputPath = join(root, "batch-plan-input.json");
+    await writeFile(inputPath, `${JSON.stringify(cliBatchPlanDraftInput(), null, 2)}\n`, "utf8");
+
+    const { exitCode, stdout } = await runCliCapturingStdout([
+      "batch-plans:draft",
+      `--input=${inputPath}`,
+      `--drafts-dir=${draftsDir}`,
+      `--execution-batches-dir=${executionBatchesDir}`,
+    ]);
+
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      pass: true,
+      written: true,
+      draftId: "cli-authored-batch-plan",
+      draftPath: join(draftsDir, "cli-authored-batch-plan.json"),
+      classification: "routine_writer_batch",
+      proposedTaskCount: 1,
+      blockedPlaceholderCount: 0,
+      pushPerformed: false,
+      violations: [],
+      nextAction: `run batch-plans:prepare --draft-id=cli-authored-batch-plan --execution-batches-dir=${executionBatchesDir}`,
+    });
+    expect(result).not.toHaveProperty("batchPreflight");
+    expect(result).not.toHaveProperty("executionBatchSpecRecord");
+
+    const stored = JSON.parse(await readFile(join(draftsDir, "cli-authored-batch-plan.json"), "utf8"));
+    expect(stored.sourceGoal).toContain("natural-language source goal");
+    expect(stored.proposedTasks[0]).toMatchObject({
+      id: "cli-authoring-command",
+      targetFileHints: ["src/cli.ts", "tests/cli.test.ts"],
+    });
+    await expect(pathExists(executionBatchesDir)).resolves.toBe(false);
+    await expect(pathExists(join(root, "runs"))).resolves.toBe(false);
+    await expect(pathExists(join(root, "worktrees"))).resolves.toBe(false);
+  });
+
+  test("BatchPlan draft command returns non-zero for duplicate draftId without overwriting", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-duplicate-batch-plan-"));
+    tmpRoots.push(root);
+    const draftsDir = join(root, "references", "batch-plans");
+    const inputPath = join(root, "batch-plan-input.json");
+    const secondInputPath = join(root, "batch-plan-input-second.json");
+    await writeFile(inputPath, `${JSON.stringify(cliBatchPlanDraftInput({ draftId: "duplicate-cli-plan" }), null, 2)}\n`, "utf8");
+    await writeFile(
+      secondInputPath,
+      `${JSON.stringify(
+        cliBatchPlanDraftInput({
+          draftId: "duplicate-cli-plan",
+          sourceGoal: "Second CLI authoring attempt must not replace the original draft.",
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await expect(
+      runCliCapturingStdout(["batch-plans:draft", `--input=${inputPath}`, `--drafts-dir=${draftsDir}`]),
+    ).resolves.toMatchObject({ exitCode: 0 });
+    const draftPath = join(draftsDir, "duplicate-cli-plan.json");
+    const before = await readFile(draftPath, "utf8");
+
+    const { exitCode, stdout } = await runCliCapturingStdout([
+      "batch-plans:draft",
+      `--input=${secondInputPath}`,
+      `--drafts-dir=${draftsDir}`,
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout)).toMatchObject({
+      pass: false,
+      written: false,
+      draftId: "duplicate-cli-plan",
+      violations: ["batch plan draft already exists: duplicate-cli-plan"],
+      pushPerformed: false,
+    });
+    await expect(readFile(draftPath, "utf8")).resolves.toBe(before);
+  });
+
+  test("BatchPlan draft command returns validator rejection for unstructured placeholders", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-invalid-batch-plan-"));
+    tmpRoots.push(root);
+    const draftsDir = join(root, "references", "batch-plans");
+    const inputPath = join(root, "batch-plan-input.json");
+    await writeFile(
+      inputPath,
+      `${JSON.stringify(
+        cliBatchPlanDraftInput({
+          draftId: "invalid-placeholder-cli-plan",
+          proposedTasks: [
+            {
+              ...cliBatchPlanDraftInput().proposedTasks[0],
+              verifyCommandHints: ["TODO choose focused verification"],
+            },
+          ],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const { exitCode, stdout } = await runCliCapturingStdout([
+      "batch-plans:draft",
+      `--input=${inputPath}`,
+      `--drafts-dir=${draftsDir}`,
+    ]);
+
+    expect(exitCode).toBe(1);
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      pass: false,
+      written: false,
+      draftId: "invalid-placeholder-cli-plan",
+      pushPerformed: false,
+    });
+    expect(result.violations[0]).toContain(
+      "proposedTasks[].verifyCommandHints must not contain unresolved placeholder text: cli-authoring-command has TODO choose focused verification",
+    );
+    await expect(pathExists(join(draftsDir, "invalid-placeholder-cli-plan.json"))).resolves.toBe(false);
+  });
+
+  test("BatchPlan draft command stores non-routine route reports without recommending prepare", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-route-batch-plan-"));
+    tmpRoots.push(root);
+    const draftsDir = join(root, "references", "batch-plans");
+    const inputPath = join(root, "batch-plan-input.json");
+    await writeFile(
+      inputPath,
+      `${JSON.stringify(
+        cliBatchPlanDraftInput({
+          draftId: "architecture-cli-plan",
+          classification: "architecture",
+          proposedTasks: [],
+          parallelizationHints: [],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const { exitCode, stdout } = await runCliCapturingStdout([
+      "batch-plans:draft",
+      `--input=${inputPath}`,
+      `--drafts-dir=${draftsDir}`,
+    ]);
+
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      pass: true,
+      written: true,
+      draftId: "architecture-cli-plan",
+      classification: "architecture",
+      promotionReadiness: {
+        status: "blocked",
+        reasons: ["architecture requests must route before routine writer batch promotion."],
+      },
+      proposedTaskCount: 0,
+      pushPerformed: false,
+      nextAction: "route to architecture path before routine writer dispatch",
+    });
+    expect(result.nextAction).not.toContain("batch-plans:prepare");
   });
 
   test("BatchPlan prepare command returns non-zero when the operator blocks preparation", async () => {

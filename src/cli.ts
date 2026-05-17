@@ -37,6 +37,7 @@ import { markBatchSpecRejected } from "./core/batch-spec-mutation";
 import { createReplacementBatchSpec } from "./core/batch-spec-replacement";
 import { listBatchSpecs, readBatchSpecById, readBatchSpecRecordById } from "./core/batch-spec-store";
 import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
+import { authorBatchPlanDraft, type AuthorBatchPlanDraftInput } from "./core/batch-plan-authoring";
 import { listBatchPlanDrafts, readBatchPlanDraftById } from "./core/batch-plan-draft-store";
 import { prepareBatchPlan, type PrepareBatchPlanInput } from "./core/batch-plan-operator";
 import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
@@ -209,6 +210,13 @@ export interface BatchPlansShowCliArgs {
   draftsDir?: string;
 }
 
+export interface BatchPlansDraftCliArgs {
+  command: "batch-plans:draft";
+  inputPath: string;
+  draftsDir?: string;
+  executionBatchesDir?: string;
+}
+
 export interface BatchPlansPrepareCliArgs extends PrepareBatchPlanInput {
   command: "batch-plans:prepare";
 }
@@ -241,6 +249,7 @@ export type SamanthaCliArgs =
   | BatchesShowCliArgs
   | BatchPlansListCliArgs
   | BatchPlansShowCliArgs
+  | BatchPlansDraftCliArgs
   | BatchPlansPrepareCliArgs;
 
 function parseFlags(args: string[]): Map<string, string> {
@@ -611,6 +620,20 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "batch-plans:draft") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const inputPath = flags.get("input");
+    if (!inputPath) {
+      throw new Error("usage: bun run samantha batch-plans:draft --input=<json> [--drafts-dir=<dir>] [--execution-batches-dir=<dir>]");
+    }
+    return {
+      command: "batch-plans:draft",
+      inputPath,
+      ...(flags.get("drafts-dir") ? { draftsDir: flags.get("drafts-dir") } : {}),
+      ...(flags.get("execution-batches-dir") ? { executionBatchesDir: flags.get("execution-batches-dir") } : {}),
+    };
+  }
+
   if (command === "batch-plans:prepare") {
     const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     const draftId = flags.get("draft-id");
@@ -717,7 +740,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:prepare");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -909,6 +932,17 @@ export async function main(argv: string[]): Promise<number> {
   if (args.command === "batch-plans:show") {
     console.log(JSON.stringify(await readBatchPlanDraftById(args), null, 2));
     return 0;
+  }
+
+  if (args.command === "batch-plans:draft") {
+    const input = JSON.parse(await readFile(resolve(args.inputPath), "utf8")) as AuthorBatchPlanDraftInput;
+    const result = await authorBatchPlanDraft({
+      ...input,
+      ...(args.draftsDir ? { draftsDir: args.draftsDir } : {}),
+      ...(args.executionBatchesDir ? { executionBatchesDirHint: args.executionBatchesDir } : {}),
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return result.pass ? 0 : 1;
   }
 
   if (args.command === "batch-plans:prepare") {
