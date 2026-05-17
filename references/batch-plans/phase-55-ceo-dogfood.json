@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "draftId": "phase-55-ceo-dogfood",
+  "createdAt": "2026-05-17T04:31:37.000Z",
+  "sourceGoal": "Create a short Phase 5.5 CEO BatchPlanDraft dogfood evidence note after prepare/preflight succeeds.",
+  "classification": "routine_writer_batch",
+  "repoInspection": {
+    "inspectedPaths": [
+      "references/batch-specs/phase-5-5-ceo-batch-planning.md",
+      "src/core/batch-plan-authoring.ts",
+      "src/core/batch-plan-operator.ts",
+      "tests/batch-plan-authoring.test.ts",
+      "tests/batch-plan-operator.test.ts",
+      "tests/cli.test.ts"
+    ],
+    "currentStateSummary": "Phase 5.5 draft authoring, review, prepare, report ownership, and preflight surfaces are implemented; the repo is clean at dogfood start.",
+    "candidateWriteSurfaces": [
+      "references/initiatives/phase-55-ceo-batchplan-dogfood.md"
+    ],
+    "authorityBoundarySurfaces": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "src/core/policy.ts",
+      "src/core/contracts.ts",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "package.json",
+      "bun.lock"
+    ],
+    "assumptions": [
+      "The dogfood should prove planning and preflight readiness without running writer execution.",
+      "A single documentation evidence note is a small independently verifiable writer surface.",
+      "Execution BatchSpec storage stays outside the target repo dirty tree."
+    ]
+  },
+  "proposedTasks": [
+    {
+      "id": "phase-55-dogfood-evidence-note",
+      "title": "Record Phase 5.5 dogfood evidence note",
+      "summary": "Create a concise evidence note describing the Phase 5.5 CEO BatchPlanDraft dogfood result after draft review and prepare pass.",
+      "targetFileHints": [
+        "references/initiatives/phase-55-ceo-batchplan-dogfood.md"
+      ],
+      "forbiddenChangeHints": [
+        "src/**",
+        "tests/**",
+        "AGENTS.md",
+        "WORK-RULES.md",
+        "NORTH_STAR.md",
+        "ARCHITECTURE.md",
+        "ROADMAP.md",
+        "references/agent-profiles/**",
+        "references/task-templates/**",
+        "references/batch-specs/**",
+        "references/batch-plans/**",
+        "references/tasks/**",
+        "runs/**",
+        "worktrees/**",
+        "package.json",
+        "bun.lock"
+      ],
+      "verifyCommandHints": [
+        "test -f references/initiatives/phase-55-ceo-batchplan-dogfood.md",
+        "grep -F 'Phase 5.5 CEO BatchPlanDraft dogfood evidence' references/initiatives/phase-55-ceo-batchplan-dogfood.md"
+      ],
+      "independentlyVerifiableRationale": "The evidence note can be verified by file existence and an exact marker line without changing executable code."
+    }
+  ],
+  "dependencyHints": [],
+  "parallelizationHints": [
+    {
+      "taskIds": [
+        "phase-55-dogfood-evidence-note"
+      ],
+      "rationale": "A single documentation writer task needs no parallel grouping beyond deterministic assembly."
+    }
+  ],
+  "structuredPlaceholders": [],
+  "autonomyEnvelope": {
+    "localCommitAllowed": true,
+    "pushAllowed": false,
+    "maxReworkCycles": 1
+  },
+  "promotionReadiness": {
+    "status": "ready",
+    "reasons": [
+      "Routine writer batch has proposed tasks and no blocking structured placeholders."
+    ]
+  },
+  "report": {
+    "summary": "Untrusted BatchPlanDraft planning evidence authored from the source goal.",
+    "nextAction": "run batch-plans:prepare --draft-id=phase-55-ceo-dogfood --execution-batches-dir=/tmp/samantha-phase-55-dogfood-execution-batches"
+  }
+}
