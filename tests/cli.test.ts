@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main, parseCliArgs } from "../src/cli";
+import type { BatchPlanDraft } from "../src/core/batch-plan-draft";
+import { writeBatchPlanDraft } from "../src/core/batch-plan-draft-store";
 import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES } from "../src/core/batch-spec";
 import type { TaskSpec } from "../src/core/contracts";
@@ -74,6 +76,61 @@ function cliLifecyclePolicy(overrides: Partial<BatchSpec["lifecyclePolicy"]> = {
   };
 }
 
+function cliBatchPlanTask(
+  overrides: Partial<BatchPlanDraft["proposedTasks"][number]> = {},
+): BatchPlanDraft["proposedTasks"][number] {
+  return {
+    id: "cli-batch-plan-task",
+    title: "Add BatchPlan CLI surface",
+    summary: "Expose BatchPlan list, show, and prepare through local CLI commands.",
+    targetFileHints: ["src/cli.ts", "tests/cli.test.ts"],
+    forbiddenChangeHints: ["src/core/batch-plan-operator.ts", "runs/**", "worktrees/**"],
+    verifyCommandHints: ["bun test tests/cli.test.ts"],
+    independentlyVerifiableRationale: "Parser and command behavior tests verify the CLI surface.",
+    ...overrides,
+  };
+}
+
+function cliBatchPlanDraft(overrides: Partial<BatchPlanDraft> = {}): BatchPlanDraft {
+  return {
+    schemaVersion: 1,
+    draftId: "cli-batch-plan-draft",
+    createdAt: "2026-05-17T00:00:00.000Z",
+    sourceGoal: "Expose Phase 5.5 BatchPlan through local CLI commands.",
+    classification: "routine_writer_batch",
+    repoInspection: {
+      inspectedPaths: ["src/cli.ts", "src/core/batch-plan-operator.ts", "src/core/batch-plan-draft-store.ts"],
+      currentStateSummary: "BatchPlan operator and draft store exist; CLI wiring is missing.",
+      candidateWriteSurfaces: ["src/cli.ts", "tests/cli.test.ts"],
+      authorityBoundarySurfaces: ["src/core/batch-plan-operator.ts", "src/core/batch-execution.ts"],
+      assumptions: ["CLI prepare only reports the next batches:execute action and never dispatches workers."],
+    },
+    proposedTasks: [cliBatchPlanTask()],
+    dependencyHints: [],
+    parallelizationHints: [
+      {
+        taskIds: ["cli-batch-plan-task"],
+        rationale: "Single CLI surface task with focused verification.",
+      },
+    ],
+    structuredPlaceholders: [],
+    autonomyEnvelope: {
+      localCommitAllowed: true,
+      pushAllowed: false,
+      maxReworkCycles: 1,
+    },
+    promotionReadiness: {
+      status: "ready",
+      reasons: ["The draft is ready for routine writer batch preparation."],
+    },
+    report: {
+      summary: "BatchPlan CLI commands can expose stored drafts and prepare execution BatchSpecs.",
+      nextAction: "Run batches:execute only after prepare returns a passing report.",
+    },
+    ...overrides,
+  };
+}
+
 async function writeCliBatchStoreFixture(
   taskSpecOverrides: Partial<TaskSpec> = {},
   batchOverrides: Partial<BatchSpec> = {},
@@ -125,6 +182,47 @@ async function writeCliBatchStoreFixture(
 
 async function writeCliBatchPreflightFixture(taskSpecOverrides: Partial<TaskSpec> = {}): Promise<string> {
   return (await writeCliBatchStoreFixture(taskSpecOverrides)).batchPath;
+}
+
+async function writeCliBatchPlanStoreFixture(
+  drafts: BatchPlanDraft[],
+): Promise<{ draftsDir: string; root: string }> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-cli-batch-plan-"));
+  tmpRoots.push(root);
+  const draftsDir = join(root, "references", "batch-plans");
+  for (const draft of drafts) {
+    await writeBatchPlanDraft({ draftsDir, draft });
+  }
+  return { draftsDir, root };
+}
+
+async function writeCliBatchPlanRepoFixture(
+  storedDraft: BatchPlanDraft,
+): Promise<{ draftsDir: string; executionBatchesDir: string; root: string }> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-cli-batch-plan-repo-"));
+  const executionRoot = await mkdtemp(join(tmpdir(), "samantha-cli-batch-plan-execution-"));
+  tmpRoots.push(root, executionRoot);
+  await git(["init"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
+  await writeFile(join(root, ".fixture"), "base\n", "utf8");
+  await git(["add", ".fixture"], root);
+  await git(["commit", "-m", "chore: initial cli batch plan fixture"], root);
+  const draftsDir = join(root, "references", "batch-plans");
+  await writeBatchPlanDraft({ draftsDir, draft: storedDraft });
+  return { draftsDir, executionBatchesDir: join(executionRoot, "execution-batches"), root };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw err;
+  }
 }
 
 describe("samantha cli", () => {
@@ -751,6 +849,49 @@ All slices complete.
     });
   });
 
+  test("parses BatchPlan list, show, and prepare arguments", () => {
+    expect(parseCliArgs(["batch-plans:list", "--drafts-dir=references/batch-plans"])).toEqual({
+      command: "batch-plans:list",
+      draftsDir: "references/batch-plans",
+    });
+    expect(
+      parseCliArgs([
+        "batch-plans:show",
+        "--draft-id=cli-batch-plan-draft",
+        "--drafts-dir=references/batch-plans",
+      ]),
+    ).toEqual({
+      command: "batch-plans:show",
+      draftId: "cli-batch-plan-draft",
+      draftsDir: "references/batch-plans",
+    });
+    expect(
+      parseCliArgs([
+        "batch-plans:prepare",
+        "--draft-id=cli-batch-plan-draft",
+        "--execution-batches-dir=/tmp/execution-batches",
+        "--drafts-dir=references/batch-plans",
+        "--repo-root=/tmp/samantha-repo",
+        "--task-spec-dir=references/tasks",
+        "--batch-id=cli-execution-batch",
+      ]),
+    ).toEqual({
+      command: "batch-plans:prepare",
+      draftId: "cli-batch-plan-draft",
+      executionBatchesDir: "/tmp/execution-batches",
+      draftsDir: "references/batch-plans",
+      repoRoot: "/tmp/samantha-repo",
+      taskSpecDir: "references/tasks",
+      batchId: "cli-execution-batch",
+    });
+    expect(() => parseCliArgs(["batch-plans:show"])).toThrow(
+      "usage: bun run samantha batch-plans:show --draft-id=<id> [--drafts-dir=<dir>]",
+    );
+    expect(() => parseCliArgs(["batch-plans:prepare", "--draft-id=cli-batch-plan-draft"])).toThrow(
+      "usage: bun run samantha batch-plans:prepare --draft-id=<id> --execution-batches-dir=<dir> [--drafts-dir=<dir>] [--repo-root=<repo>] [--task-spec-dir=<dir>] [--batch-id=<id>]",
+    );
+  });
+
   test("batch preflight command prints passing preflight result", async () => {
     const batchPath = await writeCliBatchPreflightFixture();
 
@@ -922,6 +1063,161 @@ All slices complete.
       status: "planned",
       tasks: [{ taskId: "task-a" }],
     });
+  });
+
+  test("BatchPlan list command prints draft summaries from the requested drafts directory", async () => {
+    const { draftsDir } = await writeCliBatchPlanStoreFixture([
+      cliBatchPlanDraft({ draftId: "z-cli-plan" }),
+      cliBatchPlanDraft({ draftId: "a-cli-plan" }),
+    ]);
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(main(["batch-plans:list", `--drafts-dir=${draftsDir}`])).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout)).toEqual([
+      expect.objectContaining({
+        draftId: "a-cli-plan",
+        classification: "routine_writer_batch",
+        proposedTaskCount: 1,
+      }),
+      expect.objectContaining({
+        draftId: "z-cli-plan",
+        classification: "routine_writer_batch",
+        proposedTaskCount: 1,
+      }),
+    ]);
+  });
+
+  test("BatchPlan show command prints draft JSON by id from the requested drafts directory", async () => {
+    const { draftsDir } = await writeCliBatchPlanStoreFixture([
+      cliBatchPlanDraft({ draftId: "shown-cli-plan", sourceGoal: "Show this stored BatchPlan draft." }),
+    ]);
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main(["batch-plans:show", "--draft-id=shown-cli-plan", `--drafts-dir=${draftsDir}`]),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout)).toMatchObject({
+      draftId: "shown-cli-plan",
+      sourceGoal: "Show this stored BatchPlan draft.",
+      proposedTasks: [{ id: "cli-batch-plan-task" }],
+    });
+  });
+
+  test("BatchPlan prepare command returns non-zero when the operator blocks preparation", async () => {
+    const { draftsDir } = await writeCliBatchPlanStoreFixture([
+      cliBatchPlanDraft({
+        draftId: "blocked-cli-plan",
+        classification: "architecture",
+        proposedTasks: [],
+        parallelizationHints: [],
+        promotionReadiness: {
+          status: "blocked",
+          reasons: ["Architecture work must stay in CEO planning mode."],
+        },
+      }),
+    ]);
+    const executionRoot = await mkdtemp(join(tmpdir(), "samantha-cli-batch-plan-blocked-execution-"));
+    tmpRoots.push(executionRoot);
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batch-plans:prepare",
+          "--draft-id=blocked-cli-plan",
+          `--drafts-dir=${draftsDir}`,
+          `--execution-batches-dir=${join(executionRoot, "execution-batches")}`,
+        ]),
+      ).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      pass: false,
+      prepared: false,
+      draftId: "blocked-cli-plan",
+      taskSpecWrites: [],
+      planningCommit: null,
+      executionBatchSpecRecord: null,
+      nextAction: "route to architecture path before routine writer dispatch",
+    });
+    expect(result.violations).toContain("classification must be routine_writer_batch to promote");
+  });
+
+  test("BatchPlan prepare command reports a ready execution batch without dispatching it", async () => {
+    const { draftsDir, executionBatchesDir, root } = await writeCliBatchPlanRepoFixture(
+      cliBatchPlanDraft({ draftId: "ready-cli-plan" }),
+    );
+
+    const originalLog = console.log;
+    let stdout = "";
+    console.log = (message?: unknown) => {
+      stdout = String(message);
+    };
+    try {
+      await expect(
+        main([
+          "batch-plans:prepare",
+          "--draft-id=ready-cli-plan",
+          `--drafts-dir=${draftsDir}`,
+          `--execution-batches-dir=${executionBatchesDir}`,
+          `--repo-root=${root}`,
+          "--task-spec-dir=references/tasks",
+          "--batch-id=ready-cli-execution",
+        ]),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      pass: true,
+      prepared: true,
+      draftId: "ready-cli-plan",
+      batchId: "ready-cli-execution",
+      pushPerformed: false,
+      executionBatchSpecRecord: {
+        batchId: "ready-cli-execution",
+      },
+      batchPreflight: {
+        mayDispatch: true,
+      },
+    });
+    expect(result.taskSpecWrites.map((record: { path: string }) => record.path)).toEqual([
+      "references/tasks/cli-batch-plan-task.json",
+    ]);
+    expect(result.nextAction).toContain("batches:execute");
+    expect(result.nextAction).toContain("--batch-id=ready-cli-execution");
+    await expect(readFile(join(executionBatchesDir, "ready-cli-execution.json"), "utf8")).resolves.toContain(
+      '"batchId": "ready-cli-execution"',
+    );
+    await expect(pathExists(join(root, "runs"))).resolves.toBe(false);
+    await expect(pathExists(join(root, "worktrees"))).resolves.toBe(false);
   });
 
   test("batch show command fails clearly when id is missing from the store", async () => {

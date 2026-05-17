@@ -37,6 +37,8 @@ import { markBatchSpecRejected } from "./core/batch-spec-mutation";
 import { createReplacementBatchSpec } from "./core/batch-spec-replacement";
 import { listBatchSpecs, readBatchSpecById, readBatchSpecRecordById } from "./core/batch-spec-store";
 import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
+import { listBatchPlanDrafts, readBatchPlanDraftById } from "./core/batch-plan-draft-store";
+import { prepareBatchPlan, type PrepareBatchPlanInput } from "./core/batch-plan-operator";
 import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
 import type { WorkerRuntimeKind } from "./core/worker-runtime-metadata";
 
@@ -196,6 +198,21 @@ export interface BatchesShowCliArgs {
   batchesDir?: string;
 }
 
+export interface BatchPlansListCliArgs {
+  command: "batch-plans:list";
+  draftsDir?: string;
+}
+
+export interface BatchPlansShowCliArgs {
+  command: "batch-plans:show";
+  draftId: string;
+  draftsDir?: string;
+}
+
+export interface BatchPlansPrepareCliArgs extends PrepareBatchPlanInput {
+  command: "batch-plans:prepare";
+}
+
 export type SamanthaCliArgs =
   | RunTaskCliArgs
   | RunsListCliArgs
@@ -221,7 +238,10 @@ export type SamanthaCliArgs =
   | BatchesRejectCliArgs
   | BatchesReplaceCliArgs
   | BatchesListCliArgs
-  | BatchesShowCliArgs;
+  | BatchesShowCliArgs
+  | BatchPlansListCliArgs
+  | BatchPlansShowCliArgs
+  | BatchPlansPrepareCliArgs;
 
 function parseFlags(args: string[]): Map<string, string> {
   const flags = new Map<string, string>();
@@ -570,6 +590,45 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "batch-plans:list") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    return {
+      command: "batch-plans:list",
+      ...(flags.get("drafts-dir") ? { draftsDir: flags.get("drafts-dir") } : {}),
+    };
+  }
+
+  if (command === "batch-plans:show") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const draftId = flags.get("draft-id");
+    if (!draftId) {
+      throw new Error("usage: bun run samantha batch-plans:show --draft-id=<id> [--drafts-dir=<dir>]");
+    }
+    return {
+      command: "batch-plans:show",
+      draftId,
+      ...(flags.get("drafts-dir") ? { draftsDir: flags.get("drafts-dir") } : {}),
+    };
+  }
+
+  if (command === "batch-plans:prepare") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const draftId = flags.get("draft-id");
+    const executionBatchesDir = flags.get("execution-batches-dir");
+    if (!draftId || !executionBatchesDir) {
+      throw new Error("usage: bun run samantha batch-plans:prepare --draft-id=<id> --execution-batches-dir=<dir> [--drafts-dir=<dir>] [--repo-root=<repo>] [--task-spec-dir=<dir>] [--batch-id=<id>]");
+    }
+    return {
+      command: "batch-plans:prepare",
+      draftId,
+      executionBatchesDir,
+      ...(flags.get("drafts-dir") ? { draftsDir: flags.get("drafts-dir") } : {}),
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("task-spec-dir") ? { taskSpecDir: flags.get("task-spec-dir") } : {}),
+      ...(flags.get("batch-id") ? { batchId: flags.get("batch-id") } : {}),
+    };
+  }
+
   if (command === "batches:preflight") {
     const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     const batchPath = flags.get("batch");
@@ -658,7 +717,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -840,6 +899,22 @@ export async function main(argv: string[]): Promise<number> {
   if (args.command === "batches:show") {
     console.log(JSON.stringify(await readBatchSpecById(args), null, 2));
     return 0;
+  }
+
+  if (args.command === "batch-plans:list") {
+    console.log(JSON.stringify(await listBatchPlanDrafts(args), null, 2));
+    return 0;
+  }
+
+  if (args.command === "batch-plans:show") {
+    console.log(JSON.stringify(await readBatchPlanDraftById(args), null, 2));
+    return 0;
+  }
+
+  if (args.command === "batch-plans:prepare") {
+    const result = await prepareBatchPlan(args);
+    console.log(JSON.stringify(result, null, 2));
+    return result.pass ? 0 : 1;
   }
 
   if (args.command === "batches:preflight") {
