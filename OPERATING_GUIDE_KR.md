@@ -80,7 +80,7 @@ Samantha-owned commit/report 같은 lifecycle gate를 우회하는 권한도 아
 Samantha harness repo는 항상 `/Users/byung/Documents/samantha`로 고정한다. 터미널
 편의를 위한 얇은 `samantha` wrapper가 있을 수 있지만, wrapper는 CLI 실행만
 돕는다. Codex Chat activation은 여전히 전역 skill과 명시적인
-`Samantha <intent>:` prefix 또는 `sam <alias>:` prefix가 담당한다.
+`Samantha <intent>:` intent, `sam <alias>:` alias, 또는 활성화된 thread-local sticky follow-up이 담당한다.
 
 ## 권한 경계
 

@@ -84,8 +84,8 @@ When the global skill activates in another repo, the current Codex working
 directory is the target repo and the Samantha harness repo remains
 `/Users/byung/Documents/samantha`. A thin terminal `samantha` wrapper may exist
 for CLI convenience, but it does not activate Samantha in Codex Chat. Chat
-activation is the global skill plus the explicit `Samantha <intent>:` prefix or
-`sam <alias>:` prefix.
+activation is the global skill plus explicit `Samantha <intent>:` intent,
+`sam <alias>:` alias, or active thread-local sticky follow-up.
 
 ## Authority Boundary
 
