@@ -111,6 +111,11 @@ only when justified.
 - Do not create "light" writer tasks that skip worktree isolation, scope checks,
   deterministic verification, run evidence, or Samantha-owned transitions.
 
+Git mutations that touch the same repository state must be serialized per repo.
+Do not run overlapping `git config`, `git add`, `git commit`, `git worktree`, or
+other commands that touch `.git/index`, `.git/config`, or equivalent repository
+metadata for the same repo.
+
 ## Self-Build SDK Authority Gate
 
 When `Samantha command:` or `sam c:` is activated in the Samantha repo and the
