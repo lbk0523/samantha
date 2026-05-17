@@ -830,6 +830,7 @@ All slices complete.
         "--state-dir=runs",
         "--target-branch=main",
         "--codex-bin=/tmp/fake-codex",
+        "--runtime=codex-sdk",
       ]),
     ).toEqual({
       command: "batches:execute",
@@ -841,9 +842,13 @@ All slices complete.
       stateDir: "runs",
       targetBranch: "main",
       codexBin: "/tmp/fake-codex",
+      runtimeKind: "codex-sdk",
     });
+    expect(() => parseCliArgs(["batches:execute", "--batch-id=cli-preflight", "--runtime=unknown"])).toThrow(
+      "runtime must be exec-json or codex-sdk",
+    );
     expect(() => parseCliArgs(["batches:execute"])).toThrow(
-      "usage: bun run samantha batches:execute --batch=<path> OR --batch-id=<id> [--batches-dir=<dir>] [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--state-dir=<dir>] [--target-branch=<branch>] [--codex-bin=<path>]",
+      "usage: bun run samantha batches:execute --batch=<path> OR --batch-id=<id> [--batches-dir=<dir>] [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--state-dir=<dir>] [--target-branch=<branch>] [--codex-bin=<path>] [--runtime=exec-json|codex-sdk]",
     );
   });
 

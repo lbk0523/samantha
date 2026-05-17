@@ -6,6 +6,7 @@ import { DEFAULT_SERIAL_ONLY_RULES, type BatchSpec } from "../src/core/batch-spe
 import { executeBatch } from "../src/core/batch-execution";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
+import type { WorkerRuntimeAdapter } from "../src/core/worker-runtime-adapter";
 
 let tmpRoots: string[] = [];
 
@@ -191,6 +192,7 @@ describe("batch execution", () => {
     expect(result.pass).toBe(true);
     expect(result.status).toBe("completed");
     expect(result.dispatchGroups).toEqual([{ dispatchGroup: "group-1", taskIds: ["task-a", "task-b"], status: "dispatched" }]);
+    expect(result.workers.map((worker) => worker.execution.runtime?.kind)).toEqual(["exec-json", "exec-json"]);
     expect(result.workers.map((worker) => worker.execution.preparation.allocation?.baseCommit)).toEqual([
       baseCommit,
       baseCommit,
@@ -414,5 +416,59 @@ describe("batch execution", () => {
     expect(result.violations).toContain(
       "authority-boundary serial_only task requires a separate doctrine/policy task: task-policy matches policy",
     );
+  });
+
+  test("propagates explicit codex-sdk runtime to worker dispatch without BatchSpec policy", async () => {
+    const tasks = [batchTask("task-a", "a.txt")];
+    const { root, baseCommit } = await makeRepo(tasks);
+    const sdkAdapter: WorkerRuntimeAdapter = {
+      kind: "codex-sdk",
+      prepare(input) {
+        return {
+          prompt: input.task.instructions,
+          command: ["codex-sdk", "run", "--cd", input.worktreePath],
+        };
+      },
+      async execute(input) {
+        return {
+          command: {
+            command: input.dispatch.command,
+            exitCode: 1,
+            stdout: "",
+            stderr: "intentional fake sdk failure",
+          },
+          runtime: { kind: "codex-sdk", approvalPolicy: "never" },
+        };
+      },
+    };
+
+    const result = await executeBatch({
+      spec: batchSpec({
+        root,
+        baseCommit,
+        tasks,
+        integrationQueue: [
+          {
+            order: 1,
+            taskId: "task-a",
+            requiresAccepted: [],
+            focusedVerifyCommands: ["grep -q task-a a.txt"],
+            status: "pending",
+          },
+        ],
+      }),
+      worktreesDir: ".worktrees",
+      runsDir: join(root, "runs"),
+      runtimeKind: "codex-sdk",
+      runtimeAdapter: sdkAdapter,
+      targetBranch: "main",
+    });
+
+    expect(result.preflight.mayDispatch).toBe(true);
+    expect(result.dispatchGroups).toEqual([{ dispatchGroup: "group-1", taskIds: ["task-a"], status: "dispatched" }]);
+    expect(result.workers).toHaveLength(1);
+    expect(result.workers[0].execution.runtime?.kind).toBe("codex-sdk");
+    expect(result.workers[0].execution.command?.command[0]).toBe("codex-sdk");
+    expect(result.taskDecisions["task-a"]).toBe("failed");
   });
 });

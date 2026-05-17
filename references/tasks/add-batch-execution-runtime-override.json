@@ -1,0 +1,38 @@
+{
+  "id": "add-batch-execution-runtime-override",
+  "title": "Add explicit runtime override for batch execution",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/cli.ts",
+    "src/core/batch-execution.ts",
+    "tests/cli.test.ts",
+    "tests/batch-execution.test.ts",
+    "references/playbooks/sdk-dogfood-runtime-selection.md"
+  ],
+  "forbiddenChanges": [
+    "src/core/batch-spec.ts",
+    "src/core/batch-replan.ts",
+    "src/core/batch-spec-replacement.ts",
+    "src/core/batch-spec-mutation.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "src/core/worker-runtime-adapter.ts",
+    "src/commands/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "bun.lock",
+    "tsconfig.json"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/cli.test.ts tests/batch-execution.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Implement command-level explicit runtime override for Phase 5 batch execution. Add --runtime=exec-json|codex-sdk parsing to batches:execute, keep the default exec-json when omitted, pass runtimeKind through ExecuteBatchInput -> runBatchWorker -> executeWorkerDispatch, and add focused tests that prove parsing and runtime propagation without changing BatchSpec authority. Update references/playbooks/sdk-dogfood-runtime-selection.md to allow explicit batch runtime override only for bounded Samantha self-build dogfood, while preserving exec-json default and forbidding automatic fallback, BatchSpec runtime policy, runtime-owned verification/scope/commit/lifecycle/cleanup/push, report orchestration runtime selection, App Server, hidden UI state, writerCap changes, daemon/watch, dashboards, or natural-language dispatch. Keep changes surgical and only in targetFiles. Run the verify commands before final response. Final response must include exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add batch execution runtime override",
+  "status": "pending"
+}

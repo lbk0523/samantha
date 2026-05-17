@@ -31,6 +31,8 @@ import {
   type CommandRunResult,
   type WorkerDispatchExecution,
 } from "./worker-dispatch";
+import type { WorkerRuntimeAdapter } from "./worker-runtime-adapter";
+import type { WorkerRuntimeKind } from "./worker-runtime-metadata";
 
 export interface ExecuteBatchInput {
   spec: BatchSpec;
@@ -39,6 +41,8 @@ export interface ExecuteBatchInput {
   runsDir?: string;
   stateDir?: string;
   codexBin?: string;
+  runtimeKind?: WorkerRuntimeKind;
+  runtimeAdapter?: WorkerRuntimeAdapter;
   targetBranch?: string;
 }
 
@@ -266,6 +270,8 @@ async function runBatchWorker(input: {
   worktreesDir?: string;
   runsDir: string;
   codexBin?: string;
+  runtimeKind: WorkerRuntimeKind;
+  runtimeAdapter?: WorkerRuntimeAdapter;
   baseCommit: string;
 }): Promise<BatchWorkerEvidence> {
   const task = await readJson<TaskSpec>(input.taskPath);
@@ -279,6 +285,8 @@ async function runBatchWorker(input: {
     repoRoot: input.repoRoot,
     worktreesDir: input.worktreesDir,
     codexBin: input.codexBin,
+    runtimeKind: input.runtimeKind,
+    runtimeAdapter: input.runtimeAdapter,
     baseRef: input.baseCommit,
   });
   const finishedAt = new Date().toISOString();
@@ -348,6 +356,7 @@ export async function executeBatch(input: ExecuteBatchInput): Promise<BatchExecu
   const spec = input.spec;
   const repoRoot = resolve(spec.repoRoot);
   const targetBranch = input.targetBranch ?? "main";
+  const runtimeKind = input.runtimeKind ?? "exec-json";
   const runsDir = resolve(input.runsDir ?? join(repoRoot, "runs"));
   const stateDir = resolve(input.stateDir ?? runsDir);
   const preflight = await preflightBatchSpec(spec);
@@ -633,6 +642,8 @@ export async function executeBatch(input: ExecuteBatchInput): Promise<BatchExecu
           worktreesDir: input.worktreesDir,
           runsDir,
           codexBin: input.codexBin,
+          runtimeKind,
+          runtimeAdapter: input.runtimeAdapter,
           baseCommit: spec.baseCommit,
         });
       }),

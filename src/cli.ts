@@ -697,8 +697,9 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       throw new Error("usage: batches:execute accepts either --batch=<path> or --batch-id=<id>, not both");
     }
     if (!batchPath && !batchId) {
-      throw new Error("usage: bun run samantha batches:execute --batch=<path> OR --batch-id=<id> [--batches-dir=<dir>] [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--state-dir=<dir>] [--target-branch=<branch>] [--codex-bin=<path>]");
+      throw new Error("usage: bun run samantha batches:execute --batch=<path> OR --batch-id=<id> [--batches-dir=<dir>] [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--state-dir=<dir>] [--target-branch=<branch>] [--codex-bin=<path>] [--runtime=exec-json|codex-sdk]");
     }
+    const runtimeKind = parseWorkerRuntimeKind(flags.get("runtime"));
     return {
       command: "batches:execute",
       ...(batchPath ? { batchPath } : {}),
@@ -709,6 +710,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
       ...(flags.get("state-dir") ? { stateDir: flags.get("state-dir") } : {}),
       ...(flags.get("codex-bin") ? { codexBin: flags.get("codex-bin") } : {}),
+      ...(runtimeKind ? { runtimeKind } : {}),
       ...(flags.get("target-branch") ? { targetBranch: flags.get("target-branch") } : {}),
     };
   }
