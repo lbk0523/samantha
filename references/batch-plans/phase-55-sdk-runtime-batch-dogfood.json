@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "draftId": "phase-55-sdk-runtime-batch-dogfood",
+  "createdAt": "2026-05-17T07:37:34.000Z",
+  "sourceGoal": "Create a short evidence note proving Phase 5 batch execution can explicitly run a bounded self-build dogfood batch with codex-sdk runtime.",
+  "classification": "routine_writer_batch",
+  "repoInspection": {
+    "inspectedPaths": [
+      "references/playbooks/sdk-dogfood-runtime-selection.md",
+      "src/cli.ts",
+      "src/core/batch-execution.ts",
+      "tests/cli.test.ts",
+      "tests/batch-execution.test.ts",
+      "references/initiatives/phase-55-ceo-batchplan-dogfood.md"
+    ],
+    "currentStateSummary": "batches:execute now accepts an explicit runtime override while defaulting to exec-json; the repo is clean at SDK batch dogfood start.",
+    "candidateWriteSurfaces": [
+      "references/initiatives/phase-55-sdk-runtime-batch-dogfood.md"
+    ],
+    "authorityBoundarySurfaces": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "src/core/policy.ts",
+      "src/core/contracts.ts",
+      "src/core/worker-runtime-adapter.ts",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "references/batch-specs/**",
+      "package.json",
+      "bun.lock"
+    ],
+    "assumptions": [
+      "This dogfood should prove explicit command-level SDK runtime selection without changing BatchSpec authority.",
+      "A single documentation evidence note is a low-risk writer surface.",
+      "Execution BatchSpec storage stays outside the target repo dirty tree.",
+      "Default runtime remains exec-json for routine batch execution."
+    ]
+  },
+  "proposedTasks": [
+    {
+      "id": "phase-55-sdk-runtime-evidence-note",
+      "title": "Record Phase 5 batch SDK runtime dogfood evidence",
+      "summary": "Create a concise evidence note describing the explicit codex-sdk runtime dogfood for Phase 5 batch execution.",
+      "targetFileHints": [
+        "references/initiatives/phase-55-sdk-runtime-batch-dogfood.md"
+      ],
+      "forbiddenChangeHints": [
+        "src/**",
+        "tests/**",
+        "AGENTS.md",
+        "WORK-RULES.md",
+        "NORTH_STAR.md",
+        "ARCHITECTURE.md",
+        "ROADMAP.md",
+        "references/agent-profiles/**",
+        "references/task-templates/**",
+        "references/batch-specs/**",
+        "references/batch-plans/**",
+        "references/tasks/**",
+        "runs/**",
+        "worktrees/**",
+        "package.json",
+        "bun.lock"
+      ],
+      "verifyCommandHints": [
+        "test -f references/initiatives/phase-55-sdk-runtime-batch-dogfood.md",
+        "grep -F 'Phase 5 batch codex-sdk runtime dogfood evidence' references/initiatives/phase-55-sdk-runtime-batch-dogfood.md"
+      ],
+      "independentlyVerifiableRationale": "The evidence note can be verified by file existence and an exact marker line while leaving executable code untouched."
+    }
+  ],
+  "dependencyHints": [],
+  "parallelizationHints": [
+    {
+      "taskIds": [
+        "phase-55-sdk-runtime-evidence-note"
+      ],
+      "rationale": "A single documentation writer task needs no parallel grouping beyond deterministic assembly."
+    }
+  ],
+  "structuredPlaceholders": [],
+  "autonomyEnvelope": {
+    "localCommitAllowed": true,
+    "pushAllowed": false,
+    "maxReworkCycles": 1
+  },
+  "promotionReadiness": {
+    "status": "ready",
+    "reasons": [
+      "Routine writer batch has proposed tasks and no blocking structured placeholders."
+    ]
+  },
+  "report": {
+    "summary": "Untrusted BatchPlanDraft planning evidence authored from the source goal.",
+    "nextAction": "run batch-plans:prepare --draft-id=phase-55-sdk-runtime-batch-dogfood --execution-batches-dir=/tmp/samantha-phase-55-sdk-runtime-batch-dogfood-execution-batches"
+  }
+}

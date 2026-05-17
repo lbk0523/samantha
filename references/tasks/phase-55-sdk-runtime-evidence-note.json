@@ -1,0 +1,33 @@
+{
+  "id": "phase-55-sdk-runtime-evidence-note",
+  "title": "Record Phase 5 batch SDK runtime dogfood evidence",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/phase-55-sdk-runtime-batch-dogfood.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/batch-specs/**",
+    "references/batch-plans/**",
+    "references/tasks/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "bun.lock"
+  ],
+  "verifyCommands": [
+    "test -f references/initiatives/phase-55-sdk-runtime-batch-dogfood.md",
+    "grep -F 'Phase 5 batch codex-sdk runtime dogfood evidence' references/initiatives/phase-55-sdk-runtime-batch-dogfood.md"
+  ],
+  "instructions": "This TaskSpec candidate came from BatchPlanDraft assembly dry-run for draft phase-55-sdk-runtime-batch-dogfood.\nIt is inert preflight data, not an artifact write.\nExisting Samantha harness gates remain authoritative before execution, commit, report, or lifecycle mutation.",
+  "expectedCommitSubject": "feat: record phase 5 batch sdk runtime dogfood evidence",
+  "status": "pending"
+}
