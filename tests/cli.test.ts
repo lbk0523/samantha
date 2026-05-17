@@ -904,7 +904,7 @@ All slices complete.
     });
   });
 
-  test("parses BatchPlan list, show, draft, and prepare arguments", () => {
+  test("parses BatchPlan list, show, review, draft, and prepare arguments", () => {
     expect(parseCliArgs(["batch-plans:list", "--drafts-dir=references/batch-plans"])).toEqual({
       command: "batch-plans:list",
       draftsDir: "references/batch-plans",
@@ -917,6 +917,17 @@ All slices complete.
       ]),
     ).toEqual({
       command: "batch-plans:show",
+      draftId: "cli-batch-plan-draft",
+      draftsDir: "references/batch-plans",
+    });
+    expect(
+      parseCliArgs([
+        "batch-plans:review",
+        "--draft-id=cli-batch-plan-draft",
+        "--drafts-dir=references/batch-plans",
+      ]),
+    ).toEqual({
+      command: "batch-plans:review",
       draftId: "cli-batch-plan-draft",
       draftsDir: "references/batch-plans",
     });
@@ -954,6 +965,9 @@ All slices complete.
     });
     expect(() => parseCliArgs(["batch-plans:show"])).toThrow(
       "usage: bun run samantha batch-plans:show --draft-id=<id> [--drafts-dir=<dir>]",
+    );
+    expect(() => parseCliArgs(["batch-plans:review"])).toThrow(
+      "usage: bun run samantha batch-plans:review --draft-id=<id> [--drafts-dir=<dir>]",
     );
     expect(() => parseCliArgs(["batch-plans:draft"])).toThrow(
       "usage: bun run samantha batch-plans:draft --input=<json> [--drafts-dir=<dir>] [--execution-batches-dir=<dir>]",
@@ -1190,6 +1204,39 @@ All slices complete.
       sourceGoal: "Show this stored BatchPlan draft.",
       proposedTasks: [{ id: "cli-batch-plan-task" }],
     });
+  });
+
+  test("BatchPlan review command prints prepare eligibility without writing execution artifacts", async () => {
+    const { draftsDir, root } = await writeCliBatchPlanStoreFixture([
+      cliBatchPlanDraft({ draftId: "reviewed-cli-plan" }),
+    ]);
+
+    const { exitCode, stdout } = await runCliCapturingStdout([
+      "batch-plans:review",
+      "--draft-id=reviewed-cli-plan",
+      `--drafts-dir=${draftsDir}`,
+    ]);
+
+    expect(exitCode).toBe(0);
+    const result = JSON.parse(stdout);
+    expect(result).toMatchObject({
+      reviewed: true,
+      draftId: "reviewed-cli-plan",
+      draftPath: join(draftsDir, "reviewed-cli-plan.json"),
+      classification: "routine_writer_batch",
+      promotionReadiness: { status: "ready" },
+      prepareEligible: true,
+      trustedForDispatch: false,
+      pushPerformed: false,
+      violations: [],
+    });
+    expect(result.nextAction).toContain("batch-plans:prepare");
+    expect(result.nextAction).toContain("prepare remains the deterministic gate");
+    await expect(pathExists(join(root, "execution-batches"))).resolves.toBe(false);
+    await expect(pathExists(join(root, "references", "tasks"))).resolves.toBe(false);
+    await expect(pathExists(join(root, "references", "batch-specs"))).resolves.toBe(false);
+    await expect(pathExists(join(root, "runs"))).resolves.toBe(false);
+    await expect(pathExists(join(root, "worktrees"))).resolves.toBe(false);
   });
 
   test("BatchPlan draft command authors a draft from JSON input without preparing or dispatching", async () => {

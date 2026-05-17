@@ -40,6 +40,7 @@ import { executeBatch, type ExecuteBatchInput } from "./core/batch-execution";
 import { authorBatchPlanDraft, type AuthorBatchPlanDraftInput } from "./core/batch-plan-authoring";
 import { listBatchPlanDrafts, readBatchPlanDraftById } from "./core/batch-plan-draft-store";
 import { prepareBatchPlan, type PrepareBatchPlanInput } from "./core/batch-plan-operator";
+import { reviewStoredBatchPlanDraft, type BatchPlanReviewInput } from "./core/batch-plan-review";
 import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
 import type { WorkerRuntimeKind } from "./core/worker-runtime-metadata";
 
@@ -210,6 +211,10 @@ export interface BatchPlansShowCliArgs {
   draftsDir?: string;
 }
 
+export interface BatchPlansReviewCliArgs extends BatchPlanReviewInput {
+  command: "batch-plans:review";
+}
+
 export interface BatchPlansDraftCliArgs {
   command: "batch-plans:draft";
   inputPath: string;
@@ -249,6 +254,7 @@ export type SamanthaCliArgs =
   | BatchesShowCliArgs
   | BatchPlansListCliArgs
   | BatchPlansShowCliArgs
+  | BatchPlansReviewCliArgs
   | BatchPlansDraftCliArgs
   | BatchPlansPrepareCliArgs;
 
@@ -620,6 +626,19 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "batch-plans:review") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const draftId = flags.get("draft-id");
+    if (!draftId) {
+      throw new Error("usage: bun run samantha batch-plans:review --draft-id=<id> [--drafts-dir=<dir>]");
+    }
+    return {
+      command: "batch-plans:review",
+      draftId,
+      ...(flags.get("drafts-dir") ? { draftsDir: flags.get("drafts-dir") } : {}),
+    };
+  }
+
   if (command === "batch-plans:draft") {
     const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
     const inputPath = flags.get("input");
@@ -740,7 +759,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -931,6 +950,11 @@ export async function main(argv: string[]): Promise<number> {
 
   if (args.command === "batch-plans:show") {
     console.log(JSON.stringify(await readBatchPlanDraftById(args), null, 2));
+    return 0;
+  }
+
+  if (args.command === "batch-plans:review") {
+    console.log(JSON.stringify(await reviewStoredBatchPlanDraft(args), null, 2));
     return 0;
   }
 
