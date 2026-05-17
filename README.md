@@ -64,7 +64,22 @@ Samantha command: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 ru
 sam c: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 run의 상태와 다음 액션을 한눈에 보이게 개선해줘.
 ```
 
-Only explicit `Samantha <intent>:` or `sam <alias>:` messages activate the operating protocol.
+After any explicit `Samantha <intent>:` or `sam <alias>:` message, Sticky
+Samantha Session routing applies to prefix-free follow-ups in that Codex
+thread. Follow-ups are routed through Samantha CEO classification rather than a
+fixed default intent: Samantha still decides whether the message is doctrine,
+architecture, roadmap, decision-complete implementation, report-only review, or
+recovery/lifecycle work before recommending execution.
+
+Use `sam off`, `Samantha off`, `Samantha 끄고 Codex로 해`, or `이번 건 Samantha 없이 직접 해`
+to opt out. After opt-out, a new explicit Samantha intent or `sam` alias is
+required to reactivate Samantha routing.
+
+Sticky routing is not hidden memory, daemon/watch behavior, a chat adapter, a
+project-global default, a routine trigger, or a bypass around task specs,
+isolated worktrees, `HARNESS_RESULT`, deterministic verification, or
+Samantha-owned lifecycle gates.
+
 `Samantha command:` normalizes executable work into a bounded plan, task spec,
 or ready-to-send `/goal` first; it does not bypass worktree isolation, scope
 checks, deterministic verification, run evidence, or Samantha-owned lifecycle

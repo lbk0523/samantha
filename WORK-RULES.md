@@ -133,6 +133,11 @@ task spec
 -> Samantha-owned commit/report
 ```
 
+This also applies to sticky follow-up implementation language inside an active
+Sticky Samantha Session. Prefix-free routing may classify the follow-up as
+writer implementation, but it does not bypass the self-build SDK authority
+gate.
+
 Preserve intent semantics. `command` normalizes executable work through the
 harness gate; `plan` may remain plan-only; `review` remains report-only unless
 BK explicitly asks for implementation and the request is decision-complete. This

@@ -39,6 +39,12 @@ represented as a task spec, isolated worktree, SDK-backed Samantha worker run
 using `--runtime=codex-sdk`, `HARNESS_RESULT`, deterministic verification, and
 Samantha-owned commit/report.
 
+The same gate applies to sticky follow-up implementation requests inside the
+Samantha repo. Thread-local Sticky Samantha Session routing may classify a
+prefix-free follow-up as implementation work, but it does not let Codex Desktop
+bypass the self-build task spec, worktree, worker run, verification, or
+Samantha-owned lifecycle gates.
+
 Do not report Samantha self-build implementation as complete, committed, or
 pushed unless SDK run evidence exists, or an equivalent run log contains the
 worker run evidence, `HARNESS_RESULT`, changed-file scope, and verification

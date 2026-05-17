@@ -42,10 +42,43 @@ intent:
 | `sam i:` | `Samantha inspect:` |
 | `sam l:` | `Samantha learn:` |
 
-There is no default intent for bare `sam:`. Only explicit
-`Samantha <intent>:` or `sam <alias>:` messages activate this protocol.
-Ordinary chat messages stay ordinary Codex conversation unless BK explicitly
-frames them as Samantha operation.
+There is no default intent for bare `sam:`. Official intents and aliases are
+only the values listed above.
+
+## Sticky Samantha Session
+
+After any explicit `Samantha <intent>:` or `sam <alias>:` message, Sticky
+Samantha Session routing is active for that Codex thread. The activation is
+thread-local. It does not become a default for other threads, other projects,
+the whole repo, daemon/watch behavior, routine triggers, or chat adapters.
+
+While Sticky Samantha Session is active, prefix-free follow-ups are routed
+through Samantha CEO routing. A prefix-free follow-up does not repeat the
+previous intent as a fixed default. Samantha must read the follow-up and
+classify whether it is doctrine, product boundary, architecture, roadmap work,
+decision-complete implementation work, report-only review, or recovery /
+lifecycle action before recommending execution. If the follow-up implies a new
+intent, Samantha may infer that intent from the request, but must not bypass
+task specs, isolated worktrees, `HARNESS_RESULT`, deterministic verification,
+or Samantha-owned lifecycle gates.
+
+Opt out explicitly with messages such as:
+
+```text
+sam off
+Samantha off
+Samantha 끄고 Codex로 해
+이번 건 Samantha 없이 직접 해
+```
+
+After opt-out, prefix-free messages in the same thread return to ordinary Codex
+conversation. A new explicit `Samantha <intent>:` or `sam <alias>:` message is
+required to reactivate Samantha routing.
+
+Sticky Samantha Session is only a routing convenience. It is not hidden memory,
+daemon/watch behavior, a chat adapter, a project-global default, a routine
+trigger, or a bypass around task specs, isolated worktrees, `HARNESS_RESULT`,
+deterministic verification, or Samantha-owned commit/report gates.
 
 When the global skill activates in another repo, the current Codex working
 directory is the target repo and the Samantha harness repo remains
@@ -159,7 +192,9 @@ Expected behavior:
 ### Brainstorm Before Implementation
 
 ```text
-Samantha brainstorm: debut 전에 BK가 Samantha에게 어떤 종류의 말을 해야 하는지 더 다듬어보자.
+sam b: debut 전에 BK가 Samantha에게 어떤 종류의 말을 해야 하는지 더 다듬어보자.
+
+좋아. 그러면 이걸 다음 phase plan으로 정리해줘. 아직 구현하지 마.
 ```
 
 Expected behavior:
@@ -184,6 +219,10 @@ Expected behavior:
   implementation slice.
 - Do not create production code, task specs, worker dispatches, committed UX
   or design specs, or prototype routes by default.
+- Treat the second prefix-free message as a Sticky Samantha Session follow-up,
+  but do not repeat `brainstorm` as a fixed default. Reclassify it as
+  plan-only CEO routing because it asks for a phase plan and says not to
+  implement yet.
 
 ### Plan Only
 
@@ -198,6 +237,25 @@ Expected behavior:
 - Produce a decision-complete implementation plan.
 - Name assumptions, affected interfaces, test scenarios, and stop conditions.
 - Do not mutate files unless BK later asks for implementation.
+
+### Sticky Follow-Up Self-Build Implementation
+
+```text
+sam p: Samantha repo의 sticky follow-up 구현 절차를 문서화하는 계획을 세워줘.
+
+좋아. 그 계획대로 구현해.
+```
+
+Expected behavior:
+
+- Activate Sticky Samantha Session from the first message.
+- Reclassify the second prefix-free message through Samantha CEO routing.
+- If it is decision-complete writer implementation inside the Samantha repo,
+  apply the self-build authority gate even though it is a sticky follow-up.
+- Do not directly edit implementation files from Codex Desktop. Route through a
+  task spec, isolated worktree, SDK-backed Samantha worker run using
+  `--runtime=codex-sdk`, `HARNESS_RESULT`, deterministic verification, and
+  Samantha-owned commit/report.
 
 ### Doctrine/Architecture Planning
 
