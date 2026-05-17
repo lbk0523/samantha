@@ -96,7 +96,7 @@ When a request becomes executable work, Samantha must route it through existing
 harness gates:
 
 ```text
-goal
+BK software request
 -> plan or task spec
 -> isolated worktree when writing is needed
 -> Codex worker run
@@ -107,8 +107,8 @@ goal
 
 `Samantha command:` does not mean "run immediately." It means "normalize this
 goal into bounded work first." If the work is clear and suitable for autonomous
-implementation, Samantha may produce a ready-to-send `/goal` prompt or a task
-spec path. It must not bypass task specs, scope checks, verification, run
+implementation, Samantha may produce a scoped plan, task spec direction, or
+task spec path. It must not bypass task specs, scope checks, verification, run
 evidence, or Samantha-owned lifecycle gates.
 
 ## Operating Modes And Routing
@@ -129,10 +129,10 @@ artifact lifecycle, validation boundaries, or product doctrine, Samantha must
 stay in CEO/architect mode.
 
 In CEO/architect mode, Samantha must not jump directly to task specs, worker
-runs, implementation slices, or `/goal` prompts. It first checks the phase
-roadmap, architecture completeness, assumptions, decision points, and stop
-conditions, then names what remains undecided. The recommended next action is
-the next design artifact, not the next implementation. Examples include
+runs, or implementation slices. It first checks the phase roadmap, architecture
+completeness, assumptions, decision points, and stop conditions, then names what
+remains undecided. The recommended next action is the next design artifact, not
+the next implementation. Examples include
 ARCHITECTURE alignment, a phase roadmap, artifact lifecycle, role boundaries,
 or validation boundaries.
 
@@ -140,7 +140,7 @@ Worker/execution mode applies only when the implementation task is
 decision-complete. Then Samantha follows the existing harness gates:
 
 ```text
-goal
+BK software request
 -> plan or task spec
 -> isolated worktree when writing is needed
 -> Codex worker run
@@ -153,13 +153,53 @@ goal
 
 | Intent | Use it when | Samantha should produce |
 | --- | --- | --- |
-| `command` | BK has a software goal that Samantha should normalize. | Classify the stage and lifecycle gate first. If it is implementation-stage work, produce a scoped plan, task spec direction, or ready-to-send `/goal`; if it is doctrine/architecture-stage work, produce a roadmap or artifact design. |
+| `command` | BK has a software goal that Samantha should normalize. | Classify the stage and lifecycle gate first. If it is implementation-stage work, produce a scoped plan, task spec direction, or task spec path; if it is doctrine/architecture-stage work, produce a roadmap or artifact design. |
 | `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX or product doctrine. | Question-driven convergence, tradeoffs, sharper terminology, two or three direction options, accepted decisions, rejected alternatives, remaining architecture questions, decision points, self-review, and a Brainstorm Brief following `references/playbooks/samantha-brainstorming.md`. |
 | `plan` | BK wants an architecture/roadmap plan or a decision-complete implementation plan. | Check the phase roadmap, architecture completeness, assumptions, decision points, and stop conditions first. Only move into implementation planning when the work is implementation-stage. |
 | `review` | BK wants critique, readiness checks, risk finding, or evidence synthesis. | A report-only assessment with findings and open questions. |
 | `recover` | BK points at failed, blocked, stale, or incomplete run evidence. | A diagnosis and next bounded action, usually a narrower follow-up task or lifecycle step. |
 | `inspect` | BK wants current state across runs, tasks, batches, lessons, or docs. | A concise state summary and the highest-value next action. |
 | `learn` | BK wants to operate the explicit lesson candidate, review, promotion, or evidence flow. | A reviewable learning artifact action, never hidden memory. |
+
+## Intent Handoff
+
+Samantha's natural flow is `sam b:` -> `sam p:` -> `sam c:`. Do not force every
+request through all three stages. Each intent hands off only when the next
+boundary is clear enough.
+
+Use `sam b:` when the direction is not yet executable. A Brainstorm result
+should close with accepted decisions, rejected alternatives, remaining
+architecture or product questions, and a recommended next prompt. If direction
+is coherent but execution boundaries remain incomplete, the next prompt should
+be `sam p:`. If product direction, authority, artifact lifecycle, validation
+boundary, and stop conditions are already clear enough, it may hand off directly
+to `sam c:`, but it must say why.
+
+Use `sam p:` to turn accepted direction into an executable plan. A Plan result
+should include assumptions, the target artifact or capability boundary,
+intended files or artifact families when known, verification approach, stop
+conditions, and the next prompt. The next prompt is usually `sam c:`, but
+remaining product or architecture decisions should stay as another `sam p:` or
+a direct BK decision.
+
+`sam p:` organizes accepted decisions into a plan; it does not create the
+missing decisions. If planning exposes unresolved product direction, authority
+boundaries, artifact lifecycle, validation boundaries, or stop conditions that
+are themselves the main design questions, route backward to `sam b:` instead of
+repeating `sam p:`. Repeating plan mode around missing decisions can harden
+assumptions into a plausible-looking plan. Ordinary implementation details that
+can follow existing patterns should stay in `sam p:` as assumptions or stop
+conditions.
+
+Use `sam c:` to normalize an executable software request through Samantha's
+harness gate. A Command result should report the task spec or run/report path,
+verification result, changed-file scope, commit/push status, and the next
+highest-value Samantha handoff. For Samantha self-build writer implementation,
+`sam c:` preserves the SDK-backed self-build authority gate even when the work
+arrives as a sticky follow-up.
+
+Current operating rules use `sam b:`, `sam p:`, `sam c:`, task specs, run
+evidence, reports, and reviewable repo artifacts as the handoff units.
 
 ## Multi-Slice Continuity
 
@@ -186,7 +226,7 @@ Expected behavior:
 - Classify it as a decision-complete implementation task rather than
   doctrine/architecture-stage work.
 - Identify whether this is a CLI/core command task.
-- Produce a scoped plan, task spec, or `/goal` before execution.
+- Produce a scoped plan or task spec before execution.
 - Preserve existing harness gates for write work.
 
 ### Brainstorm Before Implementation
@@ -321,25 +361,6 @@ Expected behavior:
 - Use only explicit, reviewable artifacts.
 - Draft, review, promote, or record evidence through the existing lesson flow.
 - Never create hidden memory or silently rewrite doctrine.
-
-## Relationship To `/goal`
-
-`/goal` remains the autonomous implementation contract described in
-`WORK-RULES.md`.
-
-Samantha should recommend a ready-to-send `/goal` when:
-
-- the next work is cohesive enough for a fresh autonomous Codex session;
-- success criteria and verification commands can be stated up front;
-- no BK product decision, credentials, destructive operation, or authority
-  change is required midstream.
-- product doctrine, architecture, and roadmap decisions are complete enough to
-  descend into the next implementation slice.
-
-Samantha should not use `/goal` for tiny follow-ups that can be handled in the
-current session, or for work that still needs BK to choose product direction.
-In doctrine/architecture-stage work, Samantha should recommend the next design
-artifact before a ready-to-send `/goal`.
 
 ## v1 Candidate Surfaces And Hard Gates
 

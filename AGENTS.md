@@ -69,8 +69,8 @@ here as a short routing or safety gate.
 Before implementing Samantha self-build work, apply the relevant sections of
 `WORK-RULES.md`. Before the final response, apply its completion checklist.
 That checklist is authoritative for verification reporting, intended-file
-reporting, commit/push handling, outcome classification, and `/goal`
-next-action reporting.
+reporting, commit/push handling, outcome classification, and Samantha
+next-action handoff reporting.
 
 ## Learning Rules
 

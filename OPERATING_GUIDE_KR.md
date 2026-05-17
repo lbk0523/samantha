@@ -91,7 +91,7 @@ Samantha는 방향을 논의하고, 목표를 분해하고, task spec을 제안�
 한다:
 
 ```text
-goal
+BK software request
 -> plan 또는 task spec
 -> 쓰기 작업이 필요하면 격리된 worktree
 -> Samantha worker run
@@ -102,7 +102,7 @@ goal
 
 `Samantha command:`는 "즉시 실행하라"는 뜻이 아니다. "이 목표를 먼저 경계가
 분명한 작업으로 정규화하라"는 뜻이다. 작업이 명확하고 autonomous implementation에
-적합하면 Samantha는 ready-to-send `/goal` prompt나 task spec path를 만들 수 있다.
+적합하면 Samantha는 scoped plan, task spec 방향, 또는 task spec path를 만들 수 있다.
 하지만 task spec, scope check, verification, run evidence, Samantha-owned lifecycle
 gate를 우회해서는 안 된다.
 
@@ -131,9 +131,9 @@ Samantha는 canonical 또는 alias 형태의 `command`, `brainstorm`, `plan` 요
 `ROADMAP.md`, role boundary, artifact lifecycle, validation boundary 같은 product
 doctrine을 다루고 있으면 Samantha는 CEO/architect mode로 머물러야 한다.
 
-CEO/architect mode에서는 바로 task spec, worker run, implementation slice, `/goal`
-prompt로 내려가지 않는다. 먼저 phase roadmap, architecture completeness, assumption,
-decision point, stop condition을 확인하고, 아직 결정되지 않은 것을 명시한다. 이 단계의
+CEO/architect mode에서는 바로 task spec, worker run, implementation slice로 내려가지
+않는다. 먼저 phase roadmap, architecture completeness, assumption, decision point,
+stop condition을 확인하고, 아직 결정되지 않은 것을 명시한다. 이 단계의
 추천 next action은 "다음 구현"이 아니라 "다음 설계 산출물"이어야 한다. 예: ARCHITECTURE
 정렬, phase roadmap, artifact lifecycle, role boundary, validation boundary.
 
@@ -147,7 +147,7 @@ Worker/execution mode는 implementation task가 decision-complete일 때만 적�
 기존 harness gate를 따른다:
 
 ```text
-goal
+BK software request
 -> plan 또는 task spec
 -> 쓰기 작업이 필요하면 격리된 worktree
 -> Samantha worker run
@@ -166,13 +166,49 @@ Samantha repo 자신의 self-build writer implementation에서는 위 gate의 wo
 
 | Intent | 언제 쓰는가 | Samantha가 내야 하는 산출물 |
 | --- | --- | --- |
-| `command` | BK에게 software goal이 있고 Samantha 운영으로 정규화해야 할 때. | 먼저 단계와 lifecycle gate를 분류한다. implementation 단계이면 scoped plan, task spec 방향, 또는 ready-to-send `/goal`; doctrine/architecture 단계이면 roadmap 또는 artifact design. |
+| `command` | BK에게 software goal이 있고 Samantha 운영으로 정규화해야 할 때. | 먼저 단계와 lifecycle gate를 분류한다. implementation 단계이면 scoped plan, task spec 방향, 또는 task spec path; doctrine/architecture 단계이면 roadmap 또는 artifact design. |
 | `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX나 product doctrine을 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르는 문답식 수렴, tradeoff, 더 정확한 용어, 2-3개 방향 비교, accepted decision, rejected alternative, remaining architecture question, decision point, self-review, 그리고 Brainstorm Brief. |
 | `plan` | architecture/roadmap plan 또는 decision-complete implementation plan이 필요할 때. | 먼저 phase roadmap, architecture completeness, assumption, decision point, stop condition을 확인한다. implementation 단계일 때만 interface, scope, test를 포함한 구현 계획으로 내려간다. |
 | `review` | critique, readiness check, risk finding, evidence synthesis가 필요할 때. | findings와 open question이 있는 report-only assessment. |
 | `recover` | failed, blocked, stale, incomplete run evidence를 기준으로 다음 액션을 정해야 할 때. | diagnosis와 다음 bounded action. 보통 더 좁은 follow-up task 또는 lifecycle step. |
 | `inspect` | runs, tasks, batches, lessons, docs의 현재 상태를 보고 싶을 때. | 의사결정에 필요한 짧은 state summary와 highest-value next action. |
 | `learn` | lesson candidate, review, promotion, evidence flow를 명시적으로 운용하고 싶을 때. | hidden memory가 아닌 reviewable learning artifact action. |
+
+## Intent Handoff
+
+Samantha의 자연스러운 흐름은 `sam b:` -> `sam p:` -> `sam c:`이다. 단, 모든 요청을
+기계적으로 세 단계를 통과시키지는 않는다. 각 intent는 다음 경계가 충분히 명확할 때만
+다음 intent로 넘긴다.
+
+`sam b:`는 방향이 아직 executable하지 않을 때 쓴다. Brainstorm 결과는 accepted
+decisions, rejected alternatives, remaining architecture/product questions,
+recommended next prompt를 분리해서 끝낸다. 방향은 잡혔지만 실행 경계가 아직 불완전하면
+다음 prompt는 `sam p:`가 되어야 한다. 제품 방향, authority, artifact lifecycle,
+validation boundary, stop condition이 이미 충분히 결정되어 있다면 `sam c:`로 바로
+넘길 수 있지만, 그 이유를 명시해야 한다.
+
+`sam p:`는 accepted direction을 실행 가능한 계획으로 좁힐 때 쓴다. Plan 결과는
+assumptions, target artifact 또는 capability boundary, intended files 또는 artifact
+families, verification approach, stop conditions, next prompt를 포함해야 한다. 다음
+prompt는 보통 `sam c:`이지만, product/architecture 결정이 남아 있으면 또 다른
+`sam p:`나 BK decision으로 남겨야 한다.
+
+`sam p:`는 결정을 만드는 단계가 아니라 이미 수렴한 결정을 계획으로 정리하는 단계다.
+계획 중 unresolved product direction, authority boundary, artifact lifecycle,
+validation boundary, 또는 stop condition 자체가 핵심 설계 질문이라는 사실이 드러나면
+`sam p:`를 반복하지 말고 `sam b:`로 되돌린다. 계획 모드를 반복하면 빠진 결정을
+assumption으로 굳히는 확증 편향이 생기기 쉽다. 단순 구현 디테일이나 기존 패턴으로
+정할 수 있는 local choice는 `sam b:` 복귀 사유가 아니며, assumption 또는 stop
+condition으로 남긴다.
+
+`sam c:`는 executable software request를 Samantha harness gate로 정규화할 때 쓴다.
+Command 결과는 task spec 또는 run/report 경로, verification 결과, changed-file scope,
+commit/push 상태, 다음 highest-value Samantha handoff를 보고해야 한다. Samantha repo
+self-build writer implementation에서는 sticky follow-up이어도 SDK-backed self-build
+authority gate를 유지한다.
+
+현재 운영 규칙은 `sam b:`, `sam p:`, `sam c:`, task spec, run evidence, report,
+reviewable repo artifact를 handoff 단위로 사용한다.
 
 ## 학습 후보 자동 Draft
 
@@ -211,7 +247,7 @@ Samantha command: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 ru
 - 목표와 성공 기준을 다시 명확히 말한다.
 - 먼저 doctrine/architecture 단계가 아니라 decision-complete implementation task인지 분류한다.
 - 이 작업이 CLI/core command task인지 판단한다.
-- 실행 전에 scoped plan, task spec, 또는 `/goal`을 만든다.
+- 실행 전에 scoped plan 또는 task spec을 만든다.
 - write work에는 기존 harness gate를 유지한다.
 
 ### 구현 전 브레인스토밍
@@ -333,21 +369,6 @@ Samantha learn: 최근 반복된 실패에서 lesson candidate로 남길 만한 
 - 명시적이고 review 가능한 artifact만 사용한다.
 - 기존 lesson flow를 통해 draft, review, promote, record evidence를 수행한다.
 - hidden memory를 만들거나 doctrine을 조용히 다시 쓰지 않는다.
-
-## `/goal`과의 관계
-
-`/goal`은 `WORK-RULES.md`에 정의된 autonomous implementation contract다.
-
-Samantha는 다음 조건을 만족할 때 ready-to-send `/goal`을 추천해야 한다:
-
-- 다음 작업이 fresh autonomous Codex session에 맡길 만큼 cohesive하다.
-- 성공 기준과 verification command를 사전에 말할 수 있다.
-- 중간에 BK의 제품 판단, credential, destructive operation, authority change가 필요하지 않다.
-- product doctrine, architecture, roadmap decision이 enough-complete해서 다음 구현 slice로 내려가도 된다.
-
-Samantha는 현재 세션에서 처리할 수 있는 작은 follow-up이나, 아직 BK가 제품 방향을
-정해야 하는 작업에는 `/goal`을 쓰지 않아야 한다. doctrine/architecture 단계에서는
-ready-to-send `/goal`보다 next design artifact를 우선 제안한다.
 
 ## SDK Dogfood Runtime 선택
 

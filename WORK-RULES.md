@@ -188,7 +188,7 @@ SDK-backed worker run evidence, or equivalent run log with HARNESS_RESULT
 deterministic verification passes
 -> commit
 -> push
--> close out or propose the next autonomous goal
+-> close out with the outcome and the next Samantha handoff when useful
 ```
 
 Do not report Samantha self-build implementation as complete, committed, or
@@ -208,6 +208,67 @@ present, the local branch diverges from the remote, secret or credential risk is
 possible, BK asks to keep work local or use a PR flow, or the change needs
 explicit review before publication.
 
+## Samantha Intent Handoff Rules
+
+Samantha handoffs should make the natural `sam b:` -> `sam p:` -> `sam c:`
+flow explicit without forcing every task through every intent.
+
+Use `sam b:` when the work is still directional. Close brainstorm work with:
+
+- accepted decisions
+- rejected alternatives
+- remaining architecture or product questions
+- the smallest useful next prompt
+
+If the direction is coherent but execution boundaries are not yet complete, the
+next prompt should be `sam p:`. If the work is already decision-complete and
+only needs execution normalization, the next prompt may be `sam c:`. Do not
+collapse brainstorm directly into implementation when product direction,
+authority, artifact lifecycle, validation boundary, or stop conditions remain
+unclear.
+
+Use `sam p:` when the next valuable work is to turn accepted direction into a
+plan. Close plan work with:
+
+- assumptions and decisions used by the plan
+- target artifact or capability boundary
+- intended files or artifact families, if known
+- verification approach
+- stop conditions
+- whether the next prompt should be `sam c:` or another `sam p:`
+
+`sam p:` organizes accepted decisions into an executable plan; it must not
+invent product, authority, artifact lifecycle, or validation decisions to make a
+plan feel complete. If planning exposes unresolved direction, route backward to
+`sam b:` instead of repeating `sam p:`. Repeating plan mode around missing
+decisions tends to harden assumptions into a plausible-looking plan.
+
+Route `sam p:` back to `sam b:` when planning discovers:
+
+- multiple viable product directions with no clear winner
+- unresolved authority, artifact lifecycle, or validation boundaries
+- stop conditions that are themselves the main design questions
+- intended files or verification strategy changing because the direction is
+  unsettled
+- a plan that is substituting for BK's product or authority judgment
+
+Do not route backward for ordinary implementation unknowns that can be recorded
+as assumptions, local choices, or stop conditions. Recommend `sam c:` only when
+the plan is decision-complete enough that Samantha can route it through task
+specs, worktrees, worker run evidence, deterministic verification, and
+Samantha-owned lifecycle gates without asking BK to make a midstream product or
+authority decision.
+
+Use `sam c:` when BK has an executable software request that must be normalized
+through Samantha's harness. Close command work with the run/report outcome,
+verification result, changed-file scope, commit/push status when applicable,
+and the next highest-value Samantha handoff. For self-build writer
+implementation inside this repo, `sam c:` must preserve the SDK-backed
+self-build authority gate.
+
+Samantha's current systemized handoff surfaces are its own intents, task specs,
+run evidence, reports, and reviewable repo artifacts.
+
 ## Final Response Checklist
 
 Before the final response on Samantha self-build work, explicitly check:
@@ -220,32 +281,27 @@ Before the final response on Samantha self-build work, explicitly check:
 - remaining blockers are stated
 - outcome is classified as one of:
   - completed now
-  - recommended autonomous `/goal`
+  - recommended Samantha handoff
   - blocked on BK decision
-- after any `/goal` work completes, include the next highest-value action:
-  - choose the right abstraction level before recommending execution
+- the next action uses the right abstraction level before recommending
+  execution:
   - for product capability, architecture, roadmap, or CEO workflow work, default
     to the next CEO capability boundary
-  - use a ready-to-send `/goal` only when the next boundary is an accepted,
-    worker-safe implementation slice
+  - use `sam b:`, `sam p:`, or `sam c:` handoff only when that intent matches
+    the actual next boundary
   - use a direct BK decision only for genuine BK judgment or authority needs
   - use "no next action recommended" only when no meaningful cohesive slice
     remains, and state that reason explicitly
 
 Prefer "completed now" when Codex can finish the work in the current session.
-Prefer a recommended autonomous `/goal` when meaningful engineering work remains
-and can be delegated to a fresh Codex session without BK taking over the next
-step. Use "blocked on BK decision" only when BK's product judgment, credentials,
-external authority, or explicit review is required before work can continue.
-
-After completing a user-started `/goal`, do not stop at the outcome label alone.
-If there is any plausible next cohesive engineering, documentation, verification,
-or dogfood slice, provide a ready-to-send `/goal` prompt for it. If continuing
-would be low-value, say why no next autonomous goal is recommended instead of
-leaving the absence unexplained.
+Prefer a recommended Samantha handoff when meaningful work remains and a
+follow-up intent can preserve the right boundary without BK taking over small
+engineering steps. Use "blocked on BK decision" only when BK's product judgment,
+credentials, external authority, or explicit review is required before work can
+continue.
 
 Before proposing any direct BK action, first check whether Codex can either do it
-now or fold it into a larger autonomous `/goal`. Direct BK actions are allowed
+now or fold it into the next Samantha handoff. Direct BK actions are allowed
 only when the action genuinely requires BK, such as choosing product direction,
 granting credentials, approving an authority-boundary change, resolving unclear
 scope, or performing a non-delegable external step.
@@ -254,100 +310,4 @@ Small follow-up engineering steps are not valid direct BK actions. Anti-patterns
 include ending with "create one fixture", "run one dogfood command", "add the
 next test", "wire the next option", "clean up this sentence", or similar work
 that Codex can perform. Do the work immediately, omit it if it is not valuable,
-or include it inside a larger autonomous `/goal`.
-
-Use a ready-to-send `/goal` prompt only for a sustained, independently
-verifiable objective that benefits from a new or longer Codex session. A good
-`/goal` lets Codex complete meaningful implementation, focused tests,
-verification, commit, and push without BK deciding the next step midstream.
-
-Size ready-to-send `/goal` prompts around one cohesive local work surface, not
-one tiny invariant. Prefer a slice that lets Codex complete meaningful
-implementation, focused tests, verification, commit, and push in one session
-without crossing authority boundaries. Good examples are one validator area,
-one command workflow, one report-only orchestration surface, or one document
-section with its matching checks. Avoid prompts that spend more overhead on
-context loading and commit/push than on the actual work. Also avoid prompts so
-broad that they require new authority, broad frameworks, writer parallelism,
-trusted worker reports, or dispatch/merge/cleanup execution.
-
-Good `/goal` candidates include one artifact store workflow, one CLI command
-workflow, one report-only orchestration surface, one run lifecycle API plus CLI
-surface, or one validator area with focused tests. Bad `/goal` candidates are
-single tests, one-off fixture runs, small documentation wording edits, or
-commands Codex can run immediately.
-
-If the classification is ambiguous, include the recommended autonomous `/goal`
-first and state the exact BK decision that would make direct action necessary.
-
-Every ready-to-send `/goal` prompt must:
-
-- explicitly require answers in Korean
-- name the repo
-- state the objective and verifiable end state in the first line
-- summarize relevant evidence or prior results
-- define observable success criteria
-- define scope
-- define autonomy expectations
-- define verification commands or explain why no code verification is needed
-- define reporting expectations
-- define stop conditions
-
-### Ready-To-Send `/goal` Prompt Format
-
-Treat a ready-to-send `/goal` prompt as an autonomous session contract, not a
-small handoff note. It should be large enough to remove BK from the next
-engineering loop, but bounded enough for one Codex session to finish safely.
-
-Do not compress ready-to-send `/goal` prompts into one dense line. Use a
-multiline fenced `text` block so BK can read, edit, and paste the prompt without
-reconstructing it.
-
-Use this shape by default:
-
-```text
-/goal <repo path> 에서 <objective>를 완료해줘. <verifiable end state>가 충족될 때까지 중간에 BK에게 작은 다음 액션을 넘기지 말고 진행해줘. 답변은 반드시 한국어로 해줘.
-
-맥락:
-- <prior evidence or current state>
-- <important prior decision>
-
-성공 기준:
-- <observable behavior after the change>
-- <what should be true in CLI/API/artifact/output>
-- <what remains explicitly out of scope>
-
-범위:
-- 포함: <allowed work>
-- 제외: <forbidden work>
-
-자율성:
-- 기존 코드 패턴을 우선하고, 사소한 구현 선택은 직접 결정
-- 작은 후속 작업은 BK에게 넘기지 말고 현재 goal 안에서 처리
-- 아래 Stop condition에 걸릴 때만 멈춤
-
-검증:
-- <exact command>
-- <exact command>
-- <manual/CLI observable check if useful>
-
-보고:
-- deterministic verification 결과
-- 변경 파일이 의도 범위인지
-- 구현된 coverage와 남긴 항목
-- commit/push 여부
-
-Stop condition:
-- <authority boundary / policy decision / credential / destructive operation>
-- <scope expansion that must not be crossed>
-```
-
-If a possible prompt feels very small, do not emit it by default. Either do the
-work now, omit it, or enlarge it into the nearest cohesive autonomous objective.
-For valid small-but-real autonomous prompts, the `맥락` section may be omitted,
-but keep line breaks and keep `성공 기준`, `범위`, `자율성`, `검증`, `보고`, and
-`Stop condition` visible as separate sections. If no code verification applies,
-say that explicitly under `검증`.
-
-Do not suggest turning this into a global skill until the same formatting need
-recurs outside this repository. For now, this repo rule is the source of truth.
+or include it inside the next Samantha handoff.

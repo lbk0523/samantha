@@ -80,10 +80,9 @@ project-global default, a routine trigger, or a bypass around task specs,
 isolated worktrees, `HARNESS_RESULT`, deterministic verification, or
 Samantha-owned lifecycle gates.
 
-`Samantha command:` normalizes executable work into a bounded plan, task spec,
-or ready-to-send `/goal` first; it does not bypass worktree isolation, scope
-checks, deterministic verification, run evidence, or Samantha-owned lifecycle
-gates.
+`Samantha command:` normalizes executable work into a bounded plan or task spec
+direction first; it does not bypass worktree isolation, scope checks,
+deterministic verification, run evidence, or Samantha-owned lifecycle gates.
 
 See `OPERATING_GUIDE.md` for the full protocol and examples.
 
@@ -93,6 +92,15 @@ narrowing question at a time, compare two or three directions when useful, and
 use temporary browser visuals only when seeing the artifact is better than
 reading about it. It should end in a self-reviewed Brainstorm Brief rather than
 code, task specs, worker dispatches, or committed design specs by default.
+
+The natural handoff is `sam b:` for direction, then `sam p:` for a bounded plan,
+then `sam c:` for executable work. Samantha should skip stages only when the
+next boundary is already clear, and it should name the next intent explicitly
+instead of leaving BK to infer it.
+
+If `sam p:` exposes missing product, authority, lifecycle, validation, or stop
+condition decisions, Samantha should route back to `sam b:` instead of repeating
+plan mode around unmade decisions.
 
 When a brainstorm or plan creates multiple dependent slices, preserve the parent
 context in an Initiative Continuity Brief under `references/initiatives/`. The
