@@ -1,0 +1,28 @@
+{
+  "id": "add-annotated-context-resolver-index",
+  "title": "Add annotated context resolver index",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "ARCHITECTURE.md",
+    "references/context-resolver-index.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "git diff --check HEAD -- '*.md' 'references/**/*.md'"
+  ],
+  "instructions": "Create references/context-resolver-index.md as an annotated routing artifact for deciding what Samantha should read first by task type. It must connect to the existing Context Resolver Principle, reduce context bloat, and keep top-level docs as pointers. Include a small initial table for high-signal routes only: brainstorm/plan, doctrine update, policy change, failed-run recovery, learning/lesson promotion, correction transcript mining, batch planning, and docs-only writer tasks. Each route should include task signal, read-first artifacts, why those artifacts matter, when not to read them, and authority limits. Add at most a minimal pointer in ARCHITECTURE.md near the Context Resolver Principle. Do not add runtime resolver code, CLI commands, tests, task templates, agent profiles, run logs, worktrees, AGENTS.md changes, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, automatic context loading, automatic mutation, or broad repository indexing. Run the verify command before final response. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: add annotated context resolver index",
+  "status": "pending"
+}
