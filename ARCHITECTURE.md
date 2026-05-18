@@ -468,6 +468,11 @@ Current behavior:
 The learning artifact layer turns run evidence into explicit, reviewable
 repository artifacts.
 
+Correction transcript mining belongs in this layer only as a review procedure.
+Use `references/playbooks/correction-transcript-mining.md` to collect explicit
+BK correction signals into candidates; BK review is required before any
+promotion.
+
 Learning is a pipeline:
 
 ```text
