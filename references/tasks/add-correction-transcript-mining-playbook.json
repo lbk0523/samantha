@@ -1,0 +1,28 @@
+{
+  "id": "add-correction-transcript-mining-playbook",
+  "title": "Add correction transcript mining playbook",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "ARCHITECTURE.md",
+    "references/playbooks/correction-transcript-mining.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "git diff --check HEAD -- '*.md' 'references/**/*.md'"
+  ],
+  "instructions": "Create references/playbooks/correction-transcript-mining.md as a reviewable procedure for collecting BK correction signals from explicit session excerpts and Samantha run evidence. The playbook must define purpose, allowed evidence sources, required candidate fields, classification categories, review/promotion flow, authority limits, forbidden automatic behavior, verification expectations, stop conditions, and output shape. It must preserve the existing learning loop: correction mining creates reviewable candidates only; BK review is required before any playbook, WORK-RULES, template, agent profile, policy, or direction-document promotion. Add at most a minimal pointer in ARCHITECTURE.md near the Learning Artifact Layer, without making AGENTS.md heavier. Do not add runtime resolver code, CLI commands, tests, task templates, agent profiles, run logs, worktrees, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, automatic transcript scanning, automatic promotion, or promoted artifact edits. Run the verify command before final response. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: add correction transcript mining playbook",
+  "status": "pending"
+}
