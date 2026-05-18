@@ -147,6 +147,10 @@ encoding is too implicit.
 | policy-change | authority or contract writes | per-task | focused policy/template tests required | `src/core/policy.ts`, contracts, profiles, templates, or enforcement changes |
 | doctrine-update | product direction writes | per-task | docs verification plus report-only review when authority boundaries move | `AGENTS.md`, `NORTH_STAR.md`, `ARCHITECTURE.md`, `ROADMAP.md` |
 
+Drift Review Slice A is the first named one-shot report-only review surface. Its
+procedure lives in `references/playbooks/drift-review.md`, and its dispatch-safe
+template lives in `references/task-templates/drift-review.json`.
+
 The forbidden post-MVP shortcut is a "light" writer task that skips isolation,
 scope checks, deterministic verification, or evidence recording. A small task
 may have a small verify command, but it still has a verify command.

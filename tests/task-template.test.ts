@@ -112,4 +112,29 @@ describe("task templates", () => {
     expect(template.task.verifyCommands).toEqual([]);
     expect(validateDispatch(template.task, agent).violations).toEqual([]);
   });
+
+  test("drift review template is dispatch-safe advice-only report shape", async () => {
+    const root = join(import.meta.dir, "..");
+    const [template, agent] = await Promise.all([
+      readJson<TaskTemplate>(join(root, "references", "task-templates", "drift-review.json")),
+      readJson<AgentProfile>(join(root, "references", "agent-profiles", "codex-reviewer.json")),
+    ]);
+
+    expect(template).toMatchObject({
+      schemaVersion: 1,
+      id: "drift-review",
+      title: "Drift Review",
+    });
+    expect(template.task.targetAgent).toBe("codex-reviewer");
+    expect(template.task.resultMode).toBe("report");
+    expect(template.task.targetFiles).toEqual([]);
+    expect(template.task.forbiddenChanges).toEqual(["**/*"]);
+    expect(template.task.setupCommands).toEqual([]);
+    expect(template.task.verifyCommands).toEqual([]);
+    expect(template.task.instructions).toContain("references/playbooks/drift-review.md");
+    expect(template.task.instructions).toContain("whitelisted evidence");
+    expect(template.task.instructions).toContain("advice-only output");
+    expect(template.task.instructions).toContain("exactly one Next action");
+    expect(validateDispatch(template.task, agent).violations).toEqual([]);
+  });
 });

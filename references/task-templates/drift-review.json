@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "drift-review",
+  "title": "Drift Review",
+  "purpose": "Review whitelisted Samantha evidence for scope, authority, lifecycle, evidence, verification, or product-boundary drift without editing files or taking lifecycle actions.",
+  "useWhen": [
+    "A Samantha task, plan, run, or artifact may have drifted from the accepted goal or authority boundary.",
+    "The reviewer can rely only on whitelisted local evidence and current task-context instructions.",
+    "Samantha needs advice-only classification and exactly one recommended next action, not automatic execution."
+  ],
+  "task": {
+    "id": "replace-with-task-id",
+    "title": "Review drift for <evidence-topic>",
+    "targetAgent": "codex-reviewer",
+    "targetFiles": [],
+    "forbiddenChanges": [
+      "**/*"
+    ],
+    "setupCommands": [],
+    "verifyCommands": [],
+    "instructions": "Use references/playbooks/drift-review.md. Review only whitelisted evidence supplied by Samantha or present in the local repository. Do not edit, create, delete, format, commit, push, merge, clean up, dispatch work, create tasks, mutate lifecycle state, update policy, or rely on forbidden evidence. Produce advice-only output with Outcome, Drift category, Cited evidence, and exactly one Next action. Cite the evidence for the classification and the next action.",
+    "resultMode": "report",
+    "status": "pending"
+  }
+}
