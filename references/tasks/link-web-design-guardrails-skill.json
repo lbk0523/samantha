@@ -1,0 +1,29 @@
+{
+  "id": "link-web-design-guardrails-skill",
+  "title": "Link web design guardrails shared skill",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/web-design-guardrails.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "test -f /Users/byung/.agents/skills/web-design-guardrails/SKILL.md",
+    "rg \"web-design-guardrails|/Users/byung/.agents/skills/web-design-guardrails/SKILL.md\" references/playbooks/web-design-guardrails.md",
+    "git diff --check HEAD -- references/playbooks/web-design-guardrails.md"
+  ],
+  "instructions": "Create references/playbooks/web-design-guardrails.md as a short Samantha playbook adapter that points to the canonical shared global skill at /Users/byung/.agents/skills/web-design-guardrails/SKILL.md. Explain that Samantha should consult that shared skill when planning, reviewing, or task-shaping website/web app design work, while keeping the skill as the canonical source of the guardrails. Do not duplicate the full guardrails text; summarize only the routing and authority boundary. Cover plan/review/command usage, hidden-memory avoidance, YAGNI boundaries, and the fact that existing project design systems remain authoritative. Do not mention malang, App-in-Toss, or any project-specific brand colors, component names, or platform constraints. Do not change the shared skill, llm-wiki, source code, tests, package configuration, run logs, worktrees, task specs, task templates, agent profiles, remote adapters, daemon/watch behavior, dashboards, routine triggers, or hidden memory.",
+  "expectedCommitSubject": "docs: link web design guardrails skill",
+  "status": "pending"
+}
