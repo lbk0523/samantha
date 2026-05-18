@@ -124,6 +124,10 @@ Resolver rules must reduce context bloat. Do not move every lesson, quirk, or
 preference into `AGENTS.md`; keep top-level documents as pointers to narrower
 artifacts and load the narrower artifact only when it matters.
 
+The initial annotated route table lives in
+`references/context-resolver-index.md`; keep it small and manual unless repeated
+evidence justifies reviewed resolver implementation work.
+
 ## Task Classes / Execution Modes
 
 Samantha should not model cheap work as a weaker safety mode. Cheap work should
