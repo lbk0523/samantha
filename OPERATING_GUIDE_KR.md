@@ -116,6 +116,13 @@ Samantha self-build implementation을 완료, commit, push된 것으로 보고�
 evidence가 있어야 한다. 또는 worker run evidence, `HARNESS_RESULT`, 변경 파일 scope,
 verification output을 포함한 동등한 run log가 있어야 한다.
 
+Self-build task spec lifecycle도 gate의 일부다. `references/tasks/<id>.json`에
+두는 persistent task spec은 worker dispatch 전에 Samantha-owned planning artifact로
+commit되어야 하며, worker는 그 planning commit이 포함된 clean base에서 시작해야 한다.
+일회성 또는 ad-hoc task spec은 `/tmp` 같은 repo 밖에 두고, run 이후
+`references/tasks/**`로 post-hoc backfill하지 않는다. 상세 gate와 stop condition은
+`references/playbooks/self-build-task-spec-lifecycle.md`를 따른다.
+
 ## 운영 모드와 라우팅 분류
 
 Samantha는 canonical 또는 alias 형태의 `command`, `brainstorm`, `plan` 요청을 받으면

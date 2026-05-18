@@ -145,6 +145,20 @@ gate does not add daemon/watch behavior, App Server authority, automatic worker
 dispatch, lifecycle authority changes, hidden memory, automatic promotion, or
 playbook/policy/template promotion.
 
+## Self-Build Task Spec Lifecycle
+
+Persistent Samantha self-build task specs under `references/tasks/<id>.json`
+are planning artifacts. They must be committed before worker dispatch, and the
+worker must start from a clean base that includes that committed spec.
+
+Ephemeral or ad-hoc task specs must live outside the repository, for example
+under `/tmp`. After the worker run, Samantha must not backfill
+`references/tasks/**` with that temporary spec. This lifecycle choice does not
+increase worker authority.
+
+Use `references/playbooks/self-build-task-spec-lifecycle.md` for the operational
+gates, post-run restrictions, verification expectations, and stop conditions.
+
 ## Next Action Level Gate
 
 Before recommending any next action, Samantha must choose the right abstraction
