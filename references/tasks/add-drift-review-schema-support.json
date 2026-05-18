@@ -1,0 +1,39 @@
+{
+  "id": "add-drift-review-schema-support",
+  "title": "Add Drift Review schema support",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/drift-review.ts",
+    "tests/drift-review.test.ts"
+  ],
+  "forbiddenChanges": [
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/report-review.ts",
+    "src/core/run-*.ts",
+    "src/core/worker-*.ts",
+    "ARCHITECTURE.md",
+    "NORTH_STAR.md",
+    "ROADMAP.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "bun.lock",
+    "tsconfig.json"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun run typecheck",
+    "bun test tests/drift-review.test.ts",
+    "bun test"
+  ],
+  "instructions": "Implement Drift Review Slice B as deterministic schema and summarizer support only. Input must be a structured DriftReviewReport object, not raw reviewer text or uncited transcript parsing. Start with focused behavior tests in tests/drift-review.test.ts, then implement src/core/drift-review.ts. Define outcome and drift-category enums matching references/playbooks/drift-review.md, a structured evidence item shape, a single nextAction shape, validateDriftReviewReport(input: unknown), and summarizeDriftReviewReport(input: unknown). Keep summary output deterministic and always advice-only with reviewerAuthority \"advice-only\" and trustedStateChanges false. Tests must cover valid structured reports, invalid outcome/category, no_drift requiring category none, drift outcomes rejecting category none, missing or empty cited evidence, missing nextAction, multiple next actions via nextActions or array-shaped nextAction, and lifecycle-authorizing wording such as accept run, merge, cleanup, push, mutate lifecycle, or create task. Do not add CLI commands, resolver runtime behavior, raw text parsing, daemon/watch behavior, automatic transcript capture, task creation, lifecycle mutation, policy changes, task template changes, agent profile changes, package changes, hidden memory, or broad refactors.",
+  "expectedCommitSubject": "feat: add drift-review core behavior",
+  "status": "pending"
+}
