@@ -1,6 +1,6 @@
 # Samantha 운영 가이드
 
-마지막 업데이트: 2026-05-16
+마지막 업데이트: 2026-05-18
 
 ## 목적
 
@@ -377,41 +377,41 @@ Samantha learn: 최근 반복된 실패에서 lesson candidate로 남길 만한 
 - 기존 lesson flow를 통해 draft, review, promote, record evidence를 수행한다.
 - hidden memory를 만들거나 doctrine을 조용히 다시 쓰지 않는다.
 
-## SDK Dogfood Runtime 선택
+## SDK Runtime 선택
 
-Samantha repo 안에서 `Samantha command:` 또는 `sam c:`로 활성화된
-decision-complete self-build writer implementation은 authority gate 때문에
-`--runtime=codex-sdk`를 사용해야 한다.
-
-Samantha self-build task에서 Codex SDK runtime을 dogfood하려면 operator 또는 실행
-명령이 명시적으로 선택해야 한다:
+`samantha run-task`에서 `--runtime`을 생략하면 이제 기본 runtime은 `codex-sdk`다.
+SDK local state, credential, runtime diagnosability가 의심스러울 때는
+`--runtime=exec-json`을 명시해 fallback한다:
 
 ```bash
-bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samantha --runtime=codex-sdk
+bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samantha
+bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samantha --runtime=exec-json
 ```
 
-기본 `run-task` runtime은 계속 `exec-json`이다. `codex-sdk`를 선택하지 않은 일반
-worker 실행, batch execution, report orchestration은 기본 runtime을 사용한다. 단,
-위 self-build writer authority gate가 적용되는 작업은 예외다. 이 gate가 적용되는데
-SDK runtime evidence 또는 동등한 run log를 만들 수 없으면 직접 구현으로 우회하지
-말고 blocked 또는 rework로 보고한다.
+이 규칙은 기존 self-build-only SDK dogfood 선택 규칙을 `run-task`에 대해서는
+대체한다. 단, authority gate는 그대로 유지된다. Samantha self-build writer
+implementation은 여전히 task spec, 격리된 worktree, Samantha worker run,
+`HARNESS_RESULT`, deterministic verification, Samantha-owned commit/report
+evidence로 표현되어야 한다.
 
-Authority gate가 적용되지 않는 optional dogfood에서는 `codex-sdk`를 다음 조건을 모두
-만족할 때만 우선 대상으로 선택한다:
+`batches:execute`에서 `--runtime`을 생략하면 기본 runtime은 계속 `exec-json`이다.
+명시적인 bounded SDK dogfood batch에서만 `batches:execute --runtime=codex-sdk`를
+사용한다:
 
-- Samantha repo 자신의 bounded self-build task다.
-- task spec의 target files, forbidden changes, verify commands가 충분히 좁다.
-- SDK thread/runtime metadata가 다음 recovery 또는 diagnosability에 실제로 도움이 된다.
-- SDK credential/local runtime 상태가 준비되어 있고 실패해도 `exec-json`으로 명시
-  fallback할 수 있다.
+```bash
+bun run samantha batches:execute --batch-id=<batch-id>
+bun run samantha batches:execute --batch-id=<batch-id> --runtime=codex-sdk
+```
 
-Authority gate가 적용되지 않는 다음 경우에는 `exec-json`을 사용한다:
-
-- 일반 작업이거나 SDK evidence를 추가로 쌓을 이유가 없다.
-- SDK runtime failure를 진단 중이거나 SDK local state가 불안정하다.
-- batch/report orchestration처럼 별도 runtime selector architecture가 필요한 표면이다.
-- default runtime 변경, App Server 통합, lifecycle/verification/scope/commit/cleanup
-  authority 변경이 필요해진다.
+Runtime 선택은 BatchSpec runtime policy, report orchestration runtime 선택,
+automatic fallback, App Server 통합, hidden UI state, daemon/watch, dashboard,
+writerCap 변경, runtime-owned verification/scope/commit/lifecycle/cleanup/push/
+recovery/orchestration authority를 허용하지 않는다. SDK failure가 run log에서
+진단되지 않거나, `HARNESS_RESULT` 보존이 깨지거나, SDK metadata에서
+`runtime.kind`가 사라지거나, SDK thread state가 lifecycle 또는 recovery 결정을
+주도하거나, SDK package movement가 policy를 어기거나, SDK default 사용이 선언된
+task authority 밖에 쓰기 작업을 만들면 `run-task --runtime=exec-json`으로
+rollback한다.
 
 상세 기준은 `references/playbooks/sdk-dogfood-runtime-selection.md`를 따른다.
 

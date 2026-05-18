@@ -1,9 +1,10 @@
 # SDK Adapter S7 Promotion Decision
 
 Date: 2026-05-16
-Status: completed; refreshed by S10
+Status: completed; refreshed by S10 and S12
 Decision: S7 retained `codex-sdk` as an explicit experimental runtime; S10
-promotes it to preferred dogfood runtime for Samantha self-build tasks only
+promoted it to preferred dogfood runtime for Samantha self-build tasks only;
+S12 promotes omitted `run-task` runtime to `codex-sdk`
 
 ## Findings
 
@@ -199,6 +200,50 @@ Rollback means keeping `exec-json` as the default, avoiding SDK-preferred
 dogfood guidance, and using `codex-sdk` only for explicitly requested
 experimental runs until the regression has a reviewed fix.
 
+## S12 Run-Task Default Promotion
+
+Date: 2026-05-18
+
+Decision: promote only omitted `samantha run-task` runtime to `codex-sdk`.
+Explicit `run-task --runtime=exec-json` remains the fallback. Omitted
+`batches:execute` runtime remains `exec-json`.
+
+This supersedes the S10 self-build-only dogfood selection rule for `run-task`.
+The default is applied at the `run-task` command layer, not in
+`executeWorkerDispatch`, `worker-dispatch`, runtime metadata, BatchSpec policy,
+or worker-owned runtime selection.
+
+### S12 Scope
+
+- `run-task` omitted runtime resolves to `codex-sdk`.
+- `run-task --runtime=exec-json` still selects `exec-json`.
+- CLI parsing still treats an omitted runtime flag as absent parsed input; the
+  command layer owns the default.
+- `batches:execute` omitted runtime still resolves to `exec-json`.
+- Batch execution may still use `--runtime=codex-sdk` only as an explicit
+  bounded dogfood choice.
+
+S12 does not change batch execution defaults, worker runtime adapter authority,
+runtime metadata types, package dependencies, App Server behavior, automatic
+fallback, lifecycle, verification, scope, commit, cleanup, push, or
+worker-owned runtime selection.
+
+### S12 Rollback
+
+Rollback means invoking `run-task --runtime=exec-json` while keeping the SDK
+adapter available for reviewed fixes. Roll back from the run-task SDK default
+if any of these occur:
+
+- SDK runtime failures stop producing diagnosable run-log evidence;
+- `HARNESS_RESULT` preservation regresses;
+- SDK metadata loses `runtime.kind`;
+- SDK thread state starts driving task specs, verification, scope checks,
+  commits, lifecycle records, cleanup, push, recovery, or orchestration;
+- SDK package movement violates the S9 dependency policy;
+- run-task SDK default use writes outside declared task authority;
+- batch execution silently moves away from the `exec-json` omitted-runtime
+  default.
+
 ## Authority Invariants
 
 - Runtime metadata is evidence only.
@@ -227,3 +272,6 @@ experimental runs until the regression has a reviewed fix.
   `/tmp/samantha-s8-sdk-runtime-error-runs/2026-05-16T05-46-46-684Z-fixture-report-reviewer.json`.
 - Reviewed S9 dependency policy:
   `references/initiatives/sdk-adapter-s9-dependency-policy.md`.
+- Reviewed S12 focused tests:
+  `tests/worker-dispatch.test.ts`, `tests/cli.test.ts`, and
+  `tests/batch-execution.test.ts`.

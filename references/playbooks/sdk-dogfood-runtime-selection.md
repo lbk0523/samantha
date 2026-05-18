@@ -2,22 +2,26 @@
 
 ## Purpose
 
-Use this playbook when choosing whether a Samantha self-build `run-task` or
-bounded `batches:execute` execution should explicitly use
-`--runtime=codex-sdk`.
+Use this playbook when choosing the runtime for `samantha run-task` or bounded
+`batches:execute` execution.
 
-S10 selected `codex-sdk` as the preferred dogfood runtime for Samantha
-self-build tasks only. Batch execution may also receive an explicit
-command-level runtime override for bounded Samantha self-build dogfood. This
-does not change the CLI default. It does not authorize BatchSpec runtime policy,
-report orchestration runtime selection, automatic fallback, App Server
-integration, hidden UI state, daemon/watch services, dashboards, natural-language
-dispatch, writerCap changes, or runtime-owned verification, scope, commit,
-lifecycle, cleanup, push, or recovery authority.
+S12 supersedes the old self-build-only dogfood selection rule for `run-task`:
+omitting `--runtime` on `samantha run-task` now selects `codex-sdk`. Explicit
+`--runtime=exec-json` remains the run-task fallback. Batch execution is not
+promoted; omitting `--runtime` on `batches:execute` still selects `exec-json`,
+with `--runtime=codex-sdk` available only as an explicit bounded dogfood
+choice.
+
+This does not authorize BatchSpec runtime policy, report orchestration runtime
+selection, automatic fallback, App Server integration, hidden UI state,
+daemon/watch services, dashboards, natural-language dispatch, writerCap
+changes, or runtime-owned verification, scope, commit, lifecycle, cleanup,
+push, or recovery authority.
 
 ## Default
 
-The default runtime remains `exec-json`.
+The `run-task` default is `codex-sdk`. The `batches:execute` default remains
+`exec-json`.
 
 Use the default by omitting `--runtime`:
 
@@ -26,23 +30,22 @@ bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samanth
 bun run samantha batches:execute --batch-id=<batch-id>
 ```
 
-Use the explicit fallback when a task should avoid SDK dogfood:
+Use the explicit run-task fallback when a task should avoid SDK runtime:
 
 ```bash
 bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samantha --runtime=exec-json
-bun run samantha batches:execute --batch-id=<batch-id> --runtime=exec-json
 ```
 
 ## Choose `codex-sdk`
 
-Prefer SDK dogfood only when all of these are true:
+For `run-task`, omitted runtime already chooses `codex-sdk`. For
+`batches:execute`, choose `--runtime=codex-sdk` only when all of these are true:
 
 - The task is a Samantha self-build task in `/Users/byung/Documents/samantha`.
 - The task is bounded by explicit target files, forbidden changes, and verify
   commands.
-- The operator or task explicitly chooses SDK with `--runtime=codex-sdk`.
-- For batch execution, the batch is bounded Samantha self-build dogfood and the
-  operator explicitly chooses SDK on the `batches:execute` command.
+- The batch is bounded Samantha self-build dogfood and the operator explicitly
+  chooses SDK on the `batches:execute` command.
 - The run can tolerate SDK failure and can be rerun or followed up through
   Samantha run evidence.
 - Runtime metadata, SDK thread continuity, or runtime-error diagnosability is
@@ -57,8 +60,7 @@ bun run samantha run-task references/tasks/<task>.json \
   --repo-root=/Users/byung/Documents/samantha \
   --agent=references/agent-profiles/codex-worker.json \
   --worktrees-dir=worktrees \
-  --runs-dir=runs \
-  --runtime=codex-sdk
+  --runs-dir=runs
 
 bun run samantha batches:execute --batch-id=<batch-id> \
   --batches-dir=references/batch-specs \
@@ -69,10 +71,9 @@ bun run samantha batches:execute --batch-id=<batch-id> \
 
 ## Do Not Choose `codex-sdk`
 
-Use `exec-json` when any of these are true:
+Use explicit `run-task --runtime=exec-json`, or keep the omitted
+`batches:execute` default, when any of these are true:
 
-- The work is routine and does not benefit from SDK dogfood evidence.
-- The task is outside Samantha self-build work.
 - The SDK dependency, credentials, or local Codex state is currently suspect.
 - The task is part of batch execution without an explicit bounded Samantha
   self-build dogfood decision.
@@ -105,7 +106,8 @@ remain authoritative.
 
 ## Rollback
 
-Stop preferring SDK dogfood and use `--runtime=exec-json` if:
+Use `run-task --runtime=exec-json` and stop promoting SDK as the run-task
+default if:
 
 - SDK runtime failures are no longer diagnosable from run logs;
 - `HARNESS_RESULT` preservation regresses;
@@ -116,4 +118,4 @@ Stop preferring SDK dogfood and use `--runtime=exec-json` if:
 - bounded SDK dogfood writes outside declared task authority.
 
 Rollback does not require removing the SDK adapter. It means avoiding SDK
-dogfood preference until a reviewed fix restores the S10 criteria.
+run-task default usage until a reviewed fix restores the S12 criteria.

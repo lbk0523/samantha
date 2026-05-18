@@ -1,6 +1,6 @@
 # Samantha Operating Guide
 
-Last updated: 2026-05-16
+Last updated: 2026-05-18
 
 ## Purpose
 
@@ -361,6 +361,42 @@ Expected behavior:
 - Use only explicit, reviewable artifacts.
 - Draft, review, promote, or record evidence through the existing lesson flow.
 - Never create hidden memory or silently rewrite doctrine.
+
+## SDK Runtime Selection
+
+Omitted `samantha run-task` runtime now defaults to `codex-sdk`. Use
+`--runtime=exec-json` as the explicit fallback when SDK local state, credentials,
+or runtime diagnosability is suspect:
+
+```bash
+bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samantha
+bun run samantha run-task <task.json> --repo-root=/Users/byung/Documents/samantha --runtime=exec-json
+```
+
+This supersedes the old self-build-only SDK dogfood selection rule for
+`run-task`. The authority gate still matters: Samantha self-build writer
+implementation must still be represented as a task spec, isolated worktree,
+Samantha worker run, `HARNESS_RESULT`, deterministic verification, and
+Samantha-owned commit/report evidence.
+
+Omitted `batches:execute` runtime remains `exec-json`. Use
+`batches:execute --runtime=codex-sdk` only for an explicit bounded SDK dogfood
+batch:
+
+```bash
+bun run samantha batches:execute --batch-id=<batch-id>
+bun run samantha batches:execute --batch-id=<batch-id> --runtime=codex-sdk
+```
+
+Runtime selection does not authorize BatchSpec runtime policy, report
+orchestration runtime selection, automatic fallback, App Server integration,
+hidden UI state, daemon/watch behavior, dashboards, writerCap changes, or
+runtime-owned verification, scope, commit, lifecycle, cleanup, push, recovery,
+or orchestration authority. Roll back by passing `run-task --runtime=exec-json`
+if SDK failures stop producing diagnosable run-log evidence, `HARNESS_RESULT`
+preservation regresses, SDK metadata loses `runtime.kind`, SDK thread state
+starts driving lifecycle or recovery decisions, SDK package movement violates
+policy, or SDK default use writes outside declared task authority.
 
 ## v1 Candidate Surfaces And Hard Gates
 

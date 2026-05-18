@@ -535,11 +535,13 @@ describe("worker dispatch", () => {
       worktreesDir: "worktrees",
       runsDir: join(repo, "runs"),
       codexBin: fakeCodex,
+      runtimeKind: "exec-json",
     });
     const rawLog = await readFile(result.runLog.path, "utf8");
     const parsed = JSON.parse(rawLog);
 
     expect(result.execution.pass).toBe(false);
+    expect(result.execution.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(result.execution.commit).toBeUndefined();
     expect(result.execution.evaluation?.verifyResults[0]).toMatchObject({
       command: "grep -q missing README.md",
@@ -552,7 +554,7 @@ describe("worker dispatch", () => {
     );
   });
 
-  test("records dispatch-blocked tasks before worker start", async () => {
+  test("records dispatch-blocked tasks before worker start with run-task defaulting to codex-sdk", async () => {
     const repo = await makeRepo();
     const taskPath = join(repo, "task.json");
     const agentPath = join(repo, "agent.json");
@@ -585,6 +587,8 @@ describe("worker dispatch", () => {
     expect(result.execution.dispatchError).toContain("task contains unresolved dispatch placeholders");
     expect(result.execution.preparation.worktreePath).toBe(repo);
     expect(result.execution.preparation.allocation).toBeUndefined();
+    expect(result.execution.preparation.codex.command[0]).toBe("codex-sdk");
+    expect(result.execution.preparation.codex.command).not.toContain("--json");
     expect(result.execution.command).toBeUndefined();
     expect(result.runSummary).toMatchObject({
       outcome: "blocked",

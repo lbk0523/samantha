@@ -40,10 +40,10 @@ function blockedExecution(input: {
   agent: AgentProfile;
   repoRoot: string;
   codexBin?: string;
-  runtimeKind?: WorkerRuntimeKind;
+  runtimeKind: WorkerRuntimeKind;
   error: Error;
 }): WorkerDispatchExecution {
-  const runtimeAdapter = workerRuntimeAdapterForKind(input.runtimeKind ?? "exec-json");
+  const runtimeAdapter = workerRuntimeAdapterForKind(input.runtimeKind);
   return {
     preparation: {
       taskId: input.task.id,
@@ -67,6 +67,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
   const agent = await readJson<AgentProfile>(resolve(input.agentPath ?? defaultAgentPath(task)));
   const repoRoot = resolve(input.repoRoot);
   const runsDir = resolve(input.runsDir ?? resolve(repoRoot, "runs"));
+  const runtimeKind = input.runtimeKind ?? "codex-sdk";
   const startedAt = new Date().toISOString();
   let execution: WorkerDispatchExecution;
   try {
@@ -76,7 +77,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
       repoRoot,
       worktreesDir: input.worktreesDir,
       codexBin: input.codexBin,
-      runtimeKind: input.runtimeKind,
+      runtimeKind,
     });
   } catch (err) {
     if (!isDispatchBlock(err)) throw err;
@@ -85,7 +86,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
       agent,
       repoRoot,
       codexBin: input.codexBin,
-      runtimeKind: input.runtimeKind,
+      runtimeKind,
       error: err,
     });
   }

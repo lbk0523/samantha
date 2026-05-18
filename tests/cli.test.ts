@@ -303,6 +303,17 @@ describe("samantha cli", () => {
       codexBin: "/tmp/fake-codex",
       runtimeKind: "codex-sdk",
     });
+    expect(
+      parseCliArgs([
+        "run-task",
+        "references/tasks/fixture-single-writer.json",
+        "--repo-root=.",
+      ]),
+    ).toEqual({
+      command: "run-task",
+      taskPath: "references/tasks/fixture-single-writer.json",
+      repoRoot: ".",
+    });
     expect(() =>
       parseCliArgs([
         "run-task",
