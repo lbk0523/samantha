@@ -1,0 +1,39 @@
+{
+  "id": "harden-drift-review-schema-boundary",
+  "title": "Harden Drift Review schema boundary",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/drift-review.ts",
+    "tests/drift-review.test.ts"
+  ],
+  "forbiddenChanges": [
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/report-review.ts",
+    "src/core/run-*.ts",
+    "src/core/worker-*.ts",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "NORTH_STAR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "bun.lock",
+    "tsconfig.json"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun run typecheck",
+    "bun test tests/drift-review.test.ts",
+    "bun test"
+  ],
+  "instructions": "Implement Drift Review Slice B.1 as schema boundary hardening only. Keep the existing structured DriftReviewReport shape and do not redesign nextAction into kind/summary. Add closed-schema validation to src/core/drift-review.ts so valid reports may contain only top-level keys schemaVersion, outcome, driftCategory, citedEvidence, and nextAction. citedEvidence items may contain only citation and finding. nextAction may contain only action. Add focused tests in tests/drift-review.test.ts proving that valid current reports still pass, unknown top-level fields are rejected including trustedStateChanges, reviewerAuthority, commit, lifecycle, createdTask, and metadata, unknown citedEvidence fields are rejected including source, url, confidence, and metadata, unknown nextAction fields are rejected including kind, summary, dispatch, and lifecycle, existing lifecycle-authorizing wording rejection still works, and summarizeDriftReviewReport keeps trustedStateChanges false for invalid closed-schema input. Do not add CLI commands, resolver runtime behavior, lifecycle mutation, raw text parsing, task creation, nextAction kind/summary redesign, policy changes, task template changes, agent profile changes, package changes, hidden memory, or broad refactors.",
+  "expectedCommitSubject": "fix: harden drift review schema boundary",
+  "status": "pending"
+}
