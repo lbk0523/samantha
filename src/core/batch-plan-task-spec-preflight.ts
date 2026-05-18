@@ -5,7 +5,7 @@ import type {
   TaskSpecPlan,
 } from "./batch-plan-assembly";
 import { dryRunStoredBatchPlanAssembly } from "./batch-plan-assembly";
-import type { TaskSpec } from "./contracts";
+import { RISK_CLASSES, TASK_FAMILIES, WORK_MODES, type TaskSpec } from "./contracts";
 
 export interface TaskSpecWritePlan {
   path: string;
@@ -187,6 +187,9 @@ function validateTaskSpecPlan(
   if (!isNonEmptyString(candidate.title)) {
     input.violations.push(`taskSpecPlans[].title must be a non-empty string: ${taskId}`);
   }
+  validateEnumField(candidate.taskFamily, "taskSpecPlans[].taskFamily", TASK_FAMILIES, taskId, input.violations);
+  validateEnumField(candidate.workMode, "taskSpecPlans[].workMode", WORK_MODES, taskId, input.violations);
+  validateEnumField(candidate.riskClass, "taskSpecPlans[].riskClass", RISK_CLASSES, taskId, input.violations);
   if (!isNonEmptyString(candidate.expectedCommitSubject)) {
     input.violations.push(`taskSpecPlans[].expectedCommitSubject must be a non-empty string: ${taskId}`);
   }
@@ -249,6 +252,9 @@ function taskSpecCandidateFor(plan: TaskSpecPlan, draftId: string): TaskSpec {
   return {
     id: plan.taskId,
     title: plan.title,
+    taskFamily: plan.taskFamily,
+    workMode: plan.workMode,
+    riskClass: plan.riskClass,
     targetAgent: plan.targetAgent,
     targetFiles: [...plan.targetFiles],
     forbiddenChanges: [...plan.forbiddenChanges],
@@ -261,6 +267,24 @@ function taskSpecCandidateFor(plan: TaskSpecPlan, draftId: string): TaskSpec {
     expectedCommitSubject: plan.expectedCommitSubject,
     status: "pending",
   };
+}
+
+function validateEnumField(
+  value: unknown,
+  fieldName: string,
+  allowedValues: readonly string[],
+  taskId: string,
+  violations: string[],
+): void {
+  if (typeof value === "string" && allowedValues.includes(value)) {
+    return;
+  }
+
+  violations.push(
+    `${fieldName} must be one of ${allowedValues.join(", ")}: ${taskId} has ${
+      typeof value === "string" && value.trim().length > 0 ? value : "(empty)"
+    }`,
+  );
 }
 
 function resultWithOptionalDraftPath(result: TaskSpecWritePreflightResult): TaskSpecWritePreflightResult {

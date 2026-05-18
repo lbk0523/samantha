@@ -16,6 +16,9 @@ function proposedTask(
     id: "batch-plan-operator-core-task",
     title: "Add BatchPlan operator core",
     summary: "Compose existing BatchPlan promotion, TaskSpec, planning commit, execution store, and preflight gates.",
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "lifecycle-sensitive",
     targetFileHints: ["src/core/batch-plan-operator.ts", "tests/batch-plan-operator.test.ts"],
     forbiddenChangeHints: [
       "src/cli.ts",

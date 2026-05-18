@@ -1,6 +1,9 @@
 {
   "id": "add-tasks-from-run-command",
   "title": "Add tasks from run command",
+  "taskFamily": "cli-command",
+  "workMode": "diagnosis-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/cli.ts",

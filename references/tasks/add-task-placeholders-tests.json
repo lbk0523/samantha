@@ -1,6 +1,9 @@
 {
   "id": "add-task-placeholders-tests",
   "title": "Add task placeholder helper tests",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "routine",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/task-placeholders.ts",

@@ -60,6 +60,9 @@ async function makePassedRun(options: { merge: boolean }): Promise<{
     task: {
       id: "cleanup-fixture",
       title: "Cleanup fixture",
+      taskFamily: "core-module",
+      workMode: "minimal-change",
+      riskClass: "routine",
       targetAgent: "codex-worker",
       targetFiles: ["allowed.txt"],
       forbiddenChanges: ["state/**"],

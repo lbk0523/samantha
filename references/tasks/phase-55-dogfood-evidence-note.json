@@ -1,6 +1,9 @@
 {
   "id": "phase-55-dogfood-evidence-note",
   "title": "Record Phase 5.5 dogfood evidence note",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/phase-55-ceo-batchplan-dogfood.md"

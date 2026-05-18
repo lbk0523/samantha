@@ -17,6 +17,9 @@ const template = {
   task: {
     id: "replace-with-task-id",
     title: "Implement <module> core behavior",
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "routine",
     targetAgent: "codex-worker",
     targetFiles: ["src/core/<module>.ts", "tests/<module>.test.ts"],
     forbiddenChanges: ["src/cli.ts", "runs/**", "worktrees/**"],

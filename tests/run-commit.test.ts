@@ -6,6 +6,9 @@ import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
 const task: TaskSpec = {
   id: "commit-fixture",
   title: "Commit fixture",
+  taskFamily: "core-module",
+  workMode: "minimal-change",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**"],

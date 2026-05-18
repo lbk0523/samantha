@@ -1,4 +1,13 @@
-import type { AgentProfile, AgentRole, DispatchPlan, SafetyPolicy, TaskSpec } from "./contracts";
+import {
+  RISK_CLASSES,
+  TASK_FAMILIES,
+  WORK_MODES,
+  type AgentProfile,
+  type AgentRole,
+  type DispatchPlan,
+  type SafetyPolicy,
+  type TaskSpec,
+} from "./contracts";
 
 export const DEFAULT_SAFETY_POLICY: SafetyPolicy = {
   writerCap: 1,
@@ -80,9 +89,22 @@ export function validateDispatch(
   policy: SafetyPolicy = DEFAULT_SAFETY_POLICY,
 ): DispatchPlan {
   const violations = validateAgentProfile(agent, policy);
+  const taskFamily = String((task as { taskFamily?: unknown }).taskFamily ?? "");
+  const workMode = String((task as { workMode?: unknown }).workMode ?? "");
+  const riskClass = String((task as { riskClass?: unknown }).riskClass ?? "");
 
   if (task.targetAgent !== agent.id) {
     violations.push(`task targets ${task.targetAgent}, but profile is ${agent.id}`);
+  }
+
+  if (!TASK_FAMILIES.includes(taskFamily as TaskSpec["taskFamily"])) {
+    violations.push(`task taskFamily is unknown: ${taskFamily || "(empty)"}`);
+  }
+  if (!WORK_MODES.includes(workMode as TaskSpec["workMode"])) {
+    violations.push(`task workMode is unknown: ${workMode || "(empty)"}`);
+  }
+  if (!RISK_CLASSES.includes(riskClass as TaskSpec["riskClass"])) {
+    violations.push(`task riskClass is unknown: ${riskClass || "(empty)"}`);
   }
 
   if (task.resultMode === "report" && agent.writerClass === "writer") {

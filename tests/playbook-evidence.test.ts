@@ -12,6 +12,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "later-evidence-task",
   title: "Later evidence task",
+  taskFamily: "core-module",
+  workMode: "minimal-change",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["src/example.ts"],
   forbiddenChanges: ["runs/**"],

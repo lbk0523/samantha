@@ -1,6 +1,9 @@
 {
   "id": "fixture-single-writer",
   "title": "Validate the first Codex harness safety contract",
+  "taskFamily": "core-module",
+  "workMode": "minimal-change",
+  "riskClass": "routine",
   "targetAgent": "codex-worker",
   "targetFiles": ["src/core/policy.ts"],
   "forbiddenChanges": ["references/**", "runs/**", "worktrees/**"],

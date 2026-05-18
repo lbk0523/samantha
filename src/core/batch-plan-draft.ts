@@ -1,3 +1,12 @@
+import {
+  RISK_CLASSES,
+  TASK_FAMILIES,
+  WORK_MODES,
+  type RiskClass,
+  type TaskFamily,
+  type WorkMode,
+} from "./contracts";
+
 export type BatchPlanDraftClassification =
   | "routine_writer_batch"
   | "report_only"
@@ -27,6 +36,9 @@ export interface ProposedTask {
   id: string;
   title: string;
   summary: string;
+  taskFamily: TaskFamily;
+  workMode: WorkMode;
+  riskClass: RiskClass;
   targetFileHints: string[];
   forbiddenChangeHints: string[];
   verifyCommandHints: string[];
@@ -260,6 +272,7 @@ function validateProposedTasks(value: unknown, draft: Record<string, unknown>): 
       violations.push(`proposedTasks[].summary must be a non-empty string: ${taskId}`);
     }
     violations.push(...validateNoUnresolvedPlaceholderText(task.summary, "proposedTasks[].summary", taskId));
+    validateAssignmentMetadata(task, taskId, violations);
 
     const canDeferTargetFileHints = canDeferIncompleteProposedTaskField(draft, index, "targetFileHints");
     if (!hasOnlyNonEmptyStrings(task.targetFileHints, { allowEmpty: false })) {
@@ -309,6 +322,34 @@ function validateProposedTasks(value: unknown, draft: Record<string, unknown>): 
   }
 
   return violations;
+}
+
+function validateAssignmentMetadata(
+  task: Record<string, unknown>,
+  taskId: string,
+  violations: string[],
+): void {
+  validateEnumField(task.taskFamily, "proposedTasks[].taskFamily", TASK_FAMILIES, taskId, violations);
+  validateEnumField(task.workMode, "proposedTasks[].workMode", WORK_MODES, taskId, violations);
+  validateEnumField(task.riskClass, "proposedTasks[].riskClass", RISK_CLASSES, taskId, violations);
+}
+
+function validateEnumField(
+  value: unknown,
+  fieldName: string,
+  allowedValues: readonly string[],
+  taskId: string,
+  violations: string[],
+): void {
+  if (typeof value === "string" && allowedValues.includes(value)) {
+    return;
+  }
+
+  violations.push(
+    `${fieldName} must be one of ${allowedValues.join(", ")}: ${taskId} has ${
+      typeof value === "string" && value.trim().length > 0 ? value : "(empty)"
+    }`,
+  );
 }
 
 function validatePromotableTargetFileHints(proposedTasks: unknown): string[] {

@@ -1,6 +1,9 @@
 {
   "id": "phase-55-batchplan-report-contract",
   "title": "Align Phase 5.5 BatchPlanDraft report contract",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/batch-specs/phase-5-5-ceo-batch-planning.md",

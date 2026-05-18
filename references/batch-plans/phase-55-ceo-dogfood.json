@@ -41,6 +41,9 @@
       "id": "phase-55-dogfood-evidence-note",
       "title": "Record Phase 5.5 dogfood evidence note",
       "summary": "Create a concise evidence note describing the Phase 5.5 CEO BatchPlanDraft dogfood result after draft review and prepare pass.",
+      "taskFamily": "docs-only",
+      "workMode": "minimal-change",
+      "riskClass": "lifecycle-sensitive",
       "targetFileHints": [
         "references/initiatives/phase-55-ceo-batchplan-dogfood.md"
       ],

@@ -41,6 +41,9 @@ async function makeRepo(): Promise<{
     task: {
       id: "merge-fixture",
       title: "Merge fixture",
+      taskFamily: "core-module",
+      workMode: "minimal-change",
+      riskClass: "routine",
       targetAgent: "codex-worker",
       targetFiles: ["allowed.txt"],
       forbiddenChanges: ["state/**"],

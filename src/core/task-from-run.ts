@@ -153,6 +153,16 @@ function verifyCommandsForRun(log: WorkerRunLog, outcome: RunOutcome): string[] 
   return original;
 }
 
+function assignmentMetadataFor(task: TaskSpec): Pick<TaskSpec, "taskFamily" | "workMode" | "riskClass"> {
+  const candidate = task as Partial<TaskSpec>;
+
+  return {
+    taskFamily: candidate.taskFamily ?? "recovery",
+    workMode: candidate.workMode ?? "diagnosis-first",
+    riskClass: candidate.riskClass ?? "lifecycle-sensitive",
+  };
+}
+
 function formatScopeViolation(violation: ScopeViolation): string {
   const matched = violation.matchedPattern ? ` matched ${violation.matchedPattern}` : "";
   return `- ${violation.file}: ${violation.reason}${matched}`;
@@ -264,6 +274,7 @@ function buildTaskSpec(input: {
   const task: TaskSpec = {
     id: input.taskId,
     title: input.title,
+    ...assignmentMetadataFor(input.log.task),
     targetAgent: input.log.task.targetAgent,
     targetFiles: [...input.log.task.targetFiles],
     forbiddenChanges: [...input.log.task.forbiddenChanges],

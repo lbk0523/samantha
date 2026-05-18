@@ -1,6 +1,9 @@
 {
   "id": "phase-55-sdk-runtime-evidence-note",
   "title": "Record Phase 5 batch SDK runtime dogfood evidence",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/phase-55-sdk-runtime-batch-dogfood.md"

@@ -12,6 +12,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "ledger-fixture",
   title: "Ledger fixture",
+  taskFamily: "core-module",
+  workMode: "minimal-change",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**"],

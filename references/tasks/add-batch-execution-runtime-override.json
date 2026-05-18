@@ -1,6 +1,9 @@
 {
   "id": "add-batch-execution-runtime-override",
   "title": "Add explicit runtime override for batch execution",
+  "taskFamily": "cli-command",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/cli.ts",

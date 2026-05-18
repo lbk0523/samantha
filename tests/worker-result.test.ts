@@ -23,6 +23,9 @@ async function makeRepo(): Promise<{ root: string; baseCommit: string }> {
 const task: TaskSpec = {
   id: "worker-result-fixture",
   title: "Evaluate worker result",
+  taskFamily: "core-module",
+  workMode: "minimal-change",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**", "worktrees/**"],

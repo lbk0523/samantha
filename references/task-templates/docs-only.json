@@ -12,6 +12,9 @@
   "task": {
     "id": "replace-with-task-id",
     "title": "Update <docs-topic> documentation",
+    "taskFamily": "docs-only",
+    "workMode": "minimal-change",
+    "riskClass": "doctrine-sensitive",
     "targetAgent": "codex-worker",
     "targetFiles": [
       "*.md",

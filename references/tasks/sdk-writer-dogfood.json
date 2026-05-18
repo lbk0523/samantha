@@ -1,6 +1,9 @@
 {
   "id": "sdk-writer-dogfood",
   "title": "Dogfood SDK writer runtime",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sdk-adapter-s7-writer-dogfood.md"

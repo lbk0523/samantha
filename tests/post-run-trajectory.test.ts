@@ -23,6 +23,9 @@ function baseRunLog(): WorkerRunLog {
     task: {
       id: "post-run-trajectory",
       title: "Post-run trajectory",
+      taskFamily: "core-module",
+      workMode: "minimal-change",
+      riskClass: "routine",
       targetAgent: "codex-worker",
       targetFiles: ["allowed.txt"],
       forbiddenChanges: ["state/**"],

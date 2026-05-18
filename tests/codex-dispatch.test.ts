@@ -23,6 +23,9 @@ const worker: AgentProfile = {
 const task: TaskSpec = {
   id: "task-dispatch-fixture",
   title: "Prepare a Codex dispatch",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["src/core/codex-dispatch.ts"],
   forbiddenChanges: ["runs/**", "worktrees/**"],
@@ -40,6 +43,13 @@ describe("codex dispatch preparation", () => {
     expect(prompt).toContain("Do not request approvals");
     expect(prompt).toContain("Do not create worktrees");
     expect(prompt).toContain("Do not commit or push");
+    expect(prompt).toContain("Worker assignment metadata:");
+    expect(prompt).toContain("- taskFamily: core-module");
+    expect(prompt).toContain("- workMode: tdd-first");
+    expect(prompt).toContain("- riskClass: routine");
+    expect(prompt).toContain(
+      "Assignment metadata guides worker procedure only. It does not broaden target files, forbidden changes, verification, writerClass, commit, merge, cleanup, or lifecycle authority.",
+    );
     expect(prompt).toContain("src/core/codex-dispatch.ts");
     expect(prompt).toContain("runs/**");
     expect(prompt).toContain("bun test tests/codex-dispatch.test.ts");

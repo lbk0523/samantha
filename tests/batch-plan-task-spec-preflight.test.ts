@@ -23,6 +23,9 @@ function proposedTask(
     id: "task-spec-write-preflight-task",
     title: "Add TaskSpec write preflight",
     summary: "Create a deterministic preflight for inert TaskSpec write candidates.",
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "routine",
     targetFileHints: [
       "src/core/batch-plan-task-spec-preflight.ts",
       "tests/batch-plan-task-spec-preflight.test.ts",
@@ -87,6 +90,9 @@ function taskSpecPlan(overrides: Partial<TaskSpecPlan> = {}): TaskSpecPlan {
     taskId: "task-spec-write-preflight-task",
     taskSpecPath: "references/tasks/task-spec-write-preflight-task.json",
     title: "Add TaskSpec write preflight",
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "routine",
     targetAgent: "codex-worker",
     targetFiles: ["src/core/batch-plan-task-spec-preflight.ts"],
     forbiddenChanges: ["src/cli.ts", "references/**"],
@@ -152,6 +158,9 @@ describe("BatchPlan TaskSpec write preflight", () => {
           taskSpec: {
             id: "task-spec-write-preflight-task",
             title: "Add TaskSpec write preflight",
+            taskFamily: "core-module",
+            workMode: "tdd-first",
+            riskClass: "routine",
             targetAgent: "codex-worker",
             targetFiles: [
               "src/core/batch-plan-task-spec-preflight.ts",

@@ -44,6 +44,9 @@
       "id": "phase-55-sdk-runtime-evidence-note",
       "title": "Record Phase 5 batch SDK runtime dogfood evidence",
       "summary": "Create a concise evidence note describing the explicit codex-sdk runtime dogfood for Phase 5 batch execution.",
+      "taskFamily": "docs-only",
+      "workMode": "minimal-change",
+      "riskClass": "lifecycle-sensitive",
       "targetFileHints": [
         "references/initiatives/phase-55-sdk-runtime-batch-dogfood.md"
       ],

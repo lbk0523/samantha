@@ -29,6 +29,9 @@ const worker: AgentProfile = {
 const validTask: TaskSpec = {
   id: "task-1",
   title: "change a focused file",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["src/core/policy.ts"],
   forbiddenChanges: ["references/**", "worktrees/**"],
@@ -95,6 +98,33 @@ describe("dispatch policy", () => {
 
     expect(result.mayDispatch).toBe(true);
     expect(result.violations).toEqual([]);
+  });
+
+  test("requires known worker assignment metadata without granting authority", () => {
+    const missing = { ...validTask } as unknown as Record<string, unknown>;
+    delete missing.taskFamily;
+    delete missing.workMode;
+    delete missing.riskClass;
+
+    const missingResult = validateDispatch(missing as unknown as TaskSpec, worker);
+    const unknownResult = validateDispatch(
+      {
+        ...validTask,
+        taskFamily: "persona" as TaskSpec["taskFamily"],
+        workMode: "roleplay" as TaskSpec["workMode"],
+        riskClass: "admin" as TaskSpec["riskClass"],
+      },
+      worker,
+    );
+
+    expect(missingResult.mayDispatch).toBe(false);
+    expect(missingResult.violations).toContain("task taskFamily is unknown: (empty)");
+    expect(missingResult.violations).toContain("task workMode is unknown: (empty)");
+    expect(missingResult.violations).toContain("task riskClass is unknown: (empty)");
+    expect(unknownResult.mayDispatch).toBe(false);
+    expect(unknownResult.violations).toContain("task taskFamily is unknown: persona");
+    expect(unknownResult.violations).toContain("task workMode is unknown: roleplay");
+    expect(unknownResult.violations).toContain("task riskClass is unknown: admin");
   });
 
   test("blocks writer tasks without target files", () => {

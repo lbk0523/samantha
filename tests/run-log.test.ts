@@ -11,6 +11,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "Audit Log Fixture",
   title: "Write audit log",
+  taskFamily: "core-module",
+  workMode: "minimal-change",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["forbidden/**"],
@@ -129,6 +132,11 @@ describe("worker run logs", () => {
 
     expect(log.runId).toBe("2026-05-12T10-00-00-000Z-audit-log-fixture");
     expect(log.schemaVersion).toBe(1);
+    expect(log.task).toMatchObject({
+      taskFamily: "core-module",
+      workMode: "minimal-change",
+      riskClass: "routine",
+    });
     expect(log.input).toEqual({
       repoRoot: "/repo",
       worktreesDir: "worktrees",
