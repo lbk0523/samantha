@@ -43,6 +43,15 @@ export interface DriftReviewSummary {
 
 const DRIFT_REVIEW_OUTCOME_SET = new Set<DriftReviewOutcome>(DRIFT_REVIEW_OUTCOMES);
 const DRIFT_REVIEW_CATEGORY_SET = new Set<DriftReviewCategory>(DRIFT_REVIEW_CATEGORIES);
+const DRIFT_REVIEW_REPORT_FIELDS = new Set([
+  "schemaVersion",
+  "outcome",
+  "driftCategory",
+  "citedEvidence",
+  "nextAction",
+]);
+const DRIFT_REVIEW_EVIDENCE_ITEM_FIELDS = new Set(["citation", "finding"]);
+const DRIFT_REVIEW_NEXT_ACTION_FIELDS = new Set(["action"]);
 
 const FORBIDDEN_NEXT_ACTION_PATTERNS: RegExp[] = [
   /\baccept(?:s|ed|ing)?\s+(?:the\s+|this\s+|a\s+)?runs?\b/i,
@@ -65,6 +74,9 @@ export function validateDriftReviewReport(input: unknown): string[] {
   }
 
   const violations: string[] = [];
+  violations.push(
+    ...validateAllowedFields(input, DRIFT_REVIEW_REPORT_FIELDS, (key) => `unknown top-level field: ${key}`),
+  );
 
   if (input.schemaVersion !== 1) {
     violations.push("schemaVersion must be exactly 1");
@@ -124,6 +136,11 @@ function validateCitedEvidence(value: unknown): string[] {
       violations.push(`citedEvidence[${index}] must be an object`);
       return;
     }
+    violations.push(
+      ...validateAllowedFields(item, DRIFT_REVIEW_EVIDENCE_ITEM_FIELDS, (key) => {
+        return `unknown citedEvidence[${index}] field: ${key}`;
+      }),
+    );
     if (!isNonEmptyString(item.citation)) {
       violations.push(`citedEvidence[${index}].citation must be a non-empty string`);
     }
@@ -140,14 +157,22 @@ function validateNextAction(value: unknown): string[] {
     return ["nextAction must be an object"];
   }
 
+  const violations: string[] = [];
+  violations.push(
+    ...validateAllowedFields(value, DRIFT_REVIEW_NEXT_ACTION_FIELDS, (key) => `unknown nextAction field: ${key}`),
+  );
+
   const action = value.action;
   if (!isNonEmptyString(action)) {
-    return ["nextAction.action must be a non-empty string"];
+    violations.push("nextAction.action must be a non-empty string");
+    return violations;
   }
 
-  return FORBIDDEN_NEXT_ACTION_PATTERNS.some((pattern) => pattern.test(action))
-    ? [`nextAction.action must remain advice-only and must not authorize lifecycle action: ${action}`]
-    : [];
+  if (FORBIDDEN_NEXT_ACTION_PATTERNS.some((pattern) => pattern.test(action))) {
+    violations.push(`nextAction.action must remain advice-only and must not authorize lifecycle action: ${action}`);
+  }
+
+  return violations;
 }
 
 function readNextAction(value: unknown): DriftReviewNextAction | null {
@@ -183,6 +208,16 @@ function isNonEmptyString(value: unknown): value is string {
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function validateAllowedFields(
+  value: Record<string, unknown>,
+  allowedFields: Set<string>,
+  formatViolation: (key: string) => string,
+): string[] {
+  return Object.keys(value)
+    .filter((key) => !allowedFields.has(key))
+    .map(formatViolation);
 }
 
 function joinOptions(values: readonly string[]): string {

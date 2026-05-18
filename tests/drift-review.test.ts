@@ -60,6 +60,48 @@ describe("Drift Review schema support", () => {
     );
   });
 
+  test("rejects unknown top-level fields that imply authority or lifecycle state", () => {
+    for (const field of ["trustedStateChanges", "reviewerAuthority", "commit", "lifecycle", "createdTask", "metadata"]) {
+      expect(
+        validateDriftReviewReport({
+          ...report(),
+          [field]: field === "trustedStateChanges" ? true : {},
+        }),
+      ).toContain(`unknown top-level field: ${field}`);
+    }
+  });
+
+  test("rejects unknown cited evidence fields instead of trusting richer citation metadata", () => {
+    for (const field of ["source", "url", "confidence", "metadata"]) {
+      expect(
+        validateDriftReviewReport({
+          ...report(),
+          citedEvidence: [
+            {
+              citation: "references/playbooks/drift-review.md",
+              finding: "Drift Review output is advice-only and must cite whitelisted evidence.",
+              [field]: field === "confidence" ? 0.99 : "not part of the schema",
+            },
+          ],
+        }),
+      ).toContain(`unknown citedEvidence[0] field: ${field}`);
+    }
+  });
+
+  test("rejects unknown nextAction fields instead of accepting redesigned actions or dispatch metadata", () => {
+    for (const field of ["kind", "summary", "dispatch", "lifecycle"]) {
+      expect(
+        validateDriftReviewReport({
+          ...report(),
+          nextAction: {
+            action: "Ask BK to decide whether to narrow the follow-up before dispatch.",
+            [field]: "not part of the schema",
+          },
+        }),
+      ).toContain(`unknown nextAction field: ${field}`);
+    }
+  });
+
   test("requires no_drift reports to use category none", () => {
     expect(
       validateDriftReviewReport(
@@ -149,6 +191,20 @@ describe("Drift Review schema support", () => {
       trustedStateChanges: false,
       outcome: null,
       violations: ["outcome must be no_drift, possible_drift, confirmed_drift, or blocked: clean"],
+    });
+  });
+
+  test("summarizes invalid closed-schema input without creating trusted state changes", () => {
+    expect(
+      summarizeDriftReviewReport({
+        ...report(),
+        trustedStateChanges: true,
+      }),
+    ).toMatchObject({
+      status: "rejected",
+      reviewerAuthority: "advice-only",
+      trustedStateChanges: false,
+      violations: ["unknown top-level field: trustedStateChanges"],
     });
   });
 });
