@@ -1,0 +1,51 @@
+{
+  "id": "sequential-ceo-autopilot-s4-status-update",
+  "title": "Add Sequential CEO Autopilot evidence-based status update support",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "src/cli.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/commands/**",
+    "src/core/worker-*.ts",
+    "src/core/run-*.ts",
+    "src/core/batch-*.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts tests/sequential-ceo-autopilot.test.ts src/cli.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/playbooks/sequential-ceo-autopilot.md, references/playbooks/initiative-continuity-brief.md, and the current continuation validator/report code in src/core/sequential-ceo-autopilot.ts, then perform only S4. Add deterministic status update support for a structured continuation artifact after externally supplied, cited evidence. The update support should be small and pure in core code, with a CLI surface such as `continuation:update-status --artifact=<path> --evidence=<path>` that reads a continuation artifact JSON and a structured evidence JSON document, validates both, updates only that artifact file when the update is accepted, prints a deterministic JSON status-update report, and stops. Do not execute the next action, dispatch workers, call run-task, call batches:execute, create run logs, create worktrees, merge, cleanup, push, or continue automatically. The structured evidence document must be closed-schema and require non-empty cited evidence references with explicit evidence kind, path, summary, and result/status. Accept only deterministic evidence kinds such as run log, readiness report, or continuation/report review evidence. Reject worker-output-text-only, markdown/prose-only, report-only recommendation-only, missing citation, unknown evidence kind, and unknown field cases. Do not infer trusted completion from HARNESS_RESULT notes, stdout/stderr prose, markdown roadmap text, or report-only advice. Completion should require trusted structured evidence, for example a passing run-log or clear readiness evidence appropriate to the current action type. Blocking or failed outcomes may be represented as transition outcomes in the update report, but preserve the Initiative Continuity Brief status vocabulary: do not add `failed` as a slice status; map failed slice state to `blocked` with cited failure evidence and a blocked_report next step. Preserve `pushAllowed: false`, do not add hidden memory, and keep updated artifact evidence references reviewable. Add focused core tests for accepted completed update, accepted blocked/failed update, rejection of worker prose-only evidence, rejection of report-only recommendation as trusted completion, rejection of missing citations, and preservation of the failed-as-blocked status vocabulary. Add CLI parser/main tests proving the command updates only the artifact file, prints deterministic JSON, rejects invalid evidence non-zero, and creates no runs/worktrees or dispatch side effects. Update references/initiatives/sequential-ceo-autopilot.md only to mark S4 completed, record verification expectations or status, and make S5 the next ready slice. Do not add runner behavior, automatic continuation, worker dispatch, lifecycle mutation beyond the explicit artifact file update, policy changes, doctrine changes, task templates, agent profiles, package changes, hidden memory, remote adapters, daemon/watch behavior, dashboards, routine triggers, natural-language-only dispatch, push automation, or broad refactors. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo autopilot status update",
+  "status": "pending"
+}
