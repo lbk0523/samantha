@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s7-dogfood-d1",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot-s7-dogfood.md",
+  "createdAt": "2026-05-20T00:00:00.000Z",
+  "updatedAt": "2026-05-20T00:00:00.000Z",
+  "currentSlice": {
+    "id": "D1",
+    "status": "completed",
+    "actionType": "readiness_check",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S6 completed in the parent Sequential CEO Autopilot initiative"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "D1 is a decision-complete readiness dogfood slice."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "D1 uses existing readiness_check behavior only."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "D1 names the dogfood initiative path and current readiness action."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "D1 readiness action does not require repo mutation beyond this artifact."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "D1 uses readiness evidence rather than a worker HARNESS_RESULT."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "D1 has no write-capable target surface."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence cycle has been spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "D1 requires only a local readiness check."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "D1 has one explicit artifact and one explicit initiative path."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "readiness_report",
+      "path": "inline:readiness:references/initiatives/sequential-ceo-autopilot-s7-dogfood.md",
+      "summary": "Readiness check returned clear: start D1: Run the S6 continuation loop against this dogfood initiative using a single readiness_check artifact.",
+      "result": "clear"
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "sam c: references/initiatives/sequential-ceo-autopilot-s7-dogfood.md review next single-step continuation after D1"
+  }
+}

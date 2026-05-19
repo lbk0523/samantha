@@ -1,9 +1,9 @@
 # Initiative: Sequential CEO Autopilot
 
-Status: planned
+Status: active
 Source: Samantha brainstorm and plan on 2026-05-19 about reducing BK's
 midstream scheduler burden while preserving Samantha's execution gates.
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Goal
 
@@ -155,11 +155,12 @@ Stop before continuing when any of these appear:
 | S4 | completed | Add deterministic status update support after externally supplied evidence: mark a slice completed, blocked, or failed only from cited run/readiness/report evidence. No automatic next execution yet. | S3. | Passed in S4 worker: focused status-transition tests, CLI update-status tests, typecheck, readiness check, and scoped diff check. | None. |
 | S5 | completed | Add guarded single-step continuation: execute exactly one ready slice when its action type is explicit and allowed, then stop with evidence and next status. | S4. | Passed in S5 worker: focused one-step runner tests, CLI step tests, typecheck, readiness check, and scoped diff check. | None. |
 | S6 | completed | Add bounded multi-step continuation: continue across successful slices until a stop condition, with failed-evidence rework limited to one cycle and push still forbidden. | S5 plus dogfood evidence from at least one safe initiative. | Passed in S6 worker: focused fake-artifact loop tests for two successful readiness slices, maxSteps cutoff, status-evidence rejection, one failed-evidence rework cycle, and false side-effect flags; CLI tests cover parser/main loop behavior, blocked stops, rejected artifacts, and no runs/worktrees side effects; typecheck, readiness check, and scoped diff check passed. | None. |
-| S7 | ready | Dogfood the full MVP on a small Samantha self-build initiative and update this brief with outcomes, blocked edges, and whether broader routine use is justified. | S6. | Real run evidence; readiness check; initiative brief update; no push automation. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S7을 수행해. 작은 self-build initiative로 Sequential CEO Autopilot MVP를 dogfood하고 결과와 다음 결정을 문서화해.` |
+| S7 | completed | Dogfood the full MVP on a small Samantha self-build initiative and update this brief with outcomes, blocked edges, and whether broader routine use is justified. | S6. | Passed: created `references/initiatives/sequential-ceo-autopilot-s7-dogfood.md` and `references/operations/sequential-ceo-autopilot-s7-continuation.json`; ran `bun run samantha continuation:loop --artifact=references/operations/sequential-ceo-autopilot-s7-continuation.json --max-steps=2`; result accepted one readiness step, updated D1 to completed, preserved false side-effect flags, and stopped with `no_deterministic_next_artifact`; recorded `references/operations/sequential-ceo-autopilot-s7-dogfood-report.md`. | None. |
+| S8 | ready | Design the next deterministic artifact-link and action-execution boundary before broad routine use. Keep this at CEO/product-boundary level: decide how next artifacts are named, how reviewed `run_task`/`batch_plan` support is authorized, and what stop conditions remain mandatory. | S7. | Report-only design or plan artifact that names the boundary, non-goals, validation strategy, and stop conditions without implementing S8. | `sam p: references/initiatives/sequential-ceo-autopilot.md 의 S8을 계획해. broader routine use 전에 deterministic next-artifact linkage 와 reviewed run_task/batch_plan action-execution boundary를 CEO/product-boundary 수준에서 설계해. 구현은 하지 마.` |
 
 ## Current Next Slice
 
-S7 is ready.
+S8 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -172,8 +173,36 @@ explicitly supplied artifact when status evidence is accepted, and stops after
 that artifact with `no_deterministic_next_artifact` because the current artifact
 contract cannot name the next artifact deterministically.
 
-S7 should dogfood the MVP on a small Samantha self-build initiative and record
-whether the current structured artifact boundary is sufficient for routine use.
+S7 dogfooded that behavior with
+`references/operations/sequential-ceo-autopilot-s7-continuation.json`. The real
+CLI run accepted one `readiness_check`, updated D1 to `completed`, preserved
+false side-effect flags, and stopped with
+`stopReason: no_deterministic_next_artifact`.
+
+Broader routine use: not yet justified.
+
+Readiness-only continuation works, but routine multi-slice use still lacks
+deterministic next-artifact linkage and reviewed `run_task`/`batch_plan`
+execution support. S8 should design that boundary before any broad routine use.
+
+## S7 Evidence And Decision
+
+- Dogfood initiative:
+  `references/initiatives/sequential-ceo-autopilot-s7-dogfood.md`
+- Continuation artifact:
+  `references/operations/sequential-ceo-autopilot-s7-continuation.json`
+- Dogfood report:
+  `references/operations/sequential-ceo-autopilot-s7-dogfood-report.md`
+- Command:
+  `bun run samantha continuation:loop --artifact=references/operations/sequential-ceo-autopilot-s7-continuation.json --max-steps=2`
+- Outcome: accepted; one readiness step; D1 moved from `ready` to `completed`;
+  `artifactUpdated: true`; false side-effect flags; `pushPerformed: false`;
+  `stopReason: no_deterministic_next_artifact`.
+- Blocked edges: no deterministic next-artifact linkage in the current artifact
+  contract; no reviewed `run_task`/`batch_plan` execution path in the loop;
+  no worker dispatch, batch execution, merge, cleanup, commit, push, daemon,
+  remote adapter, dashboard, routine trigger, hidden memory, or broad roadmap
+  execution authority.
 
 ## End-of-Session Update Rule
 
