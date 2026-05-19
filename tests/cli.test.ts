@@ -10,6 +10,8 @@ import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES } from "../src/core/batch-spec";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
+import type { SequentialContinuationArtifact } from "../src/core/sequential-ceo-autopilot";
+import { SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS } from "../src/core/sequential-ceo-autopilot";
 
 let tmpRoots: string[] = [];
 
@@ -170,6 +172,52 @@ function cliBatchPlanDraftInput(overrides: Partial<AuthorBatchPlanDraftInput> = 
   };
 }
 
+function cliSequentialContinuationArtifact(
+  overrides: Partial<SequentialContinuationArtifact> = {},
+): SequentialContinuationArtifact {
+  return {
+    schemaVersion: 1,
+    artifactId: "cli-continuation-s3",
+    initiativePath: "references/initiatives/sequential-ceo-autopilot.md",
+    createdAt: "2026-05-19T00:00:00.000Z",
+    updatedAt: "2026-05-19T00:00:00.000Z",
+    currentSlice: {
+      id: "S3",
+      status: "ready",
+      actionType: "report_only",
+      dependencyStatus: "met",
+      prerequisites: ["S2 completed"],
+    },
+    autonomyEnvelope: {
+      canSelectNextReadySlice: true,
+      canRunReadinessChecks: true,
+      canRunReportOnlyActions: true,
+      canRunExplicitTaskSpecs: true,
+      canRunRoutineBatchActions: true,
+      canUpdateContinuationStatus: true,
+      canLocallyCommitThroughExistingGates: true,
+      pushAllowed: false,
+      maxFailedEvidenceReworkCycles: 1,
+    },
+    stopConditionChecklist: SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS.map((id) => ({
+      id,
+      active: false,
+      evidence: `${id} checked`,
+    })),
+    evidenceReferences: [
+      {
+        path: "references/initiatives/sequential-ceo-autopilot.md",
+        summary: "S3 requests a report-only continuation CLI.",
+      },
+    ],
+    nextStep: {
+      kind: "samantha_command",
+      value: "sam c: references/initiatives/sequential-ceo-autopilot.md S3",
+    },
+    ...overrides,
+  };
+}
+
 async function writeCliBatchStoreFixture(
   taskSpecOverrides: Partial<TaskSpec> = {},
   batchOverrides: Partial<BatchSpec> = {},
@@ -281,6 +329,79 @@ async function runCliCapturingStdout(argv: string[]): Promise<{ exitCode: number
 }
 
 describe("samantha cli", () => {
+  test("parses continuation report arguments", () => {
+    expect(parseCliArgs(["continuation:show", "--artifact=references/continuation/s3.json"])).toEqual({
+      command: "continuation:show",
+      artifactPath: "references/continuation/s3.json",
+    });
+    expect(() => parseCliArgs(["continuation:show"])).toThrow(
+      "usage: bun run samantha continuation:show --artifact=<path>",
+    );
+  });
+
+  test("continuation show prints a valid report without creating execution artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const artifactText = `${JSON.stringify(cliSequentialContinuationArtifact(), null, 2)}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout(["continuation:show", `--artifact=${artifactPath}`]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      artifactPath,
+      status: "accepted",
+      violations: [],
+      currentSlice: {
+        id: "S3",
+        status: "ready",
+        actionType: "report_only",
+        dependencyStatus: "met",
+      },
+      activeStopConditions: [],
+      blockingReasons: [],
+      allowedActionType: "report_only",
+      exactNextSamanthaCommand: "sam c: references/initiatives/sequential-ceo-autopilot.md S3",
+      blockedReportText: null,
+      trustedStateChanges: false,
+      pushPerformed: false,
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation show prints a rejected report and exits non-zero for invalid artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-invalid-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    await writeFile(
+      artifactPath,
+      `${JSON.stringify(
+        cliSequentialContinuationArtifact({
+          autonomyEnvelope: {
+            ...cliSequentialContinuationArtifact().autonomyEnvelope,
+            pushAllowed: true as false,
+          },
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const result = await runCliCapturingStdout(["continuation:show", `--artifact=${artifactPath}`]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain("autonomyEnvelope.pushAllowed must be false");
+    expect(report.allowedActionType).toBeNull();
+    expect(report.trustedStateChanges).toBe(false);
+    expect(report.pushPerformed).toBe(false);
+  });
+
   test("parses run-task arguments", () => {
     expect(
       parseCliArgs([

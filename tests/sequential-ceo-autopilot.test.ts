@@ -5,6 +5,7 @@ import type {
 } from "../src/core/sequential-ceo-autopilot";
 import {
   SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS,
+  buildSequentialContinuationReport,
   validateSequentialContinuationArtifact,
 } from "../src/core/sequential-ceo-autopilot";
 
@@ -58,6 +59,107 @@ function artifact(overrides: Partial<SequentialContinuationArtifact> = {}): Sequ
 describe("Sequential CEO Autopilot continuation artifact validation", () => {
   test("accepts a valid current-slice continuation artifact", () => {
     expect(validateSequentialContinuationArtifact(artifact())).toEqual([]);
+  });
+
+  test("builds a deterministic accepted report for the current slice", () => {
+    expect(
+      buildSequentialContinuationReport({
+        artifactPath: "/repo/references/continuation/s3.json",
+        artifact: artifact({
+          currentSlice: {
+            ...artifact().currentSlice,
+            id: "S3",
+            status: "ready",
+            actionType: "report_only",
+          },
+          nextStep: {
+            kind: "samantha_command",
+            value: "sam c: references/initiatives/sequential-ceo-autopilot.md S3",
+          },
+        }),
+      }),
+    ).toEqual({
+      artifactPath: "/repo/references/continuation/s3.json",
+      status: "accepted",
+      violations: [],
+      currentSlice: {
+        id: "S3",
+        status: "ready",
+        actionType: "report_only",
+        dependencyStatus: "met",
+      },
+      activeStopConditions: [],
+      blockingReasons: [],
+      allowedActionType: "report_only",
+      exactNextSamanthaCommand: "sam c: references/initiatives/sequential-ceo-autopilot.md S3",
+      blockedReportText: null,
+      trustedStateChanges: false,
+      pushPerformed: false,
+    });
+  });
+
+  test("reports active stop conditions and blocked handoff text without rejecting valid structure", () => {
+    const stopConditionChecklist = artifact().stopConditionChecklist.map((check) =>
+      check.id === "decision_required"
+        ? {
+            ...check,
+            active: true,
+            evidence: "BK must choose the next product boundary.",
+          }
+        : check,
+    );
+
+    const report = buildSequentialContinuationReport({
+      artifactPath: "/repo/references/continuation/blocked.json",
+      artifact: artifact({
+        currentSlice: {
+          ...artifact().currentSlice,
+          dependencyStatus: "blocked",
+          actionType: "manual_decision",
+        },
+        stopConditionChecklist,
+        nextStep: {
+          kind: "blocked_report",
+          value: "Blocked until BK chooses the next product boundary.",
+        },
+      }),
+    });
+
+    expect(report.status).toBe("accepted");
+    expect(report.allowedActionType).toBe("manual_decision");
+    expect(report.activeStopConditions).toEqual([
+      {
+        id: "decision_required",
+        evidence: "BK must choose the next product boundary.",
+      },
+    ]);
+    expect(report.blockedReportText).toBe("Blocked until BK chooses the next product boundary.");
+    expect(report.blockingReasons).toEqual([
+      "decision_required: BK must choose the next product boundary.",
+      "currentSlice.dependencyStatus is blocked",
+      "Blocked until BK chooses the next product boundary.",
+    ]);
+    expect(report.trustedStateChanges).toBe(false);
+    expect(report.pushPerformed).toBe(false);
+  });
+
+  test("builds a rejected report without granting an allowed action type", () => {
+    const report = buildSequentialContinuationReport({
+      artifactPath: "/repo/references/continuation/unsafe.json",
+      artifact: artifact({
+        autonomyEnvelope: {
+          ...artifact().autonomyEnvelope,
+          pushAllowed: true as false,
+        },
+      }),
+    });
+
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain("autonomyEnvelope.pushAllowed must be false");
+    expect(report.allowedActionType).toBeNull();
+    expect(report.blockingReasons).toContain("autonomyEnvelope.pushAllowed must be false");
+    expect(report.trustedStateChanges).toBe(false);
+    expect(report.pushPerformed).toBe(false);
   });
 
   test("rejects raw prose instead of inferring continuation authority", () => {

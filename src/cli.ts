@@ -42,7 +42,13 @@ import { listBatchPlanDrafts, readBatchPlanDraftById } from "./core/batch-plan-d
 import { prepareBatchPlan, type PrepareBatchPlanInput } from "./core/batch-plan-operator";
 import { reviewStoredBatchPlanDraft, type BatchPlanReviewInput } from "./core/batch-plan-review";
 import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
+import { buildSequentialContinuationReport } from "./core/sequential-ceo-autopilot";
 import type { WorkerRuntimeKind } from "./core/worker-runtime-metadata";
+
+export interface ContinuationShowCliArgs {
+  command: "continuation:show";
+  artifactPath: string;
+}
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
@@ -227,6 +233,7 @@ export interface BatchPlansPrepareCliArgs extends PrepareBatchPlanInput {
 }
 
 export type SamanthaCliArgs =
+  | ContinuationShowCliArgs
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
@@ -302,6 +309,18 @@ function parseWorkerRuntimeKind(value: string | undefined): WorkerRuntimeKind | 
 
 export function parseCliArgs(argv: string[]): SamanthaCliArgs {
   const [command, first, ...rest] = argv;
+
+  if (command === "continuation:show") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const artifactPath = flags.get("artifact");
+    if (!artifactPath) {
+      throw new Error("usage: bun run samantha continuation:show --artifact=<path>");
+    }
+    return {
+      command: "continuation:show",
+      artifactPath,
+    };
+  }
 
   if (command === "run-task") {
     if (!first) {
@@ -761,7 +780,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -778,6 +797,16 @@ function isPlaybookEvidenceAssessment(value: unknown): value is PlaybookEvidence
 
 async function readBatchSpec(batchPath: string): Promise<BatchSpec> {
   return JSON.parse(await readFile(batchPath, "utf8")) as BatchSpec;
+}
+
+function artifactReadViolation(err: unknown): string {
+  if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    return "artifact could not be read: file not found";
+  }
+  if (err instanceof SyntaxError) {
+    return `artifact JSON could not be parsed: ${err.message}`;
+  }
+  return `artifact could not be read: ${err instanceof Error ? err.message : String(err)}`;
 }
 
 async function markLifecycle(input: {
@@ -801,6 +830,26 @@ async function markLifecycle(input: {
 
 export async function main(argv: string[]): Promise<number> {
   const args = parseCliArgs(argv);
+  if (args.command === "continuation:show") {
+    const artifactPath = resolve(args.artifactPath);
+    const report = await (async () => {
+      try {
+        return buildSequentialContinuationReport({
+          artifactPath,
+          artifact: JSON.parse(await readFile(artifactPath, "utf8")) as unknown,
+        });
+      } catch (err) {
+        return buildSequentialContinuationReport({
+          artifactPath,
+          artifact: undefined,
+          violations: [artifactReadViolation(err)],
+        });
+      }
+    })();
+    console.log(JSON.stringify(report, null, 2));
+    return report.status === "accepted" ? 0 : 1;
+  }
+
   if (args.command === "run-task") {
     const result = await runTaskCommand(args);
     console.log(

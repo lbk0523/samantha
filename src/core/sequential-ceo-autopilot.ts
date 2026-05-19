@@ -82,6 +82,28 @@ export interface SequentialContinuationArtifact {
   nextStep: SequentialContinuationNextStep;
 }
 
+export interface SequentialContinuationReport {
+  artifactPath: string;
+  status: "accepted" | "rejected";
+  violations: string[];
+  currentSlice: {
+    id: string | null;
+    status: string | null;
+    actionType: string | null;
+    dependencyStatus: string | null;
+  };
+  activeStopConditions: Array<{
+    id: string;
+    evidence: string;
+  }>;
+  blockingReasons: string[];
+  allowedActionType: SequentialContinuationActionType | null;
+  exactNextSamanthaCommand: string | null;
+  blockedReportText: string | null;
+  trustedStateChanges: false;
+  pushPerformed: false;
+}
+
 const ACTION_TYPE_SET = new Set<SequentialContinuationActionType>(SEQUENTIAL_CONTINUATION_ACTION_TYPES);
 const SLICE_STATUS_SET = new Set<SequentialContinuationSliceStatus>(SEQUENTIAL_CONTINUATION_SLICE_STATUSES);
 const STOP_CONDITION_ID_SET = new Set<SequentialContinuationStopConditionId>(
@@ -189,6 +211,41 @@ export function validateSequentialContinuationArtifact(input: unknown): string[]
   violations.push(...validateNextStep(input.nextStep));
 
   return violations;
+}
+
+export function buildSequentialContinuationReport(input: {
+  artifactPath: string;
+  artifact: unknown;
+  violations?: string[];
+}): SequentialContinuationReport {
+  const violations = input.violations ?? validateSequentialContinuationArtifact(input.artifact);
+  const currentSlice = readReportCurrentSlice(input.artifact);
+  const activeStopConditions = readReportActiveStopConditions(input.artifact);
+  const nextStep = readReportNextStep(input.artifact);
+  const status = violations.length === 0 ? "accepted" : "rejected";
+  const allowedActionType =
+    status === "accepted" && currentSlice.actionType && ACTION_TYPE_SET.has(currentSlice.actionType as SequentialContinuationActionType)
+      ? (currentSlice.actionType as SequentialContinuationActionType)
+      : null;
+
+  return {
+    artifactPath: input.artifactPath,
+    status,
+    violations,
+    currentSlice,
+    activeStopConditions,
+    blockingReasons: buildReportBlockingReasons({
+      violations,
+      currentSlice,
+      activeStopConditions,
+      nextStep,
+    }),
+    allowedActionType,
+    exactNextSamanthaCommand: nextStep.kind === "samantha_command" ? nextStep.value : null,
+    blockedReportText: nextStep.kind === "blocked_report" ? nextStep.value : null,
+    trustedStateChanges: false,
+    pushPerformed: false,
+  };
 }
 
 function validateCurrentSlice(value: unknown): string[] {
@@ -426,6 +483,84 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function readReportCurrentSlice(value: unknown): SequentialContinuationReport["currentSlice"] {
+  const fallback = {
+    id: null,
+    status: null,
+    actionType: null,
+    dependencyStatus: null,
+  };
+  if (!isRecord(value) || !isRecord(value.currentSlice)) {
+    return fallback;
+  }
+
+  return {
+    id: stringOrNull(value.currentSlice.id),
+    status: stringOrNull(value.currentSlice.status),
+    actionType: stringOrNull(value.currentSlice.actionType),
+    dependencyStatus: stringOrNull(value.currentSlice.dependencyStatus),
+  };
+}
+
+function readReportActiveStopConditions(value: unknown): SequentialContinuationReport["activeStopConditions"] {
+  if (!isRecord(value) || !Array.isArray(value.stopConditionChecklist)) {
+    return [];
+  }
+
+  return value.stopConditionChecklist.flatMap((item) => {
+    if (!isRecord(item) || item.active !== true || !isNonEmptyString(item.id) || !isNonEmptyString(item.evidence)) {
+      return [];
+    }
+    return [{ id: item.id, evidence: item.evidence }];
+  });
+}
+
+function readReportNextStep(value: unknown): { kind: string | null; value: string | null } {
+  if (!isRecord(value) || !isRecord(value.nextStep)) {
+    return {
+      kind: null,
+      value: null,
+    };
+  }
+
+  return {
+    kind: stringOrNull(value.nextStep.kind),
+    value: stringOrNull(value.nextStep.value),
+  };
+}
+
+function buildReportBlockingReasons(input: {
+  violations: string[];
+  currentSlice: SequentialContinuationReport["currentSlice"];
+  activeStopConditions: SequentialContinuationReport["activeStopConditions"];
+  nextStep: { kind: string | null; value: string | null };
+}): string[] {
+  const reasons: string[] = [];
+  for (const stopCondition of input.activeStopConditions) {
+    pushUnique(reasons, `${stopCondition.id}: ${stopCondition.evidence}`);
+  }
+  if (input.currentSlice.dependencyStatus === "blocked") {
+    pushUnique(reasons, "currentSlice.dependencyStatus is blocked");
+  }
+  if (input.nextStep.kind === "blocked_report" && input.nextStep.value) {
+    pushUnique(reasons, input.nextStep.value);
+  }
+  for (const violation of input.violations) {
+    pushUnique(reasons, violation);
+  }
+  return reasons;
+}
+
+function pushUnique(values: string[], value: string): void {
+  if (!values.includes(value)) {
+    values.push(value);
+  }
 }
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
