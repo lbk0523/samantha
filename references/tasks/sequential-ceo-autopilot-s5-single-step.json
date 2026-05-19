@@ -1,0 +1,51 @@
+{
+  "id": "sequential-ceo-autopilot-s5-single-step",
+  "title": "Add Sequential CEO Autopilot guarded single-step continuation",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "src/cli.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/commands/**",
+    "src/core/worker-*.ts",
+    "src/core/run-*.ts",
+    "src/core/batch-*.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts tests/sequential-ceo-autopilot.test.ts src/cli.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/playbooks/sequential-ceo-autopilot.md, and the current S2-S4 code in src/core/sequential-ceo-autopilot.ts and src/cli.ts, then perform only S5. Add guarded single-step continuation: consume one validated structured continuation artifact, ensure the current slice is ready, dependencyStatus is met, pushAllowed is false, stop conditions are inactive, and the actionType is explicit and allowed, then execute exactly one action and stop with deterministic evidence and status update. Do not implement a multi-step loop, do not select or execute a second slice, and do not recursively invoke continuation. Prefer a small core runner with an injected action executor so focused tests can prove the executor is called at most once and the status update path reuses the S4 evidence/status-update contract. For the concrete CLI surface, add a conservative command such as `continuation:step --artifact=<path>` that directly supports only the deterministic `readiness_check` action by running the existing readiness report for the artifact's initiativePath, turning the result into structured status evidence, updating only the artifact when accepted, printing a deterministic JSON single-step report, and stopping. For `manual_decision`, active stop conditions, blocked dependencies, invalid artifacts, or write-capable action types (`run_task` and `batch_plan`) that lack a reviewed explicit taskSpecPath/batchSpecPath field in the artifact contract, return a blocked/rejected single-step report without calling runTaskCommand, executeBatch, batches:execute, run-task, worker dispatch, worktree allocation, run-log creation, merge, cleanup, push, or artifact mutation unless the S4 status-update validator accepts the generated status evidence. Do not add taskSpecPath or batchSpecPath fields in this slice unless existing tests force a narrow typed field; if added, keep it closed-schema and do not use it to dispatch workers yet. The report must include artifact path, selected action type, whether an action was executed, exactly one action attempt count, generated evidence path or inline evidence summary, status update report, nextStep, `continued: false`, `multiStepLoopStarted: false`, `pushPerformed: false`, and side-effect flags showing no worker dispatch/run logs/worktrees/push. Add focused core tests for ready readiness_check success, inactive/blocked stop conditions, manual_decision stop, write-capable action blocking without explicit reviewed path support, invalid artifact rejection, executor-called-at-most-once, and no second-slice continuation. Add CLI parser/main tests proving `continuation:step --artifact=<path>` updates only the artifact for readiness_check success, rejects/blocks unsafe actions non-zero without side effects, creates no runs/worktrees, and does not dispatch workers. Update references/initiatives/sequential-ceo-autopilot.md only to mark S5 completed, record verification expectations or status, and make S6 the next ready slice. Do not add automatic push, daemon/watch behavior, remote adapters, dashboards, routine triggers, hidden memory, broad runner loops, policy changes, doctrine changes, task templates, agent profiles, package changes, broad refactors, or worker-owned orchestration. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo autopilot single step",
+  "status": "pending"
+}
