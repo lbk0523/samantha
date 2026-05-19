@@ -43,6 +43,7 @@ import { prepareBatchPlan, type PrepareBatchPlanInput } from "./core/batch-plan-
 import { reviewStoredBatchPlanDraft, type BatchPlanReviewInput } from "./core/batch-plan-review";
 import { buildReadinessReport, type BuildReadinessReportInput, type ReadinessReport } from "./core/readiness";
 import {
+  buildSequentialContinuationLoop,
   buildSequentialContinuationSingleStep,
   buildSequentialContinuationReport,
   buildSequentialContinuationStatusUpdate,
@@ -66,6 +67,12 @@ export interface ContinuationUpdateStatusCliArgs {
 export interface ContinuationStepCliArgs {
   command: "continuation:step";
   artifactPath: string;
+}
+
+export interface ContinuationLoopCliArgs {
+  command: "continuation:loop";
+  artifactPath: string;
+  maxSteps: number;
 }
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
@@ -254,6 +261,7 @@ export type SamanthaCliArgs =
   | ContinuationShowCliArgs
   | ContinuationUpdateStatusCliArgs
   | ContinuationStepCliArgs
+  | ContinuationLoopCliArgs
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
@@ -327,6 +335,13 @@ function parseWorkerRuntimeKind(value: string | undefined): WorkerRuntimeKind | 
   throw new Error("runtime must be exec-json or codex-sdk");
 }
 
+function parsePositiveInteger(value: string | undefined, usage: string): number {
+  if (!value || !/^[1-9][0-9]*$/.test(value)) {
+    throw new Error(usage);
+  }
+  return Number(value);
+}
+
 export function parseCliArgs(argv: string[]): SamanthaCliArgs {
   const [command, first, ...rest] = argv;
 
@@ -367,6 +382,23 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     return {
       command: "continuation:step",
       artifactPath,
+    };
+  }
+
+  if (command === "continuation:loop") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const artifactPath = flags.get("artifact");
+    const maxSteps = parsePositiveInteger(
+      flags.get("max-steps"),
+      "usage: bun run samantha continuation:loop --artifact=<path> --max-steps=<n>",
+    );
+    if (!artifactPath) {
+      throw new Error("usage: bun run samantha continuation:loop --artifact=<path> --max-steps=<n>");
+    }
+    return {
+      command: "continuation:loop",
+      artifactPath,
+      maxSteps,
     };
   }
 
@@ -828,7 +860,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:step|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:step|continuation:loop|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -1006,6 +1038,40 @@ export async function main(argv: string[]): Promise<number> {
     });
     if (result.updatedArtifact) {
       await writeFile(artifactPath, `${JSON.stringify(result.updatedArtifact, null, 2)}\n`, "utf8");
+    }
+    console.log(JSON.stringify(result.report, null, 2));
+    return result.report.status === "accepted" ? 0 : 1;
+  }
+
+  if (args.command === "continuation:loop") {
+    const artifactPath = resolve(args.artifactPath);
+    const violations: string[] = [];
+    let artifact: unknown;
+    try {
+      artifact = JSON.parse(await readFile(artifactPath, "utf8")) as unknown;
+    } catch (err) {
+      violations.push(artifactReadViolation(err));
+    }
+
+    const result = await buildSequentialContinuationLoop({
+      artifactPath,
+      artifact,
+      violations,
+      maxSteps: args.maxSteps,
+      executeAction: async ({ artifact: acceptedArtifact }) => {
+        const readiness = await buildReadinessReport({
+          initiativePath: acceptedArtifact.initiativePath,
+        });
+        return buildReadinessCheckSingleStepExecution({
+          artifact: acceptedArtifact,
+          readiness,
+        });
+      },
+    });
+    for (const updatedArtifact of result.updatedArtifacts) {
+      if (updatedArtifact.artifactPath === artifactPath) {
+        await writeFile(artifactPath, `${JSON.stringify(updatedArtifact.artifact, null, 2)}\n`, "utf8");
+      }
     }
     console.log(JSON.stringify(result.report, null, 2));
     return result.report.status === "accepted" ? 0 : 1;

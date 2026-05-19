@@ -154,27 +154,26 @@ Stop before continuing when any of these appear:
 | S3 | completed | Add a report-only CLI surface that reads a continuation artifact and reports the current ready slice, blocking reasons, allowed action type, and exact next Samantha command. No execution. | S2. | Passed in S3 worker: `bun test tests/sequential-ceo-autopilot.test.ts`; `bun test tests/cli.test.ts`; `bun run typecheck`; readiness check; scoped diff check. | None. |
 | S4 | completed | Add deterministic status update support after externally supplied evidence: mark a slice completed, blocked, or failed only from cited run/readiness/report evidence. No automatic next execution yet. | S3. | Passed in S4 worker: focused status-transition tests, CLI update-status tests, typecheck, readiness check, and scoped diff check. | None. |
 | S5 | completed | Add guarded single-step continuation: execute exactly one ready slice when its action type is explicit and allowed, then stop with evidence and next status. | S4. | Passed in S5 worker: focused one-step runner tests, CLI step tests, typecheck, readiness check, and scoped diff check. | None. |
-| S6 | ready | Add bounded multi-step continuation: continue across successful slices until a stop condition, with failed-evidence rework limited to one cycle and push still forbidden. | S5 plus dogfood evidence from at least one safe initiative. | Focused loop tests with fake actions; dogfood run on docs-only or report-only initiative; `bun run typecheck`; no push. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S6를 수행해. successful continuation loop를 추가하되 stop condition과 maxFailedEvidenceReworkCycles=1을 deterministic하게 검증해.` |
-| S7 | pending | Dogfood the full MVP on a small Samantha self-build initiative and update this brief with outcomes, blocked edges, and whether broader routine use is justified. | S6. | Real run evidence; readiness check; initiative brief update; no push automation. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S7을 수행해. 작은 self-build initiative로 Sequential CEO Autopilot MVP를 dogfood하고 결과와 다음 결정을 문서화해.` |
+| S6 | completed | Add bounded multi-step continuation: continue across successful slices until a stop condition, with failed-evidence rework limited to one cycle and push still forbidden. | S5 plus dogfood evidence from at least one safe initiative. | Passed in S6 worker: focused fake-artifact loop tests for two successful readiness slices, maxSteps cutoff, status-evidence rejection, one failed-evidence rework cycle, and false side-effect flags; CLI tests cover parser/main loop behavior, blocked stops, rejected artifacts, and no runs/worktrees side effects; typecheck, readiness check, and scoped diff check passed. | None. |
+| S7 | ready | Dogfood the full MVP on a small Samantha self-build initiative and update this brief with outcomes, blocked edges, and whether broader routine use is justified. | S6. | Real run evidence; readiness check; initiative brief update; no push automation. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S7을 수행해. 작은 self-build initiative로 Sequential CEO Autopilot MVP를 dogfood하고 결과와 다음 결정을 문서화해.` |
 
 ## Current Next Slice
 
-S6 is ready.
+S7 is ready.
 
-S5 added guarded single-step continuation through
-`continuation:step --artifact=<path>` with `readiness_check` as the only
-concrete executable action. The core runner consumes one validated structured
-artifact, blocks manual decisions, active stop conditions, unmet dependencies,
-write-capable actions without reviewed path support, push authority, and invalid
-artifacts, calls the injected executor at most once, reuses the S4 status-update
-contract for accepted readiness evidence, updates only the artifact when the
-status update is accepted, reports deterministic side-effect flags, leaves
-`pushPerformed` false, and stops with `continued: false` and
-`multiStepLoopStarted: false`.
+S6 added bounded continuation through
+`continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
+the S5 single-step runner, continues only through injected deterministic next
+artifacts, stops at `maxSteps`, preserves per-step reports, leaves
+`pushPerformed` false, and reports false side-effect flags for run-task,
+batch execution, worker dispatch, run logs, worktrees, and push. The CLI loop
+uses the same readiness-check execution as `continuation:step`, updates only the
+explicitly supplied artifact when status evidence is accepted, and stops after
+that artifact with `no_deterministic_next_artifact` because the current artifact
+contract cannot name the next artifact deterministically.
 
-S6 should add bounded multi-step continuation across successful slices until a
-stop condition is reached, with failed-evidence rework limited to one cycle and
-push still forbidden.
+S7 should dogfood the MVP on a small Samantha self-build initiative and record
+whether the current structured artifact boundary is sufficient for routine use.
 
 ## End-of-Session Update Rule
 

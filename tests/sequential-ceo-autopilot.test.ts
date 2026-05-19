@@ -7,6 +7,7 @@ import type {
 import {
   SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS,
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
+  buildSequentialContinuationLoop,
   buildSequentialContinuationSingleStep,
   buildSequentialContinuationStatusUpdate,
   buildSequentialContinuationReport,
@@ -787,5 +788,293 @@ describe("Sequential CEO Autopilot guarded single-step continuation", () => {
     });
     expect(result.updatedArtifact?.currentSlice.id).toBe("S2");
     expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
+  });
+});
+
+describe("Sequential CEO Autopilot bounded continuation loop", () => {
+  function readinessArtifact(
+    overrides: Partial<SequentialContinuationArtifact> = {},
+  ): SequentialContinuationArtifact {
+    return artifact({
+      currentSlice: {
+        ...artifact().currentSlice,
+        actionType: "readiness_check",
+      },
+      ...overrides,
+    });
+  }
+
+  function loopReadinessArtifact(sliceId: string): SequentialContinuationArtifact {
+    return readinessArtifact({
+      artifactId: `sequential-ceo-autopilot-${sliceId.toLowerCase()}`,
+      currentSlice: {
+        id: sliceId,
+        status: "ready",
+        actionType: "readiness_check",
+        dependencyStatus: "met",
+        prerequisites: ["previous slice completed"],
+      },
+      nextStep: {
+        kind: "samantha_command",
+        value: `sam c: references/initiatives/sequential-ceo-autopilot.md ${sliceId}`,
+      },
+    });
+  }
+
+  function readinessStatusEvidenceFor(
+    artifact: SequentialContinuationArtifact,
+    overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
+  ): SequentialContinuationStatusEvidenceDocument {
+    return statusEvidence({
+      currentSliceId: artifact.currentSlice.id,
+      evidenceReferences: [
+        {
+          kind: "readiness_report",
+          path: `inline:readiness:${artifact.currentSlice.id}`,
+          summary: `${artifact.currentSlice.id} readiness check returned clear.`,
+          result: "clear",
+        },
+      ],
+      nextStep: {
+        kind: "samantha_command",
+        value: `sam c: references/initiatives/sequential-ceo-autopilot.md after ${artifact.currentSlice.id}`,
+      },
+      ...overrides,
+    });
+  }
+
+  test("continues across two successful readiness_check artifacts without side effects", async () => {
+    const firstArtifact = loopReadinessArtifact("S6A");
+    const secondArtifact = loopReadinessArtifact("S6B");
+    let executorCalls = 0;
+    const executedSlices: string[] = [];
+
+    const result = await buildSequentialContinuationLoop({
+      artifactPath: "/repo/references/continuation/s6a.json",
+      artifact: firstArtifact,
+      maxSteps: 3,
+      executeAction: ({ artifact: currentArtifact, actionType }) => {
+        executorCalls += 1;
+        executedSlices.push(currentArtifact.currentSlice.id);
+        expect(actionType).toBe("readiness_check");
+        return {
+          evidence: readinessStatusEvidenceFor(currentArtifact),
+          inlineEvidenceSummary: `${currentArtifact.currentSlice.id} readiness check returned clear.`,
+        };
+      },
+      selectNextArtifact: ({ updatedArtifact, stepCount, failedEvidenceReworkCyclesUsed }) => {
+        expect(updatedArtifact.currentSlice.status).toBe("completed");
+        expect(failedEvidenceReworkCyclesUsed).toBe(0);
+        if (stepCount === 1) {
+          return {
+            artifactPath: "/repo/references/continuation/s6b.json",
+            artifact: secondArtifact,
+          };
+        }
+        return null;
+      },
+    });
+
+    expect(executorCalls).toBe(2);
+    expect(executorCalls).toBe(
+      result.report.singleStepReports.filter((stepReport) => stepReport.status === "accepted").length,
+    );
+    expect(executedSlices).toEqual(["S6A", "S6B"]);
+    expect(result.report).toMatchObject({
+      artifactPath: "/repo/references/continuation/s6a.json",
+      status: "accepted",
+      violations: [],
+      stepCount: 2,
+      maxSteps: 3,
+      stopReason: "no_deterministic_next_artifact",
+      failedEvidenceReworkCyclesUsed: 0,
+      failedEvidenceReworkCyclesRemaining: 1,
+      continued: true,
+      multiStepLoopStarted: true,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        pushPerformed: false,
+      },
+    });
+    expect(result.report.singleStepReports).toHaveLength(2);
+    expect(result.report.singleStepReports.map((stepReport) => stepReport.statusUpdateReport?.currentSlice.id)).toEqual([
+      "S6A",
+      "S6B",
+    ]);
+    expect(result.updatedArtifacts.map((entry) => entry.artifactPath)).toEqual([
+      "/repo/references/continuation/s6a.json",
+      "/repo/references/continuation/s6b.json",
+    ]);
+    expect(result.updatedArtifacts.every((entry) => entry.artifact.currentSlice.status === "completed")).toBe(true);
+  });
+
+  test("stops at maxSteps even when a deterministic next artifact is available", async () => {
+    let executorCalls = 0;
+
+    const result = await buildSequentialContinuationLoop({
+      artifactPath: "/repo/references/continuation/max-a.json",
+      artifact: loopReadinessArtifact("S6A"),
+      maxSteps: 2,
+      executeAction: ({ artifact: currentArtifact }) => {
+        executorCalls += 1;
+        return { evidence: readinessStatusEvidenceFor(currentArtifact) };
+      },
+      selectNextArtifact: ({ stepCount }) => ({
+        artifactPath: `/repo/references/continuation/max-${stepCount + 1}.json`,
+        artifact: loopReadinessArtifact(`S6${stepCount + 1}`),
+      }),
+    });
+
+    expect(executorCalls).toBe(2);
+    expect(result.report.status).toBe("accepted");
+    expect(result.report.stepCount).toBe(2);
+    expect(result.report.maxSteps).toBe(2);
+    expect(result.report.stopReason).toBe("max_steps_reached");
+    expect(result.report.continued).toBe(true);
+    expect(result.report.failedEvidenceReworkCyclesUsed).toBe(0);
+  });
+
+  test("spends one failed-evidence rework cycle and stops on the next failed evidence", async () => {
+    const firstFailure = loopReadinessArtifact("S6F1");
+    const secondFailure = loopReadinessArtifact("S6F2");
+    let executorCalls = 0;
+    let selectorCalls = 0;
+
+    const result = await buildSequentialContinuationLoop({
+      artifactPath: "/repo/references/continuation/failure-1.json",
+      artifact: firstFailure,
+      maxSteps: 3,
+      executeAction: ({ artifact: currentArtifact }) => {
+        executorCalls += 1;
+        return {
+          evidence: readinessStatusEvidenceFor(currentArtifact, {
+            outcome: "failed",
+            evidenceReferences: [
+              {
+                kind: "readiness_report",
+                path: `inline:readiness:${currentArtifact.currentSlice.id}`,
+                summary: `${currentArtifact.currentSlice.id} readiness check failed verification.`,
+                result: "failed",
+              },
+            ],
+            nextStep: {
+              kind: "blocked_report",
+              value: `Blocked: ${currentArtifact.currentSlice.id} needs narrow rework evidence.`,
+            },
+          }),
+        };
+      },
+      selectNextArtifact: ({ failedEvidenceReworkCyclesUsed }) => {
+        selectorCalls += 1;
+        expect(failedEvidenceReworkCyclesUsed).toBe(1);
+        return {
+          artifactPath: "/repo/references/continuation/failure-2.json",
+          artifact: secondFailure,
+        };
+      },
+    });
+
+    expect(executorCalls).toBe(2);
+    expect(selectorCalls).toBe(1);
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.stepCount).toBe(2);
+    expect(result.report.stopReason).toBe(
+      "verification_rework_spent: failed evidence rework budget is already spent",
+    );
+    expect(result.report.violations).toEqual([
+      "verification_rework_spent: failed evidence rework budget is already spent",
+    ]);
+    expect(result.report.failedEvidenceReworkCyclesUsed).toBe(1);
+    expect(result.report.failedEvidenceReworkCyclesRemaining).toBe(0);
+    expect(result.report.singleStepReports.map((stepReport) => stepReport.statusUpdateReport?.requestedOutcome)).toEqual([
+      "failed",
+      "failed",
+    ]);
+    expect(result.report.continued).toBe(true);
+    expect(result.report.nextStep).toEqual({
+      kind: "blocked_report",
+      value: "Blocked: verification_rework_spent; failed evidence rework budget is already spent.",
+    });
+    expect(result.report.sideEffects.workersDispatched).toBe(false);
+    expect(result.updatedArtifacts).toHaveLength(2);
+  });
+
+  test("stops when status evidence is rejected and does not select a next artifact", async () => {
+    let selectorCalls = 0;
+
+    const result = await buildSequentialContinuationLoop({
+      artifactPath: "/repo/references/continuation/rejected-evidence.json",
+      artifact: loopReadinessArtifact("S6R"),
+      maxSteps: 3,
+      executeAction: ({ artifact: currentArtifact }) => ({
+        evidence: readinessStatusEvidenceFor(currentArtifact, {
+          evidenceReferences: [],
+        }),
+      }),
+      selectNextArtifact: () => {
+        selectorCalls += 1;
+        return {
+          artifactPath: "/repo/references/continuation/should-not-run.json",
+          artifact: loopReadinessArtifact("S6X"),
+        };
+      },
+    });
+
+    expect(selectorCalls).toBe(0);
+    expect(result.report.status).toBe("rejected");
+    expect(result.report.stepCount).toBe(1);
+    expect(result.report.stopReason).toBe("status_evidence_rejected");
+    expect(result.report.violations).toContain("status evidence evidenceReferences must be a non-empty array");
+    expect(result.report.continued).toBe(false);
+    expect(result.updatedArtifacts).toEqual([]);
+  });
+
+  test("stops when accepted status evidence blocks the current slice", async () => {
+    let selectorCalls = 0;
+
+    const result = await buildSequentialContinuationLoop({
+      artifactPath: "/repo/references/continuation/blocked-evidence.json",
+      artifact: loopReadinessArtifact("S6B"),
+      maxSteps: 3,
+      executeAction: ({ artifact: currentArtifact }) => ({
+        evidence: readinessStatusEvidenceFor(currentArtifact, {
+          outcome: "blocked",
+          evidenceReferences: [
+            {
+              kind: "readiness_report",
+              path: `inline:readiness:${currentArtifact.currentSlice.id}`,
+              summary: `${currentArtifact.currentSlice.id} readiness check found a blocker.`,
+              result: "blocked",
+            },
+          ],
+          nextStep: {
+            kind: "blocked_report",
+            value: "Blocked: prerequisite evidence is not ready.",
+          },
+        }),
+      }),
+      selectNextArtifact: () => {
+        selectorCalls += 1;
+        return {
+          artifactPath: "/repo/references/continuation/should-not-run.json",
+          artifact: loopReadinessArtifact("S6X"),
+        };
+      },
+    });
+
+    expect(selectorCalls).toBe(0);
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.stepCount).toBe(1);
+    expect(result.report.stopReason).toBe("status_evidence_blocked: accepted evidence blocked the current slice");
+    expect(result.report.failedEvidenceReworkCyclesUsed).toBe(0);
+    expect(result.report.failedEvidenceReworkCyclesRemaining).toBe(1);
+    expect(result.report.singleStepReports[0]?.statusUpdateReport?.acceptedOutcome).toBe("blocked");
+    expect(result.updatedArtifacts).toHaveLength(1);
+    expect(result.updatedArtifacts[0]?.artifact.currentSlice.dependencyStatus).toBe("blocked");
   });
 });

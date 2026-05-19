@@ -225,6 +225,56 @@ export interface SequentialContinuationSingleStepResult {
   updatedArtifact: SequentialContinuationArtifact | null;
 }
 
+export interface SequentialContinuationLoopNextArtifactInput {
+  previousArtifactPath: string;
+  previousArtifact: SequentialContinuationArtifact;
+  updatedArtifact: SequentialContinuationArtifact;
+  previousStepReport: SequentialContinuationSingleStepReport;
+  stepCount: number;
+  failedEvidenceReworkCyclesUsed: number;
+}
+
+export interface SequentialContinuationLoopNextArtifact {
+  artifactPath: string;
+  artifact: SequentialContinuationArtifact;
+}
+
+export type SequentialContinuationLoopNextArtifactSelector = (
+  input: SequentialContinuationLoopNextArtifactInput,
+) => Promise<SequentialContinuationLoopNextArtifact | null> | SequentialContinuationLoopNextArtifact | null;
+
+export interface SequentialContinuationLoopReport {
+  artifactPath: string;
+  status: "accepted" | "blocked" | "rejected";
+  violations: string[];
+  stepCount: number;
+  maxSteps: number;
+  stopReason: string;
+  failedEvidenceReworkCyclesUsed: number;
+  failedEvidenceReworkCyclesRemaining: number;
+  singleStepReports: SequentialContinuationSingleStepReport[];
+  nextStep: SequentialContinuationNextStep | null;
+  continued: boolean;
+  multiStepLoopStarted: boolean;
+  pushPerformed: false;
+  sideEffects: {
+    runTaskCalled: false;
+    batchesExecuteCalled: false;
+    workersDispatched: false;
+    runsCreated: false;
+    worktreesCreated: false;
+    pushPerformed: false;
+  };
+}
+
+export interface SequentialContinuationLoopResult {
+  report: SequentialContinuationLoopReport;
+  updatedArtifacts: Array<{
+    artifactPath: string;
+    artifact: SequentialContinuationArtifact;
+  }>;
+}
+
 const ACTION_TYPE_SET = new Set<SequentialContinuationActionType>(SEQUENTIAL_CONTINUATION_ACTION_TYPES);
 const SLICE_STATUS_SET = new Set<SequentialContinuationSliceStatus>(SEQUENTIAL_CONTINUATION_SLICE_STATUSES);
 const STOP_CONDITION_ID_SET = new Set<SequentialContinuationStopConditionId>(
@@ -646,6 +696,206 @@ export async function buildSequentialContinuationSingleStep(input: {
     inlineEvidenceSummary: execution.inlineEvidenceSummary ?? null,
     statusUpdateReport: statusUpdate.report,
     updatedArtifact: statusUpdate.updatedArtifact,
+  });
+}
+
+export async function buildSequentialContinuationLoop(input: {
+  artifactPath: string;
+  artifact: unknown;
+  violations?: string[];
+  maxSteps: number;
+  executeAction: SequentialContinuationSingleStepActionExecutor;
+  selectNextArtifact?: SequentialContinuationLoopNextArtifactSelector;
+}): Promise<SequentialContinuationLoopResult> {
+  const maxFailedEvidenceReworkCycles = 1;
+  if (!Number.isInteger(input.maxSteps) || input.maxSteps < 1) {
+    return buildLoopResult({
+      artifactPath: input.artifactPath,
+      status: "rejected",
+      violations: ["maxSteps must be a positive integer"],
+      stepCount: 0,
+      maxSteps: input.maxSteps,
+      stopReason: "invalid_max_steps",
+      failedEvidenceReworkCyclesUsed: 0,
+      maxFailedEvidenceReworkCycles,
+      singleStepReports: [],
+      nextStep: null,
+      updatedArtifacts: [],
+    });
+  }
+
+  let currentArtifactPath = input.artifactPath;
+  let currentArtifact: unknown = input.artifact;
+  let currentViolations = input.violations ?? [];
+  let failedEvidenceReworkCyclesUsed = 0;
+  const singleStepReports: SequentialContinuationSingleStepReport[] = [];
+  const updatedArtifacts: SequentialContinuationLoopResult["updatedArtifacts"] = [];
+
+  for (let index = 0; index < input.maxSteps; index += 1) {
+    const step = await buildSequentialContinuationSingleStep({
+      artifactPath: currentArtifactPath,
+      artifact: currentArtifact,
+      violations: currentViolations,
+      executeAction: input.executeAction,
+    });
+    singleStepReports.push(step.report);
+    currentViolations = [];
+
+    if (step.updatedArtifact) {
+      updatedArtifacts.push({
+        artifactPath: currentArtifactPath,
+        artifact: step.updatedArtifact,
+      });
+    }
+
+    if (step.report.status === "rejected") {
+      return buildLoopResult({
+        artifactPath: input.artifactPath,
+        status: "rejected",
+        violations: step.report.violations,
+        stepCount: singleStepReports.length,
+        maxSteps: input.maxSteps,
+        stopReason: step.report.actionExecuted ? "status_evidence_rejected" : "artifact_invalid",
+        failedEvidenceReworkCyclesUsed,
+        maxFailedEvidenceReworkCycles,
+        singleStepReports,
+        nextStep: step.report.nextStep,
+        updatedArtifacts,
+      });
+    }
+
+    if (step.report.status === "blocked") {
+      return buildLoopResult({
+        artifactPath: input.artifactPath,
+        status: "blocked",
+        violations: step.report.violations,
+        stepCount: singleStepReports.length,
+        maxSteps: input.maxSteps,
+        stopReason: step.report.violations[0] ? `step_blocked: ${step.report.violations[0]}` : "step_blocked",
+        failedEvidenceReworkCyclesUsed,
+        maxFailedEvidenceReworkCycles,
+        singleStepReports,
+        nextStep: step.report.nextStep,
+        updatedArtifacts,
+      });
+    }
+
+    const updatedArtifact = step.updatedArtifact;
+    if (!updatedArtifact) {
+      return buildLoopResult({
+        artifactPath: input.artifactPath,
+        status: "rejected",
+        violations: ["accepted single-step continuation did not produce an updated artifact"],
+        stepCount: singleStepReports.length,
+        maxSteps: input.maxSteps,
+        stopReason: "status_evidence_rejected",
+        failedEvidenceReworkCyclesUsed,
+        maxFailedEvidenceReworkCycles,
+        singleStepReports,
+        nextStep: step.report.nextStep,
+        updatedArtifacts,
+      });
+    }
+
+    const requestedOutcome = step.report.statusUpdateReport?.requestedOutcome;
+    const failedEvidence = requestedOutcome === "failed";
+    if (requestedOutcome === "blocked") {
+      return buildLoopResult({
+        artifactPath: input.artifactPath,
+        status: "blocked",
+        violations: ["status_evidence_blocked: accepted evidence blocked the current slice"],
+        stepCount: singleStepReports.length,
+        maxSteps: input.maxSteps,
+        stopReason: "status_evidence_blocked: accepted evidence blocked the current slice",
+        failedEvidenceReworkCyclesUsed,
+        maxFailedEvidenceReworkCycles,
+        singleStepReports,
+        nextStep: step.report.nextStep,
+        updatedArtifacts,
+      });
+    }
+
+    if (failedEvidence) {
+      if (failedEvidenceReworkCyclesUsed >= maxFailedEvidenceReworkCycles) {
+        return buildLoopResult({
+          artifactPath: input.artifactPath,
+          status: "blocked",
+          violations: ["verification_rework_spent: failed evidence rework budget is already spent"],
+          stepCount: singleStepReports.length,
+          maxSteps: input.maxSteps,
+          stopReason: "verification_rework_spent: failed evidence rework budget is already spent",
+          failedEvidenceReworkCyclesUsed,
+          maxFailedEvidenceReworkCycles,
+          singleStepReports,
+          nextStep: {
+            kind: "blocked_report",
+            value: "Blocked: verification_rework_spent; failed evidence rework budget is already spent.",
+          },
+          updatedArtifacts,
+        });
+      }
+      failedEvidenceReworkCyclesUsed += 1;
+    }
+
+    if (singleStepReports.length >= input.maxSteps) {
+      return buildLoopResult({
+        artifactPath: input.artifactPath,
+        status: failedEvidence ? "blocked" : "accepted",
+        violations: [],
+        stepCount: singleStepReports.length,
+        maxSteps: input.maxSteps,
+        stopReason: "max_steps_reached",
+        failedEvidenceReworkCyclesUsed,
+        maxFailedEvidenceReworkCycles,
+        singleStepReports,
+        nextStep: step.report.nextStep,
+        updatedArtifacts,
+      });
+    }
+
+    const nextArtifact = input.selectNextArtifact
+      ? await input.selectNextArtifact({
+          previousArtifactPath: currentArtifactPath,
+          previousArtifact: isSequentialContinuationArtifact(currentArtifact) ? currentArtifact : updatedArtifact,
+          updatedArtifact,
+          previousStepReport: step.report,
+          stepCount: singleStepReports.length,
+          failedEvidenceReworkCyclesUsed,
+        })
+      : null;
+
+    if (!nextArtifact) {
+      return buildLoopResult({
+        artifactPath: input.artifactPath,
+        status: failedEvidence ? "blocked" : "accepted",
+        violations: [],
+        stepCount: singleStepReports.length,
+        maxSteps: input.maxSteps,
+        stopReason: "no_deterministic_next_artifact",
+        failedEvidenceReworkCyclesUsed,
+        maxFailedEvidenceReworkCycles,
+        singleStepReports,
+        nextStep: step.report.nextStep,
+        updatedArtifacts,
+      });
+    }
+
+    currentArtifactPath = nextArtifact.artifactPath;
+    currentArtifact = nextArtifact.artifact;
+  }
+
+  return buildLoopResult({
+    artifactPath: input.artifactPath,
+    status: "accepted",
+    violations: [],
+    stepCount: singleStepReports.length,
+    maxSteps: input.maxSteps,
+    stopReason: "max_steps_reached",
+    failedEvidenceReworkCyclesUsed,
+    maxFailedEvidenceReworkCycles,
+    singleStepReports,
+    nextStep: singleStepReports[singleStepReports.length - 1]?.nextStep ?? null,
+    updatedArtifacts,
   });
 }
 
@@ -1144,6 +1394,41 @@ function buildSingleStepResult(input: {
       sideEffects: singleStepSideEffects(),
     },
     updatedArtifact: input.updatedArtifact,
+  };
+}
+
+function buildLoopResult(input: {
+  artifactPath: string;
+  status: "accepted" | "blocked" | "rejected";
+  violations: string[];
+  stepCount: number;
+  maxSteps: number;
+  stopReason: string;
+  failedEvidenceReworkCyclesUsed: number;
+  maxFailedEvidenceReworkCycles: number;
+  singleStepReports: SequentialContinuationSingleStepReport[];
+  nextStep: SequentialContinuationNextStep | null;
+  updatedArtifacts: SequentialContinuationLoopResult["updatedArtifacts"];
+}): SequentialContinuationLoopResult {
+  return {
+    report: {
+      artifactPath: input.artifactPath,
+      status: input.status,
+      violations: input.violations,
+      stepCount: input.stepCount,
+      maxSteps: input.maxSteps,
+      stopReason: input.stopReason,
+      failedEvidenceReworkCyclesUsed: input.failedEvidenceReworkCyclesUsed,
+      failedEvidenceReworkCyclesRemaining:
+        input.maxFailedEvidenceReworkCycles - input.failedEvidenceReworkCyclesUsed,
+      singleStepReports: input.singleStepReports,
+      nextStep: input.nextStep,
+      continued: input.singleStepReports.length > 1,
+      multiStepLoopStarted: input.maxSteps > 1,
+      pushPerformed: false,
+      sideEffects: singleStepSideEffects(),
+    },
+    updatedArtifacts: input.updatedArtifacts,
   };
 }
 

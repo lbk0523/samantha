@@ -385,6 +385,27 @@ describe("samantha cli", () => {
     expect(() => parseCliArgs(["continuation:step"])).toThrow(
       "usage: bun run samantha continuation:step --artifact=<path>",
     );
+    expect(
+      parseCliArgs([
+        "continuation:loop",
+        "--artifact=references/continuation/s6.json",
+        "--max-steps=3",
+      ]),
+    ).toEqual({
+      command: "continuation:loop",
+      artifactPath: "references/continuation/s6.json",
+      maxSteps: 3,
+    });
+    expect(() => parseCliArgs(["continuation:loop", "--artifact=references/continuation/s6.json"])).toThrow(
+      "usage: bun run samantha continuation:loop --artifact=<path> --max-steps=<n>",
+    );
+    expect(() =>
+      parseCliArgs([
+        "continuation:loop",
+        "--artifact=references/continuation/s6.json",
+        "--max-steps=0",
+      ]),
+    ).toThrow("usage: bun run samantha continuation:loop --artifact=<path> --max-steps=<n>");
   });
 
   test("continuation show prints a valid report without creating execution artifacts", async () => {
@@ -779,6 +800,235 @@ The fixture is complete when readiness is clear.
     expect(report.actionAttemptCount).toBe(0);
     expect(report.statusUpdateReport).toBeNull();
     expect(report.sideEffects.workersDispatched).toBe(false);
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation loop runs readiness_check once and stops without deterministic next artifact", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-loop-"));
+    tmpRoots.push(root);
+    const initiativePath = join(root, "initiative.md");
+    const artifactPath = join(root, "continuation.json");
+    const markerPath = join(root, "marker.txt");
+    const initiativeText = `# Initiative: CLI loop fixture
+
+Status: active
+Source: CLI test fixture
+
+## Goal
+
+Check the current initiative readiness through the loop command.
+
+## Accepted Decisions
+
+- Use readiness only.
+
+## Non-Goals
+
+- No worker dispatch.
+
+## Invariants
+
+- Push remains disabled.
+
+## Slice Queue
+
+| Slice | Status | Objective | Dependency | Verification | Next Prompt |
+| --- | --- | --- | --- | --- | --- |
+| S1 | ready | Check readiness. | S0 | cli. | prompt |
+| S2 | pending | Next slice. | S1 | cli. | prompt |
+
+## Current Next Slice
+
+S1 is ready.
+
+## End-of-Session Update Rule
+
+Update the brief before stopping.
+
+## Completion Rule
+
+The fixture is complete when readiness is clear.
+`;
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        artifactId: "cli-continuation-loop-s1",
+        initiativePath,
+        currentSlice: {
+          id: "S1",
+          status: "ready",
+          actionType: "readiness_check",
+          dependencyStatus: "met",
+          prerequisites: ["S0 completed"],
+        },
+        evidenceReferences: [
+          {
+            path: initiativePath,
+            summary: "S1 requests a deterministic readiness check.",
+          },
+        ],
+        nextStep: {
+          kind: "samantha_command",
+          value: "sam c: run loop readiness step for S1",
+        },
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(initiativePath, initiativeText, "utf8");
+    await writeFile(artifactPath, artifactText, "utf8");
+    await writeFile(markerPath, "leave me alone\n", "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:loop",
+      `--artifact=${artifactPath}`,
+      "--max-steps=3",
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report).toMatchObject({
+      artifactPath,
+      status: "accepted",
+      violations: [],
+      stepCount: 1,
+      maxSteps: 3,
+      stopReason: "no_deterministic_next_artifact",
+      failedEvidenceReworkCyclesUsed: 0,
+      failedEvidenceReworkCyclesRemaining: 1,
+      continued: false,
+      multiStepLoopStarted: true,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        pushPerformed: false,
+      },
+    });
+    expect(report.singleStepReports).toHaveLength(1);
+    expect(report.singleStepReports[0]).toMatchObject({
+      status: "accepted",
+      selectedActionType: "readiness_check",
+      actionExecuted: true,
+      actionAttemptCount: 1,
+      inlineEvidenceSummary: "Readiness check returned clear: start S1: Check readiness.",
+      continued: false,
+      multiStepLoopStarted: false,
+      pushPerformed: false,
+    });
+    const updatedArtifact = JSON.parse(await readFile(artifactPath, "utf8"));
+    expect(updatedArtifact.currentSlice.status).toBe("completed");
+    expect(updatedArtifact.evidenceReferences).toEqual(report.singleStepReports[0].statusUpdateReport.evidenceReferences);
+    expect(await readFile(initiativePath, "utf8")).toBe(initiativeText);
+    expect(await readFile(markerPath, "utf8")).toBe("leave me alone\n");
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation loop blocks active stop conditions non-zero without side effects", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-loop-blocked-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        currentSlice: {
+          id: "S1",
+          status: "ready",
+          actionType: "readiness_check",
+          dependencyStatus: "met",
+          prerequisites: ["S0 completed"],
+        },
+        stopConditionChecklist: cliSequentialContinuationArtifact().stopConditionChecklist.map((check) =>
+          check.id === "decision_required"
+            ? {
+                ...check,
+                active: true,
+                evidence: "BK must choose the next product boundary.",
+              }
+            : check,
+        ),
+        nextStep: {
+          kind: "blocked_report",
+          value: "Blocked until BK chooses the next product boundary.",
+        },
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:loop",
+      `--artifact=${artifactPath}`,
+      "--max-steps=2",
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("blocked");
+    expect(report.stepCount).toBe(1);
+    expect(report.stopReason).toBe(
+      "step_blocked: stop condition active: decision_required: BK must choose the next product boundary.",
+    );
+    expect(report.singleStepReports[0]).toMatchObject({
+      status: "blocked",
+      actionExecuted: false,
+      actionAttemptCount: 0,
+    });
+    expect(report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+      pushPerformed: false,
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation loop rejects invalid artifacts non-zero without updating", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-loop-invalid-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        currentSlice: {
+          ...cliSequentialContinuationArtifact().currentSlice,
+          actionType: "readiness_check",
+        },
+        autonomyEnvelope: {
+          ...cliSequentialContinuationArtifact().autonomyEnvelope,
+          pushAllowed: true as false,
+        },
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:loop",
+      `--artifact=${artifactPath}`,
+      "--max-steps=2",
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.stepCount).toBe(1);
+    expect(report.stopReason).toBe("artifact_invalid");
+    expect(report.violations).toContain("autonomyEnvelope.pushAllowed must be false");
+    expect(report.singleStepReports[0]).toMatchObject({
+      status: "rejected",
+      actionExecuted: false,
+      actionAttemptCount: 0,
+    });
     expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
     expect(await pathExists(join(root, "runs"))).toBe(false);
     expect(await pathExists(join(root, "worktrees"))).toBe(false);
