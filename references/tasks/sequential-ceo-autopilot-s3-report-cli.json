@@ -1,0 +1,51 @@
+{
+  "id": "sequential-ceo-autopilot-s3-report-cli",
+  "title": "Add Sequential CEO Autopilot report-only CLI",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "src/cli.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/commands/**",
+    "src/core/worker-*.ts",
+    "src/core/run-*.ts",
+    "src/core/batch-*.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts tests/sequential-ceo-autopilot.test.ts src/cli.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/playbooks/sequential-ceo-autopilot.md, and the existing validator in src/core/sequential-ceo-autopilot.ts, then perform only S3. Add a report-only CLI surface, preferably `continuation:show --artifact=<path>`, that reads a structured continuation artifact JSON file, validates it with the existing validator, and prints a deterministic JSON report containing at least: artifact path, accepted/rejected status, violations, current slice id/status/actionType/dependencyStatus, active stop conditions or blocking reasons, allowed action type, exact next Samantha command when nextStep.kind is `samantha_command`, blocked report text when nextStep.kind is `blocked_report`, trustedStateChanges false, and pushPerformed false. The command must not execute the next action, dispatch workers, call run-task, call batches:execute, mutate lifecycle state, write files, create run logs, create worktrees, push, or update the artifact. Invalid artifacts should return a non-zero exit code after printing the report. Keep behavior pure/report-only except reading the artifact and printing JSON. Add focused core tests for the report summarizer and CLI parser/main tests proving valid report output, invalid report output, missing --artifact usage, and no execution side effects such as runs/worktrees creation in the test fixture. Update references/initiatives/sequential-ceo-autopilot.md only to mark S3 completed, record verification expectations or status, and make S4 the next ready slice. Do not add worker dispatch, runner behavior, automatic continuation, lifecycle mutation, policy changes, doctrine changes, task templates, agent profiles, package changes, hidden memory, remote adapters, daemon/watch behavior, dashboards, routine triggers, natural-language-only dispatch, push automation, or broad refactors. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo autopilot report cli",
+  "status": "pending"
+}
