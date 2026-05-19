@@ -1,0 +1,51 @@
+{
+  "id": "sequential-ceo-autopilot-s6-bounded-loop",
+  "title": "Add Sequential CEO Autopilot bounded successful continuation loop",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "src/cli.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/commands/**",
+    "src/core/worker-*.ts",
+    "src/core/run-*.ts",
+    "src/core/batch-*.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts tests/sequential-ceo-autopilot.test.ts src/cli.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/playbooks/sequential-ceo-autopilot.md, and the current S5 implementation in src/core/sequential-ceo-autopilot.ts and src/cli.ts, then perform only S6. Add bounded multi-step continuation by building on the existing guarded single-step runner and S4 status-update contract. The loop must continue only across successful accepted steps, stop at a deterministic maxSteps bound, and stop immediately when an artifact is invalid, a stop condition is active, dependencyStatus is blocked, actionType is manual_decision, actionType is write-capable without reviewed explicit support, pushAllowed is not false, no deterministic next artifact exists, or status evidence is rejected. Do not infer next work from markdown prose or worker output. For focused core tests, use fake/injected readiness_check artifacts and injected next-artifact/rework selection rather than real worker dispatch. Prove a successful continuation loop with at least two ready readiness_check slices, executor calls equal to the number of accepted steps, per-step reports preserved, continued true, multiStepLoopStarted true, pushPerformed false, and side-effect flags showing no run-task/batches:execute/worker dispatch/run logs/worktrees/push. Deterministically enforce maxFailedEvidenceReworkCycles=1: successful steps must not consume the rework budget; the first failed evidence path may consume exactly one narrow rework opportunity; after that budget is spent, another failed evidence path must stop with a verification_rework_spent-style reason and must not continue to a third action. The loop report must include artifact path, status accepted/blocked/rejected, step count, maxSteps, stop reason, failedEvidenceReworkCyclesUsed, failedEvidenceReworkCyclesRemaining, per-step single-step reports, nextStep, continued, multiStepLoopStarted, pushPerformed false, and side-effect flags. Add a conservative CLI surface such as continuation:loop --artifact=<path> --max-steps=<n> that prints deterministic JSON, uses the same readiness_check execution as continuation:step, updates only explicitly supplied artifact files when accepted, and does not dispatch workers or create run logs/worktrees. If the current artifact contract cannot deterministically name a next artifact, the CLI must stop after the supplied artifact with a clear no deterministic next-artifact stop reason; successful multi-slice continuation must still be proven in core tests through injected fake artifacts. Add CLI parser/main tests for usage, maxSteps parsing, readiness_check loop behavior, no runs/worktrees side effects, blocked stop conditions, and non-zero rejection/blocking. Update references/initiatives/sequential-ceo-autopilot.md only to mark S6 completed, record verification expectations or status, and make S7 the next ready slice. Do not add CLI execution for run_task or batch_plan, taskSpecPath/batchSpecPath dispatch, worker dispatch, run-task calls, batches:execute calls, merge/cleanup/commit/push execution, daemon/watch behavior, remote adapters, dashboards, routine triggers, hidden memory, broad ROADMAP execution, policy changes, doctrine changes, task templates, agent profiles, package changes, broad refactors, or worker-owned orchestration. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo autopilot loop",
+  "status": "pending"
+}
