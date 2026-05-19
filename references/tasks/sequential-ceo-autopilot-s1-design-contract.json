@@ -1,0 +1,40 @@
+{
+  "id": "sequential-ceo-autopilot-s1-design-contract",
+  "title": "Document Sequential CEO Autopilot design contract",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/sequential-ceo-autopilot.md",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "test -f references/playbooks/sequential-ceo-autopilot.md",
+    "rg \"Sequential CEO Autopilot|continuation artifact|stop condition|pushAllowed: false|maxFailedEvidenceReworkCycles\" references/playbooks/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/playbooks/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md and perform only S1. Create references/playbooks/sequential-ceo-autopilot.md as the Sequential CEO Autopilot design contract. Document artifact lifecycle, structured continuation artifact responsibilities, conservative action type vocabulary, autonomy envelope, stop conditions, report/evidence expectations, and how this preserves existing Phase 5.5 BatchPlanDraft and Initiative Continuity Brief boundaries. Update references/initiatives/sequential-ceo-autopilot.md only to mark S1 completed, record verification expectations or status, and make S2 the next ready slice. Do not implement validator code, CLI commands, runner behavior, task specs, worker dispatch, automatic continuation, lifecycle mutation, policy changes, doctrine changes, templates, agent profiles, package changes, hidden memory, remote adapters, daemon/watch behavior, dashboards, routine triggers, natural-language-only dispatch, push automation, or broad refactors. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: define sequential ceo autopilot contract",
+  "status": "pending"
+}
