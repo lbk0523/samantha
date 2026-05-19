@@ -1,0 +1,50 @@
+{
+  "id": "sequential-ceo-autopilot-s7-dogfood",
+  "title": "Dogfood Sequential CEO Autopilot MVP and record routine-use decision",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sequential-ceo-autopilot.md",
+    "references/initiatives/sequential-ceo-autopilot-s7-dogfood.md",
+    "references/operations/sequential-ceo-autopilot-s7-continuation.json",
+    "references/operations/sequential-ceo-autopilot-s7-dogfood-report.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/initiatives/sequential-ceo-autopilot-s7-dogfood.md",
+    "test -f references/operations/sequential-ceo-autopilot-s7-continuation.json",
+    "test -f references/operations/sequential-ceo-autopilot-s7-dogfood-report.md",
+    "bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s7-continuation.json",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot-s7-dogfood.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "grep -F 'stopReason: no_deterministic_next_artifact' references/operations/sequential-ceo-autopilot-s7-dogfood-report.md",
+    "grep -F 'Broader routine use: not yet justified' references/operations/sequential-ceo-autopilot-s7-dogfood-report.md",
+    "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot-s7-dogfood.md references/operations/sequential-ceo-autopilot-s7-continuation.json references/operations/sequential-ceo-autopilot-s7-dogfood-report.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/playbooks/sequential-ceo-autopilot.md, and the S6 continuation loop CLI behavior in src/cli.ts. Perform only S7 as a dogfood and documentation slice. Do not change source code or tests. Create a small self-build dogfood initiative at references/initiatives/sequential-ceo-autopilot-s7-dogfood.md with the Initiative Continuity Brief sections and a tiny queue: D1 uses readiness_check through the continuation loop, and D2 records the resulting product decision/report. Create a structured continuation artifact at references/operations/sequential-ceo-autopilot-s7-continuation.json for D1 with actionType readiness_check, pushAllowed false, maxFailedEvidenceReworkCycles 1, all stop conditions inactive, and evidence pointing to the dogfood initiative. Run `bun run samantha continuation:loop --artifact=references/operations/sequential-ceo-autopilot-s7-continuation.json --max-steps=2` from the repo root. The expected MVP dogfood result is an accepted single readiness step, artifact updated to completed, false side-effect flags, and stopReason `no_deterministic_next_artifact` because the current artifact contract cannot deterministically name the next artifact. Record the command, outcome, key JSON fields, side-effect flags, and interpretation in references/operations/sequential-ceo-autopilot-s7-dogfood-report.md. Update the dogfood initiative to reflect the observed outcome: D1 completed and D2 ready. Update references/initiatives/sequential-ceo-autopilot.md to mark S7 completed, cite the real dogfood evidence and verification, record blocked edges, and make the routine-use decision explicit. The expected decision is `Broader routine use: not yet justified` unless the evidence contradicts it; the reason should be that readiness-only continuation works, but routine multi-slice use still lacks deterministic next-artifact linkage and reviewed run_task/batch_plan execution support. If you add a next slice, keep it at CEO/product-boundary level, not implementation: design the next deterministic artifact-link/action-execution boundary before broad routine use. Do not implement S8. Do not add run_task or batch_plan execution, nextArtifactPath schema changes, worker dispatch, batch execution, merge/cleanup/commit/push execution, daemon/watch behavior, remote adapters, dashboards, routine triggers, hidden memory, policy changes, doctrine changes, task templates, agent profiles, package changes, broad refactors, or worker-owned orchestration. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: dogfood sequential ceo autopilot mvp",
+  "status": "pending"
+}
