@@ -10,7 +10,10 @@ import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES } from "../src/core/batch-spec";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
-import type { SequentialContinuationArtifact } from "../src/core/sequential-ceo-autopilot";
+import type {
+  SequentialContinuationArtifact,
+  SequentialContinuationStatusEvidenceDocument,
+} from "../src/core/sequential-ceo-autopilot";
 import { SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS } from "../src/core/sequential-ceo-autopilot";
 
 let tmpRoots: string[] = [];
@@ -218,6 +221,30 @@ function cliSequentialContinuationArtifact(
   };
 }
 
+function cliSequentialContinuationStatusEvidence(
+  overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
+): SequentialContinuationStatusEvidenceDocument {
+  return {
+    schemaVersion: 1,
+    currentSliceId: "S3",
+    outcome: "completed",
+    updatedAt: "2026-05-19T02:00:00.000Z",
+    evidenceReferences: [
+      {
+        kind: "continuation_report",
+        path: "references/reports/s3-continuation-report.json",
+        summary: "S3 report-only continuation review completed with deterministic output.",
+        result: "completed",
+      },
+    ],
+    nextStep: {
+      kind: "samantha_command",
+      value: "sam c: references/initiatives/sequential-ceo-autopilot.md S4",
+    },
+    ...overrides,
+  };
+}
+
 async function writeCliBatchStoreFixture(
   taskSpecOverrides: Partial<TaskSpec> = {},
   batchOverrides: Partial<BatchSpec> = {},
@@ -337,6 +364,20 @@ describe("samantha cli", () => {
     expect(() => parseCliArgs(["continuation:show"])).toThrow(
       "usage: bun run samantha continuation:show --artifact=<path>",
     );
+    expect(
+      parseCliArgs([
+        "continuation:update-status",
+        "--artifact=references/continuation/s3.json",
+        "--evidence=references/continuation/s3-evidence.json",
+      ]),
+    ).toEqual({
+      command: "continuation:update-status",
+      artifactPath: "references/continuation/s3.json",
+      evidencePath: "references/continuation/s3-evidence.json",
+    });
+    expect(() => parseCliArgs(["continuation:update-status", "--artifact=references/continuation/s3.json"])).toThrow(
+      "usage: bun run samantha continuation:update-status --artifact=<path> --evidence=<path>",
+    );
   });
 
   test("continuation show prints a valid report without creating execution artifacts", async () => {
@@ -400,6 +441,105 @@ describe("samantha cli", () => {
     expect(report.allowedActionType).toBeNull();
     expect(report.trustedStateChanges).toBe(false);
     expect(report.pushPerformed).toBe(false);
+  });
+
+  test("continuation update-status updates only the artifact file and prints deterministic JSON", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-update-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const evidencePath = join(root, "evidence.json");
+    const markerPath = join(root, "marker.txt");
+    const artifactText = `${JSON.stringify(cliSequentialContinuationArtifact(), null, 2)}\n`;
+    const evidenceText = `${JSON.stringify(cliSequentialContinuationStatusEvidence(), null, 2)}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+    await writeFile(evidencePath, evidenceText, "utf8");
+    await writeFile(markerPath, "leave me alone\n", "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:update-status",
+      `--artifact=${artifactPath}`,
+      `--evidence=${evidencePath}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report).toEqual({
+      artifactPath,
+      evidencePath,
+      status: "accepted",
+      violations: [],
+      requestedOutcome: "completed",
+      acceptedOutcome: "completed",
+      currentSlice: {
+        id: "S3",
+        previousStatus: "ready",
+        updatedStatus: "completed",
+        actionType: "report_only",
+        dependencyStatus: "met",
+      },
+      evidenceReferences: cliSequentialContinuationStatusEvidence().evidenceReferences,
+      exactNextSamanthaCommand: "sam c: references/initiatives/sequential-ceo-autopilot.md S4",
+      blockedReportText: null,
+      artifactUpdated: true,
+      trustedStateChanges: true,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+      },
+    });
+    const updatedArtifact = JSON.parse(await readFile(artifactPath, "utf8"));
+    expect(updatedArtifact.currentSlice.status).toBe("completed");
+    expect(updatedArtifact.evidenceReferences).toEqual(cliSequentialContinuationStatusEvidence().evidenceReferences);
+    expect(await readFile(evidencePath, "utf8")).toBe(evidenceText);
+    expect(await readFile(markerPath, "utf8")).toBe("leave me alone\n");
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation update-status rejects invalid evidence non-zero without updating the artifact", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-update-invalid-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const evidencePath = join(root, "evidence.json");
+    const artifactText = `${JSON.stringify(cliSequentialContinuationArtifact(), null, 2)}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+    await writeFile(
+      evidencePath,
+      `${JSON.stringify(
+        cliSequentialContinuationStatusEvidence({
+          evidenceReferences: [],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const result = await runCliCapturingStdout([
+      "continuation:update-status",
+      `--artifact=${artifactPath}`,
+      `--evidence=${evidencePath}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain("status evidence evidenceReferences must be a non-empty array");
+    expect(report.artifactUpdated).toBe(false);
+    expect(report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
   });
 
   test("parses run-task arguments", () => {

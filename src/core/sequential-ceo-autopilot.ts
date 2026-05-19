@@ -17,6 +17,30 @@ export const SEQUENTIAL_CONTINUATION_SLICE_STATUSES = [
 ] as const;
 export type SequentialContinuationSliceStatus = (typeof SEQUENTIAL_CONTINUATION_SLICE_STATUSES)[number];
 
+export const SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_KINDS = [
+  "run_log",
+  "readiness_report",
+  "continuation_report",
+  "report_review",
+] as const;
+export type SequentialContinuationStatusEvidenceKind =
+  (typeof SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_KINDS)[number];
+
+export const SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_RESULTS = [
+  "passed",
+  "clear",
+  "completed",
+  "blocked",
+  "failed",
+  "recommendation_only",
+] as const;
+export type SequentialContinuationStatusEvidenceResult =
+  (typeof SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_RESULTS)[number];
+
+export const SEQUENTIAL_CONTINUATION_STATUS_UPDATE_OUTCOMES = ["completed", "blocked", "failed"] as const;
+export type SequentialContinuationStatusUpdateOutcome =
+  (typeof SEQUENTIAL_CONTINUATION_STATUS_UPDATE_OUTCOMES)[number];
+
 export const SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS = [
   "decision_required",
   "authority_boundary_without_review",
@@ -62,6 +86,8 @@ export interface SequentialContinuationStopConditionCheck {
 export interface SequentialContinuationEvidenceReference {
   path: string;
   summary: string;
+  kind?: SequentialContinuationStatusEvidenceKind;
+  result?: SequentialContinuationStatusEvidenceResult;
 }
 
 export interface SequentialContinuationNextStep {
@@ -104,10 +130,69 @@ export interface SequentialContinuationReport {
   pushPerformed: false;
 }
 
+export interface SequentialContinuationStatusEvidenceReference {
+  kind: SequentialContinuationStatusEvidenceKind;
+  path: string;
+  summary: string;
+  result: SequentialContinuationStatusEvidenceResult;
+}
+
+export interface SequentialContinuationStatusEvidenceDocument {
+  schemaVersion: 1;
+  currentSliceId: string;
+  outcome: SequentialContinuationStatusUpdateOutcome;
+  updatedAt: string;
+  evidenceReferences: SequentialContinuationStatusEvidenceReference[];
+  nextStep: SequentialContinuationNextStep;
+}
+
+export interface SequentialContinuationStatusUpdateReport {
+  artifactPath: string;
+  evidencePath: string;
+  status: "accepted" | "rejected";
+  violations: string[];
+  requestedOutcome: string | null;
+  acceptedOutcome: "completed" | "blocked" | null;
+  currentSlice: {
+    id: string | null;
+    previousStatus: string | null;
+    updatedStatus: string | null;
+    actionType: string | null;
+    dependencyStatus: string | null;
+  };
+  evidenceReferences: SequentialContinuationStatusEvidenceReference[];
+  exactNextSamanthaCommand: string | null;
+  blockedReportText: string | null;
+  artifactUpdated: boolean;
+  trustedStateChanges: boolean;
+  pushPerformed: false;
+  sideEffects: {
+    runTaskCalled: false;
+    batchesExecuteCalled: false;
+    workersDispatched: false;
+    runsCreated: false;
+    worktreesCreated: false;
+  };
+}
+
+export interface SequentialContinuationStatusUpdateResult {
+  report: SequentialContinuationStatusUpdateReport;
+  updatedArtifact: SequentialContinuationArtifact | null;
+}
+
 const ACTION_TYPE_SET = new Set<SequentialContinuationActionType>(SEQUENTIAL_CONTINUATION_ACTION_TYPES);
 const SLICE_STATUS_SET = new Set<SequentialContinuationSliceStatus>(SEQUENTIAL_CONTINUATION_SLICE_STATUSES);
 const STOP_CONDITION_ID_SET = new Set<SequentialContinuationStopConditionId>(
   SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS,
+);
+const STATUS_EVIDENCE_KIND_SET = new Set<SequentialContinuationStatusEvidenceKind>(
+  SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_KINDS,
+);
+const STATUS_EVIDENCE_RESULT_SET = new Set<SequentialContinuationStatusEvidenceResult>(
+  SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_RESULTS,
+);
+const STATUS_UPDATE_OUTCOME_SET = new Set<SequentialContinuationStatusUpdateOutcome>(
+  SEQUENTIAL_CONTINUATION_STATUS_UPDATE_OUTCOMES,
 );
 const WRITE_CAPABLE_ACTION_TYPES = new Set<SequentialContinuationActionType>(["run_task", "batch_plan"]);
 const TOP_LEVEL_FIELDS = new Set([
@@ -144,8 +229,17 @@ const AUTONOMY_ENVELOPE_FIELDS = new Set([
   "maxFailedEvidenceReworkCycles",
 ]);
 const STOP_CONDITION_FIELDS = new Set(["id", "active", "evidence"]);
-const EVIDENCE_REFERENCE_FIELDS = new Set(["path", "summary"]);
+const EVIDENCE_REFERENCE_FIELDS = new Set(["path", "summary", "kind", "result"]);
 const NEXT_STEP_FIELDS = new Set(["kind", "value"]);
+const STATUS_EVIDENCE_FIELDS = new Set([
+  "schemaVersion",
+  "currentSliceId",
+  "outcome",
+  "updatedAt",
+  "evidenceReferences",
+  "nextStep",
+]);
+const STATUS_EVIDENCE_REFERENCE_FIELDS = new Set(["kind", "path", "summary", "result"]);
 const DEPENDENCY_STATUSES = new Set(["met", "blocked"]);
 const NEXT_STEP_KINDS = new Set(["samantha_command", "blocked_report"]);
 const FORBIDDEN_FIELD_NAMES = new Set([
@@ -245,6 +339,168 @@ export function buildSequentialContinuationReport(input: {
     blockedReportText: nextStep.kind === "blocked_report" ? nextStep.value : null,
     trustedStateChanges: false,
     pushPerformed: false,
+  };
+}
+
+export function validateSequentialContinuationStatusEvidence(input: unknown): string[] {
+  if (!isRecord(input)) {
+    return ["sequential continuation status evidence must be an object"];
+  }
+
+  const violations: string[] = [];
+  violations.push(...validateForbiddenFieldNames(input));
+  violations.push(...validateForbiddenLifecycleWording(input));
+  violations.push(
+    ...validateAllowedFields(input, STATUS_EVIDENCE_FIELDS, (key) => `unknown status evidence field: ${key}`),
+  );
+
+  if (input.schemaVersion !== 1) {
+    violations.push("status evidence schemaVersion must be exactly 1");
+  }
+  if (!isNonEmptyString(input.currentSliceId)) {
+    violations.push("status evidence currentSliceId must be a non-empty string");
+  }
+  if (!STATUS_UPDATE_OUTCOME_SET.has(input.outcome as SequentialContinuationStatusUpdateOutcome)) {
+    violations.push(
+      `status evidence outcome must be ${joinOptions(SEQUENTIAL_CONTINUATION_STATUS_UPDATE_OUTCOMES)}: ${String(input.outcome)}`,
+    );
+  }
+  if (!isNonEmptyString(input.updatedAt)) {
+    violations.push("status evidence updatedAt must be a non-empty string");
+  }
+  violations.push(...validateStatusEvidenceReferences(input.evidenceReferences));
+  violations.push(...validateNextStep(input.nextStep));
+
+  if (
+    (input.outcome === "blocked" || input.outcome === "failed") &&
+    (!isRecord(input.nextStep) || input.nextStep.kind !== "blocked_report")
+  ) {
+    violations.push("blocked or failed status updates require nextStep.kind to be blocked_report");
+  }
+  if (input.outcome === "completed" && (!isRecord(input.nextStep) || input.nextStep.kind !== "samantha_command")) {
+    violations.push("completed status updates require nextStep.kind to be samantha_command");
+  }
+
+  return violations;
+}
+
+export function buildSequentialContinuationStatusUpdate(input: {
+  artifactPath: string;
+  evidencePath: string;
+  artifact: unknown;
+  evidence: unknown;
+  violations?: string[];
+}): SequentialContinuationStatusUpdateResult {
+  const readViolations = input.violations ?? [];
+  const artifactViolations = validateSequentialContinuationArtifact(input.artifact);
+  const evidenceViolations = validateSequentialContinuationStatusEvidence(input.evidence);
+  const currentSlice = readStatusUpdateCurrentSlice(input.artifact);
+  const requestedOutcome = readStatusUpdateOutcome(input.evidence);
+  const evidenceReferences = readStatusEvidenceReferences(input.evidence);
+  const nextStep = readReportNextStep(input.evidence);
+  const violations = [...readViolations, ...artifactViolations, ...evidenceViolations];
+
+  if (
+    isRecord(input.artifact) &&
+    isRecord(input.artifact.currentSlice) &&
+    isRecord(input.evidence) &&
+    isNonEmptyString(input.evidence.currentSliceId) &&
+    input.artifact.currentSlice.id !== input.evidence.currentSliceId
+  ) {
+    violations.push(
+      `status evidence currentSliceId must match artifact currentSlice.id: ${String(input.artifact.currentSlice.id)}`,
+    );
+  }
+
+  const actionType = currentSlice.actionType;
+  if (
+    requestedOutcome === "completed" &&
+    actionType &&
+    ACTION_TYPE_SET.has(actionType as SequentialContinuationActionType)
+  ) {
+    if (evidenceReferences.some((reference) => reference.result === "recommendation_only")) {
+      violations.push("report-only recommendation-only evidence cannot complete a slice");
+    }
+    if (!hasTrustedCompletionEvidence(actionType as SequentialContinuationActionType, evidenceReferences)) {
+      violations.push(`completed update requires trusted structured evidence for ${actionType}`);
+    }
+  }
+
+  if (violations.length > 0 || !isSequentialContinuationArtifact(input.artifact) || !isStatusEvidenceDocument(input.evidence)) {
+    return {
+      report: buildStatusUpdateReport({
+        artifactPath: input.artifactPath,
+        evidencePath: input.evidencePath,
+        status: "rejected",
+        violations,
+        currentSlice,
+        requestedOutcome,
+        acceptedOutcome: null,
+        evidenceReferences,
+        nextStep,
+        artifactUpdated: false,
+      }),
+      updatedArtifact: null,
+    };
+  }
+
+  const acceptedOutcome: "completed" | "blocked" = input.evidence.outcome === "completed" ? "completed" : "blocked";
+  const updatedArtifact: SequentialContinuationArtifact = {
+    ...input.artifact,
+    updatedAt: input.evidence.updatedAt,
+    currentSlice: {
+      ...input.artifact.currentSlice,
+      status: acceptedOutcome,
+      dependencyStatus: acceptedOutcome === "completed" ? "met" : "blocked",
+    },
+    evidenceReferences: input.evidence.evidenceReferences.map((reference) => ({
+      kind: reference.kind,
+      path: reference.path,
+      summary: reference.summary,
+      result: reference.result,
+    })),
+    nextStep: {
+      kind: input.evidence.nextStep.kind,
+      value: input.evidence.nextStep.value,
+    },
+  };
+  const updatedViolations = validateSequentialContinuationArtifact(updatedArtifact);
+  if (updatedViolations.length > 0) {
+    return {
+      report: buildStatusUpdateReport({
+        artifactPath: input.artifactPath,
+        evidencePath: input.evidencePath,
+        status: "rejected",
+        violations: updatedViolations,
+        currentSlice,
+        requestedOutcome,
+        acceptedOutcome: null,
+        evidenceReferences,
+        nextStep,
+        artifactUpdated: false,
+      }),
+      updatedArtifact: null,
+    };
+  }
+
+  return {
+    report: buildStatusUpdateReport({
+      artifactPath: input.artifactPath,
+      evidencePath: input.evidencePath,
+      status: "accepted",
+      violations: [],
+      currentSlice: {
+        ...currentSlice,
+        updatedStatus: updatedArtifact.currentSlice.status,
+        dependencyStatus: updatedArtifact.currentSlice.dependencyStatus,
+      },
+      requestedOutcome,
+      acceptedOutcome,
+      evidenceReferences,
+      nextStep,
+      artifactUpdated: true,
+    }),
+    updatedArtifact,
   };
 }
 
@@ -393,6 +649,58 @@ function validateEvidenceReferences(value: unknown): string[] {
     if (!isNonEmptyString(item.summary)) {
       violations.push(`evidenceReferences[${index}].summary must be a non-empty string`);
     }
+    if (hasOwn(item, "kind") && !STATUS_EVIDENCE_KIND_SET.has(item.kind as SequentialContinuationStatusEvidenceKind)) {
+      violations.push(
+        `evidenceReferences[${index}].kind must be ${joinOptions(SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_KINDS)}: ${String(item.kind)}`,
+      );
+    }
+    if (
+      hasOwn(item, "result") &&
+      !STATUS_EVIDENCE_RESULT_SET.has(item.result as SequentialContinuationStatusEvidenceResult)
+    ) {
+      violations.push(
+        `evidenceReferences[${index}].result must be ${joinOptions(SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_RESULTS)}: ${String(item.result)}`,
+      );
+    }
+  });
+
+  return violations;
+}
+
+function validateStatusEvidenceReferences(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    return ["status evidence evidenceReferences must be a non-empty array"];
+  }
+
+  const violations: string[] = [];
+  value.forEach((item, index) => {
+    if (!isRecord(item)) {
+      violations.push(`status evidence evidenceReferences[${index}] must be an object`);
+      return;
+    }
+    violations.push(
+      ...validateAllowedFields(
+        item,
+        STATUS_EVIDENCE_REFERENCE_FIELDS,
+        (key) => `unknown status evidence evidenceReferences[${index}] field: ${key}`,
+      ),
+    );
+    if (!STATUS_EVIDENCE_KIND_SET.has(item.kind as SequentialContinuationStatusEvidenceKind)) {
+      violations.push(
+        `status evidence evidenceReferences[${index}].kind must be ${joinOptions(SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_KINDS)}: ${String(item.kind)}`,
+      );
+    }
+    if (!isNonEmptyString(item.path)) {
+      violations.push(`status evidence evidenceReferences[${index}].path must be a non-empty string`);
+    }
+    if (!isNonEmptyString(item.summary)) {
+      violations.push(`status evidence evidenceReferences[${index}].summary must be a non-empty string`);
+    }
+    if (!STATUS_EVIDENCE_RESULT_SET.has(item.result as SequentialContinuationStatusEvidenceResult)) {
+      violations.push(
+        `status evidence evidenceReferences[${index}].result must be ${joinOptions(SEQUENTIAL_CONTINUATION_STATUS_EVIDENCE_RESULTS)}: ${String(item.result)}`,
+      );
+    }
   });
 
   return violations;
@@ -489,6 +797,14 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function isSequentialContinuationArtifact(value: unknown): value is SequentialContinuationArtifact {
+  return validateSequentialContinuationArtifact(value).length === 0;
+}
+
+function isStatusEvidenceDocument(value: unknown): value is SequentialContinuationStatusEvidenceDocument {
+  return validateSequentialContinuationStatusEvidence(value).length === 0;
+}
+
 function readReportCurrentSlice(value: unknown): SequentialContinuationReport["currentSlice"] {
   const fallback = {
     id: null,
@@ -503,6 +819,27 @@ function readReportCurrentSlice(value: unknown): SequentialContinuationReport["c
   return {
     id: stringOrNull(value.currentSlice.id),
     status: stringOrNull(value.currentSlice.status),
+    actionType: stringOrNull(value.currentSlice.actionType),
+    dependencyStatus: stringOrNull(value.currentSlice.dependencyStatus),
+  };
+}
+
+function readStatusUpdateCurrentSlice(value: unknown): SequentialContinuationStatusUpdateReport["currentSlice"] {
+  const fallback = {
+    id: null,
+    previousStatus: null,
+    updatedStatus: null,
+    actionType: null,
+    dependencyStatus: null,
+  };
+  if (!isRecord(value) || !isRecord(value.currentSlice)) {
+    return fallback;
+  }
+
+  return {
+    id: stringOrNull(value.currentSlice.id),
+    previousStatus: stringOrNull(value.currentSlice.status),
+    updatedStatus: stringOrNull(value.currentSlice.status),
     actionType: stringOrNull(value.currentSlice.actionType),
     dependencyStatus: stringOrNull(value.currentSlice.dependencyStatus),
   };
@@ -532,6 +869,102 @@ function readReportNextStep(value: unknown): { kind: string | null; value: strin
   return {
     kind: stringOrNull(value.nextStep.kind),
     value: stringOrNull(value.nextStep.value),
+  };
+}
+
+function readStatusUpdateOutcome(value: unknown): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  return stringOrNull(value.outcome);
+}
+
+function readStatusEvidenceReferences(value: unknown): SequentialContinuationStatusEvidenceReference[] {
+  if (!isRecord(value) || !Array.isArray(value.evidenceReferences)) {
+    return [];
+  }
+
+  return value.evidenceReferences.flatMap((item) => {
+    if (
+      !isRecord(item) ||
+      !STATUS_EVIDENCE_KIND_SET.has(item.kind as SequentialContinuationStatusEvidenceKind) ||
+      !isNonEmptyString(item.path) ||
+      !isNonEmptyString(item.summary) ||
+      !STATUS_EVIDENCE_RESULT_SET.has(item.result as SequentialContinuationStatusEvidenceResult)
+    ) {
+      return [];
+    }
+    return [
+      {
+        kind: item.kind as SequentialContinuationStatusEvidenceKind,
+        path: item.path,
+        summary: item.summary,
+        result: item.result as SequentialContinuationStatusEvidenceResult,
+      },
+    ];
+  });
+}
+
+function hasTrustedCompletionEvidence(
+  actionType: SequentialContinuationActionType,
+  references: SequentialContinuationStatusEvidenceReference[],
+): boolean {
+  if (actionType === "run_task" || actionType === "batch_plan") {
+    return references.some((reference) => reference.kind === "run_log" && reference.result === "passed");
+  }
+  if (actionType === "readiness_check") {
+    return references.some(
+      (reference) =>
+        reference.kind === "readiness_report" &&
+        (reference.result === "passed" || reference.result === "clear" || reference.result === "completed"),
+    );
+  }
+  if (actionType === "report_only") {
+    return references.some(
+      (reference) =>
+        (reference.kind === "continuation_report" || reference.kind === "report_review") &&
+        (reference.result === "passed" || reference.result === "clear" || reference.result === "completed"),
+    );
+  }
+  if (actionType === "manual_decision") {
+    return references.some((reference) => reference.result !== "recommendation_only");
+  }
+  return false;
+}
+
+function buildStatusUpdateReport(input: {
+  artifactPath: string;
+  evidencePath: string;
+  status: "accepted" | "rejected";
+  violations: string[];
+  requestedOutcome: string | null;
+  acceptedOutcome: "completed" | "blocked" | null;
+  currentSlice: SequentialContinuationStatusUpdateReport["currentSlice"];
+  evidenceReferences: SequentialContinuationStatusEvidenceReference[];
+  nextStep: { kind: string | null; value: string | null };
+  artifactUpdated: boolean;
+}): SequentialContinuationStatusUpdateReport {
+  return {
+    artifactPath: input.artifactPath,
+    evidencePath: input.evidencePath,
+    status: input.status,
+    violations: input.violations,
+    requestedOutcome: input.requestedOutcome,
+    acceptedOutcome: input.acceptedOutcome,
+    currentSlice: input.currentSlice,
+    evidenceReferences: input.evidenceReferences,
+    exactNextSamanthaCommand: input.nextStep.kind === "samantha_command" ? input.nextStep.value : null,
+    blockedReportText: input.nextStep.kind === "blocked_report" ? input.nextStep.value : null,
+    artifactUpdated: input.artifactUpdated,
+    trustedStateChanges: input.artifactUpdated,
+    pushPerformed: false,
+    sideEffects: {
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+    },
   };
 }
 

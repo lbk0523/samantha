@@ -2,11 +2,15 @@ import { describe, expect, test } from "bun:test";
 import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
+  SequentialContinuationStatusEvidenceDocument,
 } from "../src/core/sequential-ceo-autopilot";
 import {
   SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS,
+  SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
+  buildSequentialContinuationStatusUpdate,
   buildSequentialContinuationReport,
   validateSequentialContinuationArtifact,
+  validateSequentialContinuationStatusEvidence,
 } from "../src/core/sequential-ceo-autopilot";
 
 function artifact(overrides: Partial<SequentialContinuationArtifact> = {}): SequentialContinuationArtifact {
@@ -51,6 +55,30 @@ function artifact(overrides: Partial<SequentialContinuationArtifact> = {}): Sequ
     nextStep: {
       kind: "samantha_command",
       value: "sam c: references/initiatives/sequential-ceo-autopilot.md S2",
+    },
+    ...overrides,
+  };
+}
+
+function statusEvidence(
+  overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
+): SequentialContinuationStatusEvidenceDocument {
+  return {
+    schemaVersion: 1,
+    currentSliceId: "S2",
+    outcome: "completed",
+    updatedAt: "2026-05-19T01:00:00.000Z",
+    evidenceReferences: [
+      {
+        kind: "run_log",
+        path: "runs/2026-05-19T01-00-00-000Z-sequential-ceo-autopilot-s2.json",
+        summary: "S2 worker run completed with passing deterministic verification.",
+        result: "passed",
+      },
+    ],
+    nextStep: {
+      kind: "samantha_command",
+      value: "sam c: references/initiatives/sequential-ceo-autopilot.md S3",
     },
     ...overrides,
   };
@@ -323,5 +351,202 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         ),
       ).toEqual([]);
     }
+  });
+});
+
+describe("Sequential CEO Autopilot status update evidence", () => {
+  test("accepts a completed update from cited trusted run-log evidence", () => {
+    const result = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s2.json",
+      evidencePath: "/repo/references/continuation/s2-evidence.json",
+      artifact: artifact(),
+      evidence: statusEvidence(),
+    });
+
+    expect(result.report).toEqual({
+      artifactPath: "/repo/references/continuation/s2.json",
+      evidencePath: "/repo/references/continuation/s2-evidence.json",
+      status: "accepted",
+      violations: [],
+      requestedOutcome: "completed",
+      acceptedOutcome: "completed",
+      currentSlice: {
+        id: "S2",
+        previousStatus: "ready",
+        updatedStatus: "completed",
+        actionType: "run_task",
+        dependencyStatus: "met",
+      },
+      evidenceReferences: [
+        {
+          kind: "run_log",
+          path: "runs/2026-05-19T01-00-00-000Z-sequential-ceo-autopilot-s2.json",
+          summary: "S2 worker run completed with passing deterministic verification.",
+          result: "passed",
+        },
+      ],
+      exactNextSamanthaCommand: "sam c: references/initiatives/sequential-ceo-autopilot.md S3",
+      blockedReportText: null,
+      artifactUpdated: true,
+      trustedStateChanges: true,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+      },
+    });
+    expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
+    expect(result.updatedArtifact?.updatedAt).toBe("2026-05-19T01:00:00.000Z");
+    expect(result.updatedArtifact?.evidenceReferences).toEqual(statusEvidence().evidenceReferences);
+    expect(result.updatedArtifact?.autonomyEnvelope.pushAllowed).toBe(false);
+  });
+
+  test("accepts failed evidence as a blocked transition with cited failure evidence", () => {
+    const evidence = statusEvidence({
+      outcome: "failed",
+      evidenceReferences: [
+        {
+          kind: "run_log",
+          path: "runs/2026-05-19T01-00-00-000Z-sequential-ceo-autopilot-s2.json",
+          summary: "Verification failed after the allowed worker run.",
+          result: "failed",
+        },
+      ],
+      nextStep: {
+        kind: "blocked_report",
+        value: "Blocked: verification failed; prepare a narrow rework report before continuing.",
+      },
+    });
+
+    const result = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s2.json",
+      evidencePath: "/repo/references/continuation/s2-evidence.json",
+      artifact: artifact(),
+      evidence,
+    });
+
+    expect(result.report.status).toBe("accepted");
+    expect(result.report.requestedOutcome).toBe("failed");
+    expect(result.report.acceptedOutcome).toBe("blocked");
+    expect(result.report.currentSlice.updatedStatus).toBe("blocked");
+    expect(result.report.blockedReportText).toBe(
+      "Blocked: verification failed; prepare a narrow rework report before continuing.",
+    );
+    expect(result.updatedArtifact?.currentSlice.status).toBe("blocked");
+    expect(result.updatedArtifact?.currentSlice.dependencyStatus).toBe("blocked");
+    expect(result.updatedArtifact?.nextStep.kind).toBe("blocked_report");
+    expect(validateSequentialContinuationArtifact(result.updatedArtifact)).toEqual([]);
+  });
+
+  test("rejects worker prose-only evidence instead of trusting stdout text", () => {
+    const evidence = statusEvidence({
+      evidenceReferences: [
+        {
+          kind: "worker_output_text_only" as SequentialContinuationStatusEvidenceDocument["evidenceReferences"][number]["kind"],
+          path: "runs/worker-output.txt",
+          summary: "Worker prose says HARNESS_RESULT pass.",
+          result: "passed",
+        },
+      ],
+    });
+
+    const result = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s2.json",
+      evidencePath: "/repo/references/continuation/s2-evidence.json",
+      artifact: artifact(),
+      evidence,
+    });
+
+    expect(result.report.status).toBe("rejected");
+    expect(result.report.violations).toContain(
+      "status evidence evidenceReferences[0].kind must be run_log, readiness_report, continuation_report, or report_review: worker_output_text_only",
+    );
+    expect(result.updatedArtifact).toBeNull();
+  });
+
+  test("rejects report-only recommendation evidence as trusted completion", () => {
+    const reportOnlyArtifact = artifact({
+      currentSlice: {
+        ...artifact().currentSlice,
+        actionType: "report_only",
+      },
+    });
+    const result = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s2.json",
+      evidencePath: "/repo/references/continuation/s2-evidence.json",
+      artifact: reportOnlyArtifact,
+      evidence: statusEvidence({
+        evidenceReferences: [
+          {
+            kind: "report_review",
+            path: "references/reports/recommendation.json",
+            summary: "Reviewer recommends marking S2 complete but did not cite deterministic completion.",
+            result: "recommendation_only",
+          },
+        ],
+      }),
+    });
+
+    expect(result.report.status).toBe("rejected");
+    expect(result.report.violations).toContain("report-only recommendation-only evidence cannot complete a slice");
+    expect(result.report.violations).toContain("completed update requires trusted structured evidence for report_only");
+    expect(result.updatedArtifact).toBeNull();
+  });
+
+  test("rejects missing citations and unknown status evidence fields", () => {
+    expect(
+      validateSequentialContinuationStatusEvidence({
+        ...statusEvidence(),
+        evidenceReferences: [],
+      }),
+    ).toContain("status evidence evidenceReferences must be a non-empty array");
+
+    expect(
+      validateSequentialContinuationStatusEvidence({
+        ...statusEvidence(),
+        markdownRoadmapText: "S2 is done.",
+      }),
+    ).toContain("unknown status evidence field: markdownRoadmapText");
+  });
+
+  test("preserves failed-as-blocked status vocabulary", () => {
+    expect(SEQUENTIAL_CONTINUATION_SLICE_STATUSES as readonly string[]).not.toContain("failed");
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          currentSlice: {
+            ...artifact().currentSlice,
+            status: "failed" as SequentialContinuationArtifact["currentSlice"]["status"],
+          },
+        }),
+      ),
+    ).toContain("currentSlice.status must be completed, active, ready, pending, blocked, or dropped: failed");
+
+    const result = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s2.json",
+      evidencePath: "/repo/references/continuation/s2-evidence.json",
+      artifact: artifact(),
+      evidence: statusEvidence({
+        outcome: "failed",
+        evidenceReferences: [
+          {
+            kind: "run_log",
+            path: "runs/failed.json",
+            summary: "Run log records failed verification.",
+            result: "failed",
+          },
+        ],
+        nextStep: {
+          kind: "blocked_report",
+          value: "Blocked: failed verification must be handled as rework.",
+        },
+      }),
+    });
+
+    expect(result.report.status).toBe("accepted");
+    expect(result.updatedArtifact?.currentSlice.status).toBe("blocked");
   });
 });

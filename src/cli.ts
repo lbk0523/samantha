@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
 import {
@@ -42,12 +42,21 @@ import { listBatchPlanDrafts, readBatchPlanDraftById } from "./core/batch-plan-d
 import { prepareBatchPlan, type PrepareBatchPlanInput } from "./core/batch-plan-operator";
 import { reviewStoredBatchPlanDraft, type BatchPlanReviewInput } from "./core/batch-plan-review";
 import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
-import { buildSequentialContinuationReport } from "./core/sequential-ceo-autopilot";
+import {
+  buildSequentialContinuationReport,
+  buildSequentialContinuationStatusUpdate,
+} from "./core/sequential-ceo-autopilot";
 import type { WorkerRuntimeKind } from "./core/worker-runtime-metadata";
 
 export interface ContinuationShowCliArgs {
   command: "continuation:show";
   artifactPath: string;
+}
+
+export interface ContinuationUpdateStatusCliArgs {
+  command: "continuation:update-status";
+  artifactPath: string;
+  evidencePath: string;
 }
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
@@ -234,6 +243,7 @@ export interface BatchPlansPrepareCliArgs extends PrepareBatchPlanInput {
 
 export type SamanthaCliArgs =
   | ContinuationShowCliArgs
+  | ContinuationUpdateStatusCliArgs
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
@@ -319,6 +329,22 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     return {
       command: "continuation:show",
       artifactPath,
+    };
+  }
+
+  if (command === "continuation:update-status") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const artifactPath = flags.get("artifact");
+    const evidencePath = flags.get("evidence");
+    if (!artifactPath || !evidencePath) {
+      throw new Error(
+        "usage: bun run samantha continuation:update-status --artifact=<path> --evidence=<path>",
+      );
+    }
+    return {
+      command: "continuation:update-status",
+      artifactPath,
+      evidencePath,
     };
   }
 
@@ -780,7 +806,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -807,6 +833,16 @@ function artifactReadViolation(err: unknown): string {
     return `artifact JSON could not be parsed: ${err.message}`;
   }
   return `artifact could not be read: ${err instanceof Error ? err.message : String(err)}`;
+}
+
+function evidenceReadViolation(err: unknown): string {
+  if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    return "evidence could not be read: file not found";
+  }
+  if (err instanceof SyntaxError) {
+    return `evidence JSON could not be parsed: ${err.message}`;
+  }
+  return `evidence could not be read: ${err instanceof Error ? err.message : String(err)}`;
 }
 
 async function markLifecycle(input: {
@@ -848,6 +884,37 @@ export async function main(argv: string[]): Promise<number> {
     })();
     console.log(JSON.stringify(report, null, 2));
     return report.status === "accepted" ? 0 : 1;
+  }
+
+  if (args.command === "continuation:update-status") {
+    const artifactPath = resolve(args.artifactPath);
+    const evidencePath = resolve(args.evidencePath);
+    const violations: string[] = [];
+    let artifact: unknown;
+    let evidence: unknown;
+    try {
+      artifact = JSON.parse(await readFile(artifactPath, "utf8")) as unknown;
+    } catch (err) {
+      violations.push(artifactReadViolation(err));
+    }
+    try {
+      evidence = JSON.parse(await readFile(evidencePath, "utf8")) as unknown;
+    } catch (err) {
+      violations.push(evidenceReadViolation(err));
+    }
+
+    const result = buildSequentialContinuationStatusUpdate({
+      artifactPath,
+      evidencePath,
+      artifact,
+      evidence,
+      violations,
+    });
+    if (result.updatedArtifact) {
+      await writeFile(artifactPath, `${JSON.stringify(result.updatedArtifact, null, 2)}\n`, "utf8");
+    }
+    console.log(JSON.stringify(result.report, null, 2));
+    return result.report.status === "accepted" ? 0 : 1;
   }
 
   if (args.command === "run-task") {
