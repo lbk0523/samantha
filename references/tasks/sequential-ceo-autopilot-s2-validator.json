@@ -1,0 +1,49 @@
+{
+  "id": "sequential-ceo-autopilot-s2-validator",
+  "title": "Add Sequential CEO Autopilot continuation artifact validator",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/worker-*.ts",
+    "src/core/run-*.ts",
+    "src/core/batch-*.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts tests/sequential-ceo-autopilot.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md and references/playbooks/sequential-ceo-autopilot.md, then perform only S2. Add a small pure validator module at src/core/sequential-ceo-autopilot.ts plus focused tests at tests/sequential-ceo-autopilot.test.ts. Define a structured continuation artifact contract and validate it deterministically. Keep the contract narrow and closed-schema. Include the conservative action type vocabulary from the playbook: manual_decision, report_only, readiness_check, run_task, and batch_plan. The validator must accept a valid current-slice artifact and reject unsafe action types, missing or empty stop-condition checklist, push authority, maxFailedEvidenceReworkCycles values other than 1, hidden-memory or secret-like fields, daemon/watch/remote/dashboard/routine fields, unknown top-level or nested fields that could smuggle lifecycle authority, lifecycle-authorizing wording such as accept run, merge, cleanup, commit, push, mutate lifecycle, create task, dispatch worker, or automatic continuation, and write-capable actions that omit targetFiles, forbiddenChanges, or verifyCommands. Match existing local validator style from src/core/drift-review.ts or src/core/batch-plan-draft.ts; prefer exported types plus validateSequentialContinuationArtifact(input: unknown): string[] and a summarizer only if it stays pure and useful for tests. Do not add CLI parsing, CLI commands, worker dispatch, runner behavior, automatic continuation, lifecycle mutation, policy changes, doctrine changes, task templates, agent profiles, package changes, hidden memory, remote adapters, daemon/watch behavior, dashboards, routine triggers, natural-language-only dispatch, push automation, or broad refactors. Update references/initiatives/sequential-ceo-autopilot.md only to mark S2 completed, record verification expectations or status, and make S3 the next ready slice. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo autopilot validator",
+  "status": "pending"
+}
