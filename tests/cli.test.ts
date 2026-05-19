@@ -378,6 +378,13 @@ describe("samantha cli", () => {
     expect(() => parseCliArgs(["continuation:update-status", "--artifact=references/continuation/s3.json"])).toThrow(
       "usage: bun run samantha continuation:update-status --artifact=<path> --evidence=<path>",
     );
+    expect(parseCliArgs(["continuation:step", "--artifact=references/continuation/s5.json"])).toEqual({
+      command: "continuation:step",
+      artifactPath: "references/continuation/s5.json",
+    });
+    expect(() => parseCliArgs(["continuation:step"])).toThrow(
+      "usage: bun run samantha continuation:step --artifact=<path>",
+    );
   });
 
   test("continuation show prints a valid report without creating execution artifacts", async () => {
@@ -537,6 +544,241 @@ describe("samantha cli", () => {
       runsCreated: false,
       worktreesCreated: false,
     });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation step runs one readiness_check and updates only the artifact", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-step-"));
+    tmpRoots.push(root);
+    const initiativePath = join(root, "initiative.md");
+    const artifactPath = join(root, "continuation.json");
+    const markerPath = join(root, "marker.txt");
+    const initiativeText = `# Initiative: CLI single-step fixture
+
+Status: active
+Source: CLI test fixture
+
+## Goal
+
+Check the current initiative readiness once.
+
+## Accepted Decisions
+
+- Use readiness only.
+
+## Non-Goals
+
+- No worker dispatch.
+
+## Invariants
+
+- Push remains disabled.
+
+## Slice Queue
+
+| Slice | Status | Objective | Dependency | Verification | Next Prompt |
+| --- | --- | --- | --- | --- | --- |
+| S1 | ready | Check readiness. | S0 | cli. | prompt |
+| S2 | pending | Next slice. | S1 | cli. | prompt |
+
+## Current Next Slice
+
+S1 is ready.
+
+## End-of-Session Update Rule
+
+Update the brief before stopping.
+
+## Completion Rule
+
+The fixture is complete when readiness is clear.
+`;
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        artifactId: "cli-continuation-s1",
+        initiativePath,
+        currentSlice: {
+          id: "S1",
+          status: "ready",
+          actionType: "readiness_check",
+          dependencyStatus: "met",
+          prerequisites: ["S0 completed"],
+        },
+        evidenceReferences: [
+          {
+            path: initiativePath,
+            summary: "S1 requests a deterministic readiness check.",
+          },
+        ],
+        nextStep: {
+          kind: "samantha_command",
+          value: "sam c: run one readiness step for S1",
+        },
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(initiativePath, initiativeText, "utf8");
+    await writeFile(artifactPath, artifactText, "utf8");
+    await writeFile(markerPath, "leave me alone\n", "utf8");
+
+    const result = await runCliCapturingStdout(["continuation:step", `--artifact=${artifactPath}`]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report).toMatchObject({
+      artifactPath,
+      status: "accepted",
+      violations: [],
+      selectedActionType: "readiness_check",
+      actionExecuted: true,
+      actionAttemptCount: 1,
+      generatedEvidencePath: null,
+      inlineEvidenceSummary: "Readiness check returned clear: start S1: Check readiness.",
+      continued: false,
+      multiStepLoopStarted: false,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        pushPerformed: false,
+      },
+    });
+    expect(report.statusUpdateReport).toMatchObject({
+      artifactPath,
+      status: "accepted",
+      requestedOutcome: "completed",
+      acceptedOutcome: "completed",
+      currentSlice: {
+        id: "S1",
+        previousStatus: "ready",
+        updatedStatus: "completed",
+        actionType: "readiness_check",
+        dependencyStatus: "met",
+      },
+      artifactUpdated: true,
+      trustedStateChanges: true,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+      },
+    });
+    expect(report.statusUpdateReport.evidenceReferences).toEqual([
+      {
+        kind: "readiness_report",
+        path: `inline:readiness:${initiativePath}`,
+        summary: "Readiness check returned clear: start S1: Check readiness.",
+        result: "clear",
+      },
+    ]);
+    const updatedArtifact = JSON.parse(await readFile(artifactPath, "utf8"));
+    expect(updatedArtifact.currentSlice.status).toBe("completed");
+    expect(updatedArtifact.evidenceReferences).toEqual(report.statusUpdateReport.evidenceReferences);
+    expect(await readFile(initiativePath, "utf8")).toBe(initiativeText);
+    expect(await readFile(markerPath, "utf8")).toBe("leave me alone\n");
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation step blocks unsafe actions non-zero without side effects", async () => {
+    for (const actionType of ["manual_decision", "run_task", "batch_plan"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `samantha-cli-continuation-step-${actionType}-`));
+      tmpRoots.push(root);
+      const artifactPath = join(root, "continuation.json");
+      const currentSlice =
+        actionType === "manual_decision"
+          ? {
+              ...cliSequentialContinuationArtifact().currentSlice,
+              actionType,
+            }
+          : {
+              ...cliSequentialContinuationArtifact().currentSlice,
+              actionType,
+              targetFiles: ["src/cli.ts"],
+              forbiddenChanges: ["runs/**", "worktrees/**"],
+              verifyCommands: ["bun test tests/cli.test.ts"],
+            };
+      const artifactText = `${JSON.stringify(
+        cliSequentialContinuationArtifact({
+          currentSlice,
+          nextStep: {
+            kind: actionType === "manual_decision" ? "blocked_report" : "samantha_command",
+            value:
+              actionType === "manual_decision"
+                ? "Blocked until BK chooses the next action."
+                : "sam c: reviewed writer action required",
+          },
+        }),
+        null,
+        2,
+      )}\n`;
+      await writeFile(artifactPath, artifactText, "utf8");
+
+      const result = await runCliCapturingStdout(["continuation:step", `--artifact=${artifactPath}`]);
+      const report = JSON.parse(result.stdout);
+
+      expect(result.exitCode).toBe(1);
+      expect(report.status).toBe("blocked");
+      expect(report.selectedActionType).toBe(actionType);
+      expect(report.actionExecuted).toBe(false);
+      expect(report.actionAttemptCount).toBe(0);
+      expect(report.statusUpdateReport).toBeNull();
+      expect(report.continued).toBe(false);
+      expect(report.multiStepLoopStarted).toBe(false);
+      expect(report.pushPerformed).toBe(false);
+      expect(report.sideEffects).toEqual({
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        pushPerformed: false,
+      });
+      expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+      expect(await pathExists(join(root, "runs"))).toBe(false);
+      expect(await pathExists(join(root, "worktrees"))).toBe(false);
+    }
+  });
+
+  test("continuation step rejects invalid artifacts without updating or executing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-step-invalid-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        currentSlice: {
+          ...cliSequentialContinuationArtifact().currentSlice,
+          actionType: "readiness_check",
+        },
+        autonomyEnvelope: {
+          ...cliSequentialContinuationArtifact().autonomyEnvelope,
+          pushAllowed: true as false,
+        },
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout(["continuation:step", `--artifact=${artifactPath}`]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain("autonomyEnvelope.pushAllowed must be false");
+    expect(report.actionExecuted).toBe(false);
+    expect(report.actionAttemptCount).toBe(0);
+    expect(report.statusUpdateReport).toBeNull();
+    expect(report.sideEffects.workersDispatched).toBe(false);
     expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
     expect(await pathExists(join(root, "runs"))).toBe(false);
     expect(await pathExists(join(root, "worktrees"))).toBe(false);

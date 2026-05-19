@@ -41,10 +41,14 @@ import { authorBatchPlanDraft, type AuthorBatchPlanDraftInput } from "./core/bat
 import { listBatchPlanDrafts, readBatchPlanDraftById } from "./core/batch-plan-draft-store";
 import { prepareBatchPlan, type PrepareBatchPlanInput } from "./core/batch-plan-operator";
 import { reviewStoredBatchPlanDraft, type BatchPlanReviewInput } from "./core/batch-plan-review";
-import { buildReadinessReport, type BuildReadinessReportInput } from "./core/readiness";
+import { buildReadinessReport, type BuildReadinessReportInput, type ReadinessReport } from "./core/readiness";
 import {
+  buildSequentialContinuationSingleStep,
   buildSequentialContinuationReport,
   buildSequentialContinuationStatusUpdate,
+  type SequentialContinuationArtifact,
+  type SequentialContinuationSingleStepExecution,
+  type SequentialContinuationStatusEvidenceResult,
 } from "./core/sequential-ceo-autopilot";
 import type { WorkerRuntimeKind } from "./core/worker-runtime-metadata";
 
@@ -57,6 +61,11 @@ export interface ContinuationUpdateStatusCliArgs {
   command: "continuation:update-status";
   artifactPath: string;
   evidencePath: string;
+}
+
+export interface ContinuationStepCliArgs {
+  command: "continuation:step";
+  artifactPath: string;
 }
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
@@ -244,6 +253,7 @@ export interface BatchPlansPrepareCliArgs extends PrepareBatchPlanInput {
 export type SamanthaCliArgs =
   | ContinuationShowCliArgs
   | ContinuationUpdateStatusCliArgs
+  | ContinuationStepCliArgs
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
@@ -345,6 +355,18 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       command: "continuation:update-status",
       artifactPath,
       evidencePath,
+    };
+  }
+
+  if (command === "continuation:step") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const artifactPath = flags.get("artifact");
+    if (!artifactPath) {
+      throw new Error("usage: bun run samantha continuation:step --artifact=<path>");
+    }
+    return {
+      command: "continuation:step",
+      artifactPath,
     };
   }
 
@@ -806,7 +828,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:step|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -843,6 +865,47 @@ function evidenceReadViolation(err: unknown): string {
     return `evidence JSON could not be parsed: ${err.message}`;
   }
   return `evidence could not be read: ${err instanceof Error ? err.message : String(err)}`;
+}
+
+function readinessStatusEvidenceResult(status: ReadinessReport["overallStatus"]): SequentialContinuationStatusEvidenceResult {
+  if (status === "clear") return "clear";
+  if (status === "blocked") return "blocked";
+  return "failed";
+}
+
+function buildReadinessCheckSingleStepExecution(input: {
+  artifact: SequentialContinuationArtifact;
+  readiness: ReadinessReport;
+}): SequentialContinuationSingleStepExecution {
+  const summary = `Readiness check returned ${input.readiness.overallStatus}: ${input.readiness.recommendation}`;
+  const passed = input.readiness.overallStatus === "clear";
+
+  return {
+    evidence: {
+      schemaVersion: 1,
+      currentSliceId: input.artifact.currentSlice.id,
+      outcome: passed ? "completed" : "failed",
+      updatedAt: input.artifact.updatedAt,
+      evidenceReferences: [
+        {
+          kind: "readiness_report",
+          path: `inline:readiness:${input.artifact.initiativePath}`,
+          summary,
+          result: readinessStatusEvidenceResult(input.readiness.overallStatus),
+        },
+      ],
+      nextStep: passed
+        ? {
+            kind: "samantha_command",
+            value: `sam c: ${input.artifact.initiativePath} review next single-step continuation after ${input.artifact.currentSlice.id}`,
+          }
+        : {
+            kind: "blocked_report",
+            value: `Blocked: ${summary}`,
+          },
+    },
+    inlineEvidenceSummary: summary,
+  };
 }
 
 async function markLifecycle(input: {
@@ -909,6 +972,37 @@ export async function main(argv: string[]): Promise<number> {
       artifact,
       evidence,
       violations,
+    });
+    if (result.updatedArtifact) {
+      await writeFile(artifactPath, `${JSON.stringify(result.updatedArtifact, null, 2)}\n`, "utf8");
+    }
+    console.log(JSON.stringify(result.report, null, 2));
+    return result.report.status === "accepted" ? 0 : 1;
+  }
+
+  if (args.command === "continuation:step") {
+    const artifactPath = resolve(args.artifactPath);
+    const violations: string[] = [];
+    let artifact: unknown;
+    try {
+      artifact = JSON.parse(await readFile(artifactPath, "utf8")) as unknown;
+    } catch (err) {
+      violations.push(artifactReadViolation(err));
+    }
+
+    const result = await buildSequentialContinuationSingleStep({
+      artifactPath,
+      artifact,
+      violations,
+      executeAction: async ({ artifact: acceptedArtifact }) => {
+        const readiness = await buildReadinessReport({
+          initiativePath: acceptedArtifact.initiativePath,
+        });
+        return buildReadinessCheckSingleStepExecution({
+          artifact: acceptedArtifact,
+          readiness,
+        });
+      },
     });
     if (result.updatedArtifact) {
       await writeFile(artifactPath, `${JSON.stringify(result.updatedArtifact, null, 2)}\n`, "utf8");

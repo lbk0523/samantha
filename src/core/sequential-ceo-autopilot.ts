@@ -180,6 +180,51 @@ export interface SequentialContinuationStatusUpdateResult {
   updatedArtifact: SequentialContinuationArtifact | null;
 }
 
+export interface SequentialContinuationSingleStepExecutorInput {
+  artifactPath: string;
+  artifact: SequentialContinuationArtifact;
+  actionType: "readiness_check";
+}
+
+export interface SequentialContinuationSingleStepExecution {
+  evidence: SequentialContinuationStatusEvidenceDocument;
+  evidencePath?: string;
+  inlineEvidenceSummary?: string;
+}
+
+export type SequentialContinuationSingleStepActionExecutor = (
+  input: SequentialContinuationSingleStepExecutorInput,
+) => Promise<SequentialContinuationSingleStepExecution> | SequentialContinuationSingleStepExecution;
+
+export interface SequentialContinuationSingleStepReport {
+  artifactPath: string;
+  status: "accepted" | "blocked" | "rejected";
+  violations: string[];
+  selectedActionType: string | null;
+  actionExecuted: boolean;
+  actionAttemptCount: number;
+  generatedEvidencePath: string | null;
+  inlineEvidenceSummary: string | null;
+  statusUpdateReport: SequentialContinuationStatusUpdateReport | null;
+  nextStep: SequentialContinuationNextStep | null;
+  continued: false;
+  multiStepLoopStarted: false;
+  pushPerformed: false;
+  sideEffects: {
+    runTaskCalled: false;
+    batchesExecuteCalled: false;
+    workersDispatched: false;
+    runsCreated: false;
+    worktreesCreated: false;
+    pushPerformed: false;
+  };
+}
+
+export interface SequentialContinuationSingleStepResult {
+  report: SequentialContinuationSingleStepReport;
+  updatedArtifact: SequentialContinuationArtifact | null;
+}
+
 const ACTION_TYPE_SET = new Set<SequentialContinuationActionType>(SEQUENTIAL_CONTINUATION_ACTION_TYPES);
 const SLICE_STATUS_SET = new Set<SequentialContinuationSliceStatus>(SEQUENTIAL_CONTINUATION_SLICE_STATUSES);
 const STOP_CONDITION_ID_SET = new Set<SequentialContinuationStopConditionId>(
@@ -195,6 +240,7 @@ const STATUS_UPDATE_OUTCOME_SET = new Set<SequentialContinuationStatusUpdateOutc
   SEQUENTIAL_CONTINUATION_STATUS_UPDATE_OUTCOMES,
 );
 const WRITE_CAPABLE_ACTION_TYPES = new Set<SequentialContinuationActionType>(["run_task", "batch_plan"]);
+const SINGLE_STEP_EXECUTABLE_ACTION_TYPE = "readiness_check";
 const TOP_LEVEL_FIELDS = new Set([
   "schemaVersion",
   "artifactId",
@@ -502,6 +548,105 @@ export function buildSequentialContinuationStatusUpdate(input: {
     }),
     updatedArtifact,
   };
+}
+
+export async function buildSequentialContinuationSingleStep(input: {
+  artifactPath: string;
+  artifact: unknown;
+  violations?: string[];
+  executeAction: SequentialContinuationSingleStepActionExecutor;
+}): Promise<SequentialContinuationSingleStepResult> {
+  const artifactViolations = [
+    ...(input.violations ?? []),
+    ...validateSequentialContinuationArtifact(input.artifact),
+  ];
+  const artifactReport = buildSequentialContinuationReport({
+    artifactPath: input.artifactPath,
+    artifact: input.artifact,
+    violations: artifactViolations,
+  });
+  const selectedActionType = artifactReport.currentSlice.actionType;
+  const nextStep = nextStepFromContinuationReport(artifactReport);
+
+  if (artifactReport.status === "rejected" || !isSequentialContinuationArtifact(input.artifact)) {
+    return buildSingleStepResult({
+      artifactPath: input.artifactPath,
+      status: "rejected",
+      violations: artifactReport.violations,
+      selectedActionType,
+      nextStep,
+      actionExecuted: false,
+      actionAttemptCount: 0,
+      generatedEvidencePath: null,
+      inlineEvidenceSummary: null,
+      statusUpdateReport: null,
+      updatedArtifact: null,
+    });
+  }
+
+  const guardViolations = singleStepGuardViolations(input.artifact);
+  if (guardViolations.length > 0) {
+    return buildSingleStepResult({
+      artifactPath: input.artifactPath,
+      status: "blocked",
+      violations: guardViolations,
+      selectedActionType,
+      nextStep,
+      actionExecuted: false,
+      actionAttemptCount: 0,
+      generatedEvidencePath: null,
+      inlineEvidenceSummary: null,
+      statusUpdateReport: null,
+      updatedArtifact: null,
+    });
+  }
+
+  let execution: SequentialContinuationSingleStepExecution;
+  try {
+    execution = await input.executeAction({
+      artifactPath: input.artifactPath,
+      artifact: input.artifact,
+      actionType: SINGLE_STEP_EXECUTABLE_ACTION_TYPE,
+    });
+  } catch (err) {
+    return buildSingleStepResult({
+      artifactPath: input.artifactPath,
+      status: "blocked",
+      violations: [`single-step action executor failed: ${err instanceof Error ? err.message : String(err)}`],
+      selectedActionType,
+      nextStep,
+      actionExecuted: false,
+      actionAttemptCount: 1,
+      generatedEvidencePath: null,
+      inlineEvidenceSummary: null,
+      statusUpdateReport: null,
+      updatedArtifact: null,
+    });
+  }
+
+  const evidencePath =
+    execution.evidencePath ??
+    `inline:sequential-continuation:${input.artifact.artifactId}:${input.artifact.currentSlice.id}:${input.artifact.currentSlice.actionType}`;
+  const statusUpdate = buildSequentialContinuationStatusUpdate({
+    artifactPath: input.artifactPath,
+    evidencePath,
+    artifact: input.artifact,
+    evidence: execution.evidence,
+  });
+
+  return buildSingleStepResult({
+    artifactPath: input.artifactPath,
+    status: statusUpdate.report.status === "accepted" ? "accepted" : "rejected",
+    violations: statusUpdate.report.violations,
+    selectedActionType,
+    nextStep: nextStepFromStatusUpdateReport(statusUpdate.report),
+    actionExecuted: true,
+    actionAttemptCount: 1,
+    generatedEvidencePath: execution.evidencePath ?? null,
+    inlineEvidenceSummary: execution.inlineEvidenceSummary ?? null,
+    statusUpdateReport: statusUpdate.report,
+    updatedArtifact: statusUpdate.updatedArtifact,
+  });
 }
 
 function validateCurrentSlice(value: unknown): string[] {
@@ -966,6 +1111,114 @@ function buildStatusUpdateReport(input: {
       worktreesCreated: false,
     },
   };
+}
+
+function buildSingleStepResult(input: {
+  artifactPath: string;
+  status: "accepted" | "blocked" | "rejected";
+  violations: string[];
+  selectedActionType: string | null;
+  actionExecuted: boolean;
+  actionAttemptCount: number;
+  generatedEvidencePath: string | null;
+  inlineEvidenceSummary: string | null;
+  statusUpdateReport: SequentialContinuationStatusUpdateReport | null;
+  nextStep: SequentialContinuationNextStep | null;
+  updatedArtifact: SequentialContinuationArtifact | null;
+}): SequentialContinuationSingleStepResult {
+  return {
+    report: {
+      artifactPath: input.artifactPath,
+      status: input.status,
+      violations: input.violations,
+      selectedActionType: input.selectedActionType,
+      actionExecuted: input.actionExecuted,
+      actionAttemptCount: input.actionAttemptCount,
+      generatedEvidencePath: input.generatedEvidencePath,
+      inlineEvidenceSummary: input.inlineEvidenceSummary,
+      statusUpdateReport: input.statusUpdateReport,
+      nextStep: input.nextStep,
+      continued: false,
+      multiStepLoopStarted: false,
+      pushPerformed: false,
+      sideEffects: singleStepSideEffects(),
+    },
+    updatedArtifact: input.updatedArtifact,
+  };
+}
+
+function singleStepSideEffects(): SequentialContinuationSingleStepReport["sideEffects"] {
+  return {
+    runTaskCalled: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    runsCreated: false,
+    worktreesCreated: false,
+    pushPerformed: false,
+  };
+}
+
+function singleStepGuardViolations(artifact: SequentialContinuationArtifact): string[] {
+  const violations: string[] = [];
+
+  if (artifact.currentSlice.status !== "ready") {
+    violations.push("currentSlice.status must be ready for single-step continuation");
+  }
+  if (artifact.currentSlice.dependencyStatus !== "met") {
+    violations.push("currentSlice.dependencyStatus must be met for single-step continuation");
+  }
+  if (artifact.autonomyEnvelope.pushAllowed !== false) {
+    violations.push("autonomyEnvelope.pushAllowed must be false for single-step continuation");
+  }
+
+  for (const stopCondition of artifact.stopConditionChecklist) {
+    if (stopCondition.active) {
+      violations.push(`stop condition active: ${stopCondition.id}: ${stopCondition.evidence}`);
+    }
+  }
+
+  const actionType = artifact.currentSlice.actionType;
+  if (actionType === "manual_decision") {
+    violations.push("manual_decision requires BK input and cannot be executed by single-step continuation");
+  } else if (WRITE_CAPABLE_ACTION_TYPES.has(actionType)) {
+    violations.push(`${actionType} is blocked until reviewed explicit taskSpecPath/batchSpecPath support exists`);
+  } else if (actionType !== SINGLE_STEP_EXECUTABLE_ACTION_TYPE) {
+    violations.push(`single-step continuation currently supports only readiness_check: ${actionType}`);
+  }
+
+  return violations;
+}
+
+function nextStepFromContinuationReport(report: SequentialContinuationReport): SequentialContinuationNextStep | null {
+  if (report.exactNextSamanthaCommand) {
+    return {
+      kind: "samantha_command",
+      value: report.exactNextSamanthaCommand,
+    };
+  }
+  if (report.blockedReportText) {
+    return {
+      kind: "blocked_report",
+      value: report.blockedReportText,
+    };
+  }
+  return null;
+}
+
+function nextStepFromStatusUpdateReport(report: SequentialContinuationStatusUpdateReport): SequentialContinuationNextStep | null {
+  if (report.exactNextSamanthaCommand) {
+    return {
+      kind: "samantha_command",
+      value: report.exactNextSamanthaCommand,
+    };
+  }
+  if (report.blockedReportText) {
+    return {
+      kind: "blocked_report",
+      value: report.blockedReportText,
+    };
+  }
+  return null;
 }
 
 function buildReportBlockingReasons(input: {

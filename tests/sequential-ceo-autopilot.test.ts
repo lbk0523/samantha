@@ -7,6 +7,7 @@ import type {
 import {
   SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS,
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
+  buildSequentialContinuationSingleStep,
   buildSequentialContinuationStatusUpdate,
   buildSequentialContinuationReport,
   validateSequentialContinuationArtifact,
@@ -548,5 +549,243 @@ describe("Sequential CEO Autopilot status update evidence", () => {
 
     expect(result.report.status).toBe("accepted");
     expect(result.updatedArtifact?.currentSlice.status).toBe("blocked");
+  });
+});
+
+describe("Sequential CEO Autopilot guarded single-step continuation", () => {
+  function readinessArtifact(
+    overrides: Partial<SequentialContinuationArtifact> = {},
+  ): SequentialContinuationArtifact {
+    return artifact({
+      currentSlice: {
+        ...artifact().currentSlice,
+        actionType: "readiness_check",
+      },
+      ...overrides,
+    });
+  }
+
+  function readinessStatusEvidence(
+    overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
+  ): SequentialContinuationStatusEvidenceDocument {
+    return statusEvidence({
+      evidenceReferences: [
+        {
+          kind: "readiness_report",
+          path: "inline:readiness:references/initiatives/sequential-ceo-autopilot.md",
+          summary: "Readiness check returned clear for the current initiative.",
+          result: "clear",
+        },
+      ],
+      nextStep: {
+        kind: "samantha_command",
+        value: "sam c: references/initiatives/sequential-ceo-autopilot.md next single step",
+      },
+      ...overrides,
+    });
+  }
+
+  test("executes one ready readiness_check and updates status through S4 evidence handling", async () => {
+    let executorCalls = 0;
+
+    const result = await buildSequentialContinuationSingleStep({
+      artifactPath: "/repo/references/continuation/s5.json",
+      artifact: readinessArtifact(),
+      executeAction: ({ actionType }) => {
+        executorCalls += 1;
+        expect(actionType).toBe("readiness_check");
+        return {
+          evidence: readinessStatusEvidence(),
+          inlineEvidenceSummary: "Readiness check returned clear for the current initiative.",
+        };
+      },
+    });
+
+    expect(executorCalls).toBe(1);
+    expect(result.report.status).toBe("accepted");
+    expect(result.report.selectedActionType).toBe("readiness_check");
+    expect(result.report.actionExecuted).toBe(true);
+    expect(result.report.actionAttemptCount).toBe(1);
+    expect(result.report.generatedEvidencePath).toBeNull();
+    expect(result.report.inlineEvidenceSummary).toBe("Readiness check returned clear for the current initiative.");
+    expect(result.report.statusUpdateReport?.status).toBe("accepted");
+    expect(result.report.statusUpdateReport?.evidencePath).toBe(
+      "inline:sequential-continuation:sequential-ceo-autopilot-s2:S2:readiness_check",
+    );
+    expect(result.report.continued).toBe(false);
+    expect(result.report.multiStepLoopStarted).toBe(false);
+    expect(result.report.pushPerformed).toBe(false);
+    expect(result.report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+      pushPerformed: false,
+    });
+    expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
+    expect(result.updatedArtifact?.evidenceReferences).toEqual(readinessStatusEvidence().evidenceReferences);
+  });
+
+  test("blocks active stop conditions before calling the executor", async () => {
+    let executorCalls = 0;
+    const blockedArtifact = readinessArtifact({
+      stopConditionChecklist: artifact().stopConditionChecklist.map((check) =>
+        check.id === "decision_required"
+          ? {
+              ...check,
+              active: true,
+              evidence: "BK must choose the product boundary.",
+            }
+          : check,
+      ),
+    });
+
+    const result = await buildSequentialContinuationSingleStep({
+      artifactPath: "/repo/references/continuation/blocked.json",
+      artifact: blockedArtifact,
+      executeAction: () => {
+        executorCalls += 1;
+        return { evidence: readinessStatusEvidence() };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.violations).toContain(
+      "stop condition active: decision_required: BK must choose the product boundary.",
+    );
+    expect(result.report.actionExecuted).toBe(false);
+    expect(result.report.actionAttemptCount).toBe(0);
+    expect(result.updatedArtifact).toBeNull();
+  });
+
+  test("blocks unmet dependencies before calling the executor", async () => {
+    let executorCalls = 0;
+    const result = await buildSequentialContinuationSingleStep({
+      artifactPath: "/repo/references/continuation/dependency-blocked.json",
+      artifact: readinessArtifact({
+        currentSlice: {
+          ...readinessArtifact().currentSlice,
+          dependencyStatus: "blocked",
+        },
+      }),
+      executeAction: () => {
+        executorCalls += 1;
+        return { evidence: readinessStatusEvidence() };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.violations).toContain(
+      "currentSlice.dependencyStatus must be met for single-step continuation",
+    );
+    expect(result.updatedArtifact).toBeNull();
+  });
+
+  test("stops manual_decision without executing an action", async () => {
+    let executorCalls = 0;
+    const result = await buildSequentialContinuationSingleStep({
+      artifactPath: "/repo/references/continuation/manual.json",
+      artifact: artifact({
+        currentSlice: {
+          ...artifact().currentSlice,
+          actionType: "manual_decision",
+        },
+      }),
+      executeAction: () => {
+        executorCalls += 1;
+        return { evidence: readinessStatusEvidence() };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.violations).toContain(
+      "manual_decision requires BK input and cannot be executed by single-step continuation",
+    );
+    expect(result.report.actionExecuted).toBe(false);
+  });
+
+  test("blocks write-capable actions without reviewed explicit path support", async () => {
+    for (const actionType of ["run_task", "batch_plan"] as const) {
+      let executorCalls = 0;
+      const result = await buildSequentialContinuationSingleStep({
+        artifactPath: `/repo/references/continuation/${actionType}.json`,
+        artifact: artifact({
+          currentSlice: {
+            ...artifact().currentSlice,
+            actionType,
+          },
+        }),
+        executeAction: () => {
+          executorCalls += 1;
+          return { evidence: readinessStatusEvidence() };
+        },
+      });
+
+      expect(executorCalls).toBe(0);
+      expect(result.report.status).toBe("blocked");
+      expect(result.report.violations).toContain(
+        `${actionType} is blocked until reviewed explicit taskSpecPath/batchSpecPath support exists`,
+      );
+      expect(result.report.sideEffects.workersDispatched).toBe(false);
+      expect(result.updatedArtifact).toBeNull();
+    }
+  });
+
+  test("rejects invalid artifacts without attempting execution", async () => {
+    let executorCalls = 0;
+    const result = await buildSequentialContinuationSingleStep({
+      artifactPath: "/repo/references/continuation/invalid.json",
+      artifact: readinessArtifact({
+        autonomyEnvelope: {
+          ...artifact().autonomyEnvelope,
+          pushAllowed: true as false,
+        },
+      }),
+      executeAction: () => {
+        executorCalls += 1;
+        return { evidence: readinessStatusEvidence() };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(result.report.status).toBe("rejected");
+    expect(result.report.violations).toContain("autonomyEnvelope.pushAllowed must be false");
+    expect(result.report.actionAttemptCount).toBe(0);
+    expect(result.updatedArtifact).toBeNull();
+  });
+
+  test("does not execute a second slice after the first accepted action", async () => {
+    let executorCalls = 0;
+    const result = await buildSequentialContinuationSingleStep({
+      artifactPath: "/repo/references/continuation/no-loop.json",
+      artifact: readinessArtifact(),
+      executeAction: () => {
+        executorCalls += 1;
+        return {
+          evidence: readinessStatusEvidence({
+            nextStep: {
+              kind: "samantha_command",
+              value: "sam c: references/initiatives/sequential-ceo-autopilot.md S6",
+            },
+          }),
+          inlineEvidenceSummary: "Readiness check returned clear; S6 is only reported as the next command.",
+        };
+      },
+    });
+
+    expect(executorCalls).toBe(1);
+    expect(result.report.actionAttemptCount).toBe(1);
+    expect(result.report.continued).toBe(false);
+    expect(result.report.multiStepLoopStarted).toBe(false);
+    expect(result.report.nextStep).toEqual({
+      kind: "samantha_command",
+      value: "sam c: references/initiatives/sequential-ceo-autopilot.md S6",
+    });
+    expect(result.updatedArtifact?.currentSlice.id).toBe("S2");
+    expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
   });
 });
