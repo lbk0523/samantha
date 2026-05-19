@@ -149,8 +149,8 @@ Stop before continuing when any of these appear:
 | Slice | Status | Objective | Dependency | Verification | Next Prompt |
 | --- | --- | --- | --- | --- | --- |
 | S0 | completed | Preserve the approved direction as this Initiative Continuity Brief. | BK approval in current plan request. | `git diff --check HEAD -- '*.md' 'references/**/*.md'`; optional `bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md`. | None. |
-| S1 | ready | Write the Sequential CEO Autopilot design contract: artifact lifecycle, action type vocabulary, autonomy envelope, and stop conditions. Update only direction/playbook docs unless the plan exposes a deterministic enforcement need. | S0. | `git diff --check HEAD -- '*.md' 'references/**/*.md'`. | `sam c: references/initiatives/sequential-ceo-autopilot.md 를 읽고 S1을 수행해. Sequential CEO Autopilot의 design contract와 artifact lifecycle을 문서화하되 구현은 하지 말고, 기존 Phase 5.5/Initiative Brief 경계를 약화하지 마.` |
-| S2 | pending | Add a structured continuation artifact validator and tests. The validator should reject unsafe action types, missing stop conditions, push authority, hidden memory fields, and lifecycle-authorizing shortcuts. | S1. | Focused validator tests; `bun run typecheck`. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S2를 수행해. 구조화된 continuation artifact validator와 focused tests를 추가하되 CLI 실행, worker dispatch, push, daemon, hidden memory는 추가하지 마.` |
+| S1 | completed | Write the Sequential CEO Autopilot design contract: artifact lifecycle, action type vocabulary, autonomy envelope, and stop conditions. Update only direction/playbook docs unless the plan exposes a deterministic enforcement need. | S0. | Created `references/playbooks/sequential-ceo-autopilot.md`; expected verification: file exists, contract terms are present, readiness check passes, and markdown diff check passes. | None. |
+| S2 | ready | Add a structured continuation artifact validator and tests. The validator should reject unsafe action types, missing stop conditions, push authority, hidden memory fields, and lifecycle-authorizing shortcuts. | S1. | Focused validator tests; `bun run typecheck`. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S2를 수행해. 구조화된 continuation artifact validator와 focused tests를 추가하되 CLI 실행, worker dispatch, push, daemon, hidden memory는 추가하지 마.` |
 | S3 | pending | Add a report-only CLI surface that reads a continuation artifact and reports the current ready slice, blocking reasons, allowed action type, and exact next Samantha command. No execution. | S2. | CLI parser tests; focused core tests; `bun run typecheck`. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S3를 수행해. continuation artifact의 current ready slice를 report-only로 보여주는 CLI를 추가하고 실행/dispatch는 하지 마.` |
 | S4 | pending | Add deterministic status update support after externally supplied evidence: mark a slice completed, blocked, or failed only from cited run/readiness/report evidence. No automatic next execution yet. | S3. | Focused status-transition tests; CLI tests; `bun run typecheck`. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S4를 수행해. cited evidence 기반 continuation status update를 추가하되 worker output text만으로 trusted state를 만들지 마.` |
 | S5 | pending | Add guarded single-step continuation: execute exactly one ready slice when its action type is explicit and allowed, then stop with evidence and next status. | S4. | Focused one-step runner tests with fake actions; existing run-task/batch tests as needed; `bun run typecheck`. | `sam c: references/initiatives/sequential-ceo-autopilot.md 의 S5를 수행해. allowed action type 하나만 실행하는 guarded single-step continuation을 추가하고 multi-step loop는 아직 구현하지 마.` |
@@ -159,11 +159,13 @@ Stop before continuing when any of these appear:
 
 ## Current Next Slice
 
-S1 is ready.
+S2 is ready.
 
-S1 should stay documentation-only. It should not implement validator code,
-CLI commands, runner behavior, task specs, worker dispatch, automatic
-continuation, or lifecycle mutation.
+S1 stayed documentation-only and created
+`references/playbooks/sequential-ceo-autopilot.md`. S2 should implement only the
+structured continuation artifact validator and focused tests. It should not add
+CLI execution, worker dispatch, push, daemon/watch behavior, hidden memory,
+remote adapters, lifecycle mutation, or automatic continuation.
 
 ## End-of-Session Update Rule
 
