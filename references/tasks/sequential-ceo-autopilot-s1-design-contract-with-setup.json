@@ -1,0 +1,42 @@
+{
+  "id": "sequential-ceo-autopilot-s1-design-contract-with-setup",
+  "title": "Document Sequential CEO Autopilot design contract with setup",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/sequential-ceo-autopilot.md",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/playbooks/sequential-ceo-autopilot.md",
+    "rg \"Sequential CEO Autopilot|continuation artifact|stop condition|pushAllowed: false|maxFailedEvidenceReworkCycles\" references/playbooks/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/playbooks/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "This v2 task supersedes the blocked run /Users/byung/Documents/samantha/runs/2026-05-19T12-03-50-748Z-sequential-ceo-autopilot-s1-design-contract.json, which failed because the isolated worktree was missing @openai/codex-sdk during readiness verification. Do not trust or copy output from that failed worker run; use it only as setup-failure evidence. Read references/initiatives/sequential-ceo-autopilot.md and perform only S1. Create references/playbooks/sequential-ceo-autopilot.md as the Sequential CEO Autopilot design contract. Document artifact lifecycle, structured continuation artifact responsibilities, conservative action type vocabulary, autonomy envelope, stop conditions, report/evidence expectations, and how this preserves existing Phase 5.5 BatchPlanDraft and Initiative Continuity Brief boundaries. Update references/initiatives/sequential-ceo-autopilot.md only to mark S1 completed, record verification expectations or status, and make S2 the next ready slice. Do not implement validator code, CLI commands, runner behavior, task specs, worker dispatch, automatic continuation, lifecycle mutation, policy changes, doctrine changes, templates, agent profiles, package changes, hidden memory, remote adapters, daemon/watch behavior, dashboards, routine triggers, natural-language-only dispatch, push automation, or broad refactors. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: define sequential ceo autopilot contract",
+  "status": "pending"
+}
