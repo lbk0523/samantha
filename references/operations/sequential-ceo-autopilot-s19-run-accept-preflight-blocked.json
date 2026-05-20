@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s19-run-accept-preflight-blocked",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-20T13:05:00.000Z",
+  "updatedAt": "2026-05-20T13:05:00.000Z",
+  "currentSlice": {
+    "id": "S19",
+    "status": "ready",
+    "actionType": "report_only",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S18 runAcceptPreflight implementation is complete."
+    ],
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'S16 dogfood worker output' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'run_task dogfood only' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S19 dogfoods report-only preflight visibility; S20 execution authority is still pending."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S19 uses only continuation show and records display evidence."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "The blocked run log carries matching target, forbidden, and verify handoff fields."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "S18 preflight should report stale base for the S16 run candidate."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "The S16 run log includes HARNESS_RESULT status pass."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "The S16 run log has no scope violations."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed-evidence rework cycle is spent in S19."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S19 uses report-only display evidence; S20 remains pending."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S19 records deterministic CLI output in a report artifact before moving to S20."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "run_log",
+      "path": "runs/2026-05-20T07-50-20-478Z-sequential-ceo-autopilot-s16-dogfood-worker.json",
+      "summary": "S16 dogfood worker run used as stale-base blocked runAcceptPreflight fixture.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "blocked_report",
+    "value": "Stop after report-only preflight evidence; S20 remains pending."
+  },
+  "runAcceptCandidate": {
+    "runLogPath": "runs/2026-05-20T07-50-20-478Z-sequential-ceo-autopilot-s16-dogfood-worker.json",
+    "expectedRunId": "2026-05-20T07-50-20-478Z-sequential-ceo-autopilot-s16-dogfood-worker",
+    "expectedTaskId": "sequential-ceo-autopilot-s16-dogfood-worker",
+    "expectedCommit": "10b861c9023944d603fa6ac9bc041bb9715d0b18",
+    "expectedBaseCommit": "86c940759f078607118ef15d851eb1e774e99cb0",
+    "targetBranch": "main",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "accept_preflight_only",
+    "lifecycleOwner": "samantha",
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runsAcceptCalled": false,
+      "mergeGateRecorded": false,
+      "mergePerformed": false,
+      "lifecycleMutated": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "batchesExecuteCalled": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}

@@ -227,8 +227,8 @@ Stop before continuing when any of these appear:
 | S16 | completed | Dogfood S15 guarded single-`run_task` execution against one small committed-clean TaskSpec and prove the runner stops at run log/report evidence. | S15. | Passed: `continuation:show` accepted the committed-clean S16 TaskSpec preflight; `continuation:run-task-once` executed exactly one SDK-backed `run_task`, recorded `HARNESS_RESULT.status: pass`, deterministic verification, `actionAttemptCount: 1`, `continued: false`, `stopReason: run_task_evidence_recorded`, `pushPerformed: false`, and false continuation side effects for accept, merge, cleanup, commit, push, `batch_plan`, multi-step loop, and successor execution. The existing run-task gate created an isolated worker candidate commit, not a mainline continuation commit. | None. |
 | S17 | completed | Design the post-run lifecycle boundary for `runs:accept`, merge, and cleanup after S16 evidence. | S16. | Created `references/initiatives/sequential-ceo-autopilot-s17-post-run-lifecycle-boundary.md` and `references/operations/sequential-ceo-autopilot-s17-post-run-lifecycle-report.md`. Decision: S18 is report-only accept preflight through a closed `runAcceptCandidate`; it must not call `runs:accept`, `merge:check`, `worktree:cleanup`, `runs:mark-lifecycle`, mutate run logs or lifecycle records, merge, cleanup, commit, push, dispatch workers, run `run_task`, run `batch_plan`, loop, or execute successors. S16 is a useful stale-base blocked fixture, not accepted main state. | None. |
 | S18 | completed | Implement report-only `runs:accept` preflight visibility for a single run log without accepting, merging, cleaning up, committing, pushing, or continuing. | S17. | S18 added closed optional `runAcceptCandidate` support and `runAcceptPreflight` visibility on `continuation:show`. Focused core and CLI tests cover absent/null candidates, closed-schema rejection, predecessor validation ordering, accepted temp git run-log preflight, stale base, mismatched identity/commit/runtime evidence, failed evaluation/HARNESS_RESULT/scope/verify evidence, unsafe/missing/off-repo/invalid run-log paths, dirty repo/wrong branch, missing/non-descendant commits, active stops, side-effect/push requests, cleanup readiness risks, false side effects, blocked non-zero CLI exit, and no input-file mutation. | None. |
-| S19 | ready | Dogfood S18 `runs:accept` preflight against accepted and blocked run logs. | S18. | Dogfood evidence should show deterministic accepted and blocked preflight outcomes and prove no accept, merge, cleanup, commit, push, worker dispatch, new run, or continuation side effects occur. | `sam c: Dogfood S18 for references/initiatives/sequential-ceo-autopilot.md against one accepted and one blocked runAcceptPreflight report. Do not call runs:accept, merge:check, worktree:cleanup, lifecycle mutation, run_task, batch_plan, worker dispatch, commit, push, multi-step loop, or successor execution.` |
-| S20 | pending | Implement guarded single `runs:accept` execution for one preflight-accepted run log only. | S19. | Focused implementation evidence should prove exactly one `runs:accept`, merge-gate preservation, lifecycle mark, cleanup, `pushPerformed: false`, deterministic blocked cases, and no commit, push, `batch_plan`, multi-step loop, or successor execution. | Pending until S19 completes. |
+| S19 | completed | Dogfood S18 `runs:accept` preflight against accepted and blocked run logs. | S18. | Created accepted and blocked S19 preflight artifacts plus a dogfood report. `continuation:show` accepted a temporary cleanup-ready fixture and blocked the real S16 run log with `target repo HEAD no longer matches the worker base commit`; side-effect flags stayed false and no accept, merge, cleanup, push, worker dispatch, new run, multi-step loop, or successor execution occurred. | None. |
+| S20 | ready | Implement guarded single `runs:accept` execution for one preflight-accepted run log only. | S19. | Focused implementation evidence should prove exactly one `runs:accept`, merge-gate preservation, lifecycle mark, cleanup, `pushPerformed: false`, deterministic blocked cases, and no commit, push, `batch_plan`, multi-step loop, or successor execution. | `sam c: Implement S20 for references/initiatives/sequential-ceo-autopilot.md. Add guarded single runs:accept execution for one preflight-accepted run log only. Preserve existing accept, merge, lifecycle, and cleanup gates; stop immediately after lifecycle evidence; do not add commit, push, batch_plan, multi-step loop, successor execution, daemon/watch behavior, hidden memory, or broader routine authority.` |
 | S21 | pending | Dogfood S20 through one accepted run lifecycle. | S20. | Dogfood evidence should show one run accepted, merged, lifecycle-marked, cleaned up, and stopped with no commit, push, `batch_plan`, multi-step loop, successor execution, daemon/watch, hidden memory, or broad roadmap execution. | Pending until S20 completes. |
 | S22 | pending | Add post-accept status update and deterministic next-artifact reporting from accepted lifecycle evidence. | S21. | Focused evidence should prove accepted lifecycle evidence can complete the current slice, preserve cited evidence, report the next ready artifact or stop reason, and avoid worker text, push, `batch_plan`, or multi-step execution as trusted state. | Pending until S21 completes. |
 | S23 | pending | Dogfood one end-to-end writer continuation cycle: `run_task -> accept -> status update -> next ready slice or stop report`. | S22. | End-to-end evidence should show BK does not need to issue separate scheduler commands inside the single writer-slice lifecycle, while all stop conditions, false push, and lifecycle evidence remain reviewable. | Pending until S22 completes. |
@@ -236,7 +236,7 @@ Stop before continuing when any of these appear:
 
 ## Current Next Slice
 
-S19 is ready.
+S20 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -255,10 +255,10 @@ CLI run accepted one `readiness_check`, updated D1 to `completed`, preserved
 false side-effect flags, and stopped with
 `stopReason: no_deterministic_next_artifact`.
 
-S18 report-only `runs:accept` preflight implementation is complete. S19 is the
-only next ready slice and should dogfood accepted and blocked preflight reports
-before any guarded `runs:accept` execution work begins. Broader routine use is
-not yet justified.
+S19 dogfooded S18 report-only `runs:accept` preflight visibility against one
+accepted temporary fixture and one blocked real S16 run log. S20 is the only
+next ready slice and may implement guarded single `runs:accept` execution for
+one preflight-accepted run log only. Broader routine use is not yet justified.
 
 Readiness-only continuation works, and S8 has now documented the boundary for
 deterministic next-artifact linkage plus reviewed `run_task`/`batch_plan`
@@ -278,17 +278,15 @@ implementation. S15 implemented that guarded single-run surface and preserved
 the immediate stop after run log/report evidence. S16 dogfooded that surface
 against one small committed-clean TaskSpec and proved the continuation runner
 stops after run evidence. S17 designed the post-run lifecycle boundary and
-kept the S16 worker candidate as evidence rather than accepted main state. The
-next safe step is exactly one ready slice: S18 report-only `runs:accept`
-preflight visibility through a closed `runAcceptCandidate`. S18 must not call
-`runs:accept`, `merge:check`, `worktree:cleanup`, `runs:mark-lifecycle`, mutate
-run logs or lifecycle records, merge, cleanup, commit, push, run `run_task`,
-run `batch_plan`, dispatch workers, start a multi-step loop, execute
-successors, add daemon/watch behavior, remote adapters, dashboards, routine
-triggers, hidden memory, or broad roadmap execution.
+kept the S16 worker candidate as evidence rather than accepted main state. S18
+implemented report-only `runs:accept` preflight visibility through a closed
+`runAcceptCandidate`. S19 dogfooded accepted and blocked preflight outcomes
+without granting lifecycle execution authority. The next safe step is exactly
+one ready slice: S20 guarded single `runs:accept` execution for one
+preflight-accepted run log only.
 
-The remaining roadmap is fixed through S24. S18 is only report-only
-`runs:accept` preflight and must not be treated as initiative completion. The
+The remaining roadmap is fixed through S24. S20 is still lifecycle execution
+only and must not be treated as initiative completion. The
 MVP completion candidate is S23, where one writer slice can complete
 end-to-end through `run_task`, `runs:accept`, status update, and next ready or
 stop reporting. S24 is the explicit closure decision: close the MVP or move
@@ -570,6 +568,37 @@ multi-writer, `batch_plan`, and broader routine use to a separate initiative.
   at `b37c5111361c57c50ceefd3e37062490cf47247e` during S17 planning.
 - Next slice: S18, report-only `runs:accept` preflight visibility. Do not
   implement guarded accept execution until S20.
+
+## S19 Evidence And Decision
+
+- Accepted preflight artifact snapshot:
+  `references/operations/sequential-ceo-autopilot-s19-run-accept-preflight-accepted.json`
+- Blocked preflight artifact:
+  `references/operations/sequential-ceo-autopilot-s19-run-accept-preflight-blocked.json`
+- Dogfood report:
+  `references/operations/sequential-ceo-autopilot-s19-run-accept-preflight-report.md`
+- Accepted command:
+  `bun run samantha continuation:show --repo-root=/tmp/samantha-s19-accepted-5NEVIQ --artifact=/tmp/samantha-s19-accepted-5NEVIQ/references/operations/s19-accepted.json`
+- Blocked command:
+  `bun run samantha continuation:show --repo-root=. --artifact=/tmp/s19-blocked.json`
+- Outcome: accepted fixture returned `runAcceptPreflight.status: accepted`
+  with cleanup readiness `ready`, no blocking reasons, `trustedStateChanges:
+  false`, `pushPerformed: false`, and all preflight side-effect flags false.
+- Outcome: real S16 run log returned `runAcceptPreflight.status: blocked`
+  with blocking reason `target repo HEAD no longer matches the worker base
+  commit`, cleanup readiness `ready`, `trustedStateChanges: false`,
+  `pushPerformed: false`, and all preflight side-effect flags false.
+- Decision: S18's report-only preflight surface is adequate to distinguish a
+  cleanup-ready candidate from a stale-base candidate before any lifecycle
+  execution authority is introduced.
+- Constraint discovered: the current Samantha repo did not contain a durable
+  cleanup-ready unaccepted run log that could produce an accepted preflight
+  without creating a new worker run or recreating worktree state. S19 therefore
+  used a temporary accepted fixture and the real S16 stale-base run log.
+- Next slice: S20, guarded single `runs:accept` execution for one
+  preflight-accepted run log only. Do not add commit, push, `batch_plan`,
+  multi-step loop, successor execution, daemon/watch behavior, hidden memory,
+  or broader routine authority.
 
 ## End-of-Session Update Rule
 
