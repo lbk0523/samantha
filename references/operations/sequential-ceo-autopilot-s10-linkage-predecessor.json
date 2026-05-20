@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s10-linkage-predecessor",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-20T00:00:00.000Z",
+  "updatedAt": "2026-05-20T00:00:00.000Z",
+  "currentSlice": {
+    "id": "S10",
+    "status": "completed",
+    "actionType": "report_only",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S9 and S9.1 next-artifact linkage behavior is recorded in the initiative."
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S10 is a report-only dogfood and design slice with no product decision needed."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S10 records the future coordination boundary without moving authority."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S10 cites the initiative, S8 boundary, and S10 boundary design."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "S10 linkage is report-only and uses worktree-local --repo-root=."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "S10 does not run a worker and does not require HARNESS_RESULT as artifact state."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "S10 modifies only declared report and design artifacts."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence rework cycle is spent by this report-only linkage check."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S10 uses report-only local inspection with no executable action."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S10 has explicit predecessor and successor artifacts under references/operations."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "report_review",
+      "path": "references/initiatives/sequential-ceo-autopilot.md",
+      "summary": "The initiative records S9 and S9.1 report-only next-artifact linkage decisions.",
+      "result": "completed"
+    },
+    {
+      "kind": "report_review",
+      "path": "references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+      "summary": "S8 defines explicit nextArtifactPath linkage and action coordination boundaries.",
+      "result": "completed"
+    },
+    {
+      "kind": "report_review",
+      "path": "references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md",
+      "summary": "S10 preserves reviewed gates for future run_task and batch_plan coordination.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "sam p: Design S11 run_task coordination preflight-only slice for references/initiatives/sequential-ceo-autopilot.md without executing run_task."
+  },
+  "nextArtifactPath": "references/operations/sequential-ceo-autopilot-s10-linkage-successor.json",
+  "nextArtifactExpectedSliceId": "S11"
+}

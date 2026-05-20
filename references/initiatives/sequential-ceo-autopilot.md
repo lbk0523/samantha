@@ -164,11 +164,12 @@ Stop before continuing when any of these appear:
 | S7 | completed | Dogfood the full MVP on a small Samantha self-build initiative and update this brief with outcomes, blocked edges, and whether broader routine use is justified. | S6. | Passed: created `references/initiatives/sequential-ceo-autopilot-s7-dogfood.md` and `references/operations/sequential-ceo-autopilot-s7-continuation.json`; ran `bun run samantha continuation:loop --artifact=references/operations/sequential-ceo-autopilot-s7-continuation.json --max-steps=2`; result accepted one readiness step, updated D1 to completed, preserved false side-effect flags, and stopped with `no_deterministic_next_artifact`; recorded `references/operations/sequential-ceo-autopilot-s7-dogfood-report.md`. | None. |
 | S8 | completed | Design the next deterministic artifact-link and action-execution boundary before broad routine use. Keep this at CEO/product-boundary level: decide how next artifacts are named, how reviewed `run_task`/`batch_plan` support is authorized, and what stop conditions remain mandatory. | S7. | Created `references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md`; expected verification: required headings present, S9 follow-up named, readiness check passes, and scoped diff check passes. | None. |
 | S9 | completed | Add deterministic validation and report-only visibility for explicit next-artifact linkage before enabling writer action execution. Prefer a narrow `nextArtifactPath` validator/report-only slice that rejects prose or command-string successors, missing files, off-repo paths, cycles, stale evidence, active stop conditions, and push requirements. Do not execute `run_task` or `batch_plan`. | S8. | Passed in S9 worker: focused core tests for accepted local `nextArtifactPath` and rejection of prose, command strings, missing files, off-repo paths, path traversal, cycles, stale evidence, active stop conditions, push requirements, mismatched expected slice ids, and invalid successor artifacts; CLI tests prove `continuation:show` reports next-artifact accepted/blocked status and reasons without creating runs or worktrees; typecheck, readiness check, and scoped diff check passed. | None. |
-| S10 | ready | Dogfood S9 report-only next-artifact linkage and design the reviewed action coordination boundary for future `run_task` / `batch_plan` support. Keep this report-only or design-only: no worker dispatch, no batch execution, no merge, no cleanup, no commit/push automation. | S9. | Report-only dogfood evidence or design artifact demonstrates linked-artifact validation behavior and names the exact reviewed gates still required before action coordination; readiness check and scoped diff check pass. | `sam c: Implement S10 for references/initiatives/sequential-ceo-autopilot.md. Dogfood S9 report-only next-artifact linkage or write a narrow reviewed-action-coordination design for future run_task / batch_plan support. Do not execute run_task or batch_plan, dispatch workers, merge, cleanup, commit, push, or bypass Phase 5.5 / Phase 5 gates.` |
+| S10 | completed | Dogfood S9 report-only next-artifact linkage and design the reviewed action coordination boundary for future `run_task` / `batch_plan` support. Keep this report-only or design-only: no worker dispatch, no batch execution, no merge, no cleanup, no commit/push automation. | S9. | Passed: created `references/operations/sequential-ceo-autopilot-s10-dogfood-report.md` and `references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md`; `continuation:show --repo-root=.` accepted the valid predecessor/successor linkage and blocked the invalid predecessor before successor inspection; readiness check and scoped diff check pass. | None. |
+| S11 | ready | Design reviewed `run_task` coordination or a preflight-only report path through existing run-task gates. Do not execute `run_task`; prove only committed TaskSpec routing, SDK runtime requirement, isolated worktree ownership by Samantha, scope/verify handoff, and stop behavior. | S10. | Design or preflight-only evidence cites S10 dogfood and preserves existing run-task gates without worker dispatch or lifecycle mutation; readiness check and scoped diff check pass. | `sam p: Design S11 run_task coordination or preflight-only reporting for references/initiatives/sequential-ceo-autopilot.md. Do not execute run_task, dispatch workers, create worktrees, merge, cleanup, commit, push, or bypass existing run-task gates.` |
 
 ## Current Next Slice
 
-S10 is ready.
+S11 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -192,10 +193,11 @@ Broader routine use: not yet justified.
 Readiness-only continuation works, and S8 has now documented the boundary for
 deterministic next-artifact linkage plus reviewed `run_task`/`batch_plan`
 coordination. S9 implemented only validator/report-only support for explicit
-`nextArtifactPath` linkage before any writer action execution is enabled. The
-next safe step is S10: dogfood that report-only linkage or write the reviewed
-action-coordination design for future `run_task` / `batch_plan` support while
-preserving the Phase 5.5 and Phase 5 boundaries.
+`nextArtifactPath` linkage before any writer action execution is enabled. S10
+dogfooded that report-only linkage with worktree-local `--repo-root=.` commands
+and recorded the action coordination boundary. The next safe step is S11: a
+reviewed `run_task` coordination design or preflight-only slice through existing
+run-task gates. Do not execute `run_task` yet.
 
 ## S7 Evidence And Decision
 
@@ -277,6 +279,39 @@ preserving the Phase 5.5 and Phase 5 boundaries.
 - Next slice: S10, report-only dogfood or reviewed action-coordination design
   for future `run_task` / `batch_plan` support. Preserve Phase 5.5 draft review
   and Phase 5 batch gates; do not execute writer actions in S10.
+
+## S10 Evidence And Decision
+
+- Dogfood report:
+  `references/operations/sequential-ceo-autopilot-s10-dogfood-report.md`
+- Action coordination boundary:
+  `references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md`
+- Valid predecessor artifact:
+  `references/operations/sequential-ceo-autopilot-s10-linkage-predecessor.json`
+- Valid successor artifact:
+  `references/operations/sequential-ceo-autopilot-s10-linkage-successor.json`
+- Invalid predecessor artifact:
+  `references/operations/sequential-ceo-autopilot-s10-linkage-invalid-predecessor.json`
+- Accepted command:
+  `bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s10-linkage-predecessor.json --repo-root=.`
+- Blocked command:
+  `bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s10-linkage-invalid-predecessor.json --repo-root=.`
+- Decision: S10 remains report-only and design-only evidence. It proves
+  accepted explicit `nextArtifactPath` linkage to S11 and S9.1
+  predecessor-validation-first blocked linkage. It does not run `run_task`, run
+  `batch_plan`, dispatch workers, create run logs, create worktrees, mutate
+  lifecycle state, merge, cleanup, commit, or push.
+- Decision: future `run_task` coordination may only route to a committed
+  TaskSpec through existing run-task gates, SDK runtime, isolated worktree
+  allocation by Samantha, `HARNESS_RESULT`, changed-file scope checks,
+  deterministic verification, Samantha-owned accept, merge, lifecycle record,
+  cleanup, and local commit/report.
+- Decision: future `batch_plan` coordination must preserve Phase 5.5
+  `BatchPlanDraft` review and Phase 5 `BatchSpec` preparation, preflight,
+  disjoint write-set proof, serial-only handling, worker run evidence, ordered
+  integration, lifecycle, and cleanup.
+- Next slice: S11, reviewed `run_task` coordination design or preflight-only
+  reporting through existing run-task gates. Do not execute `run_task` yet.
 
 ## End-of-Session Update Rule
 

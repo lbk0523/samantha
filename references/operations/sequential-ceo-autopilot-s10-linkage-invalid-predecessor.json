@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s10-linkage-invalid-predecessor",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-20T00:00:00.000Z",
+  "updatedAt": "2026-05-20T00:00:00.000Z",
+  "currentSlice": {
+    "id": "S10-invalid",
+    "status": "completed",
+    "actionType": "report_only",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S9.1 predecessor-validation-first behavior is recorded in the initiative."
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": true,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "This invalid artifact is only for report-only predecessor validation."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "The invalidity is limited to pushAllowed so predecessor validation must block."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "The invalid artifact cites local initiative evidence."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "No repo mutation is requested by this artifact."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "No worker execution is involved."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "No write-capable action is involved."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence rework cycle is spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "The artifact is inspected only by continuation:show."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "The artifact has one explicit malformed authority field."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "report_review",
+      "path": "references/initiatives/sequential-ceo-autopilot.md",
+      "summary": "The initiative records S9.1 predecessor validation behavior.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "sam p: Do not execute this invalid artifact; inspect predecessor-validation-first behavior only."
+  },
+  "nextArtifactPath": "references/operations/sequential-ceo-autopilot-s10-linkage-successor.json",
+  "nextArtifactExpectedSliceId": "S11"
+}

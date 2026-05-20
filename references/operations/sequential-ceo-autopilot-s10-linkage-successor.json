@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s10-linkage-successor",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-20T00:00:00.000Z",
+  "updatedAt": "2026-05-20T00:00:00.000Z",
+  "currentSlice": {
+    "id": "S11",
+    "status": "ready",
+    "actionType": "report_only",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S10 dogfood report and S10 action-coordination boundary are present."
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S11 is limited to reviewed run_task coordination design or preflight-only behavior."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S11 must preserve existing run-task gates before any execution support."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S11 cites the accepted S10 predecessor artifact."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "S11 begins from S10 report-only local evidence."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "S11 is not a worker execution artifact."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "S11 has no write-capable target surface in this successor artifact."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence rework cycle is spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S11 stays report-only and authorizes no executable follow-up."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S11 names one explicit current slice and no successor artifact yet."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "continuation_report",
+      "path": "references/operations/sequential-ceo-autopilot-s10-linkage-predecessor.json",
+      "summary": "S11 cites the accepted S10 predecessor artifact for freshness.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "sam p: Review S11 as a run_task coordination design or preflight-only slice before any run_task execution."
+  }
+}
