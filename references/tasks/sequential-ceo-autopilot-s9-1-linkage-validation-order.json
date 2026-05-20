@@ -1,0 +1,52 @@
+{
+  "id": "sequential-ceo-autopilot-s9-1-linkage-validation-order",
+  "title": "Fix Sequential CEO Autopilot next-artifact predecessor validation order",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "src/cli.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/commands/**",
+    "src/core/worker-*.ts",
+    "src/core/run-*.ts",
+    "src/core/batch-*.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts tests/sequential-ceo-autopilot.test.ts src/cli.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md, src/core/sequential-ceo-autopilot.ts, src/cli.ts, tests/sequential-ceo-autopilot.test.ts, and tests/cli.test.ts. Perform only S9.1. Fix buildSequentialContinuationNextArtifactReport so it validates the current artifact before reading nextArtifactPath or nextArtifactExpectedSliceId. Invalid predecessor artifacts must produce blocked linkage reports, not absent linkage reports, even when nextArtifactPath is absent, null, or non-string. Ensure the implementation does not read successor linkage fields before the invalid-predecessor block. Keep the normal absent/null behavior only for already-valid predecessor artifacts. Add focused core tests proving non-string nextArtifactPath produces a blocked linkage report with the current-artifact validation reason, and absent/null nextArtifactPath with an invalid predecessor also produces a blocked linkage report rather than absent. Add focused CLI tests proving continuation:show exposes nextArtifactLinkage.status blocked and deterministic blocking reasons for a malformed non-string nextArtifactPath case. Update references/initiatives/sequential-ceo-autopilot.md only to record the S9.1 correction evidence under S9 or a narrow progress note; do not change S10 status, objective, verification, or next prompt. Do not execute or implement continuation run_task or batch_plan action execution, taskSpecPath or batchSpecPath dispatch, worker dispatch from continuation, merge, cleanup, commit, push, daemon or watch behavior, remote adapters, dashboards, routine triggers, hidden memory, broad roadmap execution, policy changes, doctrine changes, task templates, agent profiles, package changes, broad refactors, or worker-owned orchestration. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: validate sequential ceo linkage predecessor first",
+  "status": "pending"
+}
