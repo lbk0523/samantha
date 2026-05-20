@@ -3,6 +3,7 @@ import { isAbsolute, posix, relative, resolve } from "node:path";
 import type { HarnessResult, TaskSpec, WorktreeAllocation } from "./contracts";
 import { git, gitRaw } from "./git";
 import { actionableCommitForRunLog } from "./run-commit";
+import type { RunAcceptResult } from "./run-accept";
 import type { WorkerRunLog } from "./run-log";
 
 export const SEQUENTIAL_CONTINUATION_ACTION_TYPES = [
@@ -183,6 +184,36 @@ export interface SequentialContinuationRunAcceptCandidate {
   };
 }
 
+export interface SequentialContinuationRunAcceptExecution {
+  runLogPath: string;
+  expectedRunId: string;
+  expectedTaskId: string;
+  expectedCommit: string;
+  expectedBaseCommit: string;
+  targetBranch?: string;
+  requiredRuntime: string;
+  executionMode: string;
+  lifecycleOwner: string;
+  targetFiles: string[];
+  forbiddenChanges: string[];
+  verifyCommands: string[];
+  pushAllowed: false;
+  expectedSideEffects: {
+    runsAcceptCalled: boolean;
+    mergeGateRecorded: boolean;
+    mergePerformed: boolean;
+    lifecycleMutated: boolean;
+    cleanupPerformed: boolean;
+    commitPerformed: boolean;
+    pushPerformed: boolean;
+    runTaskCalled: boolean;
+    workersDispatched: boolean;
+    batchesExecuteCalled: boolean;
+    multiStepLoopStarted: boolean;
+    successorExecuted: boolean;
+  };
+}
+
 export interface SequentialContinuationArtifact {
   schemaVersion: 1;
   artifactId: string;
@@ -199,6 +230,7 @@ export interface SequentialContinuationArtifact {
   runTaskCandidate?: SequentialContinuationRunTaskCandidate | null;
   runTaskExecution?: SequentialContinuationRunTaskExecution | null;
   runAcceptCandidate?: SequentialContinuationRunAcceptCandidate | null;
+  runAcceptExecution?: SequentialContinuationRunAcceptExecution | null;
 }
 
 export interface SequentialContinuationNextArtifactReport {
@@ -365,6 +397,87 @@ export interface SequentialContinuationRunTaskExecutionReport {
     cleanupPerformed: false;
     commitPerformed: false;
     pushPerformed: false;
+    multiStepLoopStarted: false;
+    successorExecuted: false;
+  };
+}
+
+export interface SequentialContinuationRunAcceptExecutionExecutorInput {
+  repoRoot: string;
+  artifactPath: string;
+  runLogPath: string;
+  normalizedRunLogPath: string;
+  resolvedRunLogPath: string;
+  targetBranch: string;
+  requiredRuntime: "codex-sdk";
+  stateDir?: string;
+}
+
+export type SequentialContinuationRunAcceptExecutionExecutor = (
+  input: SequentialContinuationRunAcceptExecutionExecutorInput,
+) => Promise<RunAcceptResult> | RunAcceptResult;
+
+export interface SequentialContinuationRunAcceptExecutionReport {
+  artifactPath: string;
+  repoRoot: string;
+  status: "accepted" | "blocked" | "rejected";
+  violations: string[];
+  blockingReasons: string[];
+  selectedActionType: string | null;
+  runLogPath: string | null;
+  normalizedRunLogPath: string | null;
+  resolvedRunLogPath: string | null;
+  run: {
+    id: string;
+    taskId: string;
+  } | null;
+  expectedRunId: string | null;
+  expectedTaskId: string | null;
+  expectedCommit: string | null;
+  expectedBaseCommit: string | null;
+  targetBranch: string | null;
+  requiredRuntime: string | null;
+  lifecycleOwner: string | null;
+  runAcceptPreflight: SequentialContinuationRunAcceptPreflightReport | null;
+  acceptResultSummary: {
+    accepted: boolean;
+    status: string;
+    gateStatus: string | null;
+    mergeExitCode: number | null;
+    lessonDraftStatus: string | null;
+    lessonDraftPath: string | null;
+  } | null;
+  lifecycleEvidenceSummary: {
+    merged: boolean;
+    cleaned: boolean;
+    runId: string | null;
+    taskId: string | null;
+    commit: string | null;
+  } | null;
+  cleanupEvidenceSummary: {
+    cleaned: boolean;
+    classification: string | null;
+    worktreePath: string | null;
+    branch: string | null;
+    violations: string[];
+  } | null;
+  actionAttemptCount: number;
+  actionExecuted: boolean;
+  continued: false;
+  stopReason: string;
+  trustedStateChanges: string[];
+  pushPerformed: false;
+  sideEffects: {
+    runsAcceptCalled: boolean;
+    mergeGateRecorded: boolean;
+    mergePerformed: boolean;
+    lifecycleMutated: boolean;
+    cleanupPerformed: boolean;
+    commitPerformed: false;
+    pushPerformed: false;
+    runTaskCalled: false;
+    workersDispatched: false;
+    batchesExecuteCalled: false;
     multiStepLoopStarted: false;
     successorExecuted: false;
   };
@@ -572,6 +685,7 @@ const TOP_LEVEL_FIELDS = new Set([
   "runTaskCandidate",
   "runTaskExecution",
   "runAcceptCandidate",
+  "runAcceptExecution",
 ]);
 const CURRENT_SLICE_FIELDS = new Set([
   "id",
@@ -688,6 +802,27 @@ const RUN_ACCEPT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES = [
 const RUN_ACCEPT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS = new Set<string>(
   RUN_ACCEPT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES,
 );
+const RUN_ACCEPT_EXECUTION_FIELDS = new Set([
+  "runLogPath",
+  "expectedRunId",
+  "expectedTaskId",
+  "expectedCommit",
+  "expectedBaseCommit",
+  "targetBranch",
+  "requiredRuntime",
+  "executionMode",
+  "lifecycleOwner",
+  "targetFiles",
+  "forbiddenChanges",
+  "verifyCommands",
+  "pushAllowed",
+  "expectedSideEffects",
+]);
+const RUN_ACCEPT_EXECUTION_EXPECTED_SIDE_EFFECT_FIELD_NAMES =
+  RUN_ACCEPT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES;
+const RUN_ACCEPT_EXECUTION_EXPECTED_SIDE_EFFECT_FIELDS = new Set<string>(
+  RUN_ACCEPT_EXECUTION_EXPECTED_SIDE_EFFECT_FIELD_NAMES,
+);
 const TASK_SPEC_FIELDS = new Set([
   "id",
   "title",
@@ -784,6 +919,7 @@ export function validateSequentialContinuationArtifact(input: unknown): string[]
   violations.push(...validateRunTaskCandidateFields(input));
   violations.push(...validateRunTaskExecutionFields(input));
   violations.push(...validateRunAcceptCandidateFields(input));
+  violations.push(...validateRunAcceptExecutionFields(input));
 
   return violations;
 }
@@ -1580,6 +1716,176 @@ export async function buildSequentialContinuationRunTaskExecutionReport(input: {
     actionAttemptCount: 1,
     actionExecuted: true,
     stopReason: "run_task_evidence_recorded",
+  });
+}
+
+export async function buildSequentialContinuationRunAcceptExecutionReport(input: {
+  repoRoot?: string;
+  artifactPath: string;
+  artifact: unknown;
+  violations?: string[];
+  stateDir?: string;
+  executeAcceptRun: SequentialContinuationRunAcceptExecutionExecutor;
+}): Promise<SequentialContinuationRunAcceptExecutionReport> {
+  const repoRoot = resolve(input.repoRoot ?? ".");
+  const artifactPath = normalizePathForReport(input.artifactPath, repoRoot);
+  const allArtifactViolations = [
+    ...(input.violations ?? []),
+    ...validateSequentialContinuationArtifact(input.artifact),
+  ];
+  const artifactViolations = allArtifactViolations.filter((violation) => !isRunAcceptExecutionViolation(violation));
+  const selectedActionType =
+    isRecord(input.artifact) && hasOwn(input.artifact, "runAcceptExecution") && input.artifact.runAcceptExecution !== null
+      ? "runs_accept"
+      : null;
+
+  if (artifactViolations.length > 0 || !isRecord(input.artifact)) {
+    return buildRunAcceptExecutionReport({
+      artifactPath,
+      repoRoot,
+      status: "rejected",
+      violations: artifactViolations,
+      blockingReasons: artifactViolations,
+      selectedActionType,
+      runAcceptPreflight: null,
+      actionAttemptCount: 0,
+      actionExecuted: false,
+      stopReason: "artifact_invalid",
+    });
+  }
+
+  const artifact = input.artifact as unknown as SequentialContinuationArtifact;
+  const activeStopReasons = artifact.stopConditionChecklist.flatMap((stopCondition) => {
+    return stopCondition.active ? [`stop condition active: ${stopCondition.id}: ${stopCondition.evidence}`] : [];
+  });
+  if (activeStopReasons.length > 0) {
+    return buildRunAcceptExecutionReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      violations: activeStopReasons,
+      blockingReasons: activeStopReasons,
+      selectedActionType,
+      runAcceptPreflight: null,
+      actionAttemptCount: 0,
+      actionExecuted: false,
+      stopReason: "guard_blocked",
+    });
+  }
+
+  const executionViolations = allArtifactViolations.filter(isRunAcceptExecutionViolation);
+  if (executionViolations.length > 0) {
+    return buildRunAcceptExecutionReport({
+      artifactPath,
+      repoRoot,
+      status: "rejected",
+      violations: executionViolations,
+      blockingReasons: executionViolations,
+      selectedActionType,
+      runAcceptPreflight: null,
+      actionAttemptCount: 0,
+      actionExecuted: false,
+      stopReason: "execution_trigger_invalid",
+    });
+  }
+
+  const runAcceptPreflight = await buildSequentialContinuationRunAcceptPreflightReport({
+    repoRoot,
+    artifactPath,
+    artifact,
+  });
+  const guardReasons = buildRunAcceptExecutionGuardReasons({ artifact, runAcceptPreflight });
+  if (guardReasons.length > 0) {
+    return buildRunAcceptExecutionReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      violations: guardReasons,
+      blockingReasons: guardReasons,
+      selectedActionType,
+      runAcceptPreflight,
+      actionAttemptCount: 0,
+      actionExecuted: false,
+      stopReason: "guard_blocked",
+    });
+  }
+
+  const normalizedRunLogPath = runAcceptPreflight.normalizedRunLogPath;
+  const resolvedRunLogPath = runAcceptPreflight.resolvedRunLogPath;
+  const targetBranch = runAcceptPreflight.targetBranch;
+  if (!normalizedRunLogPath || !resolvedRunLogPath || !targetBranch) {
+    const reasons = ["accepted runAcceptPreflight must include normalized runLogPath, resolved runLogPath, and targetBranch"];
+    return buildRunAcceptExecutionReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      violations: reasons,
+      blockingReasons: reasons,
+      selectedActionType,
+      runAcceptPreflight,
+      actionAttemptCount: 0,
+      actionExecuted: false,
+      stopReason: "preflight_evidence_incomplete",
+    });
+  }
+
+  let acceptResult: RunAcceptResult;
+  try {
+    acceptResult = await input.executeAcceptRun({
+      repoRoot,
+      artifactPath,
+      runLogPath: normalizedRunLogPath,
+      normalizedRunLogPath,
+      resolvedRunLogPath,
+      targetBranch,
+      requiredRuntime: "codex-sdk",
+      ...(input.stateDir ? { stateDir: input.stateDir } : {}),
+    });
+  } catch (err) {
+    const reason = `runs:accept executor failed: ${err instanceof Error ? err.message : String(err)}`;
+    return buildRunAcceptExecutionReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      violations: [reason],
+      blockingReasons: [reason],
+      selectedActionType,
+      runAcceptPreflight,
+      actionAttemptCount: 1,
+      actionExecuted: false,
+      stopReason: "executor_failed",
+    });
+  }
+
+  const resultReasons = validateRunAcceptExecutionResult(acceptResult);
+  if (resultReasons.length > 0) {
+    return buildRunAcceptExecutionReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      violations: resultReasons,
+      blockingReasons: resultReasons,
+      selectedActionType,
+      runAcceptPreflight,
+      acceptResult,
+      actionAttemptCount: 1,
+      actionExecuted: false,
+      stopReason: "executor_result_not_accepted",
+    });
+  }
+
+  return buildRunAcceptExecutionReport({
+    artifactPath,
+    repoRoot,
+    status: "accepted",
+    violations: [],
+    blockingReasons: [],
+    selectedActionType,
+    runAcceptPreflight,
+    acceptResult,
+    actionAttemptCount: 1,
+    actionExecuted: true,
+    stopReason: "run_accept_lifecycle_recorded",
   });
 }
 
@@ -2403,10 +2709,80 @@ function validateRunAcceptCandidateFields(value: Record<string, unknown>): strin
   return validateRunAcceptCandidateClosed(value.runAcceptCandidate);
 }
 
+function validateRunAcceptExecutionFields(value: Record<string, unknown>): string[] {
+  if (!hasOwn(value, "runAcceptExecution") || value.runAcceptExecution === null) {
+    return [];
+  }
+  if (Array.isArray(value.runAcceptExecution)) {
+    return ["runAcceptExecution must be a single object or null when present"];
+  }
+  if (!isRecord(value.runAcceptExecution)) {
+    return ["runAcceptExecution must be an object or null when present"];
+  }
+
+  const execution = value.runAcceptExecution;
+  const violations: string[] = [];
+  violations.push(
+    ...validateAllowedFields(execution, RUN_ACCEPT_EXECUTION_FIELDS, (key) => `unknown runAcceptExecution field: ${key}`),
+  );
+
+  for (const field of [
+    "runLogPath",
+    "expectedRunId",
+    "expectedTaskId",
+    "expectedCommit",
+    "expectedBaseCommit",
+    "requiredRuntime",
+    "executionMode",
+    "lifecycleOwner",
+  ] as const) {
+    if (!isNonEmptyString(execution[field])) {
+      violations.push(`runAcceptExecution.${field} must be a non-empty string`);
+    }
+  }
+  if (hasOwn(execution, "targetBranch") && !isNonEmptyString(execution.targetBranch)) {
+    violations.push("runAcceptExecution.targetBranch must be a non-empty string when present");
+  }
+  for (const field of ["targetFiles", "forbiddenChanges", "verifyCommands"] as const) {
+    if (!hasOnlyNonEmptyStrings(execution[field], { allowEmpty: false })) {
+      violations.push(`runAcceptExecution.${field} must be a non-empty string array`);
+    }
+  }
+  if (execution.pushAllowed !== false) {
+    violations.push("runAcceptExecution.pushAllowed must be false");
+  }
+
+  if (!isRecord(execution.expectedSideEffects)) {
+    violations.push("runAcceptExecution.expectedSideEffects must be an object");
+  } else {
+    violations.push(
+      ...validateAllowedFields(
+        execution.expectedSideEffects,
+        RUN_ACCEPT_EXECUTION_EXPECTED_SIDE_EFFECT_FIELDS,
+        (key) => `unknown runAcceptExecution.expectedSideEffects field: ${key}`,
+      ),
+    );
+    for (const field of RUN_ACCEPT_EXECUTION_EXPECTED_SIDE_EFFECT_FIELD_NAMES) {
+      if (typeof execution.expectedSideEffects[field] !== "boolean") {
+        violations.push(`runAcceptExecution.expectedSideEffects.${field} must be a boolean`);
+      }
+    }
+  }
+
+  return violations;
+}
+
 function isRunAcceptCandidateViolation(violation: string): boolean {
   return violation === "runAcceptCandidate must be an object or null when present" ||
     violation.startsWith("runAcceptCandidate.") ||
     violation.startsWith("unknown runAcceptCandidate ");
+}
+
+function isRunAcceptExecutionViolation(violation: string): boolean {
+  return violation === "runAcceptExecution must be a single object or null when present" ||
+    violation === "runAcceptExecution must be an object or null when present" ||
+    violation.startsWith("runAcceptExecution.") ||
+    violation.startsWith("unknown runAcceptExecution ");
 }
 
 function normalizeNextArtifactPath(value: unknown, violations: string[]): string | null {
@@ -3767,6 +4143,25 @@ function runTaskExecutionSideEffects(
   };
 }
 
+function runAcceptExecutionSideEffects(
+  executed: boolean,
+): SequentialContinuationRunAcceptExecutionReport["sideEffects"] {
+  return {
+    runsAcceptCalled: executed,
+    mergeGateRecorded: executed,
+    mergePerformed: executed,
+    lifecycleMutated: executed,
+    cleanupPerformed: executed,
+    commitPerformed: false,
+    pushPerformed: false,
+    runTaskCalled: false,
+    workersDispatched: false,
+    batchesExecuteCalled: false,
+    multiStepLoopStarted: false,
+    successorExecuted: false,
+  };
+}
+
 function buildRunTaskExecutionReport(input: {
   artifactPath: string;
   repoRoot: string;
@@ -3815,6 +4210,113 @@ function buildRunTaskExecutionReport(input: {
     pushPerformed: false,
     sideEffects: runTaskExecutionSideEffects(input.status === "accepted" && input.actionExecuted),
   };
+}
+
+function buildRunAcceptExecutionReport(input: {
+  artifactPath: string;
+  repoRoot: string;
+  status: SequentialContinuationRunAcceptExecutionReport["status"];
+  violations: string[];
+  blockingReasons: string[];
+  selectedActionType: string | null;
+  runAcceptPreflight: SequentialContinuationRunAcceptPreflightReport | null;
+  acceptResult?: RunAcceptResult | null;
+  actionAttemptCount: number;
+  actionExecuted: boolean;
+  stopReason: string;
+}): SequentialContinuationRunAcceptExecutionReport {
+  const accepted = input.status === "accepted" && input.actionExecuted;
+  const trustedStateChanges = accepted
+    ? ["run_log_trajectory", "lifecycle_record", "merge_result", "cleanup_result"]
+    : [];
+  return {
+    artifactPath: input.artifactPath,
+    repoRoot: input.repoRoot,
+    status: input.status,
+    violations: input.violations,
+    blockingReasons: input.blockingReasons,
+    selectedActionType: input.selectedActionType,
+    runLogPath: input.runAcceptPreflight?.runLogPath ?? null,
+    normalizedRunLogPath: input.runAcceptPreflight?.normalizedRunLogPath ?? null,
+    resolvedRunLogPath: input.runAcceptPreflight?.resolvedRunLogPath ?? null,
+    run: input.runAcceptPreflight?.run ?? null,
+    expectedRunId: input.runAcceptPreflight?.expectedRunId ?? null,
+    expectedTaskId: input.runAcceptPreflight?.expectedTaskId ?? null,
+    expectedCommit: input.runAcceptPreflight?.expectedCommit ?? null,
+    expectedBaseCommit: input.runAcceptPreflight?.expectedBaseCommit ?? null,
+    targetBranch: input.runAcceptPreflight?.targetBranch ?? null,
+    requiredRuntime: input.runAcceptPreflight?.requiredRuntime ?? null,
+    lifecycleOwner: input.runAcceptPreflight?.lifecycleOwner ?? null,
+    runAcceptPreflight: input.runAcceptPreflight,
+    acceptResultSummary: summarizeRunAcceptResult(input.acceptResult ?? null),
+    lifecycleEvidenceSummary: summarizeRunAcceptLifecycle(input.acceptResult ?? null),
+    cleanupEvidenceSummary: summarizeRunAcceptCleanup(input.acceptResult ?? null),
+    actionAttemptCount: input.actionAttemptCount,
+    actionExecuted: input.actionExecuted,
+    continued: false,
+    stopReason: input.stopReason,
+    trustedStateChanges,
+    pushPerformed: false,
+    sideEffects: runAcceptExecutionSideEffects(accepted),
+  };
+}
+
+function summarizeRunAcceptResult(result: RunAcceptResult | null): SequentialContinuationRunAcceptExecutionReport["acceptResultSummary"] {
+  if (!result) return null;
+  return {
+    accepted: result.accepted,
+    status: result.status,
+    gateStatus: result.gate?.status ?? null,
+    mergeExitCode: result.merge?.exitCode ?? null,
+    lessonDraftStatus: result.lessonDraft?.status ?? null,
+    lessonDraftPath: result.lessonDraft?.path ?? null,
+  };
+}
+
+function summarizeRunAcceptLifecycle(result: RunAcceptResult | null): SequentialContinuationRunAcceptExecutionReport["lifecycleEvidenceSummary"] {
+  if (!result?.lifecycle) return null;
+  const merged = result.lifecycle.merged;
+  return {
+    merged: Boolean(merged?.mergedAt),
+    cleaned: Boolean(result.lifecycle.cleaned?.cleanedAt),
+    runId: merged?.runId ?? null,
+    taskId: merged?.taskId ?? null,
+    commit: merged?.commit ?? null,
+  };
+}
+
+function summarizeRunAcceptCleanup(result: RunAcceptResult | null): SequentialContinuationRunAcceptExecutionReport["cleanupEvidenceSummary"] {
+  if (!result?.cleanup) return null;
+  return {
+    cleaned: result.cleanup.cleaned,
+    classification: result.cleanup.classification,
+    worktreePath: result.cleanup.worktreePath,
+    branch: result.cleanup.branch,
+    violations: result.cleanup.violations,
+  };
+}
+
+function validateRunAcceptExecutionResult(result: RunAcceptResult): string[] {
+  const reasons: string[] = [];
+  if (result.accepted !== true || result.status !== "accepted") {
+    reasons.push(`runs:accept result must be accepted: ${result.status}`);
+  }
+  if (!result.gate) {
+    reasons.push("runs:accept result must include merge gate evidence");
+  }
+  if (!result.merge || result.merge.exitCode !== 0) {
+    reasons.push("runs:accept result must include a successful merge result");
+  }
+  if (!result.lifecycle?.merged?.mergedAt) {
+    reasons.push("runs:accept result must include merged lifecycle evidence");
+  }
+  if (!result.lifecycle?.cleaned?.cleanedAt) {
+    reasons.push("runs:accept result must include cleaned lifecycle evidence");
+  }
+  if (!result.cleanup || result.cleanup.cleaned !== true) {
+    reasons.push("runs:accept result must include completed cleanup evidence");
+  }
+  return reasons;
 }
 
 function buildRunTaskExecutionGuardReasons(input: {
@@ -3923,6 +4425,133 @@ function buildRunTaskExecutionGuardReasons(input: {
   ] as const) {
     if (expectedSideEffects[field] !== false) {
       reasons.push(`runTaskExecution.expectedSideEffects.${field} must be false`);
+    }
+  }
+
+  return reasons;
+}
+
+function buildRunAcceptExecutionGuardReasons(input: {
+  artifact: SequentialContinuationArtifact;
+  runAcceptPreflight: SequentialContinuationRunAcceptPreflightReport;
+}): string[] {
+  const artifact = input.artifact;
+  const reasons: string[] = [];
+
+  for (const stopCondition of artifact.stopConditionChecklist) {
+    if (stopCondition.active) {
+      reasons.push(`stop condition active: ${stopCondition.id}: ${stopCondition.evidence}`);
+    }
+  }
+  if (artifact.autonomyEnvelope.pushAllowed !== false) {
+    reasons.push("autonomyEnvelope.pushAllowed must be false for single-runs_accept execution");
+  }
+
+  const execution = artifact.runAcceptExecution;
+  if (!execution) {
+    reasons.push("runAcceptExecution must be present for single-runs_accept execution");
+    return reasons;
+  }
+
+  if (execution.pushAllowed !== false) {
+    reasons.push("runAcceptExecution.pushAllowed must be false");
+  }
+  if (execution.executionMode === "accept_preflight_only") {
+    reasons.push("runAcceptExecution.executionMode must be single_run_accept, not accept_preflight_only");
+  } else if (execution.executionMode !== "single_run_accept") {
+    reasons.push(`runAcceptExecution.executionMode must be single_run_accept: ${execution.executionMode}`);
+  }
+  if (artifact.currentSlice.status !== "ready") {
+    reasons.push(`currentSlice.status must be ready for single-runs_accept execution: ${artifact.currentSlice.status}`);
+  }
+  if (artifact.currentSlice.actionType !== "report_only") {
+    reasons.push(`currentSlice.actionType must be report_only for single-runs_accept execution: ${artifact.currentSlice.actionType}`);
+  }
+  if (artifact.currentSlice.dependencyStatus !== "met") {
+    reasons.push(`currentSlice.dependencyStatus must be met for single-runs_accept execution: ${artifact.currentSlice.dependencyStatus}`);
+  }
+
+  if (input.runAcceptPreflight.status !== "accepted") {
+    reasons.push(
+      input.runAcceptPreflight.status === "absent"
+        ? "runAcceptPreflight must be accepted before single-runs_accept execution"
+        : "runAcceptPreflight is blocked and cannot trigger single-runs_accept execution",
+    );
+    reasons.push(...input.runAcceptPreflight.blockingReasons.map((reason) => `runAcceptPreflight: ${reason}`));
+    return reasons;
+  }
+
+  const pathReasons: string[] = [];
+  const normalizedExecutionRunLogPath = normalizeRunAcceptRunLogPath(execution.runLogPath, pathReasons);
+  reasons.push(...pathReasons.map((reason) => reason.replaceAll("runAcceptCandidate", "runAcceptExecution")));
+  if (
+    normalizedExecutionRunLogPath &&
+    normalizedExecutionRunLogPath !== input.runAcceptPreflight.normalizedRunLogPath
+  ) {
+    reasons.push("runAcceptExecution.runLogPath must match accepted runAcceptPreflight runLogPath");
+  }
+  if (execution.expectedRunId !== input.runAcceptPreflight.expectedRunId) {
+    reasons.push("runAcceptExecution.expectedRunId must match accepted runAcceptPreflight expectedRunId");
+  }
+  if (execution.expectedTaskId !== input.runAcceptPreflight.expectedTaskId) {
+    reasons.push("runAcceptExecution.expectedTaskId must match accepted runAcceptPreflight expectedTaskId");
+  }
+  if (execution.expectedCommit !== input.runAcceptPreflight.expectedCommit) {
+    reasons.push("runAcceptExecution.expectedCommit must match accepted runAcceptPreflight expectedCommit");
+  }
+  if (execution.expectedBaseCommit !== input.runAcceptPreflight.expectedBaseCommit) {
+    reasons.push("runAcceptExecution.expectedBaseCommit must match accepted runAcceptPreflight expectedBaseCommit");
+  }
+
+  const executionTargetBranch = execution.targetBranch ?? "main";
+  if (executionTargetBranch !== input.runAcceptPreflight.targetBranch) {
+    reasons.push("runAcceptExecution.targetBranch must match accepted runAcceptPreflight targetBranch");
+  }
+  if (execution.requiredRuntime !== "codex-sdk") {
+    reasons.push(`runAcceptExecution.requiredRuntime must be codex-sdk: ${execution.requiredRuntime}`);
+  }
+  if (execution.requiredRuntime !== input.runAcceptPreflight.requiredRuntime) {
+    reasons.push("runAcceptExecution.requiredRuntime must match accepted runAcceptPreflight requiredRuntime");
+  }
+  if (execution.lifecycleOwner !== "samantha") {
+    reasons.push(`runAcceptExecution.lifecycleOwner must be samantha: ${execution.lifecycleOwner}`);
+  }
+  if (execution.lifecycleOwner !== input.runAcceptPreflight.lifecycleOwner) {
+    reasons.push("runAcceptExecution.lifecycleOwner must match accepted runAcceptPreflight lifecycleOwner");
+  }
+  if (!sameStringArray(execution.targetFiles, artifact.currentSlice.targetFiles ?? [])) {
+    reasons.push("runAcceptExecution.targetFiles must match currentSlice targetFiles");
+  }
+  if (!sameStringArray(execution.forbiddenChanges, artifact.currentSlice.forbiddenChanges ?? [])) {
+    reasons.push("runAcceptExecution.forbiddenChanges must match currentSlice forbiddenChanges");
+  }
+  if (!sameStringArray(execution.verifyCommands, artifact.currentSlice.verifyCommands ?? [])) {
+    reasons.push("runAcceptExecution.verifyCommands must match currentSlice verifyCommands");
+  }
+
+  const expectedSideEffects = execution.expectedSideEffects;
+  for (const field of [
+    "runsAcceptCalled",
+    "mergeGateRecorded",
+    "mergePerformed",
+    "lifecycleMutated",
+    "cleanupPerformed",
+  ] as const) {
+    if (expectedSideEffects[field] !== true) {
+      reasons.push(`runAcceptExecution.expectedSideEffects.${field} must be true`);
+    }
+  }
+  for (const field of [
+    "commitPerformed",
+    "pushPerformed",
+    "runTaskCalled",
+    "workersDispatched",
+    "batchesExecuteCalled",
+    "multiStepLoopStarted",
+    "successorExecuted",
+  ] as const) {
+    if (expectedSideEffects[field] !== false) {
+      reasons.push(`runAcceptExecution.expectedSideEffects.${field} must be false`);
     }
   }
 

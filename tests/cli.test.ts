@@ -13,6 +13,7 @@ import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationArtifact,
   SequentialContinuationRunAcceptCandidate,
+  SequentialContinuationRunAcceptExecution,
   SequentialContinuationRunTaskCandidate,
   SequentialContinuationRunTaskExecution,
   SequentialContinuationStatusEvidenceDocument,
@@ -366,6 +367,45 @@ function cliRunAcceptCandidate(
     lifecycleOwner: "samantha",
     pushAllowed: false,
     expectedSideEffects: cliRunAcceptExpectedSideEffects(),
+    ...overrides,
+  };
+}
+
+function cliRunAcceptExecution(
+  input: {
+    baseCommit: string;
+    workerCommit: string;
+  },
+  overrides: Partial<SequentialContinuationRunAcceptExecution> = {},
+): SequentialContinuationRunAcceptExecution {
+  return {
+    runLogPath: "runs/cli-accept-run.json",
+    expectedRunId: "cli-accept-run",
+    expectedTaskId: "cli-accept-fixture",
+    expectedCommit: input.workerCommit,
+    expectedBaseCommit: input.baseCommit,
+    targetBranch: "main",
+    requiredRuntime: "codex-sdk",
+    executionMode: "single_run_accept",
+    lifecycleOwner: "samantha",
+    targetFiles: ["allowed.txt"],
+    forbiddenChanges: ["runs/**", "worktrees/**"],
+    verifyCommands: ["grep -q changed allowed.txt"],
+    pushAllowed: false,
+    expectedSideEffects: {
+      runsAcceptCalled: true,
+      mergeGateRecorded: true,
+      mergePerformed: true,
+      lifecycleMutated: true,
+      cleanupPerformed: true,
+      commitPerformed: false,
+      pushPerformed: false,
+      runTaskCalled: false,
+      workersDispatched: false,
+      batchesExecuteCalled: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    },
     ...overrides,
   };
 }
@@ -727,6 +767,22 @@ describe("samantha cli", () => {
     });
     expect(() => parseCliArgs(["continuation:run-task-once", "--artifact=references/continuation/s15.json"])).toThrow(
       "usage: bun run samantha continuation:run-task-once --artifact=<path> --repo-root=<repo> [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--codex-bin=<path>]",
+    );
+    expect(
+      parseCliArgs([
+        "continuation:accept-run-once",
+        "--artifact=references/continuation/s20.json",
+        "--repo-root=/tmp/samantha-repo",
+        "--state-dir=/tmp/samantha-state",
+      ]),
+    ).toEqual({
+      command: "continuation:accept-run-once",
+      artifactPath: "references/continuation/s20.json",
+      repoRoot: "/tmp/samantha-repo",
+      stateDir: "/tmp/samantha-state",
+    });
+    expect(() => parseCliArgs(["continuation:accept-run-once", "--artifact=references/continuation/s20.json"])).toThrow(
+      "usage: bun run samantha continuation:accept-run-once --artifact=<path> --repo-root=<repo> [--state-dir=<dir>]",
     );
   });
 
@@ -1170,6 +1226,96 @@ describe("samantha cli", () => {
       )}`,
     );
     expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(runLogPath, "utf8")).toBe(runLogText);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
+  });
+
+  test("continuation accept-run-once blocks accepted preflight without execution trigger and mutates nothing", async () => {
+    const { root, artifactPath, runLogPath, artifactText, runLogText } =
+      await writeCliRunAcceptPreflightFixture();
+
+    const result = await runCliCapturingStdout([
+      "continuation:accept-run-once",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+      `--state-dir=${join(root, "s20-state")}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report).toMatchObject({
+      status: "blocked",
+      violations: ["runAcceptExecution must be present for single-runs_accept execution"],
+      selectedActionType: null,
+      actionAttemptCount: 0,
+      actionExecuted: false,
+      pushPerformed: false,
+      sideEffects: cliRunAcceptExpectedSideEffects(),
+    });
+    expect(report.runAcceptPreflight.status).toBe("accepted");
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(runLogPath, "utf8")).toBe(runLogText);
+    expect(await pathExists(join(root, "s20-state"))).toBe(false);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
+  });
+
+  test("continuation accept-run-once blocks invalid execution trigger without artifact mutation", async () => {
+    const { root, artifactPath, runLogPath, artifactText, runLogText } =
+      await writeCliRunAcceptPreflightFixture();
+    const artifact = JSON.parse(artifactText) as SequentialContinuationArtifact;
+    if (!artifact.runAcceptCandidate) throw new Error("fixture runAcceptCandidate missing");
+    const nextArtifact: SequentialContinuationArtifact = {
+      ...artifact,
+      runAcceptExecution: cliRunAcceptExecution(
+        {
+          baseCommit: artifact.runAcceptCandidate.expectedBaseCommit,
+          workerCommit: artifact.runAcceptCandidate.expectedCommit,
+        },
+        {
+          executionMode: "accept_preflight_only",
+          expectedSideEffects: {
+            ...cliRunAcceptExecution({
+              baseCommit: artifact.runAcceptCandidate.expectedBaseCommit,
+              workerCommit: artifact.runAcceptCandidate.expectedCommit,
+            }).expectedSideEffects,
+            commitPerformed: true,
+            pushPerformed: true,
+            runTaskCalled: true,
+            workersDispatched: true,
+            batchesExecuteCalled: true,
+            multiStepLoopStarted: true,
+            successorExecuted: true,
+          },
+        },
+      ),
+    };
+    const nextArtifactText = `${JSON.stringify(nextArtifact, null, 2)}\n`;
+    await writeFile(artifactPath, nextArtifactText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:accept-run-once",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain(
+      "runAcceptExecution.executionMode must be single_run_accept, not accept_preflight_only",
+    );
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.commitPerformed must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.pushPerformed must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.runTaskCalled must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.workersDispatched must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.batchesExecuteCalled must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.multiStepLoopStarted must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.successorExecuted must be false");
+    expect(report.actionAttemptCount).toBe(0);
+    expect(report.actionExecuted).toBe(false);
+    expect(report.trustedStateChanges).toEqual([]);
+    expect(report.sideEffects).toEqual(cliRunAcceptExpectedSideEffects());
+    expect(await readFile(artifactPath, "utf8")).toBe(nextArtifactText);
     expect(await readFile(runLogPath, "utf8")).toBe(runLogText);
     expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
   });

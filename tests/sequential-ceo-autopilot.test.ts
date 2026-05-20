@@ -8,6 +8,7 @@ import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
   SequentialContinuationRunAcceptCandidate,
+  SequentialContinuationRunAcceptExecution,
   SequentialContinuationRunTaskCandidate,
   SequentialContinuationRunTaskExecution,
   SequentialContinuationStatusEvidenceDocument,
@@ -17,6 +18,7 @@ import {
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationRunAcceptExecutionReport,
   buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
   buildSequentialContinuationRunTaskPreflightReport,
@@ -26,6 +28,7 @@ import {
   validateSequentialContinuationArtifact,
   validateSequentialContinuationStatusEvidence,
 } from "../src/core/sequential-ceo-autopilot";
+import type { RunAcceptResult } from "../src/core/run-accept";
 import type { WorkerRunLog } from "../src/core/run-log";
 
 let tmpRoots: string[] = [];
@@ -200,6 +203,103 @@ function runAcceptCandidate(
     pushAllowed: false,
     expectedSideEffects: runAcceptExpectedSideEffects(),
     ...overrides,
+  };
+}
+
+function runAcceptExecution(
+  input: {
+    baseCommit: string;
+    workerCommit: string;
+  },
+  overrides: Partial<SequentialContinuationRunAcceptExecution> = {},
+): SequentialContinuationRunAcceptExecution {
+  return {
+    runLogPath: "runs/accept-run.json",
+    expectedRunId: "accept-run",
+    expectedTaskId: "accept-fixture",
+    expectedCommit: input.workerCommit,
+    expectedBaseCommit: input.baseCommit,
+    targetBranch: "main",
+    requiredRuntime: "codex-sdk",
+    executionMode: "single_run_accept",
+    lifecycleOwner: "samantha",
+    targetFiles: ["allowed.txt"],
+    forbiddenChanges: ["runs/**", "worktrees/**"],
+    verifyCommands: ["grep -q changed allowed.txt"],
+    pushAllowed: false,
+    expectedSideEffects: {
+      runsAcceptCalled: true,
+      mergeGateRecorded: true,
+      mergePerformed: true,
+      lifecycleMutated: true,
+      cleanupPerformed: true,
+      commitPerformed: false,
+      pushPerformed: false,
+      runTaskCalled: false,
+      workersDispatched: false,
+      batchesExecuteCalled: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    },
+    ...overrides,
+  };
+}
+
+function acceptedRunAcceptResult(input: {
+  root: string;
+  runLogPath: string;
+  worktreePath: string;
+  workerCommit: string;
+}): RunAcceptResult {
+  const lifecycle = {
+    schemaVersion: 1 as const,
+    runId: "accept-run",
+    taskId: "accept-fixture",
+    repoRoot: input.root,
+    runLogPath: input.runLogPath,
+    commit: input.workerCommit,
+    mergedAt: "2026-05-20T00:02:00.000Z",
+    cleanedAt: "2026-05-20T00:03:00.000Z",
+    updatedAt: "2026-05-20T00:03:00.000Z",
+  };
+  return {
+    accepted: true,
+    status: "accepted",
+    gate: {
+      mayMerge: true,
+      alreadyMerged: false,
+      status: "mergeable",
+      targetBranch: "main",
+      commit: input.workerCommit,
+      command: ["git", "merge", "--ff-only", input.workerCommit],
+      violations: [],
+    },
+    merge: {
+      command: ["git", "merge", "--ff-only", input.workerCommit],
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+    },
+    lifecycle: {
+      merged: lifecycle,
+      cleaned: lifecycle,
+    },
+    cleanup: {
+      mayCleanup: true,
+      cleaned: true,
+      classification: "completed",
+      targetBranch: "main",
+      worktreePath: input.worktreePath,
+      branch: "samantha/accept-fixture",
+      commit: input.workerCommit,
+      violations: [],
+    },
+    lessonDraft: {
+      status: "created",
+      reason: "existing runs:accept lesson draft output",
+      path: `${input.root}/references/lessons/inbox/accept-run.md`,
+      runId: "accept-run",
+    },
   };
 }
 
@@ -530,10 +630,11 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
     ).toContain("unknown runTaskExecution field: command");
   });
 
-  test("accepts optional runAcceptCandidate as null or closed object", () => {
+  test("accepts optional runAcceptCandidate and runAcceptExecution as null or closed objects", () => {
     const baseCommit = "a".repeat(40);
     const workerCommit = "b".repeat(40);
     expect(validateSequentialContinuationArtifact(artifact({ runAcceptCandidate: null }))).toEqual([]);
+    expect(validateSequentialContinuationArtifact(artifact({ runAcceptExecution: null }))).toEqual([]);
     expect(
       validateSequentialContinuationArtifact(
         artifact({
@@ -542,6 +643,7 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
             actionType: "report_only",
           },
           runAcceptCandidate: runAcceptCandidate({ baseCommit, workerCommit }),
+          runAcceptExecution: runAcceptExecution({ baseCommit, workerCommit }),
         }),
       ),
     ).toEqual([]);
@@ -558,6 +660,19 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         },
       }),
     ).toContain("unknown runAcceptCandidate field: command");
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        currentSlice: {
+          ...artifact().currentSlice,
+          actionType: "report_only",
+        },
+        runAcceptExecution: {
+          ...runAcceptExecution({ baseCommit, workerCommit }),
+          command: "bun run samantha runs:accept",
+        },
+      }),
+    ).toContain("unknown runAcceptExecution field: command");
   });
 
   test("builds a deterministic accepted report for the current slice", () => {
@@ -1933,6 +2048,401 @@ describe("Sequential CEO Autopilot runs:accept preflight report", () => {
     expect(cleanupRiskReport.blockingReasons).toContain(
       "cleanup readiness risk: allocated worktree path is missing or invalid",
     );
+  });
+});
+
+describe("Sequential CEO Autopilot guarded single-runs_accept execution", () => {
+  test("accepts one explicit execution trigger after accepted preflight and stops at lifecycle evidence", async () => {
+    const fixture = await writeRunAcceptPreflightFixture();
+    const continuation = {
+      ...fixture.continuation,
+      runAcceptExecution: runAcceptExecution({
+        baseCommit: fixture.baseCommit,
+        workerCommit: fixture.workerCommit,
+      }),
+    };
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: continuation,
+      executeAcceptRun: (input) => {
+        executorCalls += 1;
+        expect(input.requiredRuntime).toBe("codex-sdk");
+        expect(input.runLogPath).toBe("runs/accept-run.json");
+        expect(input.resolvedRunLogPath).toBe(fixture.runLogPath);
+        expect(input.targetBranch).toBe("main");
+        return acceptedRunAcceptResult(fixture);
+      },
+    });
+
+    expect(executorCalls).toBe(1);
+    expect(report).toMatchObject({
+      status: "accepted",
+      violations: [],
+      blockingReasons: [],
+      selectedActionType: "runs_accept",
+      runLogPath: "runs/accept-run.json",
+      normalizedRunLogPath: "runs/accept-run.json",
+      resolvedRunLogPath: fixture.runLogPath,
+      run: { id: "accept-run", taskId: "accept-fixture" },
+      expectedRunId: "accept-run",
+      expectedTaskId: "accept-fixture",
+      expectedCommit: fixture.workerCommit,
+      expectedBaseCommit: fixture.baseCommit,
+      targetBranch: "main",
+      requiredRuntime: "codex-sdk",
+      lifecycleOwner: "samantha",
+      acceptResultSummary: {
+        accepted: true,
+        status: "accepted",
+        gateStatus: "mergeable",
+        mergeExitCode: 0,
+        lessonDraftStatus: "created",
+        lessonDraftPath: `${fixture.root}/references/lessons/inbox/accept-run.md`,
+      },
+      lifecycleEvidenceSummary: {
+        merged: true,
+        cleaned: true,
+        runId: "accept-run",
+        taskId: "accept-fixture",
+        commit: fixture.workerCommit,
+      },
+      cleanupEvidenceSummary: {
+        cleaned: true,
+        classification: "completed",
+        worktreePath: fixture.worktreePath,
+        branch: "samantha/accept-fixture",
+        violations: [],
+      },
+      actionAttemptCount: 1,
+      actionExecuted: true,
+      continued: false,
+      stopReason: "run_accept_lifecycle_recorded",
+      trustedStateChanges: ["run_log_trajectory", "lifecycle_record", "merge_result", "cleanup_result"],
+      pushPerformed: false,
+      sideEffects: {
+        runsAcceptCalled: true,
+        mergeGateRecorded: true,
+        mergePerformed: true,
+        lifecycleMutated: true,
+        cleanupPerformed: true,
+        commitPerformed: false,
+        pushPerformed: false,
+        runTaskCalled: false,
+        workersDispatched: false,
+        batchesExecuteCalled: false,
+        multiStepLoopStarted: false,
+        successorExecuted: false,
+      },
+    });
+    expect(report.runAcceptPreflight?.status).toBe("accepted");
+  });
+
+  test("blocks accepted preflight without a distinct execution trigger", async () => {
+    const fixture = await writeRunAcceptPreflightFixture();
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      executeAcceptRun: () => {
+        executorCalls += 1;
+        return acceptedRunAcceptResult(fixture);
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain("runAcceptExecution must be present for single-runs_accept execution");
+    expect(report.actionAttemptCount).toBe(0);
+    expect(report.actionExecuted).toBe(false);
+    expect(report.runAcceptPreflight?.status).toBe("accepted");
+    expect(report.sideEffects).toEqual(runAcceptExpectedSideEffects());
+  });
+
+  test("blocks accept_preflight_only as an execution trigger before executor invocation", async () => {
+    const fixture = await writeRunAcceptPreflightFixture();
+    const continuation = {
+      ...fixture.continuation,
+      runAcceptExecution: runAcceptExecution(
+        { baseCommit: fixture.baseCommit, workerCommit: fixture.workerCommit },
+        { executionMode: "accept_preflight_only" },
+      ),
+    };
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: continuation,
+      executeAcceptRun: () => {
+        executorCalls += 1;
+        return acceptedRunAcceptResult(fixture);
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain(
+      "runAcceptExecution.executionMode must be single_run_accept, not accept_preflight_only",
+    );
+  });
+
+  test("blocks blocked preflight and execution/preflight mismatches without execution", async () => {
+    const blocked = await writeRunAcceptPreflightFixture({
+      candidate: { targetBranch: "release" },
+      artifact: {
+        runAcceptExecution: runAcceptExecution({
+          baseCommit: "unused-base",
+          workerCommit: "unused-worker",
+        }),
+      },
+    });
+    let executorCalls = 0;
+    const blockedReport = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: blocked.root,
+      artifactPath: blocked.artifactPath,
+      artifact: blocked.continuation,
+      executeAcceptRun: () => {
+        executorCalls += 1;
+        return acceptedRunAcceptResult(blocked);
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(blockedReport.status).toBe("blocked");
+    expect(blockedReport.violations).toContain("runAcceptPreflight is blocked and cannot trigger single-runs_accept execution");
+    expect(blockedReport.violations).toContain("runAcceptPreflight: target repo is on main, expected release");
+
+    const mismatch = await writeRunAcceptPreflightFixture();
+    const mismatchReport = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: mismatch.root,
+      artifactPath: mismatch.artifactPath,
+      artifact: {
+        ...mismatch.continuation,
+        runAcceptExecution: runAcceptExecution(
+          { baseCommit: mismatch.baseCommit, workerCommit: mismatch.workerCommit },
+          {
+            runLogPath: "runs/other.json",
+            expectedRunId: "other-run",
+            targetBranch: "release",
+            targetFiles: ["other.txt"],
+          },
+        ),
+      },
+      executeAcceptRun: () => {
+        executorCalls += 1;
+        return acceptedRunAcceptResult(mismatch);
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(mismatchReport.status).toBe("blocked");
+    expect(mismatchReport.violations).toContain("runAcceptExecution.runLogPath must match accepted runAcceptPreflight runLogPath");
+    expect(mismatchReport.violations).toContain("runAcceptExecution.expectedRunId must match accepted runAcceptPreflight expectedRunId");
+    expect(mismatchReport.violations).toContain("runAcceptExecution.targetBranch must match accepted runAcceptPreflight targetBranch");
+    expect(mismatchReport.violations).toContain("runAcceptExecution.targetFiles must match currentSlice targetFiles");
+  });
+
+  test("blocks active stops, non-ready/report-only gates, and unmet dependencies without execution", async () => {
+    const cases: Array<{
+      name: string;
+      artifact: Partial<SequentialContinuationArtifact>;
+      reason: string;
+    }> = [
+      {
+        name: "active-stop",
+        artifact: {
+          stopConditionChecklist: artifact().stopConditionChecklist.map((check) =>
+            check.id === "decision_required"
+              ? { ...check, active: true, evidence: "BK decision required." }
+              : check,
+          ),
+        },
+        reason: "stop condition active: decision_required: BK decision required.",
+      },
+      {
+        name: "not-ready",
+        artifact: {
+          currentSlice: {
+            ...artifact().currentSlice,
+            id: "S20",
+            status: "active",
+            actionType: "report_only",
+            dependencyStatus: "met",
+            targetFiles: ["allowed.txt"],
+            forbiddenChanges: ["runs/**", "worktrees/**"],
+            verifyCommands: ["grep -q changed allowed.txt"],
+          },
+        },
+        reason: "currentSlice.status must be ready for single-runs_accept execution: active",
+      },
+      {
+        name: "wrong-action",
+        artifact: {
+          currentSlice: {
+            ...artifact().currentSlice,
+            id: "S20",
+            status: "ready",
+            actionType: "run_task",
+            dependencyStatus: "met",
+            targetFiles: ["allowed.txt"],
+            forbiddenChanges: ["runs/**", "worktrees/**"],
+            verifyCommands: ["grep -q changed allowed.txt"],
+          },
+        },
+        reason: "currentSlice.actionType must be report_only for single-runs_accept execution: run_task",
+      },
+      {
+        name: "blocked-dependency",
+        artifact: {
+          currentSlice: {
+            ...artifact().currentSlice,
+            id: "S20",
+            status: "ready",
+            actionType: "report_only",
+            dependencyStatus: "blocked",
+            targetFiles: ["allowed.txt"],
+            forbiddenChanges: ["runs/**", "worktrees/**"],
+            verifyCommands: ["grep -q changed allowed.txt"],
+          },
+        },
+        reason: "currentSlice.dependencyStatus must be met for single-runs_accept execution: blocked",
+      },
+    ];
+
+    for (const item of cases) {
+      const fixture = await writeRunAcceptPreflightFixture();
+      let executorCalls = 0;
+      const report = await buildSequentialContinuationRunAcceptExecutionReport({
+        repoRoot: fixture.root,
+        artifactPath: fixture.artifactPath,
+        artifact: {
+          ...fixture.continuation,
+          ...item.artifact,
+          runAcceptExecution: runAcceptExecution({
+            baseCommit: fixture.baseCommit,
+            workerCommit: fixture.workerCommit,
+          }),
+        },
+        executeAcceptRun: () => {
+          executorCalls += 1;
+          return acceptedRunAcceptResult(fixture);
+        },
+      });
+
+      expect(executorCalls, item.name).toBe(0);
+      expect(report.status, item.name).toBe("blocked");
+      expect(report.violations, item.name).toContain(item.reason);
+      expect(report.sideEffects, item.name).toEqual(runAcceptExpectedSideEffects());
+    }
+  });
+
+  test("blocks push, commit, run_task, worker, batch, multi-step, and successor side-effect requests", async () => {
+    const fixture = await writeRunAcceptPreflightFixture();
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: {
+        ...fixture.continuation,
+        runAcceptExecution: runAcceptExecution(
+          { baseCommit: fixture.baseCommit, workerCommit: fixture.workerCommit },
+          {
+            expectedSideEffects: {
+              ...runAcceptExecution({ baseCommit: fixture.baseCommit, workerCommit: fixture.workerCommit }).expectedSideEffects,
+              commitPerformed: true,
+              pushPerformed: true,
+              runTaskCalled: true,
+              workersDispatched: true,
+              batchesExecuteCalled: true,
+              multiStepLoopStarted: true,
+              successorExecuted: true,
+            },
+          },
+        ),
+      },
+      executeAcceptRun: () => {
+        executorCalls += 1;
+        return acceptedRunAcceptResult(fixture);
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.commitPerformed must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.pushPerformed must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.runTaskCalled must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.workersDispatched must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.batchesExecuteCalled must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.multiStepLoopStarted must be false");
+    expect(report.violations).toContain("runAcceptExecution.expectedSideEffects.successorExecuted must be false");
+  });
+
+  test("reports executor failure and non-accepted results without accepted side effects", async () => {
+    const failure = await writeRunAcceptPreflightFixture();
+    let failureCalls = 0;
+    const failureReport = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: failure.root,
+      artifactPath: failure.artifactPath,
+      artifact: {
+        ...failure.continuation,
+        runAcceptExecution: runAcceptExecution({
+          baseCommit: failure.baseCommit,
+          workerCommit: failure.workerCommit,
+        }),
+      },
+      executeAcceptRun: () => {
+        failureCalls += 1;
+        throw new Error("stub accept unavailable");
+      },
+    });
+
+    expect(failureCalls).toBe(1);
+    expect(failureReport.status).toBe("blocked");
+    expect(failureReport.violations).toEqual(["runs:accept executor failed: stub accept unavailable"]);
+    expect(failureReport.actionAttemptCount).toBe(1);
+    expect(failureReport.actionExecuted).toBe(false);
+    expect(failureReport.trustedStateChanges).toEqual([]);
+    expect(failureReport.sideEffects).toEqual(runAcceptExpectedSideEffects());
+
+    const rejected = await writeRunAcceptPreflightFixture();
+    let rejectedCalls = 0;
+    const rejectedReport = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot: rejected.root,
+      artifactPath: rejected.artifactPath,
+      artifact: {
+        ...rejected.continuation,
+        runAcceptExecution: runAcceptExecution({
+          baseCommit: rejected.baseCommit,
+          workerCommit: rejected.workerCommit,
+        }),
+      },
+      executeAcceptRun: () => {
+        rejectedCalls += 1;
+        return {
+          ...acceptedRunAcceptResult(rejected),
+          accepted: false,
+          status: "not_mergeable",
+          merge: undefined,
+          lifecycle: undefined,
+          cleanup: undefined,
+        };
+      },
+    });
+
+    expect(rejectedCalls).toBe(1);
+    expect(rejectedReport.status).toBe("blocked");
+    expect(rejectedReport.violations).toContain("runs:accept result must be accepted: not_mergeable");
+    expect(rejectedReport.violations).toContain("runs:accept result must include a successful merge result");
+    expect(rejectedReport.violations).toContain("runs:accept result must include merged lifecycle evidence");
+    expect(rejectedReport.violations).toContain("runs:accept result must include completed cleanup evidence");
+    expect(rejectedReport.actionExecuted).toBe(false);
+    expect(rejectedReport.sideEffects).toEqual(runAcceptExpectedSideEffects());
   });
 });
 

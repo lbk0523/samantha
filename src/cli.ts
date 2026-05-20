@@ -45,6 +45,7 @@ import { buildReadinessReport, type BuildReadinessReportInput, type ReadinessRep
 import {
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationRunAcceptExecutionReport,
   buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
   buildSequentialContinuationRunTaskPreflightReport,
@@ -88,6 +89,13 @@ export interface ContinuationRunTaskOnceCliArgs {
   worktreesDir?: string;
   runsDir?: string;
   codexBin?: string;
+}
+
+export interface ContinuationAcceptRunOnceCliArgs {
+  command: "continuation:accept-run-once";
+  artifactPath: string;
+  repoRoot: string;
+  stateDir?: string;
 }
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
@@ -278,6 +286,7 @@ export type SamanthaCliArgs =
   | ContinuationStepCliArgs
   | ContinuationLoopCliArgs
   | ContinuationRunTaskOnceCliArgs
+  | ContinuationAcceptRunOnceCliArgs
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
@@ -436,6 +445,23 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(flags.get("worktrees-dir") ? { worktreesDir: flags.get("worktrees-dir") } : {}),
       ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
       ...(flags.get("codex-bin") ? { codexBin: flags.get("codex-bin") } : {}),
+    };
+  }
+
+  if (command === "continuation:accept-run-once") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const artifactPath = flags.get("artifact");
+    const repoRoot = flags.get("repo-root");
+    if (!artifactPath || !repoRoot) {
+      throw new Error(
+        "usage: bun run samantha continuation:accept-run-once --artifact=<path> --repo-root=<repo> [--state-dir=<dir>]",
+      );
+    }
+    return {
+      command: "continuation:accept-run-once",
+      artifactPath,
+      repoRoot,
+      ...(flags.get("state-dir") ? { stateDir: flags.get("state-dir") } : {}),
     };
   }
 
@@ -897,7 +923,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:step|continuation:loop|continuation:run-task-once|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -1168,6 +1194,36 @@ export async function main(argv: string[]): Promise<number> {
           pass: runTaskResult.execution.pass,
           harnessResult: runTaskResult.execution.evaluation?.harness ?? null,
         };
+      },
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return result.status === "accepted" ? 0 : 1;
+  }
+
+  if (args.command === "continuation:accept-run-once") {
+    const artifactPath = resolve(args.artifactPath);
+    const repoRoot = resolve(args.repoRoot);
+    const violations: string[] = [];
+    let artifact: unknown;
+    try {
+      artifact = JSON.parse(await readFile(artifactPath, "utf8")) as unknown;
+    } catch (err) {
+      violations.push(artifactReadViolation(err));
+    }
+
+    const result = await buildSequentialContinuationRunAcceptExecutionReport({
+      repoRoot,
+      artifactPath,
+      artifact,
+      violations,
+      ...(args.stateDir ? { stateDir: resolve(args.stateDir) } : {}),
+      executeAcceptRun: async ({ resolvedRunLogPath, targetBranch }) => {
+        return acceptRun({
+          runLogPath: resolvedRunLogPath,
+          repoRoot,
+          targetBranch,
+          ...(args.stateDir ? { stateDir: resolve(args.stateDir) } : {}),
+        });
       },
     });
     console.log(JSON.stringify(result, null, 2));
