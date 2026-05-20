@@ -1,0 +1,45 @@
+{
+  "id": "sequential-ceo-autopilot-s11-contract-field-correction",
+  "title": "Correct Sequential CEO Autopilot S11 runTaskCandidate field contract",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "grep -F 'taskSpecPath: references/tasks/<committed-task-spec>.json' references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "grep -F 'worktreePolicy: samantha_allocated_isolated' references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "bash -lc '! grep -F \"committed-task-spec>.md\" references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md'",
+    "bash -lc '! grep -F \"worktreeOwnership\" references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md'",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md"
+  ],
+  "instructions": "Perform only a narrow S11 contract correction. In references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md, correct the runTaskCandidate example so taskSpecPath points to references/tasks/<committed-task-spec>.json, not .md. Also use the canonical field name worktreePolicy: samantha_allocated_isolated instead of worktreeOwnership. Preserve the existing S11/S12 decisions, validation order, stop conditions, non-goals, and initiative status. Do not change source code, tests, task templates, agent profiles, package files, policy, doctrine, Phase 5.5 or Phase 5 batch artifacts, run logs, worktrees, operation reports, or the initiative brief. Do not execute run_task or batch_plan from the continuation product surface; do not dispatch workers recursively, create worktrees from continuation, merge, cleanup, commit, push, or bypass existing gates. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: correct sequential ceo run task contract fields",
+  "status": "pending"
+}
