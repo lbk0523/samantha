@@ -1,0 +1,44 @@
+{
+  "id": "sequential-ceo-autopilot-s23-cycle-worker",
+  "title": "Create Sequential CEO Autopilot S23 cycle worker output",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/initiatives/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+    "grep -F 'S23 end-to-end worker output' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+    "grep -F 'end_to_end_continuation dogfood only' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+    "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+  ],
+  "instructions": "Create only references/operations/sequential-ceo-autopilot-s23-worker-output.md. The file must be a short markdown evidence note with a heading containing 'S23 end-to-end worker output' and a line containing 'end_to_end_continuation dogfood only'. Do not edit source, tests, initiative docs, task specs, run logs, package files, policies, agent profiles, or any file outside targetFiles. Do not create worktrees, dispatch subagents, accept runs, merge, cleanup, commit, push, run batch_plan, or continue to another slice. Run the verify commands after writing the file. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: add sequential ceo s23 worker output",
+  "status": "pending"
+}
