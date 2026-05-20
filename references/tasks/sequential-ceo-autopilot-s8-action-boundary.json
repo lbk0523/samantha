@@ -1,0 +1,50 @@
+{
+  "id": "sequential-ceo-autopilot-s8-action-boundary",
+  "title": "Document Sequential CEO Autopilot next-artifact and action-execution boundary",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sequential-ceo-autopilot.md",
+    "references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'Problem From S7 Evidence' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'Next-Artifact Linkage Contract' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'run_task Action Contract' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'batch_plan Action Contract' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'Phase 5.5 / Phase 5 Boundary Preservation' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'S9' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'No implementation in S8' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/playbooks/sequential-ceo-autopilot.md, and references/operations/sequential-ceo-autopilot-s7-dogfood-report.md. Perform only S8. Do not change source code, tests, policy, contracts, task templates, agent profiles, batch artifacts, operation artifacts, package metadata, or lockfiles. Create references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md as a report-only architecture/design artifact. It must document, with concrete field names and gates, the deterministic next-artifact linkage and reviewed run_task/batch_plan action-execution boundary before broader routine use. Include these exact section headings: Problem From S7 Evidence; Accepted Boundary Decisions; Next-Artifact Linkage Contract; run_task Action Contract; batch_plan Action Contract; Phase 5.5 / Phase 5 Boundary Preservation; Stop Conditions; Non-Goals; Follow-up Slices; Verification Strategy. The design must state that next artifacts are never inferred from markdown prose or command strings; any next linkage must be a closed-schema explicit local path such as nextArtifactPath or an equivalent reviewed field; the next artifact must validate independently before execution; cycles, missing files, off-repo paths, stale evidence, dirty repo risk, active stop conditions, and push requirements stop continuation. The run_task action contract must require a committed TaskSpec path, existing run-task gates, SDK runtime, isolated worktree, HARNESS_RESULT, changed-file scope checks, deterministic verify commands, and Samantha-owned accept/merge/cleanup lifecycle; continuation may coordinate but must not bypass or own worker execution authority. The batch_plan action contract must preserve Phase 5.5 BatchPlanDraft and Phase 5 BatchSpec boundaries; continuation may only invoke reviewed existing gates and must not replace draft review, preparation, preflight, disjoint write-set proof, serial-only handling, worker execution, integration, lifecycle, or cleanup. Make non-goals explicit: no implementation in S8, no run_task/batch_plan execution, no nextArtifactPath validator change, no source/test changes, no automatic push, no daemon/watch, no remote adapters, no hidden memory, no worker-owned orchestration, no broad natural-language roadmap execution. Add follow-up slices in the S8 design and update references/initiatives/sequential-ceo-autopilot.md: mark S8 completed, cite the S8 design artifact, add newly clarified stop conditions if needed, and set exactly one next slice ready. Prefer S9 as a narrowly implementable validator/report-only slice for deterministic next-artifact linkage before enabling any writer action execution. Do not implement S9. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: define sequential ceo autopilot action boundary",
+  "status": "pending"
+}
