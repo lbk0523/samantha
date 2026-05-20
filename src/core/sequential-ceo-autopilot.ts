@@ -797,15 +797,6 @@ export async function buildSequentialContinuationRunTaskPreflightReport(input: {
 }): Promise<SequentialContinuationRunTaskPreflightReport> {
   const repoRoot = resolve(input.repoRoot ?? ".");
   const artifactPath = normalizePathForReport(input.artifactPath, repoRoot);
-  if (!isRecord(input.artifact) || !hasOwn(input.artifact, "runTaskCandidate") || input.artifact.runTaskCandidate === null) {
-    return buildRunTaskPreflightReport({
-      artifactPath,
-      repoRoot,
-      status: "absent",
-      blockingReasons: [],
-    });
-  }
-
   const currentArtifactViolations = validateSequentialContinuationArtifact(input.artifact);
   if (currentArtifactViolations.length > 0) {
     return buildRunTaskPreflightReport({
@@ -816,6 +807,15 @@ export async function buildSequentialContinuationRunTaskPreflightReport(input: {
         "current artifact must validate before runTaskCandidate is inspected",
         ...currentArtifactViolations,
       ],
+    });
+  }
+
+  if (!isRecord(input.artifact) || !hasOwn(input.artifact, "runTaskCandidate") || input.artifact.runTaskCandidate === null) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "absent",
+      blockingReasons: [],
     });
   }
 

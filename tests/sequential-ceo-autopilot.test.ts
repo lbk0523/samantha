@@ -952,6 +952,38 @@ describe("Sequential CEO Autopilot run_task preflight report", () => {
     ]);
   });
 
+  test("blocks invalid predecessor artifacts before absent or null runTaskCandidate reports", async () => {
+    const invalidAutonomyEnvelope = {
+      ...artifact().autonomyEnvelope,
+      pushAllowed: true as false,
+    };
+    const cases: Array<{ name: string; continuation: SequentialContinuationArtifact }> = [
+      {
+        name: "absent",
+        continuation: artifact({ autonomyEnvelope: invalidAutonomyEnvelope }),
+      },
+      {
+        name: "null",
+        continuation: artifact({ autonomyEnvelope: invalidAutonomyEnvelope, runTaskCandidate: null }),
+      },
+    ];
+
+    for (const { name, continuation } of cases) {
+      const report = await buildSequentialContinuationRunTaskPreflightReport({
+        repoRoot: ".",
+        artifactPath: `references/operations/s12-${name}.json`,
+        artifact: continuation,
+      });
+
+      expect(report.status).toBe("blocked");
+      expect(report.taskSpecPath).toBeNull();
+      expect(report.blockingReasons).toEqual([
+        "current artifact must validate before runTaskCandidate is inspected",
+        "autonomyEnvelope.pushAllowed must be false",
+      ]);
+    }
+  });
+
   test("blocks unsafe taskSpecPath strings before reading files", async () => {
     const { root, artifactPath, continuation, taskSpecCommit } = await writeRunTaskPreflightFixture();
     const cases: Array<{ value: string; reason: string }> = [
