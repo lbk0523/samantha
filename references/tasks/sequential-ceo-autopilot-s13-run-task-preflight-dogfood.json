@@ -1,0 +1,52 @@
+{
+  "id": "sequential-ceo-autopilot-s13-run-task-preflight-dogfood",
+  "title": "Dogfood Sequential CEO Autopilot S13 run_task preflight reports",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sequential-ceo-autopilot.md",
+    "references/operations/sequential-ceo-autopilot-s13-run-task-preflight-valid.json",
+    "references/operations/sequential-ceo-autopilot-s13-run-task-preflight-blocked.json",
+    "references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/operations/sequential-ceo-autopilot-s13-run-task-preflight-valid.json",
+    "test -f references/operations/sequential-ceo-autopilot-s13-run-task-preflight-blocked.json",
+    "test -f references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md",
+    "bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s13-run-task-preflight-valid.json --repo-root=.",
+    "bash -lc 'if bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s13-run-task-preflight-blocked.json --repo-root=. > /tmp/samantha-s13-blocked-run-task-preflight.json; then exit 1; else grep -F \"runTaskCandidate.requiredRuntime must be codex-sdk\" /tmp/samantha-s13-blocked-run-task-preflight.json; fi'",
+    "grep -F 'No run_task execution' references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md",
+    "grep -F 'No worker dispatch by continuation' references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md",
+    "grep -F 'S14' references/initiatives/sequential-ceo-autopilot.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot.md references/operations/sequential-ceo-autopilot-s13-run-task-preflight-valid.json references/operations/sequential-ceo-autopilot-s13-run-task-preflight-blocked.json references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md"
+  ],
+  "instructions": "Perform only S13 for references/initiatives/sequential-ceo-autopilot.md. Dogfood S12/S12.1 report-only runTaskPreflight behavior against a committed TaskSpec candidate without executing run_task. Do not change source code, tests, task specs, task templates, agent profiles, package files, policy, doctrine, Phase 5.5 or Phase 5 batch artifacts, lessons, run logs, or worktrees. Do not run bun run samantha run-task, execute batch_plan, dispatch workers from continuation, create worktrees from continuation, mutate lifecycle state from continuation, merge, cleanup, commit, push, or bypass existing gates. Create references/operations/sequential-ceo-autopilot-s13-run-task-preflight-valid.json as a continuation artifact whose currentSlice.actionType is run_task and whose runTaskCandidate points at the already committed TaskSpec references/tasks/sequential-ceo-autopilot-s12-run-task-preflight-report.json. Compute the candidate evidence taskSpecCommit from git log -n 1 --format=%H -- references/tasks/sequential-ceo-autopilot-s12-run-task-preflight-report.json and use the TaskSpec targetFiles, forbiddenChanges, and verifyCommands exactly in both currentSlice and runTaskCandidate. Use requiredRuntime codex-sdk, executionMode preflight_only, worktreePolicy samantha_allocated_isolated, lifecycleOwner samantha, taskSpecStatus committed_clean, and all expectedSideEffects false. Create references/operations/sequential-ceo-autopilot-s13-run-task-preflight-blocked.json as a blocked candidate using the same committed TaskSpec but requiredRuntime exec-json so continuation:show returns a blocked runTaskPreflight report. Create references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md recording the exact continuation:show commands, accepted and blocked outcomes, false side-effect expectations, and explicit statements: No run_task execution; No batch_plan execution; No worker dispatch by continuation; No worktree creation by continuation; no run log creation by continuation; no lifecycle mutation by continuation; no merge, cleanup, commit, push, daemon/watch, remote adapter, dashboard, routine trigger, hidden memory, or broad roadmap execution by continuation. Update references/initiatives/sequential-ceo-autopilot.md to mark S13 completed, cite the S13 operation artifacts and report, and set exactly one next ready slice: S14 reviewed guarded single-run_task execution decision/design. S14 must remain decision/design; do not execute run_task in S13. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: dogfood sequential ceo run task preflight",
+  "status": "pending"
+}
