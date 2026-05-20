@@ -1,0 +1,47 @@
+{
+  "id": "sequential-ceo-autopilot-s18-run-accept-preflight-report",
+  "title": "Implement Sequential CEO Autopilot S18 runs:accept preflight report",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Implement only S18 for references/initiatives/sequential-ceo-autopilot.md. Add report-only runs:accept preflight visibility for one closed runAcceptCandidate object in the sequential continuation artifact. Do not implement S19 dogfood. Do not implement guarded runs:accept execution, merge, cleanup, local commit, push, run_task execution, batch_plan execution, worker dispatch, multi-step loop execution, successor execution, daemon/watch behavior, remote adapters, dashboards, routine triggers, hidden memory, broad roadmap execution, or any Phase 5.5/Phase 5 batch authority. Prefer keeping currentSlice.actionType as report_only for the accept preflight surface; do not add a new write-capable action type unless existing contracts force it. Add or update exported types as needed: runAcceptCandidate must be optional and closed-schema; absent/null should not block a valid artifact or continuation:show. Candidate shape should include runLogPath, expectedRunId, expectedTaskId, expectedCommit, expectedBaseCommit, targetBranch, requiredRuntime, executionMode, lifecycleOwner, pushAllowed, and expectedSideEffects. Required values: targetBranch main unless explicitly supplied by the candidate, requiredRuntime codex-sdk, executionMode accept_preflight_only, lifecycleOwner samantha, pushAllowed false, and all expectedSideEffects false for runsAcceptCalled, mergeGateRecorded, mergePerformed, lifecycleMutated, cleanupPerformed, commitPerformed, pushPerformed, runTaskCalled, workersDispatched, batchesExecuteCalled, multiStepLoopStarted, and successorExecuted. Validation order must be: validate the current continuation artifact before reading runAcceptCandidate; reject active stop conditions and push requirements; validate the candidate as a closed object; normalize runLogPath as a repo-relative local runs/*.json path; reject prose paths, command strings, URLs, absolute paths, traversal, environment expansion, globs, empty strings, missing files, off-repo files, invalid JSON, mismatched run ids/task ids/commits/base commits/runtime/target branch, non-report_only action type, unmet dependency, non-ready current slice, failed Samantha evaluation, missing or non-pass HARNESS_RESULT, scope violations, missing or failed declared verify commands, missing actionable worker candidate commit, candidate commit missing locally, candidate commit not descended from worker base, dirty target repo, wrong target branch, stale base when HEAD advanced after worker base and candidate is not already integrated, and cleanup readiness risks. S18 must not call runs:accept, merge:check CLI, worktree:cleanup, runs:mark-lifecycle, acceptRun, recordMergeChecked, recordLifecycleMarked, recordCleanupFinished, cleanupCompletedWorktree, draftLessonFromAcceptedRun, runTaskCommand, executeWorkerDispatch, or any writer dispatch path. If code reuse is needed, use pure reads and git checks only; do not mutate run log trajectory, lifecycle jsonl, worktrees, branches, main, run logs, lesson drafts, commits, or pushes. Add a core helper such as buildSequentialContinuationRunAcceptPreflightReport with deterministic accepted/blocked/absent/rejected status, normalized/resolved runLogPath, run id/task id/expected commit/base commit/target branch/runtime fields, cleanup readiness evidence only if useful, trustedStateChanges false, pushPerformed false, and false side effects. Wire continuation:show to include runAcceptPreflight when accepted or blocked, omitted when absent; continuation:show must remain non-mutating and non-zero when runAcceptPreflight is blocked. Add focused core tests for absent/null candidate, closed-schema validation, invalid predecessor before candidate inspection, accepted preflight using a temp git repo/run log fixture, stale-base blocked using the S16-shaped fixture behavior or temp equivalent, mismatch blocked cases, failed HARNESS_RESULT/evaluation/scope/verify cases, unsafe path strings, missing/off-repo files, dirty repo/wrong branch, missing commit, non-descendant commit, active stop condition, push or side-effect requests, and proof side effects remain false. Add CLI tests for parser/main continuation:show visibility of accepted and blocked runAcceptPreflight, non-zero blocked exit, and no file mutation; do not call real runs:accept, merge:check, cleanup, lifecycle, run_task, or worker dispatch in tests. Update references/initiatives/sequential-ceo-autopilot.md to mark S18 completed, cite implementation evidence, set exactly one next ready slice: S19 dogfood of S18 accepted and blocked preflight reports, and keep S20-S24 pending. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo run accept preflight report",
+  "status": "pending"
+}
