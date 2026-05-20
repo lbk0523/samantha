@@ -230,13 +230,13 @@ Stop before continuing when any of these appear:
 | S19 | completed | Dogfood S18 `runs:accept` preflight against accepted and blocked run logs. | S18. | Created accepted and blocked S19 preflight artifacts plus a dogfood report. `continuation:show` accepted a temporary cleanup-ready fixture and blocked the real S16 run log with `target repo HEAD no longer matches the worker base commit`; side-effect flags stayed false and no accept, merge, cleanup, push, worker dispatch, new run, multi-step loop, or successor execution occurred. | None. |
 | S20 | completed | Implement guarded single `runs:accept` execution for one preflight-accepted run log only. | S19. | S20 added closed optional `runAcceptExecution`, `buildSequentialContinuationRunAcceptExecutionReport` with executor injection, and `continuation:accept-run-once`. Focused tests prove accepted injected execution, missing and `accept_preflight_only` triggers, blocked preflight, trigger/preflight mismatches, active stops, non-ready/non-report-only/unmet dependency gates, push/commit/batch/run_task/worker/multi-step/successor side-effect rejection, executor failure, not-accepted results, exactly one executor call, false push, no artifact mutation in blocked CLI paths, and immediate stop after lifecycle evidence. | None. |
 | S21 | completed | Dogfood S20 through one accepted run lifecycle. | S20. | Passed: committed a persistent S21 TaskSpec, ran one SDK-backed worker, validated explicit `runAcceptCandidate`/`runAcceptExecution` preflight, and executed `continuation:accept-run-once` exactly once. The report returned `status: accepted`, `actionAttemptCount: 1`, `continued: false`, `stopReason: run_accept_lifecycle_recorded`, trusted state limited to run-log trajectory/lifecycle/merge/cleanup evidence, and false commit, push, `batch_plan`, multi-step loop, successor, daemon/watch, hidden-memory, and broad-roadmap side effects. | None. |
-| S22 | ready | Add post-accept status update and deterministic next-artifact reporting from accepted lifecycle evidence. | S21. | Focused evidence should prove accepted lifecycle evidence can complete the current slice, preserve cited evidence, report the next ready artifact or stop reason, and avoid worker text, push, `batch_plan`, or multi-step execution as trusted state. | `sam c: Implement S22 for references/initiatives/sequential-ceo-autopilot.md. Add post-accept status update and deterministic next-artifact reporting from accepted lifecycle evidence. Do not trust worker output text, push, run batch_plan, execute a multi-step loop, execute a successor artifact, add daemon/watch behavior, add hidden memory, or change S23/S24 scope.` |
-| S23 | pending | Dogfood one end-to-end writer continuation cycle: `run_task -> accept -> status update -> next ready slice or stop report`. | S22. | End-to-end evidence should show BK does not need to issue separate scheduler commands inside the single writer-slice lifecycle, while all stop conditions, false push, and lifecycle evidence remain reviewable. | Pending until S22 completes. |
+| S22 | completed | Add post-accept status update and deterministic next-artifact reporting from accepted lifecycle evidence. | S21. | S22 added `continuation:update-status-after-accept` plus `buildSequentialContinuationPostAcceptStatusUpdate`. Focused tests prove accepted lifecycle evidence completes only the bound current artifact, rejects mismatched `acceptReport.artifactPath` before mutation, cites the saved accept report and run log, reports ready or blocked next-artifact linkage without successor execution, treats blocked successor linkage as an accepted current-slice update, and preserves false side-effect flags for run_task, worker dispatch, batch execution, multi-step loop, successor execution, commit, and push. | None. |
+| S23 | ready | Dogfood one end-to-end writer continuation cycle: `run_task -> accept -> status update -> next ready slice or stop report`. | S22. | End-to-end evidence should show BK does not need to issue separate scheduler commands inside the single writer-slice lifecycle, while all stop conditions, false push, and lifecycle evidence remain reviewable. | `sam c: Dogfood S23 for references/initiatives/sequential-ceo-autopilot.md. Run one end-to-end writer continuation cycle through guarded run_task, guarded runs:accept, post-accept status update, and deterministic next ready slice or stop reporting. Do not add S24 closure, batch_plan execution, multi-step successor execution, daemon/watch behavior, remote adapters, dashboards, hidden memory, commit, push, or broader routine authority.` |
 | S24 | pending | Decide MVP closure versus a separate follow-up initiative for bounded multi-writer, `batch_plan`, or broader routine use. | S23. | Decision evidence should either close the MVP as complete or explicitly move remaining authority expansion into a new reviewed initiative; no implementation or new execution authority in S24. | Pending until S23 completes. |
 
 ## Current Next Slice
 
-S22 is ready.
+S23 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -259,9 +259,10 @@ S19 dogfooded S18 report-only `runs:accept` preflight visibility against one
 accepted temporary fixture and one blocked real S16 run log. S20 implemented
 guarded single `runs:accept` execution behind a distinct `runAcceptExecution`
 trigger. S21 dogfooded that guard through one accepted run lifecycle and
-stopped after lifecycle evidence. S22 is the only next ready slice and should
-add post-accept status update plus deterministic next-artifact reporting from
-accepted lifecycle evidence. Broader routine use is not yet justified.
+stopped after lifecycle evidence. S22 added post-accept status update plus
+deterministic next-artifact reporting from accepted lifecycle evidence. S23 is
+the only next ready slice and should dogfood one full writer continuation
+cycle. Broader routine use is not yet justified.
 
 Readiness-only continuation works, and S8 has now documented the boundary for
 deterministic next-artifact linkage plus reviewed `run_task`/`batch_plan`
@@ -287,13 +288,13 @@ implemented report-only `runs:accept` preflight visibility through a closed
 without granting lifecycle execution authority. S20 added guarded single
 `runs:accept` execution for one preflight-accepted run log only. S21 dogfooded
 that S20 surface through a real accepted lifecycle and stopped without broader
-continuation authority. The next safe step is exactly one ready slice: S22
-post-accept status update and deterministic next-artifact reporting from
-accepted lifecycle evidence.
+continuation authority. S22 connected that accepted lifecycle evidence to a
+deterministic continuation artifact status update and next-artifact report.
+The next safe step is exactly one ready slice: S23 dogfood one end-to-end
+writer continuation cycle.
 
-The remaining roadmap is fixed through S24. S22 is still status/reporting
-work and must not be treated as initiative completion. The
-MVP completion candidate is S23, where one writer slice can complete
+The remaining roadmap is fixed through S24. S23 is the
+MVP completion candidate, where one writer slice can complete
 end-to-end through `run_task`, `runs:accept`, status update, and next ready or
 stop reporting. S24 is the explicit closure decision: close the MVP or move
 multi-writer, `batch_plan`, and broader routine use to a separate initiative.
@@ -663,8 +664,47 @@ multi-writer, `batch_plan`, and broader routine use to a separate initiative.
   `mergeGateRecorded`, `mergePerformed`, `lifecycleMutated`, and
   `cleanupPerformed`; they remained false for commit, push, `run_task`,
   worker dispatch, `batch_plan`, multi-step loop, and successor execution.
-- Next slice: S22, add post-accept status update and deterministic
-  next-artifact reporting from accepted lifecycle evidence. Keep S23-S24
+- Follow-up: S22 added post-accept status update and deterministic
+  next-artifact reporting from accepted lifecycle evidence.
+
+## S22 Evidence And Decision
+
+- Implementation:
+  `src/core/sequential-ceo-autopilot.ts`, `src/cli.ts`,
+  `tests/sequential-ceo-autopilot.test.ts`, and `tests/cli.test.ts`.
+- Decision: post-accept status update consumes a saved structured
+  `continuation:accept-run-once` JSON report. It does not call
+  `runs:accept`, rerun accept preflight, merge, cleanup, `run_task`,
+  `batch_plan`, worker dispatch, multi-step loop, successor execution,
+  commit, or push.
+- Decision: accepted post-accept evidence must cite both the saved
+  continuation accept report and the accepted run log. It requires
+  `acceptReport.artifactPath` to normalize to the exact supplied artifact path,
+  accepted report fields, accepted preflight summary, lifecycle and cleanup
+  summaries, false push, exact side-effect flags, and run-log trajectory events
+  for `merge_checked`, `lifecycle_marked` merged, `cleanup_finished`, and
+  `lifecycle_marked` cleaned.
+- Decision: the current artifact validates before successor linkage is
+  inspected. Invalid artifacts, active stop conditions, push requirements,
+  non-accepted reports, prose-only worker output, missing lifecycle or cleanup
+  evidence, wrong side-effect flags, and missing run-log trajectory evidence
+  stop before artifact mutation.
+- Decision: valid post-accept evidence updates only the bound supplied
+  continuation artifact to completed. If `nextArtifactPath` is accepted, the
+  report exposes deterministic successor linkage without executing it. If
+  absent, it stops with `no_deterministic_next_artifact`. If present but
+  blocked, the status update remains accepted with `artifactUpdated: true`,
+  `stopReason: next_artifact_blocked`, blocked linkage details, and successor
+  execution false.
+- Evidence: focused core tests cover accepted next-artifact linkage, absent
+  next artifact stop, accept-report artifact mismatch rejection before mutation,
+  prose-only and incomplete lifecycle rejection, invalid current artifact,
+  active stop, push requirement, non-accepted accept report, wrong side-effect
+  flags, missing lifecycle/cleanup evidence, missing run-log trajectory, and
+  blocked successor linkage. CLI tests cover parser/main behavior, accepted
+  artifact update, rejected and unrelated accept reports without mutation, and
+  no new worktree or lifecycle-state creation.
+- Next slice: S23, dogfood one end-to-end writer continuation cycle. Keep S24
   pending.
 
 ## End-of-Session Update Rule

@@ -45,6 +45,7 @@ import { buildReadinessReport, type BuildReadinessReportInput, type ReadinessRep
 import {
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationPostAcceptStatusUpdate,
   buildSequentialContinuationRunAcceptExecutionReport,
   buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
@@ -68,6 +69,13 @@ export interface ContinuationUpdateStatusCliArgs {
   command: "continuation:update-status";
   artifactPath: string;
   evidencePath: string;
+}
+
+export interface ContinuationUpdateStatusAfterAcceptCliArgs {
+  command: "continuation:update-status-after-accept";
+  artifactPath: string;
+  acceptReportPath: string;
+  repoRoot: string;
 }
 
 export interface ContinuationStepCliArgs {
@@ -283,6 +291,7 @@ export interface BatchPlansPrepareCliArgs extends PrepareBatchPlanInput {
 export type SamanthaCliArgs =
   | ContinuationShowCliArgs
   | ContinuationUpdateStatusCliArgs
+  | ContinuationUpdateStatusAfterAcceptCliArgs
   | ContinuationStepCliArgs
   | ContinuationLoopCliArgs
   | ContinuationRunTaskOnceCliArgs
@@ -396,6 +405,24 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       command: "continuation:update-status",
       artifactPath,
       evidencePath,
+    };
+  }
+
+  if (command === "continuation:update-status-after-accept") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const artifactPath = flags.get("artifact");
+    const acceptReportPath = flags.get("accept-report");
+    const repoRoot = flags.get("repo-root");
+    if (!artifactPath || !acceptReportPath || !repoRoot) {
+      throw new Error(
+        "usage: bun run samantha continuation:update-status-after-accept --artifact=<path> --accept-report=<path> --repo-root=<repo>",
+      );
+    }
+    return {
+      command: "continuation:update-status-after-accept",
+      artifactPath,
+      acceptReportPath,
+      repoRoot,
     };
   }
 
@@ -923,7 +950,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:update-status-after-accept|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -960,6 +987,16 @@ function evidenceReadViolation(err: unknown): string {
     return `evidence JSON could not be parsed: ${err.message}`;
   }
   return `evidence could not be read: ${err instanceof Error ? err.message : String(err)}`;
+}
+
+function acceptReportReadViolation(err: unknown): string {
+  if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    return "accept report could not be read: file not found";
+  }
+  if (err instanceof SyntaxError) {
+    return `accept report JSON could not be parsed: ${err.message}`;
+  }
+  return `accept report could not be read: ${err instanceof Error ? err.message : String(err)}`;
 }
 
 function readinessStatusEvidenceResult(status: ReadinessReport["overallStatus"]): SequentialContinuationStatusEvidenceResult {
@@ -1089,6 +1126,41 @@ export async function main(argv: string[]): Promise<number> {
       artifact,
       evidence,
       violations,
+    });
+    if (result.updatedArtifact) {
+      await writeFile(artifactPath, `${JSON.stringify(result.updatedArtifact, null, 2)}\n`, "utf8");
+    }
+    console.log(JSON.stringify(result.report, null, 2));
+    return result.report.status === "accepted" ? 0 : 1;
+  }
+
+  if (args.command === "continuation:update-status-after-accept") {
+    const artifactPath = resolve(args.artifactPath);
+    const acceptReportPath = resolve(args.acceptReportPath);
+    const repoRoot = resolve(args.repoRoot);
+    const violations: string[] = [];
+    const acceptReportViolations: string[] = [];
+    let artifact: unknown;
+    let acceptReport: unknown;
+    try {
+      artifact = JSON.parse(await readFile(artifactPath, "utf8")) as unknown;
+    } catch (err) {
+      violations.push(artifactReadViolation(err));
+    }
+    try {
+      acceptReport = JSON.parse(await readFile(acceptReportPath, "utf8")) as unknown;
+    } catch (err) {
+      acceptReportViolations.push(acceptReportReadViolation(err));
+    }
+
+    const result = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot,
+      artifactPath,
+      artifact,
+      acceptReportPath,
+      acceptReport,
+      violations,
+      acceptReportViolations,
     });
     if (result.updatedArtifact) {
       await writeFile(artifactPath, `${JSON.stringify(result.updatedArtifact, null, 2)}\n`, "utf8");

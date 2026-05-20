@@ -18,6 +18,7 @@ import {
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationPostAcceptStatusUpdate,
   buildSequentialContinuationRunAcceptExecutionReport,
   buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
@@ -423,6 +424,162 @@ async function writeRunAcceptPreflightFixture(overrides: {
   });
   await writeFile(artifactPath, `${JSON.stringify(continuation, null, 2)}\n`, "utf8");
   return { root, artifactPath, runLogPath, worktreePath, baseCommit, workerCommit, continuation, runLog };
+}
+
+async function addAcceptedTrajectory(runLogPath: string): Promise<void> {
+  const runLog = JSON.parse(await readFile(runLogPath, "utf8")) as WorkerRunLog;
+  runLog.trajectory = [
+    {
+      sequence: 1,
+      event: "merge_checked",
+      status: "completed",
+      note: "merge gate checked",
+      details: { mergeStatus: "mergeable" },
+    },
+    {
+      sequence: 2,
+      event: "lifecycle_marked",
+      status: "completed",
+      note: "run lifecycle marked",
+      details: { event: "merged", updatedAt: "2026-05-20T00:02:00.000Z" },
+    },
+    {
+      sequence: 3,
+      event: "cleanup_finished",
+      status: "completed",
+      note: "worker worktree cleanup finished",
+      details: { cleaned: true },
+    },
+    {
+      sequence: 4,
+      event: "lifecycle_marked",
+      status: "completed",
+      note: "run lifecycle marked",
+      details: { event: "cleaned", updatedAt: "2026-05-20T00:03:00.000Z" },
+    },
+  ];
+  await writeFile(runLogPath, `${JSON.stringify(runLog, null, 2)}\n`, "utf8");
+}
+
+async function writePostAcceptFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  successor?: Partial<SequentialContinuationArtifact> | null;
+} = {}) {
+  const fixture = await writeRunAcceptPreflightFixture({
+    artifact: {
+      artifactId: "sequential-ceo-autopilot-s22",
+      currentSlice: {
+        id: "S22",
+        status: "ready",
+        actionType: "report_only",
+        dependencyStatus: "met",
+        prerequisites: ["S21 completed"],
+        targetFiles: ["allowed.txt"],
+        forbiddenChanges: ["runs/**", "worktrees/**"],
+        verifyCommands: ["grep -q changed allowed.txt"],
+      },
+      ...overrides.artifact,
+    },
+  });
+  await addAcceptedTrajectory(fixture.runLogPath);
+  const continuation = JSON.parse(await readFile(fixture.artifactPath, "utf8")) as SequentialContinuationArtifact;
+  if (overrides.successor !== null && continuation.nextArtifactPath) {
+    const successorPath = join(fixture.root, continuation.nextArtifactPath);
+    await mkdir(join(fixture.root, "references", "operations"), { recursive: true });
+    await writeFile(
+      successorPath,
+      `${JSON.stringify(
+        artifact({
+          artifactId: "sequential-ceo-autopilot-s23",
+          currentSlice: {
+            id: "S23",
+            status: "ready",
+            actionType: "report_only",
+            dependencyStatus: "met",
+            prerequisites: ["S22 completed"],
+          },
+          evidenceReferences: [
+            {
+              path: "references/operations/s18-run-accept-preflight.json",
+              summary: "S23 cites the accepted predecessor continuation artifact.",
+            },
+          ],
+          ...overrides.successor,
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+  }
+  const acceptReport = {
+    artifactPath: fixture.artifactPath,
+    repoRoot: fixture.root,
+    status: "accepted",
+    violations: [],
+    blockingReasons: [],
+    selectedActionType: "runs_accept",
+    runLogPath: "runs/accept-run.json",
+    normalizedRunLogPath: "runs/accept-run.json",
+    resolvedRunLogPath: fixture.runLogPath,
+    run: { id: "accept-run", taskId: "accept-fixture" },
+    expectedRunId: "accept-run",
+    expectedTaskId: "accept-fixture",
+    expectedCommit: fixture.workerCommit,
+    expectedBaseCommit: fixture.baseCommit,
+    targetBranch: "main",
+    requiredRuntime: "codex-sdk",
+    lifecycleOwner: "samantha",
+    runAcceptPreflight: { status: "accepted" },
+    acceptResultSummary: {
+      accepted: true,
+      status: "accepted",
+      gateStatus: "mergeable",
+      mergeExitCode: 0,
+      lessonDraftStatus: "created",
+      lessonDraftPath: `${fixture.root}/references/lessons/inbox/accept-run.md`,
+    },
+    lifecycleEvidenceSummary: {
+      merged: true,
+      cleaned: true,
+      runId: "accept-run",
+      taskId: "accept-fixture",
+      commit: fixture.workerCommit,
+    },
+    cleanupEvidenceSummary: {
+      cleaned: true,
+      classification: "completed",
+      worktreePath: fixture.worktreePath,
+      branch: "samantha/accept-fixture",
+      violations: [],
+    },
+    actionAttemptCount: 1,
+    actionExecuted: true,
+    continued: false,
+    stopReason: "run_accept_lifecycle_recorded",
+    trustedStateChanges: ["run_log_trajectory", "lifecycle_record", "merge_result", "cleanup_result"],
+    pushPerformed: false,
+    sideEffects: {
+      runsAcceptCalled: true,
+      mergeGateRecorded: true,
+      mergePerformed: true,
+      lifecycleMutated: true,
+      cleanupPerformed: true,
+      commitPerformed: false,
+      pushPerformed: false,
+      runTaskCalled: false,
+      workersDispatched: false,
+      batchesExecuteCalled: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    },
+  };
+  return {
+    ...fixture,
+    continuation,
+    acceptReport,
+    acceptReportPath: join(fixture.root, "references", "operations", "s22-accept-report.json"),
+  };
 }
 
 async function writeRunTaskPreflightFixture(overrides: {
@@ -2443,6 +2600,325 @@ describe("Sequential CEO Autopilot guarded single-runs_accept execution", () => 
     expect(rejectedReport.violations).toContain("runs:accept result must include completed cleanup evidence");
     expect(rejectedReport.actionExecuted).toBe(false);
     expect(rejectedReport.sideEffects).toEqual(runAcceptExpectedSideEffects());
+  });
+});
+
+describe("Sequential CEO Autopilot post-accept status update", () => {
+  test("completes the accepted slice and reports accepted next-artifact linkage", async () => {
+    const fixture = await writePostAcceptFixture({
+      artifact: {
+        nextArtifactPath: "references/operations/s23.json",
+        nextArtifactExpectedSliceId: "S23",
+      },
+    });
+
+    const result = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: fixture.acceptReport,
+    });
+
+    expect(result.report.status).toBe("accepted");
+    expect(result.report.stopReason).toBe("next_artifact_ready");
+    expect(result.report.artifactUpdated).toBe(true);
+    expect(result.report.statusEvidence).toMatchObject({
+      currentSliceId: "S22",
+      outcome: "completed",
+      updatedAt: "2026-05-20T00:03:00.000Z",
+      evidenceReferences: [
+        {
+          kind: "continuation_report",
+          path: "references/operations/s22-accept-report.json",
+          result: "completed",
+        },
+        {
+          kind: "run_log",
+          path: "runs/accept-run.json",
+          result: "passed",
+        },
+      ],
+      nextStep: {
+        kind: "samantha_command",
+        value: `bun run samantha continuation:show --artifact=references/operations/s23.json --repo-root=${fixture.root}`,
+      },
+    });
+    expect(result.report.statusUpdateReport?.status).toBe("accepted");
+    expect(result.report.nextArtifactLinkage?.status).toBe("accepted");
+    expect(result.report.nextArtifactLinkage?.successor?.currentSliceId).toBe("S23");
+    expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
+    expect(result.updatedArtifact?.evidenceReferences).toEqual(result.report.statusEvidence?.evidenceReferences);
+    expect(result.report.sideEffects).toMatchObject({
+      runTaskCalled: false,
+      workersDispatched: false,
+      batchesExecuteCalled: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+      commitPerformed: false,
+      pushPerformed: false,
+    });
+  });
+
+  test("completes the accepted slice and stops when no deterministic next artifact exists", async () => {
+    const fixture = await writePostAcceptFixture();
+
+    const result = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: fixture.acceptReport,
+    });
+
+    expect(result.report.status).toBe("accepted");
+    expect(result.report.stopReason).toBe("no_deterministic_next_artifact");
+    expect(result.report.nextArtifactLinkage?.status).toBe("absent");
+    expect(result.report.statusEvidence?.nextStep).toEqual({
+      kind: "blocked_report",
+      value: "no_deterministic_next_artifact: S22 completed from structured post-run evidence; no nextArtifactPath is present.",
+    });
+    expect(result.report.statusUpdateReport?.status).toBe("accepted");
+    expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
+    expect(result.updatedArtifact?.nextStep.kind).toBe("blocked_report");
+  });
+
+  test("rejects accept reports for a different artifact before mutation", async () => {
+    const fixture = await writePostAcceptFixture();
+
+    const result = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: {
+        ...fixture.acceptReport,
+        artifactPath: "references/operations/other-slice.json",
+      },
+    });
+
+    expect(result.report.status).toBe("rejected");
+    expect(result.report.violations).toContain(
+      "accept report artifactPath must match artifact being updated: references/operations/s18-run-accept-preflight.json",
+    );
+    expect(result.report.nextArtifactLinkage).toBeNull();
+    expect(result.report.artifactUpdated).toBe(false);
+    expect(result.updatedArtifact).toBeNull();
+  });
+
+  test("rejects prose-only or missing lifecycle evidence before mutation", async () => {
+    const fixture = await writePostAcceptFixture();
+
+    const proseOnly = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: {
+        status: "accepted",
+        selectedActionType: "runs_accept",
+        workerOutput: "HARNESS_RESULT pass; lifecycle done.",
+      },
+    });
+    expect(proseOnly.report.status).toBe("rejected");
+    expect(proseOnly.report.violations).toContain("accept report actionExecuted must be true");
+    expect(proseOnly.report.violations).toContain("accept report lifecycleEvidenceSummary must be present");
+    expect(proseOnly.updatedArtifact).toBeNull();
+
+    const missingLifecycle = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: {
+        ...fixture.acceptReport,
+        lifecycleEvidenceSummary: null,
+      },
+    });
+    expect(missingLifecycle.report.status).toBe("rejected");
+    expect(missingLifecycle.report.violations).toContain("accept report lifecycleEvidenceSummary must be present");
+    expect(missingLifecycle.updatedArtifact).toBeNull();
+  });
+
+  test("rejects unsafe artifacts and accept reports before mutation", async () => {
+    const fixture = await writePostAcceptFixture();
+    const invalidArtifact = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: {
+        ...fixture.continuation,
+        nextArtifactPath: ["references/operations/s23.json"],
+      },
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: fixture.acceptReport,
+    });
+    expect(invalidArtifact.report.status).toBe("rejected");
+    expect(invalidArtifact.report.violations).toContain("nextArtifactPath must be a non-empty repo-relative .json path or null");
+    expect(invalidArtifact.updatedArtifact).toBeNull();
+    expect(invalidArtifact.report.nextArtifactLinkage).toBeNull();
+
+    const activeStop = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: {
+        ...fixture.continuation,
+        stopConditionChecklist: fixture.continuation.stopConditionChecklist.map((check) =>
+          check.id === "decision_required"
+            ? { ...check, active: true, evidence: "BK decision required." }
+            : check,
+        ),
+      },
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: fixture.acceptReport,
+    });
+    expect(activeStop.report.status).toBe("blocked");
+    expect(activeStop.report.violations).toContain("stop condition active: decision_required: BK decision required.");
+    expect(activeStop.updatedArtifact).toBeNull();
+
+    const pushAllowed = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: {
+        ...fixture.continuation,
+        autonomyEnvelope: {
+          ...fixture.continuation.autonomyEnvelope,
+          pushAllowed: true as false,
+        },
+      },
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: fixture.acceptReport,
+    });
+    expect(pushAllowed.report.status).toBe("rejected");
+    expect(pushAllowed.report.violations).toContain("autonomyEnvelope.pushAllowed must be false");
+    expect(pushAllowed.updatedArtifact).toBeNull();
+
+    const nonAccepted = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: {
+        ...fixture.acceptReport,
+        status: "blocked",
+        actionExecuted: false,
+      },
+    });
+    expect(nonAccepted.report.status).toBe("rejected");
+    expect(nonAccepted.report.violations).toContain("accept report status must be accepted: blocked");
+    expect(nonAccepted.report.violations).toContain("accept report actionExecuted must be true");
+    expect(nonAccepted.updatedArtifact).toBeNull();
+  });
+
+  test("rejects wrong side-effect flags and missing lifecycle cleanup evidence", async () => {
+    const fixture = await writePostAcceptFixture();
+
+    const wrongSideEffects = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: {
+        ...fixture.acceptReport,
+        sideEffects: {
+          ...fixture.acceptReport.sideEffects,
+          runsAcceptCalled: false,
+          commitPerformed: true,
+          pushPerformed: true,
+          runTaskCalled: true,
+          workersDispatched: true,
+          batchesExecuteCalled: true,
+          multiStepLoopStarted: true,
+          successorExecuted: true,
+        },
+      },
+    });
+    expect(wrongSideEffects.report.status).toBe("rejected");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.runsAcceptCalled must be true");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.commitPerformed must be false");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.pushPerformed must be false");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.runTaskCalled must be false");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.workersDispatched must be false");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.batchesExecuteCalled must be false");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.multiStepLoopStarted must be false");
+    expect(wrongSideEffects.report.violations).toContain("accept report sideEffects.successorExecuted must be false");
+    expect(wrongSideEffects.updatedArtifact).toBeNull();
+
+    const missingEvidence = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: {
+        ...fixture.acceptReport,
+        lifecycleEvidenceSummary: {
+          ...fixture.acceptReport.lifecycleEvidenceSummary,
+          merged: false,
+          cleaned: false,
+        },
+        cleanupEvidenceSummary: {
+          ...fixture.acceptReport.cleanupEvidenceSummary,
+          cleaned: false,
+        },
+        runAcceptPreflight: {
+          ...fixture.acceptReport.runAcceptPreflight,
+          status: "blocked",
+        },
+      },
+    });
+    expect(missingEvidence.report.status).toBe("rejected");
+    expect(missingEvidence.report.violations).toContain("accept report lifecycleEvidenceSummary.merged must be true");
+    expect(missingEvidence.report.violations).toContain("accept report lifecycleEvidenceSummary.cleaned must be true");
+    expect(missingEvidence.report.violations).toContain("accept report cleanupEvidenceSummary.cleaned must be true");
+    expect(missingEvidence.report.violations).toContain("accept report runAcceptPreflight.status must be accepted: blocked");
+    expect(missingEvidence.updatedArtifact).toBeNull();
+  });
+
+  test("blocks missing accepted run-log trajectory before mutation", async () => {
+    const fixture = await writePostAcceptFixture();
+    const runLog = JSON.parse(await readFile(fixture.runLogPath, "utf8")) as WorkerRunLog;
+    runLog.trajectory = runLog.trajectory?.filter((entry) => entry.event !== "cleanup_finished");
+    await writeFile(fixture.runLogPath, `${JSON.stringify(runLog, null, 2)}\n`, "utf8");
+
+    const result = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: fixture.acceptReport,
+    });
+
+    expect(result.report.status).toBe("blocked");
+    expect(result.report.violations).toContain("accepted run log trajectory must contain cleanup_finished completed");
+    expect(result.updatedArtifact).toBeNull();
+  });
+
+  test("reports blocked nextArtifactPath without successor execution", async () => {
+    const fixture = await writePostAcceptFixture({
+      artifact: {
+        nextArtifactPath: "references/operations/missing-s23.json",
+        nextArtifactExpectedSliceId: "S23",
+      },
+      successor: null,
+    });
+
+    const result = await buildSequentialContinuationPostAcceptStatusUpdate({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+      acceptReportPath: fixture.acceptReportPath,
+      acceptReport: fixture.acceptReport,
+    });
+
+    expect(result.report.status).toBe("accepted");
+    expect(result.report.stopReason).toBe("next_artifact_blocked");
+    expect(result.report.artifactUpdated).toBe(true);
+    expect(result.report.nextArtifactLinkage?.status).toBe("blocked");
+    expect(result.report.nextArtifactLinkage?.blockingReasons).toEqual([
+      `nextArtifactPath file not found: ${join(fixture.root, "references", "operations", "missing-s23.json")}`,
+    ]);
+    expect(result.report.sideEffects.successorExecuted).toBe(false);
+    expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
+    expect(result.updatedArtifact?.nextStep.kind).toBe("blocked_report");
   });
 });
 

@@ -574,6 +574,149 @@ async function writeCliRunAcceptPreflightFixture(overrides: {
   return { root, artifactPath, runLogPath, artifactText, runLogText };
 }
 
+async function writeCliPostAcceptFixture(overrides: {
+  acceptReport?: Record<string, unknown>;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  acceptReportPath: string;
+  runLogPath: string;
+  artifactText: string;
+  acceptReportText: string;
+  runLogText: string;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-cli-post-accept-"));
+  tmpRoots.push(root);
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  await mkdir(join(root, "runs"), { recursive: true });
+  const artifactPath = join(root, "references", "operations", "s22.json");
+  const acceptReportPath = join(root, "references", "operations", "s22-accept-report.json");
+  const runLogPath = join(root, "runs", "cli-post-accept.json");
+  const artifactText = `${JSON.stringify(
+    cliSequentialContinuationArtifact({
+      artifactId: "cli-continuation-s22",
+      currentSlice: {
+        id: "S22",
+        status: "ready",
+        actionType: "report_only",
+        dependencyStatus: "met",
+        prerequisites: ["S21 completed"],
+      },
+      nextStep: {
+        kind: "samantha_command",
+        value: "sam c: references/initiatives/sequential-ceo-autopilot.md S22",
+      },
+    }),
+    null,
+    2,
+  )}\n`;
+  const runLogText = `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      runId: "cli-post-accept",
+      finishedAt: "2026-05-20T01:00:00.000Z",
+      trajectory: [
+        {
+          sequence: 1,
+          event: "merge_checked",
+          status: "completed",
+          note: "merge gate checked",
+        },
+        {
+          sequence: 2,
+          event: "lifecycle_marked",
+          status: "completed",
+          note: "run lifecycle marked",
+          details: { event: "merged", updatedAt: "2026-05-20T01:01:00.000Z" },
+        },
+        {
+          sequence: 3,
+          event: "cleanup_finished",
+          status: "completed",
+          note: "worker worktree cleanup finished",
+        },
+        {
+          sequence: 4,
+          event: "lifecycle_marked",
+          status: "completed",
+          note: "run lifecycle marked",
+          details: { event: "cleaned", updatedAt: "2026-05-20T01:02:00.000Z" },
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`;
+  const acceptReport = {
+    artifactPath,
+    repoRoot: root,
+    status: "accepted",
+    violations: [],
+    blockingReasons: [],
+    selectedActionType: "runs_accept",
+    runLogPath: "runs/cli-post-accept.json",
+    normalizedRunLogPath: "runs/cli-post-accept.json",
+    resolvedRunLogPath: runLogPath,
+    run: { id: "cli-post-accept", taskId: "cli-post-accept-task" },
+    expectedRunId: "cli-post-accept",
+    expectedTaskId: "cli-post-accept-task",
+    expectedCommit: "a".repeat(40),
+    expectedBaseCommit: "b".repeat(40),
+    targetBranch: "main",
+    requiredRuntime: "codex-sdk",
+    lifecycleOwner: "samantha",
+    runAcceptPreflight: { status: "accepted" },
+    acceptResultSummary: {
+      accepted: true,
+      status: "accepted",
+      gateStatus: "mergeable",
+      mergeExitCode: 0,
+      lessonDraftStatus: null,
+      lessonDraftPath: null,
+    },
+    lifecycleEvidenceSummary: {
+      merged: true,
+      cleaned: true,
+      runId: "cli-post-accept",
+      taskId: "cli-post-accept-task",
+      commit: "a".repeat(40),
+    },
+    cleanupEvidenceSummary: {
+      cleaned: true,
+      classification: "completed",
+      worktreePath: join(root, "worktrees", "cli-post-accept"),
+      branch: "samantha/cli-post-accept",
+      violations: [],
+    },
+    actionAttemptCount: 1,
+    actionExecuted: true,
+    continued: false,
+    stopReason: "run_accept_lifecycle_recorded",
+    trustedStateChanges: ["run_log_trajectory", "lifecycle_record", "merge_result", "cleanup_result"],
+    pushPerformed: false,
+    sideEffects: {
+      runsAcceptCalled: true,
+      mergeGateRecorded: true,
+      mergePerformed: true,
+      lifecycleMutated: true,
+      cleanupPerformed: true,
+      commitPerformed: false,
+      pushPerformed: false,
+      runTaskCalled: false,
+      workersDispatched: false,
+      batchesExecuteCalled: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    },
+    ...overrides.acceptReport,
+  };
+  const acceptReportText = `${JSON.stringify(acceptReport, null, 2)}\n`;
+  await writeFile(artifactPath, artifactText, "utf8");
+  await writeFile(runLogPath, runLogText, "utf8");
+  await writeFile(acceptReportPath, acceptReportText, "utf8");
+  return { root, artifactPath, acceptReportPath, runLogPath, artifactText, acceptReportText, runLogText };
+}
+
 async function writeCliBatchStoreFixture(
   taskSpecOverrides: Partial<TaskSpec> = {},
   batchOverrides: Partial<BatchSpec> = {},
@@ -717,6 +860,28 @@ describe("samantha cli", () => {
     });
     expect(() => parseCliArgs(["continuation:update-status", "--artifact=references/continuation/s3.json"])).toThrow(
       "usage: bun run samantha continuation:update-status --artifact=<path> --evidence=<path>",
+    );
+    expect(
+      parseCliArgs([
+        "continuation:update-status-after-accept",
+        "--artifact=references/continuation/s22.json",
+        "--accept-report=references/reports/s22-accept.json",
+        "--repo-root=/tmp/samantha-repo",
+      ]),
+    ).toEqual({
+      command: "continuation:update-status-after-accept",
+      artifactPath: "references/continuation/s22.json",
+      acceptReportPath: "references/reports/s22-accept.json",
+      repoRoot: "/tmp/samantha-repo",
+    });
+    expect(() =>
+      parseCliArgs([
+        "continuation:update-status-after-accept",
+        "--artifact=references/continuation/s22.json",
+        "--accept-report=references/reports/s22-accept.json",
+      ]),
+    ).toThrow(
+      "usage: bun run samantha continuation:update-status-after-accept --artifact=<path> --accept-report=<path> --repo-root=<repo>",
     );
     expect(parseCliArgs(["continuation:step", "--artifact=references/continuation/s5.json"])).toEqual({
       command: "continuation:step",
@@ -1593,6 +1758,143 @@ describe("samantha cli", () => {
     expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
     expect(await pathExists(join(root, "runs"))).toBe(false);
     expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation update-status-after-accept completes the artifact from accepted lifecycle evidence", async () => {
+    const { root, artifactPath, acceptReportPath, runLogPath, acceptReportText, runLogText } =
+      await writeCliPostAcceptFixture();
+    const markerPath = join(root, "marker.txt");
+    await writeFile(markerPath, "leave me alone\n", "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:update-status-after-accept",
+      `--artifact=${artifactPath}`,
+      `--accept-report=${acceptReportPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report).toMatchObject({
+      status: "accepted",
+      stopReason: "no_deterministic_next_artifact",
+      artifactUpdated: true,
+      currentSliceId: "S22",
+      runLogPath: "runs/cli-post-accept.json",
+      normalizedRunLogPath: "runs/cli-post-accept.json",
+      nextArtifactLinkage: {
+        status: "absent",
+        trustedStateChanges: false,
+        pushPerformed: false,
+      },
+      sideEffects: {
+        runTaskCalled: false,
+        workersDispatched: false,
+        batchesExecuteCalled: false,
+        multiStepLoopStarted: false,
+        successorExecuted: false,
+        commitPerformed: false,
+        pushPerformed: false,
+      },
+    });
+    expect(report.statusEvidence).toMatchObject({
+      currentSliceId: "S22",
+      outcome: "completed",
+      updatedAt: "2026-05-20T01:02:00.000Z",
+      evidenceReferences: [
+        {
+          kind: "continuation_report",
+          path: "references/operations/s22-accept-report.json",
+          result: "completed",
+        },
+        {
+          kind: "run_log",
+          path: "runs/cli-post-accept.json",
+          result: "passed",
+        },
+      ],
+      nextStep: {
+        kind: "blocked_report",
+        value: "no_deterministic_next_artifact: S22 completed from structured post-run evidence; no nextArtifactPath is present.",
+      },
+    });
+    const updatedArtifact = JSON.parse(await readFile(artifactPath, "utf8"));
+    expect(updatedArtifact.currentSlice.status).toBe("completed");
+    expect(updatedArtifact.currentSlice.dependencyStatus).toBe("met");
+    expect(updatedArtifact.evidenceReferences).toEqual(report.statusEvidence.evidenceReferences);
+    expect(await readFile(acceptReportPath, "utf8")).toBe(acceptReportText);
+    expect(await readFile(runLogPath, "utf8")).toBe(runLogText);
+    expect(await readFile(markerPath, "utf8")).toBe("leave me alone\n");
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
+  });
+
+  test("continuation update-status-after-accept rejects invalid accept reports without artifact mutation", async () => {
+    const { root, artifactPath, acceptReportPath, runLogPath, artifactText, runLogText } =
+      await writeCliPostAcceptFixture({
+        acceptReport: {
+          status: "not_mergeable",
+          lifecycleEvidenceSummary: null,
+        },
+      });
+
+    const result = await runCliCapturingStdout([
+      "continuation:update-status-after-accept",
+      `--artifact=${artifactPath}`,
+      `--accept-report=${acceptReportPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain("accept report status must be accepted: not_mergeable");
+    expect(report.violations).toContain("accept report lifecycleEvidenceSummary must be present");
+    expect(report.artifactUpdated).toBe(false);
+    expect(report.sideEffects).toMatchObject({
+      runsAcceptCalled: false,
+      mergeGateRecorded: false,
+      mergePerformed: false,
+      lifecycleMutated: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+      runTaskCalled: false,
+      workersDispatched: false,
+      batchesExecuteCalled: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(runLogPath, "utf8")).toBe(runLogText);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
+  });
+
+  test("continuation update-status-after-accept rejects unrelated accept reports without artifact mutation", async () => {
+    const { root, artifactPath, acceptReportPath, artifactText } = await writeCliPostAcceptFixture({
+      acceptReport: {
+        artifactPath: join("references", "operations", "other-slice.json"),
+      },
+    });
+
+    const result = await runCliCapturingStdout([
+      "continuation:update-status-after-accept",
+      `--artifact=${artifactPath}`,
+      `--accept-report=${acceptReportPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain(
+      "accept report artifactPath must match artifact being updated: references/operations/s22.json",
+    );
+    expect(report.artifactUpdated).toBe(false);
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
   });
 
   test("continuation step runs one readiness_check and updates only the artifact", async () => {

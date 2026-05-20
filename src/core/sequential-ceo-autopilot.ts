@@ -4,7 +4,7 @@ import type { HarnessResult, TaskSpec, WorktreeAllocation } from "./contracts";
 import { git, gitRaw } from "./git";
 import { actionableCommitForRunLog } from "./run-commit";
 import type { RunAcceptResult } from "./run-accept";
-import type { WorkerRunLog } from "./run-log";
+import type { WorkerRunLog, WorkerRunTrajectoryEntry } from "./run-log";
 
 export const SEQUENTIAL_CONTINUATION_ACTION_TYPES = [
   "manual_decision",
@@ -481,6 +481,46 @@ export interface SequentialContinuationRunAcceptExecutionReport {
     multiStepLoopStarted: false;
     successorExecuted: false;
   };
+}
+
+export interface SequentialContinuationPostAcceptStatusUpdateReport {
+  artifactPath: string;
+  acceptReportPath: string;
+  repoRoot: string;
+  status: "accepted" | "blocked" | "rejected";
+  violations: string[];
+  blockingReasons: string[];
+  currentSliceId: string | null;
+  runLogPath: string | null;
+  normalizedRunLogPath: string | null;
+  resolvedRunLogPath: string | null;
+  statusEvidence: SequentialContinuationStatusEvidenceDocument | null;
+  statusUpdateReport: SequentialContinuationStatusUpdateReport | null;
+  nextArtifactLinkage: SequentialContinuationNextArtifactReport | null;
+  nextStep: SequentialContinuationNextStep | null;
+  stopReason: string;
+  artifactUpdated: boolean;
+  trustedStateChanges: string[];
+  pushPerformed: false;
+  sideEffects: {
+    runsAcceptCalled: false;
+    mergeGateRecorded: false;
+    mergePerformed: false;
+    lifecycleMutated: false;
+    cleanupPerformed: false;
+    commitPerformed: false;
+    pushPerformed: false;
+    runTaskCalled: false;
+    workersDispatched: false;
+    batchesExecuteCalled: false;
+    multiStepLoopStarted: false;
+    successorExecuted: false;
+  };
+}
+
+export interface SequentialContinuationPostAcceptStatusUpdateResult {
+  report: SequentialContinuationPostAcceptStatusUpdateReport;
+  updatedArtifact: SequentialContinuationArtifact | null;
 }
 
 export interface SequentialContinuationReport {
@@ -1889,7 +1929,170 @@ export async function buildSequentialContinuationRunAcceptExecutionReport(input:
   });
 }
 
+export async function buildSequentialContinuationPostAcceptStatusUpdate(input: {
+  repoRoot?: string;
+  artifactPath: string;
+  artifact: unknown;
+  acceptReportPath: string;
+  acceptReport: unknown;
+  violations?: string[];
+  acceptReportViolations?: string[];
+}): Promise<SequentialContinuationPostAcceptStatusUpdateResult> {
+  const repoRoot = resolve(input.repoRoot ?? ".");
+  const artifactPath = normalizePathForReport(input.artifactPath, repoRoot);
+  const acceptReportPath = normalizePathForReport(input.acceptReportPath, repoRoot);
+  const artifactViolations = [
+    ...(input.violations ?? []),
+    ...validateSequentialContinuationArtifact(input.artifact),
+  ];
+  const currentSlice = readReportCurrentSlice(input.artifact);
+
+  if (artifactViolations.length > 0 || !isSequentialContinuationArtifact(input.artifact)) {
+    return buildPostAcceptStatusUpdateResult({
+      artifactPath,
+      acceptReportPath,
+      repoRoot,
+      status: "rejected",
+      violations: artifactViolations,
+      blockingReasons: artifactViolations,
+      currentSliceId: currentSlice.id,
+      stopReason: "artifact_invalid",
+    });
+  }
+
+  const guardReasons = postAcceptArtifactGuardReasons(input.artifact);
+  if (guardReasons.length > 0) {
+    return buildPostAcceptStatusUpdateResult({
+      artifactPath,
+      acceptReportPath,
+      repoRoot,
+      status: "blocked",
+      violations: guardReasons,
+      blockingReasons: guardReasons,
+      currentSliceId: input.artifact.currentSlice.id,
+      stopReason: "guard_blocked",
+    });
+  }
+
+  const acceptReportReasons = [
+    ...(input.acceptReportViolations ?? []),
+    ...validatePostAcceptRunAcceptReport(input.acceptReport, artifactPath, repoRoot),
+  ];
+  if (acceptReportReasons.length > 0 || !isRecord(input.acceptReport)) {
+    return buildPostAcceptStatusUpdateResult({
+      artifactPath,
+      acceptReportPath,
+      repoRoot,
+      status: "rejected",
+      violations: acceptReportReasons,
+      blockingReasons: acceptReportReasons,
+      currentSliceId: input.artifact.currentSlice.id,
+      ...postAcceptRunLogFields(input.acceptReport),
+      stopReason: "accept_report_invalid",
+    });
+  }
+
+  const runLogEvidence = await readPostAcceptRunLogEvidence({
+    repoRoot,
+    acceptReport: input.acceptReport,
+  });
+  if (runLogEvidence.violations.length > 0) {
+    return buildPostAcceptStatusUpdateResult({
+      artifactPath,
+      acceptReportPath,
+      repoRoot,
+      status: "blocked",
+      violations: runLogEvidence.violations,
+      blockingReasons: runLogEvidence.violations,
+      currentSliceId: input.artifact.currentSlice.id,
+      ...postAcceptRunLogFields(input.acceptReport),
+      stopReason: "run_log_trajectory_missing",
+    });
+  }
+
+  const nextArtifactLinkage = await buildSequentialContinuationNextArtifactReport({
+    repoRoot,
+    artifactPath: input.artifactPath,
+    artifact: input.artifact,
+  });
+  const nextStep = postAcceptNextStep(nextArtifactLinkage, input.artifact.currentSlice.id);
+  const statusEvidence: SequentialContinuationStatusEvidenceDocument = {
+    schemaVersion: 1,
+    currentSliceId: input.artifact.currentSlice.id,
+    outcome: "completed",
+    updatedAt: runLogEvidence.updatedAt,
+    evidenceReferences: [
+      {
+        kind: "continuation_report",
+        path: acceptReportPath,
+        summary: "Structured continuation report satisfied post-run completion checks.",
+        result: "completed",
+      },
+      {
+        kind: "run_log",
+        path: postAcceptRunLogFields(input.acceptReport).normalizedRunLogPath ?? "",
+        summary: "Run log contains the required post-run trajectory events.",
+        result: "passed",
+      },
+    ],
+    nextStep,
+  };
+  const statusUpdate = buildSequentialContinuationStatusUpdate({
+    artifactPath,
+    evidencePath: acceptReportPath,
+    artifact: input.artifact,
+    evidence: statusEvidence,
+    allowCompletedBlockedReport: nextStep.kind === "blocked_report",
+  });
+  if (!statusUpdate.updatedArtifact) {
+    return buildPostAcceptStatusUpdateResult({
+      artifactPath,
+      acceptReportPath,
+      repoRoot,
+      status: "rejected",
+      violations: statusUpdate.report.violations,
+      blockingReasons: statusUpdate.report.violations,
+      currentSliceId: input.artifact.currentSlice.id,
+      ...postAcceptRunLogFields(input.acceptReport),
+      statusEvidence,
+      statusUpdateReport: statusUpdate.report,
+      nextArtifactLinkage,
+      nextStep,
+      stopReason: "status_update_rejected",
+    });
+  }
+
+  const nextArtifactBlocked = nextArtifactLinkage.status === "blocked";
+  return buildPostAcceptStatusUpdateResult({
+    artifactPath,
+    acceptReportPath,
+    repoRoot,
+    status: "accepted",
+    violations: [],
+    blockingReasons: nextArtifactBlocked ? nextArtifactLinkage.blockingReasons : [],
+    currentSliceId: input.artifact.currentSlice.id,
+    ...postAcceptRunLogFields(input.acceptReport),
+    statusEvidence,
+    statusUpdateReport: statusUpdate.report,
+    nextArtifactLinkage,
+    nextStep,
+    stopReason: postAcceptStopReason(nextArtifactLinkage),
+    updatedArtifact: statusUpdate.updatedArtifact,
+  });
+}
+
+interface StatusEvidenceValidationOptions {
+  allowCompletedBlockedReport?: boolean;
+}
+
 export function validateSequentialContinuationStatusEvidence(input: unknown): string[] {
+  return validateSequentialContinuationStatusEvidenceWithOptions(input);
+}
+
+function validateSequentialContinuationStatusEvidenceWithOptions(
+  input: unknown,
+  options: StatusEvidenceValidationOptions = {},
+): string[] {
   if (!isRecord(input)) {
     return ["sequential continuation status evidence must be an object"];
   }
@@ -1924,8 +2127,21 @@ export function validateSequentialContinuationStatusEvidence(input: unknown): st
   ) {
     violations.push("blocked or failed status updates require nextStep.kind to be blocked_report");
   }
-  if (input.outcome === "completed" && (!isRecord(input.nextStep) || input.nextStep.kind !== "samantha_command")) {
+  if (
+    input.outcome === "completed" &&
+    !options.allowCompletedBlockedReport &&
+    (!isRecord(input.nextStep) || input.nextStep.kind !== "samantha_command")
+  ) {
     violations.push("completed status updates require nextStep.kind to be samantha_command");
+  }
+  if (
+    input.outcome === "completed" &&
+    options.allowCompletedBlockedReport &&
+    isRecord(input.nextStep) &&
+    input.nextStep.kind !== "samantha_command" &&
+    input.nextStep.kind !== "blocked_report"
+  ) {
+    violations.push("completed post-accept status updates require nextStep.kind to be samantha_command or blocked_report");
   }
 
   return violations;
@@ -1937,10 +2153,13 @@ export function buildSequentialContinuationStatusUpdate(input: {
   artifact: unknown;
   evidence: unknown;
   violations?: string[];
+  allowCompletedBlockedReport?: boolean;
 }): SequentialContinuationStatusUpdateResult {
   const readViolations = input.violations ?? [];
   const artifactViolations = validateSequentialContinuationArtifact(input.artifact);
-  const evidenceViolations = validateSequentialContinuationStatusEvidence(input.evidence);
+  const evidenceViolations = validateSequentialContinuationStatusEvidenceWithOptions(input.evidence, {
+    allowCompletedBlockedReport: input.allowCompletedBlockedReport,
+  });
   const currentSlice = readStatusUpdateCurrentSlice(input.artifact);
   const requestedOutcome = readStatusUpdateOutcome(input.evidence);
   const evidenceReferences = readStatusEvidenceReferences(input.evidence);
@@ -1973,7 +2192,13 @@ export function buildSequentialContinuationStatusUpdate(input: {
     }
   }
 
-  if (violations.length > 0 || !isSequentialContinuationArtifact(input.artifact) || !isStatusEvidenceDocument(input.evidence)) {
+  if (
+    violations.length > 0 ||
+    !isSequentialContinuationArtifact(input.artifact) ||
+    !isStatusEvidenceDocumentWithOptions(input.evidence, {
+      allowCompletedBlockedReport: input.allowCompletedBlockedReport,
+    })
+  ) {
     return {
       report: buildStatusUpdateReport({
         artifactPath: input.artifactPath,
@@ -3847,6 +4072,13 @@ function isStatusEvidenceDocument(value: unknown): value is SequentialContinuati
   return validateSequentialContinuationStatusEvidence(value).length === 0;
 }
 
+function isStatusEvidenceDocumentWithOptions(
+  value: unknown,
+  options: StatusEvidenceValidationOptions,
+): value is SequentialContinuationStatusEvidenceDocument {
+  return validateSequentialContinuationStatusEvidenceWithOptions(value, options).length === 0;
+}
+
 function readReportCurrentSlice(value: unknown): SequentialContinuationReport["currentSlice"] {
   const fallback = {
     id: null,
@@ -4317,6 +4549,370 @@ function validateRunAcceptExecutionResult(result: RunAcceptResult): string[] {
     reasons.push("runs:accept result must include completed cleanup evidence");
   }
   return reasons;
+}
+
+function postAcceptArtifactGuardReasons(artifact: SequentialContinuationArtifact): string[] {
+  const reasons: string[] = [];
+  for (const stopCondition of artifact.stopConditionChecklist) {
+    if (stopCondition.active) {
+      reasons.push(`stop condition active: ${stopCondition.id}: ${stopCondition.evidence}`);
+    }
+  }
+  if (artifact.autonomyEnvelope.pushAllowed !== false) {
+    reasons.push("autonomyEnvelope.pushAllowed must be false for post-accept status update");
+  }
+  return reasons;
+}
+
+function validatePostAcceptRunAcceptReport(input: unknown, expectedArtifactPath: string, repoRoot: string): string[] {
+  if (!isRecord(input)) {
+    return ["accept report must be a structured continuation:accept-run-once JSON object"];
+  }
+
+  const reasons: string[] = [];
+  if (!isNonEmptyString(input.artifactPath)) {
+    reasons.push("accept report artifactPath must be a non-empty string");
+  } else {
+    const normalizedArtifactPath = normalizePathForReport(input.artifactPath, repoRoot);
+    if (normalizedArtifactPath !== expectedArtifactPath) {
+      reasons.push(`accept report artifactPath must match artifact being updated: ${expectedArtifactPath}`);
+    }
+  }
+  if (input.status !== "accepted") {
+    reasons.push(`accept report status must be accepted: ${String(input.status)}`);
+  }
+  if (input.selectedActionType !== "runs_accept") {
+    reasons.push(`accept report selectedActionType must be runs_accept: ${String(input.selectedActionType)}`);
+  }
+  if (input.actionExecuted !== true) {
+    reasons.push("accept report actionExecuted must be true");
+  }
+  if (input.actionAttemptCount !== 1) {
+    reasons.push(`accept report actionAttemptCount must be 1: ${String(input.actionAttemptCount)}`);
+  }
+  if (input.continued !== false) {
+    reasons.push("accept report continued must be false");
+  }
+  if (input.stopReason !== "run_accept_lifecycle_recorded") {
+    reasons.push(`accept report stopReason must be run_accept_lifecycle_recorded: ${String(input.stopReason)}`);
+  }
+  if (input.pushPerformed !== false) {
+    reasons.push("accept report pushPerformed must be false");
+  }
+
+  if (!isRecord(input.acceptResultSummary)) {
+    reasons.push("accept report acceptResultSummary must be present");
+  } else {
+    if (input.acceptResultSummary.accepted !== true) {
+      reasons.push("accept report acceptResultSummary.accepted must be true");
+    }
+    if (input.acceptResultSummary.status !== "accepted") {
+      reasons.push(`accept report acceptResultSummary.status must be accepted: ${String(input.acceptResultSummary.status)}`);
+    }
+  }
+  if (!isRecord(input.lifecycleEvidenceSummary)) {
+    reasons.push("accept report lifecycleEvidenceSummary must be present");
+  } else {
+    if (input.lifecycleEvidenceSummary.merged !== true) {
+      reasons.push("accept report lifecycleEvidenceSummary.merged must be true");
+    }
+    if (input.lifecycleEvidenceSummary.cleaned !== true) {
+      reasons.push("accept report lifecycleEvidenceSummary.cleaned must be true");
+    }
+  }
+  if (!isRecord(input.cleanupEvidenceSummary)) {
+    reasons.push("accept report cleanupEvidenceSummary must be present");
+  } else if (input.cleanupEvidenceSummary.cleaned !== true) {
+    reasons.push("accept report cleanupEvidenceSummary.cleaned must be true");
+  }
+  if (!isRecord(input.runAcceptPreflight) || input.runAcceptPreflight.status !== "accepted") {
+    reasons.push(
+      `accept report runAcceptPreflight.status must be accepted: ${
+        isRecord(input.runAcceptPreflight) ? String(input.runAcceptPreflight.status) : String(input.runAcceptPreflight)
+      }`,
+    );
+  }
+
+  const trustedStateChanges = input.trustedStateChanges;
+  const allowedTrustedStateChanges = [
+    "run_log_trajectory",
+    "lifecycle_record",
+    "merge_result",
+    "cleanup_result",
+  ];
+  if (!Array.isArray(trustedStateChanges)) {
+    reasons.push("accept report trustedStateChanges must be an array");
+  } else {
+    const trustedStrings = trustedStateChanges.filter((value): value is string => typeof value === "string");
+    if (trustedStrings.length !== trustedStateChanges.length) {
+      reasons.push("accept report trustedStateChanges must contain only strings");
+    }
+    for (const value of trustedStrings) {
+      if (!allowedTrustedStateChanges.includes(value)) {
+        reasons.push(`accept report trustedStateChanges contains unsupported state change: ${value}`);
+      }
+    }
+    for (const value of allowedTrustedStateChanges) {
+      if (!trustedStrings.includes(value)) {
+        reasons.push(`accept report trustedStateChanges must include ${value}`);
+      }
+    }
+  }
+
+  if (!isRecord(input.sideEffects)) {
+    reasons.push("accept report sideEffects must be present");
+  } else {
+    for (const field of [
+      "runsAcceptCalled",
+      "mergeGateRecorded",
+      "mergePerformed",
+      "lifecycleMutated",
+      "cleanupPerformed",
+    ] as const) {
+      if (input.sideEffects[field] !== true) {
+        reasons.push(`accept report sideEffects.${field} must be true`);
+      }
+    }
+    for (const field of [
+      "commitPerformed",
+      "pushPerformed",
+      "runTaskCalled",
+      "workersDispatched",
+      "batchesExecuteCalled",
+      "multiStepLoopStarted",
+      "successorExecuted",
+    ] as const) {
+      if (input.sideEffects[field] !== false) {
+        reasons.push(`accept report sideEffects.${field} must be false`);
+      }
+    }
+  }
+
+  if (!isNonEmptyString(input.normalizedRunLogPath)) {
+    reasons.push("accept report normalizedRunLogPath must be a non-empty string");
+  }
+  if (!isNonEmptyString(input.resolvedRunLogPath)) {
+    reasons.push("accept report resolvedRunLogPath must be a non-empty string");
+  }
+
+  return reasons;
+}
+
+function postAcceptRunLogFields(input: unknown): Pick<
+  SequentialContinuationPostAcceptStatusUpdateReport,
+  "runLogPath" | "normalizedRunLogPath" | "resolvedRunLogPath"
+> {
+  if (!isRecord(input)) {
+    return {
+      runLogPath: null,
+      normalizedRunLogPath: null,
+      resolvedRunLogPath: null,
+    };
+  }
+  return {
+    runLogPath: stringOrNull(input.runLogPath),
+    normalizedRunLogPath: stringOrNull(input.normalizedRunLogPath),
+    resolvedRunLogPath: stringOrNull(input.resolvedRunLogPath),
+  };
+}
+
+async function readPostAcceptRunLogEvidence(input: {
+  repoRoot: string;
+  acceptReport: Record<string, unknown>;
+}): Promise<{ violations: string[]; updatedAt: string }> {
+  const normalizedRunLogPath = stringOrNull(input.acceptReport.normalizedRunLogPath);
+  const resolvedRunLogPath = stringOrNull(input.acceptReport.resolvedRunLogPath);
+  if (!normalizedRunLogPath || !resolvedRunLogPath) {
+    return {
+      violations: ["accept report must cite normalized and resolved run log paths"],
+      updatedAt: "1970-01-01T00:00:00.000Z",
+    };
+  }
+  const resolvedRepoRelativePath = relative(input.repoRoot, resolve(resolvedRunLogPath)).replaceAll("\\", "/");
+  if (
+    resolvedRepoRelativePath === "" ||
+    resolvedRepoRelativePath.startsWith("../") ||
+    resolvedRepoRelativePath === ".." ||
+    isAbsolute(resolvedRepoRelativePath)
+  ) {
+    return {
+      violations: [`accept report resolvedRunLogPath must stay inside repoRoot: ${resolvedRunLogPath}`],
+      updatedAt: "1970-01-01T00:00:00.000Z",
+    };
+  }
+
+  let runLog: unknown;
+  try {
+    runLog = JSON.parse(await readFile(resolvedRunLogPath, "utf8")) as unknown;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return {
+        violations: [`accepted run log file not found: ${resolvedRunLogPath}`],
+        updatedAt: "1970-01-01T00:00:00.000Z",
+      };
+    }
+    return {
+      violations: [`accepted run log could not be read: ${err instanceof Error ? err.message : String(err)}`],
+      updatedAt: "1970-01-01T00:00:00.000Z",
+    };
+  }
+
+  const violations: string[] = [];
+  if (!isRecord(runLog)) {
+    return {
+      violations: ["accepted run log must be an object"],
+      updatedAt: "1970-01-01T00:00:00.000Z",
+    };
+  }
+  if (runLog.runId !== input.acceptReport.expectedRunId) {
+    violations.push(`accepted run log runId must match accept report expectedRunId: ${String(runLog.runId)}`);
+  }
+  const trajectory = Array.isArray(runLog.trajectory) ? runLog.trajectory : [];
+  if (!hasRunTrajectoryEntry(trajectory, "merge_checked", "completed")) {
+    violations.push("accepted run log trajectory must contain merge_checked completed");
+  }
+  if (!hasLifecycleTrajectoryEntry(trajectory, "merged")) {
+    violations.push("accepted run log trajectory must contain lifecycle_marked merged completed");
+  }
+  if (!hasRunTrajectoryEntry(trajectory, "cleanup_finished", "completed")) {
+    violations.push("accepted run log trajectory must contain cleanup_finished completed");
+  }
+  const cleanedEntry = lifecycleTrajectoryEntry(trajectory, "cleaned");
+  if (!cleanedEntry) {
+    violations.push("accepted run log trajectory must contain lifecycle_marked cleaned completed");
+  }
+  return {
+    violations,
+    updatedAt: postAcceptRunLogUpdatedAt(cleanedEntry, runLog),
+  };
+}
+
+function hasRunTrajectoryEntry(
+  trajectory: unknown[],
+  event: WorkerRunTrajectoryEntry["event"],
+  status: WorkerRunTrajectoryEntry["status"],
+): boolean {
+  return trajectory.some((entry) => isRecord(entry) && entry.event === event && entry.status === status);
+}
+
+function hasLifecycleTrajectoryEntry(trajectory: unknown[], event: "merged" | "cleaned"): boolean {
+  return Boolean(lifecycleTrajectoryEntry(trajectory, event));
+}
+
+function lifecycleTrajectoryEntry(trajectory: unknown[], event: "merged" | "cleaned"): Record<string, unknown> | null {
+  for (const entry of trajectory) {
+    if (!isRecord(entry) || entry.event !== "lifecycle_marked" || entry.status !== "completed") {
+      continue;
+    }
+    if (isRecord(entry.details) && entry.details.event === event) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+function postAcceptRunLogUpdatedAt(cleanedEntry: Record<string, unknown> | null, runLog: Record<string, unknown>): string {
+  if (cleanedEntry && isRecord(cleanedEntry.details) && isNonEmptyString(cleanedEntry.details.updatedAt)) {
+    return cleanedEntry.details.updatedAt;
+  }
+  if (isNonEmptyString(runLog.finishedAt)) {
+    return runLog.finishedAt;
+  }
+  return "1970-01-01T00:00:00.000Z";
+}
+
+function postAcceptNextStep(
+  nextArtifactLinkage: SequentialContinuationNextArtifactReport,
+  currentSliceId: string,
+): SequentialContinuationNextStep {
+  if (nextArtifactLinkage.status === "accepted" && nextArtifactLinkage.normalizedNextArtifactPath) {
+    return {
+      kind: "samantha_command",
+      value: `bun run samantha continuation:show --artifact=${nextArtifactLinkage.normalizedNextArtifactPath} --repo-root=${nextArtifactLinkage.repoRoot}`,
+    };
+  }
+  if (nextArtifactLinkage.status === "blocked") {
+    return {
+      kind: "blocked_report",
+      value: `next_artifact_blocked: ${nextArtifactLinkage.blockingReasons.join("; ")}`,
+    };
+  }
+  return {
+    kind: "blocked_report",
+    value: `no_deterministic_next_artifact: ${currentSliceId} completed from structured post-run evidence; no nextArtifactPath is present.`,
+  };
+}
+
+function postAcceptStopReason(nextArtifactLinkage: SequentialContinuationNextArtifactReport): string {
+  if (nextArtifactLinkage.status === "accepted") {
+    return "next_artifact_ready";
+  }
+  if (nextArtifactLinkage.status === "blocked") {
+    return "next_artifact_blocked";
+  }
+  return "no_deterministic_next_artifact";
+}
+
+function buildPostAcceptStatusUpdateResult(input: {
+  artifactPath: string;
+  acceptReportPath: string;
+  repoRoot: string;
+  status: SequentialContinuationPostAcceptStatusUpdateReport["status"];
+  violations: string[];
+  blockingReasons: string[];
+  currentSliceId: string | null;
+  runLogPath?: string | null;
+  normalizedRunLogPath?: string | null;
+  resolvedRunLogPath?: string | null;
+  statusEvidence?: SequentialContinuationStatusEvidenceDocument | null;
+  statusUpdateReport?: SequentialContinuationStatusUpdateReport | null;
+  nextArtifactLinkage?: SequentialContinuationNextArtifactReport | null;
+  nextStep?: SequentialContinuationNextStep | null;
+  stopReason: string;
+  updatedArtifact?: SequentialContinuationArtifact | null;
+}): SequentialContinuationPostAcceptStatusUpdateResult {
+  const updatedArtifact = input.updatedArtifact ?? null;
+  return {
+    report: {
+      artifactPath: input.artifactPath,
+      acceptReportPath: input.acceptReportPath,
+      repoRoot: input.repoRoot,
+      status: input.status,
+      violations: input.violations,
+      blockingReasons: input.blockingReasons,
+      currentSliceId: input.currentSliceId,
+      runLogPath: input.runLogPath ?? null,
+      normalizedRunLogPath: input.normalizedRunLogPath ?? null,
+      resolvedRunLogPath: input.resolvedRunLogPath ?? null,
+      statusEvidence: input.statusEvidence ?? null,
+      statusUpdateReport: input.statusUpdateReport ?? null,
+      nextArtifactLinkage: input.nextArtifactLinkage ?? null,
+      nextStep: input.nextStep ?? null,
+      stopReason: input.stopReason,
+      artifactUpdated: Boolean(updatedArtifact),
+      trustedStateChanges: updatedArtifact ? ["continuation_artifact"] : [],
+      pushPerformed: false,
+      sideEffects: postAcceptStatusUpdateSideEffects(),
+    },
+    updatedArtifact,
+  };
+}
+
+function postAcceptStatusUpdateSideEffects(): SequentialContinuationPostAcceptStatusUpdateReport["sideEffects"] {
+  return {
+    runsAcceptCalled: false,
+    mergeGateRecorded: false,
+    mergePerformed: false,
+    lifecycleMutated: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    runTaskCalled: false,
+    workersDispatched: false,
+    batchesExecuteCalled: false,
+    multiStepLoopStarted: false,
+    successorExecuted: false,
+  };
 }
 
 function buildRunTaskExecutionGuardReasons(input: {
