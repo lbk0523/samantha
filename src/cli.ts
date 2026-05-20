@@ -45,6 +45,7 @@ import { buildReadinessReport, type BuildReadinessReportInput, type ReadinessRep
 import {
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
   buildSequentialContinuationRunTaskPreflightReport,
   buildSequentialContinuationSingleStep,
@@ -1017,17 +1018,24 @@ export async function main(argv: string[]): Promise<number> {
       artifactPath,
       artifact,
     });
+    const runAcceptPreflight = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot,
+      artifactPath,
+      artifact,
+    });
     const report = buildSequentialContinuationReport({
       artifactPath,
       artifact,
       ...(violations.length > 0 ? { violations } : {}),
       ...(nextArtifactLinkage.status === "absent" ? {} : { nextArtifactLinkage }),
       ...(runTaskPreflight.status === "absent" ? {} : { runTaskPreflight }),
+      ...(runAcceptPreflight.status === "absent" ? {} : { runAcceptPreflight }),
     });
     console.log(JSON.stringify(report, null, 2));
     return report.status === "accepted" &&
       report.nextArtifactLinkage?.status !== "blocked" &&
-      report.runTaskPreflight?.status !== "blocked"
+      report.runTaskPreflight?.status !== "blocked" &&
+      report.runAcceptPreflight?.status !== "blocked"
       ? 0
       : 1;
   }

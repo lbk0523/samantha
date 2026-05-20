@@ -12,11 +12,13 @@ import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationArtifact,
+  SequentialContinuationRunAcceptCandidate,
   SequentialContinuationRunTaskCandidate,
   SequentialContinuationRunTaskExecution,
   SequentialContinuationStatusEvidenceDocument,
 } from "../src/core/sequential-ceo-autopilot";
 import { SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS } from "../src/core/sequential-ceo-autopilot";
+import type { WorkerRunLog } from "../src/core/run-log";
 
 let tmpRoots: string[] = [];
 
@@ -328,6 +330,46 @@ function cliRunTaskExecution(
   };
 }
 
+function cliRunAcceptExpectedSideEffects() {
+  return {
+    runsAcceptCalled: false,
+    mergeGateRecorded: false,
+    mergePerformed: false,
+    lifecycleMutated: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    runTaskCalled: false,
+    workersDispatched: false,
+    batchesExecuteCalled: false,
+    multiStepLoopStarted: false,
+    successorExecuted: false,
+  } as const;
+}
+
+function cliRunAcceptCandidate(
+  input: {
+    baseCommit: string;
+    workerCommit: string;
+  },
+  overrides: Partial<SequentialContinuationRunAcceptCandidate> = {},
+): SequentialContinuationRunAcceptCandidate {
+  return {
+    runLogPath: "runs/cli-accept-run.json",
+    expectedRunId: "cli-accept-run",
+    expectedTaskId: "cli-accept-fixture",
+    expectedCommit: input.workerCommit,
+    expectedBaseCommit: input.baseCommit,
+    targetBranch: "main",
+    requiredRuntime: "codex-sdk",
+    executionMode: "accept_preflight_only",
+    lifecycleOwner: "samantha",
+    pushAllowed: false,
+    expectedSideEffects: cliRunAcceptExpectedSideEffects(),
+    ...overrides,
+  };
+}
+
 async function writeCliRunTaskPreflightFixture(overrides: {
   artifact?: Partial<SequentialContinuationArtifact>;
   candidate?: Partial<SequentialContinuationRunTaskCandidate>;
@@ -373,6 +415,123 @@ async function writeCliRunTaskPreflightFixture(overrides: {
   const artifactText = `${JSON.stringify(artifact, null, 2)}\n`;
   await writeFile(artifactPath, artifactText, "utf8");
   return { root, artifactPath, taskSpecPath, artifactText, taskSpecText };
+}
+
+async function writeCliRunAcceptPreflightFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  candidate?: Partial<SequentialContinuationRunAcceptCandidate>;
+  runLog?: (log: WorkerRunLog) => WorkerRunLog;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  runLogPath: string;
+  artifactText: string;
+  runLogText: string;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-cli-run-accept-preflight-"));
+  tmpRoots.push(root);
+  await git(["init", "-b", "main"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
+  await writeFile(join(root, ".gitignore"), "runs/\nworktrees/\n", "utf8");
+  await writeFile(join(root, "allowed.txt"), "base\n", "utf8");
+  await git(["add", ".gitignore", "allowed.txt"], root);
+  await git(["commit", "-m", "chore: initial cli run accept fixture"], root);
+  const baseCommit = await gitHead(root);
+  await mkdir(join(root, "worktrees"), { recursive: true });
+  const worktreePath = join(root, "worktrees", "cli-accept-fixture");
+  await git(["worktree", "add", "-b", "samantha/cli-accept-fixture", worktreePath, "main"], root);
+  await git(["config", "user.email", "samantha@example.local"], worktreePath);
+  await git(["config", "user.name", "Samantha Test"], worktreePath);
+  await writeFile(join(worktreePath, "allowed.txt"), "changed\n", "utf8");
+  await git(["add", "allowed.txt"], worktreePath);
+  await git(["commit", "-m", "feat: cli worker accept fixture"], worktreePath);
+  const workerCommit = await gitHead(worktreePath);
+
+  await mkdir(join(root, "runs"), { recursive: true });
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  const runLogPath = join(root, "runs", "cli-accept-run.json");
+  const artifactPath = join(root, "references", "operations", "cli-run-accept-preflight.json");
+  const baseRunLog: WorkerRunLog = {
+    schemaVersion: 1,
+    runId: "cli-accept-run",
+    startedAt: "2026-05-20T00:00:00.000Z",
+    finishedAt: "2026-05-20T00:01:00.000Z",
+    task: {
+      id: "cli-accept-fixture",
+      title: "CLI accept fixture",
+      targetAgent: "codex-worker",
+      targetFiles: ["allowed.txt"],
+      forbiddenChanges: ["runs/**", "worktrees/**"],
+      verifyCommands: ["grep -q changed allowed.txt"],
+      instructions: "Change allowed.txt.",
+      status: "pending",
+    },
+    agent: {
+      id: "codex-worker",
+      role: "writer",
+      model: "gpt-5.5",
+      writerClass: "writer",
+      worktreePolicy: "per-task",
+      mergePolicy: "samantha-controlled",
+      skillPolicy: { requiredBundles: [], blockedSkills: [] },
+    },
+    input: { repoRoot: root, worktreesDir: join(root, "worktrees") },
+    result: {
+      preparation: {
+        taskId: "cli-accept-fixture",
+        agentId: "codex-worker",
+        worktreePath,
+        allocation: {
+          taskId: "cli-accept-fixture",
+          repoRoot: root,
+          worktreePath,
+          branch: "samantha/cli-accept-fixture",
+          baseCommit,
+        },
+        codex: { prompt: "prompt", command: ["codex", "exec"] },
+      },
+      setupResults: [],
+      command: { command: ["codex", "exec"], exitCode: 0, stdout: "", stderr: "" },
+      runtime: { kind: "codex-sdk", approvalPolicy: "never" },
+      evaluation: {
+        pass: true,
+        harness: { status: "pass", note: "ok", commit: "" },
+        changedFiles: ["allowed.txt"],
+        scopeViolations: [],
+        verifyResults: [{ command: "grep -q changed allowed.txt", exitCode: 0, stdout: "", stderr: "" }],
+      },
+      commit: {
+        subject: "feat: cli worker accept fixture",
+        files: ["allowed.txt"],
+        add: { command: ["git", "add", "--", "allowed.txt"], exitCode: 0, stdout: "", stderr: "" },
+        commit: { command: ["git", "commit", "-m", "feat: cli worker accept fixture"], exitCode: 0, stdout: "", stderr: "" },
+        commitHash: workerCommit,
+      },
+      pass: true,
+    },
+  };
+  const runLog = overrides.runLog?.(baseRunLog) ?? baseRunLog;
+  const runLogText = `${JSON.stringify(runLog, null, 2)}\n`;
+  await writeFile(runLogPath, runLogText, "utf8");
+  const artifact = cliSequentialContinuationArtifact({
+    artifactId: "cli-continuation-s18",
+    currentSlice: {
+      id: "S18",
+      status: "ready",
+      actionType: "report_only",
+      dependencyStatus: "met",
+      prerequisites: ["S17 completed"],
+      targetFiles: runLog.task.targetFiles,
+      forbiddenChanges: runLog.task.forbiddenChanges,
+      verifyCommands: runLog.task.verifyCommands,
+    },
+    runAcceptCandidate: cliRunAcceptCandidate({ baseCommit, workerCommit }, overrides.candidate),
+    ...overrides.artifact,
+  });
+  const artifactText = `${JSON.stringify(artifact, null, 2)}\n`;
+  await writeFile(artifactPath, artifactText, "utf8");
+  return { root, artifactPath, runLogPath, artifactText, runLogText };
 }
 
 async function writeCliBatchStoreFixture(
@@ -941,6 +1100,78 @@ describe("samantha cli", () => {
       expect(await pathExists(join(root, "runs"))).toBe(false);
       expect(await pathExists(join(root, "worktrees"))).toBe(false);
     }
+  });
+
+  test("continuation show exposes accepted runs:accept preflight without mutating inputs", async () => {
+    const { root, artifactPath, runLogPath, artifactText, runLogText } =
+      await writeCliRunAcceptPreflightFixture();
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report.runAcceptPreflight).toMatchObject({
+      status: "accepted",
+      runLogPath: "runs/cli-accept-run.json",
+      normalizedRunLogPath: "runs/cli-accept-run.json",
+      resolvedRunLogPath: runLogPath,
+      run: { id: "cli-accept-run", taskId: "cli-accept-fixture" },
+      targetBranch: "main",
+      requiredRuntime: "codex-sdk",
+      executionMode: "accept_preflight_only",
+      lifecycleOwner: "samantha",
+      pushAllowed: false,
+      cleanupReadiness: { classification: "ready", violations: [] },
+      blockingReasons: [],
+      trustedStateChanges: false,
+      pushPerformed: false,
+      sideEffects: cliRunAcceptExpectedSideEffects(),
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(runLogPath, "utf8")).toBe(runLogText);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
+  });
+
+  test("continuation show exposes blocked runs:accept preflight non-zero without file mutation", async () => {
+    const { root, artifactPath, runLogPath, artifactText, runLogText } =
+      await writeCliRunAcceptPreflightFixture({
+        candidate: { runLogPath: "runs/missing-cli-accept-run.json" },
+      });
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("accepted");
+    expect(report.runAcceptPreflight).toMatchObject({
+      status: "blocked",
+      runLogPath: "runs/missing-cli-accept-run.json",
+      normalizedRunLogPath: "runs/missing-cli-accept-run.json",
+      blockingReasons: [
+        `runAcceptCandidate.runLogPath file not found: ${join(root, "runs", "missing-cli-accept-run.json")}`,
+      ],
+      trustedStateChanges: false,
+      pushPerformed: false,
+      sideEffects: cliRunAcceptExpectedSideEffects(),
+    });
+    expect(report.blockingReasons).toContain(
+      `runAcceptPreflight: runAcceptCandidate.runLogPath file not found: ${join(
+        root,
+        "runs",
+        "missing-cli-accept-run.json",
+      )}`,
+    );
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(runLogPath, "utf8")).toBe(runLogText);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
   });
 
   test("continuation run-task-once blocks accepted preflight without execution trigger and mutates nothing", async () => {

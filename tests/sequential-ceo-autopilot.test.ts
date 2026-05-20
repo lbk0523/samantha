@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TaskSpec } from "../src/core/contracts";
@@ -7,6 +7,7 @@ import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
+  SequentialContinuationRunAcceptCandidate,
   SequentialContinuationRunTaskCandidate,
   SequentialContinuationRunTaskExecution,
   SequentialContinuationStatusEvidenceDocument,
@@ -16,6 +17,7 @@ import {
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
   buildSequentialContinuationRunTaskPreflightReport,
   buildSequentialContinuationSingleStep,
@@ -24,6 +26,7 @@ import {
   validateSequentialContinuationArtifact,
   validateSequentialContinuationStatusEvidence,
 } from "../src/core/sequential-ceo-autopilot";
+import type { WorkerRunLog } from "../src/core/run-log";
 
 let tmpRoots: string[] = [];
 
@@ -158,6 +161,168 @@ function runTaskExecution(
     },
     ...overrides,
   };
+}
+
+function runAcceptExpectedSideEffects() {
+  return {
+    runsAcceptCalled: false,
+    mergeGateRecorded: false,
+    mergePerformed: false,
+    lifecycleMutated: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    runTaskCalled: false,
+    workersDispatched: false,
+    batchesExecuteCalled: false,
+    multiStepLoopStarted: false,
+    successorExecuted: false,
+  } as const;
+}
+
+function runAcceptCandidate(
+  input: {
+    baseCommit: string;
+    workerCommit: string;
+  },
+  overrides: Partial<SequentialContinuationRunAcceptCandidate> = {},
+): SequentialContinuationRunAcceptCandidate {
+  return {
+    runLogPath: "runs/accept-run.json",
+    expectedRunId: "accept-run",
+    expectedTaskId: "accept-fixture",
+    expectedCommit: input.workerCommit,
+    expectedBaseCommit: input.baseCommit,
+    targetBranch: "main",
+    requiredRuntime: "codex-sdk",
+    executionMode: "accept_preflight_only",
+    lifecycleOwner: "samantha",
+    pushAllowed: false,
+    expectedSideEffects: runAcceptExpectedSideEffects(),
+    ...overrides,
+  };
+}
+
+async function writeRunAcceptPreflightFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  candidate?: Partial<SequentialContinuationRunAcceptCandidate>;
+  runLog?: (log: WorkerRunLog) => WorkerRunLog;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  runLogPath: string;
+  worktreePath: string;
+  baseCommit: string;
+  workerCommit: string;
+  continuation: SequentialContinuationArtifact;
+  runLog: WorkerRunLog;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-run-accept-preflight-"));
+  tmpRoots.push(root);
+  await git(["init", "-b", "main"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
+  await writeFile(join(root, ".gitignore"), "runs/\nworktrees/\n", "utf8");
+  await writeFile(join(root, "allowed.txt"), "base\n", "utf8");
+  await git(["add", ".gitignore", "allowed.txt"], root);
+  await git(["commit", "-m", "chore: initial run accept fixture"], root);
+  const baseCommit = await gitHead(root);
+
+  await mkdir(join(root, "worktrees"), { recursive: true });
+  const worktreePath = join(root, "worktrees", "accept-fixture");
+  await git(["worktree", "add", "-b", "samantha/accept-fixture", worktreePath, "main"], root);
+  await git(["config", "user.email", "samantha@example.local"], worktreePath);
+  await git(["config", "user.name", "Samantha Test"], worktreePath);
+  await writeFile(join(worktreePath, "allowed.txt"), "changed\n", "utf8");
+  await git(["add", "allowed.txt"], worktreePath);
+  await git(["commit", "-m", "feat: worker accept fixture"], worktreePath);
+  const workerCommit = await gitHead(worktreePath);
+
+  await mkdir(join(root, "runs"), { recursive: true });
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  const runLogPath = join(root, "runs", "accept-run.json");
+  const artifactPath = join(root, "references", "operations", "s18-run-accept-preflight.json");
+  const baseRunLog: WorkerRunLog = {
+    schemaVersion: 1,
+    runId: "accept-run",
+    startedAt: "2026-05-20T00:00:00.000Z",
+    finishedAt: "2026-05-20T00:01:00.000Z",
+    task: {
+      id: "accept-fixture",
+      title: "Accept fixture",
+      targetAgent: "codex-worker",
+      targetFiles: ["allowed.txt"],
+      forbiddenChanges: ["runs/**", "worktrees/**"],
+      verifyCommands: ["grep -q changed allowed.txt"],
+      instructions: "Change allowed.txt.",
+      status: "pending",
+    },
+    agent: {
+      id: "codex-worker",
+      role: "writer",
+      model: "gpt-5.5",
+      writerClass: "writer",
+      worktreePolicy: "per-task",
+      mergePolicy: "samantha-controlled",
+      skillPolicy: {
+        requiredBundles: [],
+        blockedSkills: [],
+      },
+    },
+    input: { repoRoot: root, worktreesDir: join(root, "worktrees") },
+    result: {
+      preparation: {
+        taskId: "accept-fixture",
+        agentId: "codex-worker",
+        worktreePath,
+        allocation: {
+          taskId: "accept-fixture",
+          repoRoot: root,
+          worktreePath,
+          branch: "samantha/accept-fixture",
+          baseCommit,
+        },
+        codex: { prompt: "prompt", command: ["codex", "exec"] },
+      },
+      setupResults: [],
+      command: { command: ["codex", "exec"], exitCode: 0, stdout: "", stderr: "" },
+      runtime: { kind: "codex-sdk", approvalPolicy: "never" },
+      evaluation: {
+        pass: true,
+        harness: { status: "pass", note: "ok", commit: "" },
+        changedFiles: ["allowed.txt"],
+        scopeViolations: [],
+        verifyResults: [{ command: "grep -q changed allowed.txt", exitCode: 0, stdout: "", stderr: "" }],
+      },
+      commit: {
+        subject: "feat: worker accept fixture",
+        files: ["allowed.txt"],
+        add: { command: ["git", "add", "--", "allowed.txt"], exitCode: 0, stdout: "", stderr: "" },
+        commit: { command: ["git", "commit", "-m", "feat: worker accept fixture"], exitCode: 0, stdout: "", stderr: "" },
+        commitHash: workerCommit,
+      },
+      pass: true,
+    },
+  };
+  const runLog: WorkerRunLog = overrides.runLog?.(baseRunLog) ?? baseRunLog;
+  await writeFile(runLogPath, `${JSON.stringify(runLog, null, 2)}\n`, "utf8");
+  const continuation = artifact({
+    artifactId: "sequential-ceo-autopilot-s18",
+    currentSlice: {
+      id: "S18",
+      status: "ready",
+      actionType: "report_only",
+      dependencyStatus: "met",
+      prerequisites: ["S17 completed"],
+      targetFiles: runLog.task.targetFiles,
+      forbiddenChanges: runLog.task.forbiddenChanges,
+      verifyCommands: runLog.task.verifyCommands,
+    },
+    runAcceptCandidate: runAcceptCandidate({ baseCommit, workerCommit }, overrides.candidate),
+    ...overrides.artifact,
+  });
+  await writeFile(artifactPath, `${JSON.stringify(continuation, null, 2)}\n`, "utf8");
+  return { root, artifactPath, runLogPath, worktreePath, baseCommit, workerCommit, continuation, runLog };
 }
 
 async function writeRunTaskPreflightFixture(overrides: {
@@ -363,6 +528,36 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         },
       }),
     ).toContain("unknown runTaskExecution field: command");
+  });
+
+  test("accepts optional runAcceptCandidate as null or closed object", () => {
+    const baseCommit = "a".repeat(40);
+    const workerCommit = "b".repeat(40);
+    expect(validateSequentialContinuationArtifact(artifact({ runAcceptCandidate: null }))).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          currentSlice: {
+            ...artifact().currentSlice,
+            actionType: "report_only",
+          },
+          runAcceptCandidate: runAcceptCandidate({ baseCommit, workerCommit }),
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        currentSlice: {
+          ...artifact().currentSlice,
+          actionType: "report_only",
+        },
+        runAcceptCandidate: {
+          ...runAcceptCandidate({ baseCommit, workerCommit }),
+          command: "bun run samantha continuation:show runs/run.json",
+        },
+      }),
+    ).toContain("unknown runAcceptCandidate field: command");
   });
 
   test("builds a deterministic accepted report for the current slice", () => {
@@ -1355,6 +1550,389 @@ describe("Sequential CEO Autopilot run_task preflight report", () => {
     expect(report.blockingReasons).toEqual(["runTaskCandidate.expectedSideEffects.pushPerformed must be false"]);
     expect(report.sideEffects.pushPerformed).toBe(false);
     expect(report.trustedStateChanges).toBe(false);
+  });
+});
+
+describe("Sequential CEO Autopilot runs:accept preflight report", () => {
+  test("omits absent or null candidates for valid artifacts", async () => {
+    for (const continuation of [artifact(), artifact({ runAcceptCandidate: null })]) {
+      const report = await buildSequentialContinuationRunAcceptPreflightReport({
+        repoRoot: ".",
+        artifactPath: "references/operations/s18.json",
+        artifact: {
+          ...continuation,
+          currentSlice: {
+            ...continuation.currentSlice,
+            actionType: "report_only",
+          },
+        },
+      });
+
+      expect(report.status).toBe("absent");
+      expect(report.blockingReasons).toEqual([]);
+    }
+  });
+
+  test("blocks invalid predecessor artifacts before candidate inspection", async () => {
+    const fixture = await writeRunAcceptPreflightFixture({
+      candidate: { expectedRunId: "" },
+      artifact: {
+        autonomyEnvelope: {
+          ...artifact().autonomyEnvelope,
+          pushAllowed: true as false,
+        },
+      },
+    });
+
+    const report = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: fixture.continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "current artifact must validate before runAcceptCandidate is inspected",
+      "autonomyEnvelope.pushAllowed must be false",
+    ]);
+  });
+
+  test("accepts a clean writer run candidate without lifecycle side effects", async () => {
+    const { root, artifactPath, runLogPath, baseCommit, workerCommit, continuation } =
+      await writeRunAcceptPreflightFixture();
+
+    const report = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report).toMatchObject({
+      status: "accepted",
+      runLogPath: "runs/accept-run.json",
+      normalizedRunLogPath: "runs/accept-run.json",
+      resolvedRunLogPath: runLogPath,
+      run: { id: "accept-run", taskId: "accept-fixture" },
+      expectedRunId: "accept-run",
+      expectedTaskId: "accept-fixture",
+      expectedCommit: workerCommit,
+      expectedBaseCommit: baseCommit,
+      targetBranch: "main",
+      requiredRuntime: "codex-sdk",
+      executionMode: "accept_preflight_only",
+      lifecycleOwner: "samantha",
+      pushAllowed: false,
+      cleanupReadiness: { classification: "ready", violations: [] },
+      blockingReasons: [],
+      trustedStateChanges: false,
+      pushPerformed: false,
+      sideEffects: runAcceptExpectedSideEffects(),
+    });
+  });
+
+  test("validates closed schema and required false side effects", async () => {
+    const fixture = await writeRunAcceptPreflightFixture({
+      candidate: {
+        pushAllowed: true as false,
+        expectedSideEffects: {
+          ...runAcceptExpectedSideEffects(),
+          pushPerformed: true,
+        },
+      },
+    });
+    const continuation = {
+      ...fixture.continuation,
+      runAcceptCandidate: {
+        ...fixture.continuation.runAcceptCandidate,
+        extra: true,
+      },
+    };
+
+    const report = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "unknown runAcceptCandidate field: extra",
+      "runAcceptCandidate.pushAllowed must be false",
+      "runAcceptCandidate.expectedSideEffects.pushPerformed must be false",
+    ]);
+    expect(report.sideEffects).toEqual(runAcceptExpectedSideEffects());
+  });
+
+  test("blocks unsafe, missing, off-repo, and invalid run log paths", async () => {
+    const fixture = await writeRunAcceptPreflightFixture();
+    const unsafeCases: Array<{ value: string; reason: string }> = [
+      {
+        value: "Use the S16 run log",
+        reason: "runAcceptCandidate.runLogPath must be a normalized repo-relative local runs/*.json path: Use the S16 run log",
+      },
+      {
+        value: "bun run samantha continuation:show runs/accept-run.json",
+        reason: "runAcceptCandidate.runLogPath must not be a command string: bun run samantha continuation:show runs/accept-run.json",
+      },
+      {
+        value: "https://example.com/run.json",
+        reason: "runAcceptCandidate.runLogPath must not be a URL: https://example.com/run.json",
+      },
+      {
+        value: "/tmp/run.json",
+        reason: "runAcceptCandidate.runLogPath must be repo-relative and stay inside repoRoot: /tmp/run.json",
+      },
+      {
+        value: "../runs/run.json",
+        reason: "runAcceptCandidate.runLogPath must be repo-relative and stay inside repoRoot: ../runs/run.json",
+      },
+      {
+        value: "$ROOT/runs/run.json",
+        reason: "runAcceptCandidate.runLogPath must not use environment expansion: $ROOT/runs/run.json",
+      },
+      {
+        value: "runs/*.json",
+        reason: "runAcceptCandidate.runLogPath must not be glob-like: runs/*.json",
+      },
+      {
+        value: "",
+        reason: "runAcceptCandidate.runLogPath must be a non-empty string",
+      },
+    ];
+
+    for (const { value, reason } of unsafeCases) {
+      const report = await buildSequentialContinuationRunAcceptPreflightReport({
+        repoRoot: fixture.root,
+        artifactPath: fixture.artifactPath,
+        artifact: {
+          ...fixture.continuation,
+          runAcceptCandidate: runAcceptCandidate(
+            { baseCommit: fixture.baseCommit, workerCommit: fixture.workerCommit },
+            { runLogPath: value },
+          ),
+        },
+      });
+
+      expect(report.status).toBe("blocked");
+      expect(report.blockingReasons).toContain(reason);
+    }
+
+    const missing = await writeRunAcceptPreflightFixture({
+      candidate: { runLogPath: "runs/missing.json" },
+    });
+    const missingReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: missing.root,
+      artifactPath: missing.artifactPath,
+      artifact: missing.continuation,
+    });
+    expect(missingReport.blockingReasons).toEqual([
+      `runAcceptCandidate.runLogPath file not found: ${join(missing.root, "runs", "missing.json")}`,
+    ]);
+
+    const offRepo = await writeRunAcceptPreflightFixture();
+    const outsideRoot = await mkdtemp(join(tmpdir(), "samantha-run-accept-outside-"));
+    tmpRoots.push(outsideRoot);
+    const outsideLogPath = join(outsideRoot, "outside.json");
+    await writeFile(outsideLogPath, `${JSON.stringify(offRepo.runLog, null, 2)}\n`, "utf8");
+    await rm(offRepo.runLogPath);
+    await symlink(outsideLogPath, offRepo.runLogPath);
+    const offRepoReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: offRepo.root,
+      artifactPath: offRepo.artifactPath,
+      artifact: offRepo.continuation,
+    });
+    expect(offRepoReport.blockingReasons).toEqual([
+      "runAcceptCandidate.runLogPath must stay inside repoRoot after resolving symlinks: runs/accept-run.json",
+    ]);
+
+    const invalidJson = await writeRunAcceptPreflightFixture();
+    await writeFile(invalidJson.runLogPath, "{ invalid json\n", "utf8");
+    const invalidJsonReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: invalidJson.root,
+      artifactPath: invalidJson.artifactPath,
+      artifact: invalidJson.continuation,
+    });
+    expect(invalidJsonReport.blockingReasons[0]).toStartWith(
+      "runAcceptCandidate.runLogPath JSON could not be parsed:",
+    );
+  });
+
+  test("blocks current-slice gates, active stops, stale base, dirty repo, and wrong branch", async () => {
+    const activeStop = await writeRunAcceptPreflightFixture({
+      artifact: {
+        stopConditionChecklist: artifact().stopConditionChecklist.map((check) =>
+          check.id === "dirty_or_stale_repo"
+            ? { ...check, active: true, evidence: "target repo advanced after worker base" }
+            : check,
+        ),
+      },
+    });
+    const activeStopReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: activeStop.root,
+      artifactPath: activeStop.artifactPath,
+      artifact: activeStop.continuation,
+    });
+    expect(activeStopReport.blockingReasons).toEqual([
+      "stop condition active: dirty_or_stale_repo: target repo advanced after worker base",
+    ]);
+
+    const wrongAction = await writeRunAcceptPreflightFixture({
+      artifact: {
+        currentSlice: {
+          ...artifact().currentSlice,
+          id: "S18",
+          status: "active",
+          actionType: "run_task",
+          dependencyStatus: "blocked",
+          targetFiles: ["allowed.txt"],
+          forbiddenChanges: ["runs/**", "worktrees/**"],
+          verifyCommands: ["grep -q changed allowed.txt"],
+        },
+      },
+    });
+    const wrongActionReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: wrongAction.root,
+      artifactPath: wrongAction.artifactPath,
+      artifact: wrongAction.continuation,
+    });
+    expect(wrongActionReport.blockingReasons).toContain("currentSlice.status must be ready for runs:accept preflight: active");
+    expect(wrongActionReport.blockingReasons).toContain("currentSlice.actionType must be report_only for runs:accept preflight: run_task");
+    expect(wrongActionReport.blockingReasons).toContain("currentSlice.dependencyStatus must be met for runs:accept preflight: blocked");
+
+    const stale = await writeRunAcceptPreflightFixture();
+    await writeFile(join(stale.root, "target.txt"), "advanced\n", "utf8");
+    await git(["add", "target.txt"], stale.root);
+    await git(["commit", "-m", "feat: advance target"], stale.root);
+    const staleReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: stale.root,
+      artifactPath: stale.artifactPath,
+      artifact: stale.continuation,
+    });
+    expect(staleReport.blockingReasons).toContain("target repo HEAD no longer matches the worker base commit");
+
+    const dirty = await writeRunAcceptPreflightFixture();
+    await writeFile(join(dirty.root, "dirty.txt"), "dirty\n", "utf8");
+    const dirtyReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: dirty.root,
+      artifactPath: dirty.artifactPath,
+      artifact: dirty.continuation,
+    });
+    expect(dirtyReport.blockingReasons).toContain("target repo has uncommitted changes");
+
+    const wrongBranch = await writeRunAcceptPreflightFixture({ candidate: { targetBranch: "release" } });
+    const wrongBranchReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: wrongBranch.root,
+      artifactPath: wrongBranch.artifactPath,
+      artifact: wrongBranch.continuation,
+    });
+    expect(wrongBranchReport.blockingReasons).toContain("target repo is on main, expected release");
+  });
+
+  test("blocks mismatched run identity, commits, runtime, evaluation, scope, and verify evidence", async () => {
+    const fixture = await writeRunAcceptPreflightFixture({
+      runLog: (log) => ({
+        ...log,
+        result: {
+          ...log.result,
+          pass: false,
+          runtime: { kind: "exec-json" },
+          evaluation: {
+            pass: false,
+            harness: { status: "rework", note: "needs work", commit: "" },
+            changedFiles: ["allowed.txt"],
+            scopeViolations: [{ file: "outside.txt", reason: "outside-target" }],
+            verifyResults: [{ command: "grep -q changed allowed.txt", exitCode: 1, stdout: "", stderr: "failed" }],
+          },
+        },
+      }),
+    });
+
+    const report = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: fixture.root,
+      artifactPath: fixture.artifactPath,
+      artifact: {
+        ...fixture.continuation,
+        runAcceptCandidate: runAcceptCandidate(
+          { baseCommit: fixture.baseCommit, workerCommit: fixture.workerCommit },
+          {
+            expectedRunId: "other-run",
+            expectedTaskId: "other-task",
+            expectedCommit: fixture.baseCommit,
+            expectedBaseCommit: "b".repeat(40),
+          },
+        ),
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toContain("runAcceptCandidate.expectedRunId must match run log runId: other-run !== accept-run");
+    expect(report.blockingReasons).toContain("runAcceptCandidate.expectedTaskId must match run log task.id: other-task !== accept-fixture");
+    expect(report.blockingReasons).toContain(
+      `runAcceptCandidate.expectedCommit must match run log candidate commit: ${fixture.baseCommit} !== ${fixture.workerCommit}`,
+    );
+    expect(report.blockingReasons).toContain(
+      `runAcceptCandidate.expectedBaseCommit must match run log worker base commit: ${"b".repeat(40)} !== ${fixture.baseCommit}`,
+    );
+    expect(report.blockingReasons).toContain("run log runtime.kind must match runAcceptCandidate.requiredRuntime codex-sdk: exec-json");
+    expect(report.blockingReasons).toContain("run did not pass Samantha evaluation");
+    expect(report.blockingReasons).toContain("run log HARNESS_RESULT.status must be pass: rework");
+    expect(report.blockingReasons).toContain("run log scope violation: outside.txt outside-target");
+    expect(report.blockingReasons).toContain("run log verify command failed: grep -q changed allowed.txt");
+  });
+
+  test("blocks missing, non-descendant commits and cleanup readiness risks", async () => {
+    const missingCommit = await writeRunAcceptPreflightFixture({
+      candidate: { expectedCommit: "a".repeat(40) },
+      runLog: (log) => ({
+        ...log,
+        result: {
+          ...log.result,
+          commit: log.result.commit
+            ? {
+                ...log.result.commit,
+                commitHash: "a".repeat(40),
+              }
+            : undefined,
+        },
+      }),
+    });
+    const missingCommitReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: missingCommit.root,
+      artifactPath: missingCommit.artifactPath,
+      artifact: missingCommit.continuation,
+    });
+    expect(missingCommitReport.blockingReasons).toContain(
+      `runAcceptCandidate.expectedCommit must name a local commit: ${"a".repeat(40)}`,
+    );
+
+    const nonDescendant = await writeRunAcceptPreflightFixture();
+    const orphanCommit = await git(["commit-tree", `${nonDescendant.baseCommit}^{tree}`, "-m", "orphan accept fixture"], nonDescendant.root);
+    const nonDescendantLog = JSON.parse(await readFile(nonDescendant.runLogPath, "utf8")) as WorkerRunLog;
+    if (!nonDescendantLog.result.commit) throw new Error("fixture commit missing");
+    nonDescendantLog.result.commit.commitHash = orphanCommit;
+    await writeFile(nonDescendant.runLogPath, `${JSON.stringify(nonDescendantLog, null, 2)}\n`, "utf8");
+    const nonDescendantReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: nonDescendant.root,
+      artifactPath: nonDescendant.artifactPath,
+      artifact: {
+        ...nonDescendant.continuation,
+        runAcceptCandidate: runAcceptCandidate(
+          { baseCommit: nonDescendant.baseCommit, workerCommit: orphanCommit },
+        ),
+      },
+    });
+    expect(nonDescendantReport.blockingReasons).toContain("candidate commit is not descended from the worker base commit");
+
+    const cleanupRisk = await writeRunAcceptPreflightFixture();
+    await git(["worktree", "remove", "--force", cleanupRisk.worktreePath], cleanupRisk.root);
+    const cleanupRiskReport = await buildSequentialContinuationRunAcceptPreflightReport({
+      repoRoot: cleanupRisk.root,
+      artifactPath: cleanupRisk.artifactPath,
+      artifact: cleanupRisk.continuation,
+    });
+    expect(cleanupRiskReport.blockingReasons).toContain(
+      "cleanup readiness risk: allocated worktree path is missing or invalid",
+    );
   });
 });
 
