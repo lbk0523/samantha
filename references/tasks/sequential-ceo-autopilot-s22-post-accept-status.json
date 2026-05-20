@@ -1,0 +1,47 @@
+{
+  "id": "sequential-ceo-autopilot-s22-post-accept-status",
+  "title": "Implement Sequential CEO Autopilot S22 post-accept status and next-artifact reporting",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Implement only S22 for references/initiatives/sequential-ceo-autopilot.md. Add post-accept status update and deterministic next-artifact reporting from already accepted lifecycle evidence. Do not implement S23 dogfood or S24 closure. Do not call runs:accept, run_task, batch_plan, worker dispatch, multi-step loop execution, successor execution, commit, push, daemon/watch behavior, remote adapters, dashboards, hidden memory, broad roadmap execution, or any Phase 5.5/Phase 5 batch authority.\n\nS22 should add a narrow deterministic helper and CLI surface for post-accept completion, for example continuation:update-status-after-accept --artifact=<path> --accept-report=<path> --repo-root=<repo>. The command should read the continuation artifact and a saved JSON report produced by continuation:accept-run-once, validate both, update only the supplied continuation artifact when accepted, print deterministic JSON, and return non-zero when blocked or rejected before artifact mutation. It must not rerun accept, merge, cleanup, run_task, batch_plan, worker dispatch, a loop, or a successor artifact.\n\nValidation order must be: parse inputs; validate the current continuation artifact before reading successor linkage fields; validate the accept report as structured lifecycle evidence; reject active stop conditions and push requirements; reject if the accept report is not status accepted, selectedActionType runs_accept, actionExecuted true, actionAttemptCount 1, continued false, stopReason run_accept_lifecycle_recorded, pushPerformed false, and trustedStateChanges limited to run_log_trajectory, lifecycle_record, merge_result, and cleanup_result. Require lifecycleEvidenceSummary.merged true, lifecycleEvidenceSummary.cleaned true, cleanupEvidenceSummary.cleaned true, runAcceptPreflight.status accepted, side effects true only for runsAcceptCalled, mergeGateRecorded, mergePerformed, lifecycleMutated, and cleanupPerformed, and false for commitPerformed, pushPerformed, runTaskCalled, workersDispatched, batchesExecuteCalled, multiStepLoopStarted, and successorExecuted. If useful, also read the cited run log and confirm its trajectory contains merge_checked completed, lifecycle_marked merged, cleanup_finished completed, and lifecycle_marked cleaned. Do not trust worker output text, run summary prose, or HARNESS_RESULT text alone as post-accept completion evidence.\n\nThe accepted path should derive a SequentialContinuationStatusEvidenceDocument with outcome completed, currentSliceId matching the artifact, cited continuation_report evidence for the accept report, cited run_log evidence for the accepted run log, and a deterministic nextStep. If a valid nextArtifactPath exists, report the accepted next-artifact linkage and provide a next-step command or equivalent deterministic next artifact report without executing it. If no nextArtifactPath exists, complete the current artifact and report a no_deterministic_next_artifact stop. If nextArtifactPath is present but blocked, report the blocking reasons deterministically and do not execute the successor. Keep pushPerformed false and side-effect flags false for run_task, worker dispatch, batch execution, multi-step loop, successor execution, commit, and push.\n\nMake the smallest code change that fits existing patterns. Reuse buildSequentialContinuationStatusUpdate and buildSequentialContinuationNextArtifactReport where practical instead of duplicating validators. Preserve existing continuation:show, continuation:step, continuation:loop, continuation:run-task-once, and continuation:accept-run-once behavior. If completed status evidence currently requires a samantha_command nextStep, update that rule narrowly so completed post-accept evidence can stop with a blocked_report when there is no deterministic next artifact; keep blocked or failed evidence requiring blocked_report.\n\nAdd focused core tests for: accepted post-accept status update with valid nextArtifactPath producing a completed updated artifact and accepted nextArtifactLinkage; accepted post-accept status update with absent nextArtifactPath producing a completed updated artifact and no_deterministic_next_artifact stop; rejection of worker-output/prose-only or missing lifecycle evidence; rejection before mutation for invalid current artifact, active stop conditions, pushAllowed true, non-accepted accept report, wrong side-effect flags, missing lifecycle/cleanup evidence, run_task/worker/batch/multi-step/successor/commit/push side-effect requests; and blocked nextArtifactPath reporting without successor execution. Add CLI parser/main tests for the new command accepted update, rejected invalid accept report with no artifact mutation, and no runs/worktrees/lifecycle state creation. Update references/initiatives/sequential-ceo-autopilot.md to mark S22 completed, cite implementation evidence, set exactly one next ready slice: S23 dogfood one end-to-end writer continuation cycle, and keep S24 pending. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo post-accept status update",
+  "status": "pending"
+}
