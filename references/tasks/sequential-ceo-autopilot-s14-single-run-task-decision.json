@@ -1,0 +1,51 @@
+{
+  "id": "sequential-ceo-autopilot-s14-single-run-task-decision",
+  "title": "Review Sequential CEO Autopilot S14 guarded single-run_task execution decision",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sequential-ceo-autopilot.md",
+    "references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md",
+    "references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md",
+    "test -f references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md",
+    "grep -F 'Decision' references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md",
+    "grep -F 'single run_task' references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md",
+    "grep -F 'No run_task execution in S14' references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md",
+    "grep -F 'No batch_plan execution in S14' references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md",
+    "grep -F 'S15' references/initiatives/sequential-ceo-autopilot.md",
+    "bash -lc '! git diff --name-only HEAD -- src tests | grep .'",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md"
+  ],
+  "instructions": "Perform only S14 for references/initiatives/sequential-ceo-autopilot.md. Keep S14 decision/design-only. Do not change source code, tests, task templates, agent profiles, package files, policy, doctrine, Phase 5.5 or Phase 5 batch artifacts, lessons, run logs, or worktrees. Do not execute run_task or batch_plan from the continuation product surface; do not dispatch workers from continuation, create worktrees from continuation, mutate lifecycle state from continuation, merge, cleanup, commit, push, start daemon/watch behavior, add remote adapters, add dashboards, trigger routines, add hidden memory, or execute broad roadmap work. Read the S10 action coordination boundary, S11 run_task preflight boundary, S13 run_task preflight dogfood report, and the S12/S12.1 evidence in references/initiatives/sequential-ceo-autopilot.md. Write references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md as the reviewed guarded single-run_task execution decision/design. Include section headings: Evidence Reviewed; Decision; Allowed Future Execution Shape; Required Artifact Fields; Validation And Execution Order; Stop Conditions; Evidence And Lifecycle Requirements; Non-Goals; Follow-Up Slices; Rejected Alternatives; Verification Strategy. Decide whether guarded single run_task execution is justified after S12/S13 evidence. If justified, keep the future execution shape narrow: exactly one explicit run_task action, existing run-task gates, SDK runtime, committed-clean TaskSpec, accepted runTaskPreflight evidence, Samantha-allocated isolated worktree, HARNESS_RESULT, deterministic verification, false push, and an immediate stop after the run log/report before any accept, merge, cleanup, commit, push, batch_plan, multi-step loop, or successor execution. The design must say that preflight_only remains report-only and cannot itself trigger execution; any future execution-enabling field or command must be explicit and reviewed. Define required continuation artifact fields, validation order, stop conditions, evidence requirements, and follow-up slices. Write references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md citing S13 accepted/blocked dogfood evidence and recording the decision, residual risks, next slice, and explicit statements: No run_task execution in S14; No batch_plan execution in S14; no worker dispatch by continuation in S14; no worktree creation by continuation in S14; no lifecycle mutation by continuation in S14; no merge, cleanup, commit, push, daemon/watch, remote adapter, dashboard, routine trigger, hidden memory, or broad roadmap execution by continuation in S14. Update references/initiatives/sequential-ceo-autopilot.md to mark S14 completed, cite the S14 decision/design and report artifacts, and set exactly one next ready slice. Prefer S15 as implementation of guarded single-run_task execution only if S14 concludes it is justified; otherwise set a single design/report follow-up slice that resolves the blocker. Do not implement S15. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: design guarded sequential ceo run task execution",
+  "status": "pending"
+}
