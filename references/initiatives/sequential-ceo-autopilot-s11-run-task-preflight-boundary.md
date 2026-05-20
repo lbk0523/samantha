@@ -29,10 +29,10 @@ Required shape:
 
 ```yaml
 runTaskCandidate:
-  taskSpecPath: references/tasks/<committed-task-spec>.md
+  taskSpecPath: references/tasks/example-task.json
   requiredRuntime: codex-sdk
   executionMode: preflight_only
-  worktreeOwnership: samantha_allocated_isolated_worktree
+  worktreePolicy: samantha_allocated_isolated
   lifecycleOwner: samantha
   targetFiles:
     - <repo-relative target file>
