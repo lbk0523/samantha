@@ -1,6 +1,6 @@
 # Sequential CEO Autopilot Design Contract
 
-Last updated: 2026-05-19
+Last updated: 2026-05-21
 
 ## Purpose
 
@@ -59,6 +59,17 @@ Status may move forward only from cited local evidence. Worker prose, markdown
 roadmap text, or a report-only recommendation cannot by itself mark a slice
 completed, authorize dispatch, update lifecycle state, or spend a rework cycle.
 
+Trusted state for continuation comes from structured local evidence: validated
+continuation artifacts, run logs, accepted lifecycle reports, lifecycle
+trajectory entries, deterministic status updates, scope checks, and
+verification output. Worker output text may help diagnose the next step, but it
+must not be treated as trusted state.
+
+Execution-only continuation artifacts used during dogfood or operation runs may
+live outside the repository, for example under `/tmp`. Durable evidence from
+those runs should be snapshotted as operation artifacts rather than backfilled
+as post-hoc planning artifacts.
+
 ## Structured Continuation Artifact Responsibilities
 
 The structured continuation artifact is responsible for deterministic routing
@@ -81,6 +92,23 @@ The artifact must reject ambiguity rather than encode it in prose. Missing
 paths, guessed verification commands, unsafe authority surfaces, unknown action
 types, or unresolved product decisions are stop conditions.
 
+Optional successor, candidate, or execution fields must be inspected only after
+the current continuation artifact has passed predecessor validation. Invalid
+predecessors produce blocked evidence; they must not be disguised as absent
+optional fields.
+
+Authority-bearing actions should use paired closed objects when the action
+needs both report-only visibility and later execution:
+
+- a closed candidate object for report-only preflight, such as
+  `runTaskCandidate` or `runAcceptCandidate`;
+- a distinct closed execution object for guarded single execution, such as
+  `runTaskExecution` or `runAcceptExecution`.
+
+`preflight_only` and `accept_preflight_only` are never execution triggers.
+Execution requires the distinct execution object plus the ordinary Samantha
+gates for that action.
+
 ## Conservative Action Type Vocabulary
 
 Initial action types are deliberately narrow:
@@ -94,6 +122,21 @@ Initial action types are deliberately narrow:
 
 No other action type is valid for the MVP. Broader actions require a later
 reviewed design and deterministic validation before routine use.
+
+## Side-Effect And Lifecycle Contracts
+
+Continuation reports must treat side-effect maps as authority contracts, not
+metadata. A side-effect flag should be true only when that exact trusted state
+change was allowed, attempted, and evidenced by the current action gate. False
+flags such as `pushPerformed: false`, `successorExecuted: false`, and
+`batchesExecuteCalled: false` should be repeated in each slice that preserves
+those boundaries.
+
+`runs:accept` is compound authority. It can record merge-gate evidence, merge,
+mutate lifecycle state, clean worktrees, and draft lesson evidence. Sequential
+continuation must expose report-only `runs:accept` preflight before any guarded
+single accept execution, and the guarded execution must bind the accepted
+report to the exact continuation artifact being updated.
 
 ## Autonomy Envelope
 

@@ -81,6 +81,23 @@ judgment should change future behavior, route it through the explicit learning
 flow: lesson candidate, review, promotion, and focused enforcement or guidance
 only when justified.
 
+## Long-Running Initiative Discipline
+
+When a multi-slice initiative keeps expanding, lock the remaining roadmap to a
+fixed named range before the queue becomes open-ended. New authority discovered
+after that point should usually become a separate reviewed initiative instead
+of another silently appended slice.
+
+Separate completion evidence from closure decisions. A completion-candidate
+slice proves that the intended capability works; a closure slice decides
+whether that evidence completes the initiative or whether follow-up authority
+belongs somewhere else.
+
+Do not treat vague lesson candidates as promoted learning. A useful lesson must
+state a concrete invariant, cite evidence, name the target artifact or layer,
+and explain the risk if adopted. Generic statements such as "preserve this task
+shape if it recurs" are raw evidence only until rewritten into that form.
+
 ## Implementation Rules
 
 - Keep changes surgical and test-driven.

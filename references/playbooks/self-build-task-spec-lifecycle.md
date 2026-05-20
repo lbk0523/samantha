@@ -51,6 +51,25 @@ Ephemeral specs may still produce run evidence. The run log, verification
 output, changed-file scope, and `HARNESS_RESULT` remain the auditable execution
 record.
 
+## Continuation Dogfood Artifact Pattern
+
+When dogfooding continuation flows, separate planning artifacts, execution
+inputs, and durable operation evidence:
+
+- persistent TaskSpecs under `references/tasks/**` are planning artifacts and
+  must be committed before dispatch;
+- execution-only continuation artifacts may live under `/tmp` when they are
+  temporary run inputs;
+- durable results from `/tmp` continuation artifacts should be snapshotted as
+  operation artifacts under `references/operations/**`;
+- do not backfill temporary execution artifacts into `references/tasks/**` or
+  treat them as pre-dispatch planning evidence after the run.
+
+The operation snapshot should preserve enough evidence to audit the lifecycle:
+the command, run log path, task or candidate identity, candidate commit when
+applicable, side-effect map, lifecycle trajectory summary, verification result,
+and final stop reason.
+
 ## Pre-Dispatch Gates
 
 Before dispatching a worker from a persistent task spec, Samantha must verify:

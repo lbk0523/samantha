@@ -1,6 +1,6 @@
 # Initiative Continuity Brief Playbook
 
-Last updated: 2026-05-15
+Last updated: 2026-05-21
 
 ## Purpose
 
@@ -79,6 +79,28 @@ slice should usually be `ready`.
   verify independently.
 - Next prompts should tell the next session what to read first, what to do, how
   to verify, and when to stop.
+
+## Roadmap Closure Discipline
+
+When a long-running initiative keeps discovering adjacent follow-up slices, fix
+the remaining roadmap to a named range instead of letting the slice queue grow
+indefinitely. The fixed range should name the remaining slices, their order,
+and the authority boundary that must not be crossed inside the current
+initiative.
+
+Separate the proof slice from the closure slice when the final capability is
+risky or authority-bearing. The proof slice should demonstrate the completion
+candidate through evidence. The closure slice should decide whether that
+evidence completes the initiative or whether remaining authority belongs in a
+separate reviewed initiative.
+
+When the closure decision is to stop, say so explicitly in the brief:
+
+- mark the initiative status as completed;
+- replace the current next slice with a no-current-next-slice statement;
+- state that no S25 or equivalent continuation slice is being added;
+- move adjacent authority such as broader routine use, multi-writer execution,
+  or batch execution into a separate follow-up initiative boundary.
 
 ## Brainstorm Integration
 
