@@ -111,6 +111,40 @@ Initial action types should be conservative:
 
 Any broader action type should require a later reviewed design.
 
+## Slice Expansion Rationale
+
+The initial queue was intentionally smaller: S0-S7 covered the continuity
+brief, design contract, artifact validator, report-only CLI, evidence-backed
+status update, single-step continuation, bounded loop, and MVP dogfood.
+
+The queue expanded after S7 because the dogfood proved readiness-only
+continuation, not safe writer continuation. The loop could update the explicit
+artifact and stop cleanly, but it stopped with
+`no_deterministic_next_artifact` because it had no reviewed way to select the
+next artifact, inspect successor evidence, or coordinate writer actions
+through existing gates.
+
+S8-S11 are therefore authority-boundary slices, not extra product surfaces:
+
+- S8 documented deterministic next-artifact linkage and future
+  `run_task`/`batch_plan` action boundaries before broader routine use.
+- S9 implemented report-only `nextArtifactPath` validation before any writer
+  action execution.
+- S9.1 corrected the predecessor-validation-first contract after review found
+  a narrow visibility bug.
+- S10 dogfooded S9/S9.1 linkage and recorded the future action coordination
+  boundary.
+- S11 should be the final design/report-only boundary before deterministic
+  `run_task` preflight implementation.
+
+Forward slice discipline: do not keep adding design-only slices unless a new
+authority boundary is discovered. The next expected sequence is S11 design,
+S12 deterministic `run_task` preflight report implementation without
+execution, S13 dogfood of that preflight report against committed TaskSpec
+candidates without execution, and only then an S14 decision about guarded
+single-`run_task` execution. `batch_plan` coordination remains separate because
+it crosses Phase 5.5 and Phase 5 boundaries.
+
 ## Autonomy Envelope
 
 The initial envelope should be:
@@ -196,8 +230,9 @@ coordination. S9 implemented only validator/report-only support for explicit
 `nextArtifactPath` linkage before any writer action execution is enabled. S10
 dogfooded that report-only linkage with worktree-local `--repo-root=.` commands
 and recorded the action coordination boundary. The next safe step is S11: a
-reviewed `run_task` coordination design or preflight-only slice through existing
-run-task gates. Do not execute `run_task` yet.
+reviewed `run_task` coordination design or preflight-only report path through
+existing run-task gates. S11 should close the remaining design question instead
+of opening another general planning track. Do not execute `run_task` yet.
 
 ## S7 Evidence And Decision
 
