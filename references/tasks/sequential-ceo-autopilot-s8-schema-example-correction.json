@@ -34,13 +34,13 @@
   "verifyCommands": [
     "grep -F 'schemaVersion: 1' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
     "grep -F 'evidenceReferences:' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
-    "grep -F 'taskSpecPath: references/tasks/<task-id>.json' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "grep -F 'taskSpecPath: references/tasks/example-task.json' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
     "! grep -F 'schemaVersion: sequential-ceo-autopilot/v1' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
     "! grep -F 'evidenceRefs:' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
-    "! grep -F 'taskSpecPath: references/tasks/<task-id>.md' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
+    "! grep -F 'taskSpecPath: references/tasks/example-task.md' references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md",
     "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md"
   ],
-  "instructions": "Read references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md and correct only schema/example naming that conflicts with the current continuation artifact and task spec conventions. Keep the document's S8 decisions, stop conditions, non-goals, and follow-up slice plan intact. In the next-artifact YAML example, use the current artifact style `schemaVersion: 1` and `evidenceReferences:` instead of a string schema version or renamed evidence field. In the run_task YAML example, use `taskSpecPath: references/tasks/<task-id>.json`, not `.md`. Do not change source code, tests, parent initiative, operation artifacts, task templates, agent profiles, batch artifacts, package metadata, or lockfiles. Do not implement S9. End with exactly one HARNESS_RESULT line.",
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md and correct only schema/example naming that conflicts with the current continuation artifact and task spec conventions. Keep the document's S8 decisions, stop conditions, non-goals, and follow-up slice plan intact. In the next-artifact YAML example, use the current artifact style `schemaVersion: 1` and `evidenceReferences:` instead of a string schema version or renamed evidence field. In the run_task YAML example, use `taskSpecPath: references/tasks/example-task.json`, not `.md`. Do not change source code, tests, parent initiative, operation artifacts, task templates, agent profiles, batch artifacts, package metadata, or lockfiles. Do not implement S9. End with exactly one HARNESS_RESULT line.",
   "expectedCommitSubject": "docs: correct s8 action boundary examples",
   "status": "pending"
 }
