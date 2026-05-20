@@ -44,13 +44,13 @@ authority.
 The structured continuation artifact should add an explicit successor linkage:
 
 ```yaml
-schemaVersion: sequential-ceo-autopilot/v1
+schemaVersion: 1
 initiativePath: references/initiatives/<initiative>.md
 currentSlice:
   id: S8
   status: completed
   actionType: report_only
-evidenceRefs:
+evidenceReferences:
   - references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md
 nextArtifactPath: references/operations/<initiative>-s9-continuation.json
 nextArtifactExpectedSliceId: S9
@@ -97,7 +97,7 @@ The artifact should use concrete fields such as:
 
 ```yaml
 actionType: run_task
-taskSpecPath: references/tasks/<task-id>.md
+taskSpecPath: references/tasks/example-task.json
 requiredRuntime: codex-sdk
 worktreePolicy: isolated
 verifyCommands:
