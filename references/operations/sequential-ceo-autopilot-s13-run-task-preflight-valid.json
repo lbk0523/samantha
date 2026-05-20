@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s13-run-task-preflight-valid",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-20T00:00:00.000Z",
+  "updatedAt": "2026-05-20T00:00:00.000Z",
+  "currentSlice": {
+    "id": "S13",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S12 and S12.1 report-only run_task preflight behavior is implemented."
+    ],
+    "targetFiles": [
+      "src/core/sequential-ceo-autopilot.ts",
+      "src/cli.ts",
+      "tests/sequential-ceo-autopilot.test.ts",
+      "tests/cli.test.ts",
+      "references/initiatives/sequential-ceo-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "bun test tests/sequential-ceo-autopilot.test.ts",
+      "bun test tests/cli.test.ts",
+      "bun run typecheck",
+      "bun test",
+      "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+      "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S13 dogfoods preflight reporting only and does not make the S14 execution decision."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S13 uses the reviewed S11 boundary and implemented S12/S12.1 preflight surface without moving execution authority."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S13 cites the S12 TaskSpec candidate by evidence hash and copies its handoff fields."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "The TaskSpec evidence hash is cited and continuation:show performs preflight checks."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "S13 does not execute a worker; HARNESS_RESULT remains only the worker completion line for this report-only task."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "S13 writes only declared operation artifacts and the initiative update."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence rework cycle is spent before dogfood verification."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S13 stays report-only and requires no executable continuation capability."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S13 has explicit valid and blocked preflight artifacts plus one markdown report."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "continuation_report",
+      "path": "references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+      "summary": "S11 defines the closed runTaskCandidate boundary.",
+      "result": "completed"
+    },
+    {
+      "kind": "continuation_report",
+      "path": "references/tasks/sequential-ceo-autopilot-s12-run-task-preflight-report.json",
+      "summary": "S12 TaskSpec candidate used for S13 preflight dogfood.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "sam p: Review S14 guarded single-run_task execution decision/design for references/initiatives/sequential-ceo-autopilot.md without executing run_task."
+  },
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/sequential-ceo-autopilot-s12-run-task-preflight-report.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "src/core/sequential-ceo-autopilot.ts",
+      "src/cli.ts",
+      "tests/sequential-ceo-autopilot.test.ts",
+      "tests/cli.test.ts",
+      "references/initiatives/sequential-ceo-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "bun test tests/sequential-ceo-autopilot.test.ts",
+      "bun test tests/cli.test.ts",
+      "bun run typecheck",
+      "bun test",
+      "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+      "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+    ],
+    "evidence": {
+      "taskSpecCommit": "039738ee26e31673a73d196c31ef2b1f46fae929",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  }
+}

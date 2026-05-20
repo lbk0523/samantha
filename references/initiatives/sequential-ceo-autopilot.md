@@ -201,11 +201,12 @@ Stop before continuing when any of these appear:
 | S10 | completed | Dogfood S9 report-only next-artifact linkage and design the reviewed action coordination boundary for future `run_task` / `batch_plan` support. Keep this report-only or design-only: no worker dispatch, no batch execution, no merge, no cleanup, no commit/push automation. | S9. | Passed: created `references/operations/sequential-ceo-autopilot-s10-dogfood-report.md` and `references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md`; `continuation:show --repo-root=.` accepted the valid predecessor/successor linkage and blocked the invalid predecessor before successor inspection; readiness check and scoped diff check pass. | None. |
 | S11 | completed | Design reviewed `run_task` coordination or a preflight-only report path through existing run-task gates. Do not execute `run_task`; prove only committed TaskSpec routing, SDK runtime requirement, isolated worktree ownership by Samantha, scope/verify handoff, and stop behavior. | S10. | Created `references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md` and `references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md`; S11 remains design-only/report-only evidence and preserves existing run-task gates without worker dispatch or lifecycle mutation. | None. |
 | S12 | completed | Implement deterministic `run_task` preflight report support for the closed `runTaskCandidate` object without executing `run_task`. Validate committed TaskSpec paths, `requiredRuntime: codex-sdk`, `executionMode: preflight_only`, Samantha-owned worktree/lifecycle requirements, target-file and forbidden-change handoff, verify-command handoff, stale evidence, stop conditions, push rejection, and false side-effect flags. | S11. | S12 added deterministic report-only `runTaskPreflight` visibility on `continuation:show` for accepted and blocked candidates without calling `run_task`, dispatching workers, creating worktrees, mutating lifecycle, merging, cleaning up, committing, or pushing. S12.1 corrected preflight ordering so invalid predecessor artifacts block before absent, null, or malformed `runTaskCandidate` handling. | None. |
-| S13 | ready | Dogfood S12 preflight reports against committed TaskSpec candidates and blocked candidate cases without executing `run_task`. | S12. | Dogfood evidence proves accepted and blocked `runTaskPreflight` reports against committed TaskSpec candidates; no `run_task` execution, worker dispatch, worktree creation, lifecycle mutation, merge, cleanup, commit, or push occurs. | `sam c: Dogfood S12 run_task preflight reports against committed TaskSpec candidates without executing run_task.` |
+| S13 | completed | Dogfood S12 preflight reports against committed TaskSpec candidates and blocked candidate cases without executing `run_task`. | S12. | Created valid and blocked S13 continuation artifacts plus a dogfood report. `continuation:show` accepts the committed-clean S12 TaskSpec candidate with `requiredRuntime: codex-sdk` and blocks the same candidate with `requiredRuntime: exec-json`; no `run_task` execution, worker dispatch, worktree creation, lifecycle mutation, merge, cleanup, commit, or push occurs. | None. |
+| S14 | ready | Review guarded single-`run_task` execution decision/design after S12/S13 preflight evidence. Keep this decision/design-only until execution authority is explicitly reviewed. | S13. | Decision/design evidence defines whether guarded single-`run_task` execution is justified and what existing gates, stop conditions, and Samantha-owned lifecycle evidence remain mandatory. No `run_task` execution occurs in S14 design. | `sam p: Review guarded single-run_task execution decision/design for Sequential CEO Autopilot S14 without executing run_task.` |
 
 ## Current Next Slice
 
-S13 is ready.
+S14 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -237,8 +238,10 @@ implemented deterministic report-only `runTaskPreflight` visibility for a
 closed `runTaskCandidate` object, without executing `run_task`. S12.1 corrected
 preflight ordering so invalid predecessor artifacts expose blocked
 `runTaskPreflight` reports before absent or null `runTaskCandidate` handling.
-The next safe step is exactly one ready slice: S13 dogfood of S12 preflight
-reports against committed TaskSpec candidates without executing `run_task`.
+S13 dogfooded accepted and blocked S12 preflight reports against a committed
+TaskSpec candidate without executing `run_task`. The next safe step is exactly
+one ready slice: S14 reviewed guarded single-`run_task` execution
+decision/design. S14 remains decision/design; it must not execute `run_task`.
 
 ## S7 Evidence And Decision
 
@@ -378,6 +381,30 @@ reports against committed TaskSpec candidates without executing `run_task`.
   routines, add hidden memory, or execute broad roadmap work.
 - Next slice: S12, deterministic `run_task` preflight report implementation
   without executing `run_task`.
+
+## S13 Evidence And Decision
+
+- Valid preflight artifact:
+  `references/operations/sequential-ceo-autopilot-s13-run-task-preflight-valid.json`
+- Blocked preflight artifact:
+  `references/operations/sequential-ceo-autopilot-s13-run-task-preflight-blocked.json`
+- Dogfood report:
+  `references/operations/sequential-ceo-autopilot-s13-run-task-preflight-report.md`
+- Accepted command:
+  `bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s13-run-task-preflight-valid.json --repo-root=.`
+- Blocked command:
+  `bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s13-run-task-preflight-blocked.json --repo-root=.`
+- Decision: S13 remains report-only dogfood evidence. It proves accepted and
+  blocked `runTaskPreflight` reports against a committed-clean S12 TaskSpec
+  candidate.
+- Decision: S13 does not run `run_task`, run `batch_plan`, dispatch workers,
+  create run logs, create worktrees, mutate lifecycle state, merge, cleanup,
+  commit, push, start daemon/watch behavior, add remote adapters, add
+  dashboards, trigger routines, add hidden memory, or execute broad roadmap
+  work by continuation.
+- Next slice: S14, reviewed guarded single-`run_task` execution
+  decision/design. S14 must remain decision/design; do not execute `run_task`
+  in S14 design.
 
 ## End-of-Session Update Rule
 
