@@ -13,6 +13,7 @@ import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationArtifact,
   SequentialContinuationRunTaskCandidate,
+  SequentialContinuationRunTaskExecution,
   SequentialContinuationStatusEvidenceDocument,
 } from "../src/core/sequential-ceo-autopilot";
 import { SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS } from "../src/core/sequential-ceo-autopilot";
@@ -293,6 +294,40 @@ function cliRunTaskCandidate(
   };
 }
 
+function cliRunTaskExecution(
+  overrides: Partial<SequentialContinuationRunTaskExecution> = {},
+): SequentialContinuationRunTaskExecution {
+  const task = cliRunTaskSpec();
+  return {
+    taskSpecPath: "references/tasks/cli-run-task-preflight.json",
+    requiredRuntime: "codex-sdk",
+    executionMode: "single_run_task",
+    worktreePolicy: "samantha_allocated_isolated",
+    lifecycleOwner: "samantha",
+    targetFiles: task.targetFiles,
+    forbiddenChanges: task.forbiddenChanges,
+    verifyCommands: task.verifyCommands,
+    pushAllowed: false,
+    expectedSideEffects: {
+      runTaskCalled: true,
+      workersDispatched: true,
+      worktreesCreated: true,
+      runsCreated: true,
+      deterministicVerification: true,
+      batchesExecuteCalled: false,
+      acceptPerformed: false,
+      lifecycleMutated: false,
+      mergePerformed: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    },
+    ...overrides,
+  };
+}
+
 async function writeCliRunTaskPreflightFixture(overrides: {
   artifact?: Partial<SequentialContinuationArtifact>;
   candidate?: Partial<SequentialContinuationRunTaskCandidate>;
@@ -512,6 +547,28 @@ describe("samantha cli", () => {
         "--max-steps=0",
       ]),
     ).toThrow("usage: bun run samantha continuation:loop --artifact=<path> --max-steps=<n>");
+    expect(
+      parseCliArgs([
+        "continuation:run-task-once",
+        "--artifact=references/continuation/s15.json",
+        "--repo-root=/tmp/samantha-repo",
+        "--agent=references/agent-profiles/codex-worker.json",
+        "--worktrees-dir=worktrees",
+        "--runs-dir=runs",
+        "--codex-bin=/tmp/fake-codex",
+      ]),
+    ).toEqual({
+      command: "continuation:run-task-once",
+      artifactPath: "references/continuation/s15.json",
+      repoRoot: "/tmp/samantha-repo",
+      agentPath: "references/agent-profiles/codex-worker.json",
+      worktreesDir: "worktrees",
+      runsDir: "runs",
+      codexBin: "/tmp/fake-codex",
+    });
+    expect(() => parseCliArgs(["continuation:run-task-once", "--artifact=references/continuation/s15.json"])).toThrow(
+      "usage: bun run samantha continuation:run-task-once --artifact=<path> --repo-root=<repo> [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--codex-bin=<path>]",
+    );
   });
 
   test("continuation show prints a valid report without creating execution artifacts", async () => {
@@ -884,6 +941,152 @@ describe("samantha cli", () => {
       expect(await pathExists(join(root, "runs"))).toBe(false);
       expect(await pathExists(join(root, "worktrees"))).toBe(false);
     }
+  });
+
+  test("continuation run-task-once blocks accepted preflight without execution trigger and mutates nothing", async () => {
+    const { root, artifactPath, taskSpecPath, artifactText, taskSpecText } =
+      await writeCliRunTaskPreflightFixture();
+
+    const result = await runCliCapturingStdout([
+      "continuation:run-task-once",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+      `--runs-dir=${join(root, "s15-runs")}`,
+      `--worktrees-dir=${join(root, "s15-worktrees")}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report).toMatchObject({
+      status: "blocked",
+      violations: ["runTaskExecution must be present for single-run_task execution"],
+      selectedActionType: "run_task",
+      actionAttemptCount: 0,
+      actionExecuted: false,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        deterministicVerification: false,
+        lifecycleMutated: false,
+        mergePerformed: false,
+        cleanupPerformed: false,
+        commitPerformed: false,
+        pushPerformed: false,
+        multiStepLoopStarted: false,
+        successorExecuted: false,
+      },
+    });
+    expect(report.runTaskPreflight.status).toBe("accepted");
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(taskSpecPath, "utf8")).toBe(taskSpecText);
+    expect(await pathExists(join(root, "s15-runs"))).toBe(false);
+    expect(await pathExists(join(root, "s15-worktrees"))).toBe(false);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation run-task-once blocks invalid execution trigger without accept merge cleanup commit or push effects", async () => {
+    const { root, artifactPath, taskSpecPath, artifactText, taskSpecText } =
+      await writeCliRunTaskPreflightFixture({
+        artifact: {
+          runTaskExecution: cliRunTaskExecution({
+            executionMode: "preflight_only",
+            expectedSideEffects: {
+              ...cliRunTaskExecution().expectedSideEffects,
+              acceptPerformed: true,
+              mergePerformed: true,
+              cleanupPerformed: true,
+              commitPerformed: true,
+              pushPerformed: true,
+            },
+          }),
+        },
+      });
+
+    const result = await runCliCapturingStdout([
+      "continuation:run-task-once",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain(
+      "runTaskExecution.executionMode must be single_run_task, not preflight_only",
+    );
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.acceptPerformed must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.mergePerformed must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.cleanupPerformed must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.commitPerformed must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.pushPerformed must be false");
+    expect(report.actionAttemptCount).toBe(0);
+    expect(report.actionExecuted).toBe(false);
+    expect(report.trustedStateChanges).toEqual([]);
+    expect(report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      acceptPerformed: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+      deterministicVerification: false,
+      lifecycleMutated: false,
+      mergePerformed: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(taskSpecPath, "utf8")).toBe(taskSpecText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation loop does not execute run_task even when S15 execution trigger is present", async () => {
+    const { root, artifactPath, taskSpecPath, artifactText, taskSpecText } =
+      await writeCliRunTaskPreflightFixture({
+        artifact: {
+          runTaskExecution: cliRunTaskExecution(),
+        },
+      });
+
+    const result = await runCliCapturingStdout([
+      "continuation:loop",
+      `--artifact=${artifactPath}`,
+      "--max-steps=2",
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("blocked");
+    expect(report.singleStepReports[0]).toMatchObject({
+      status: "blocked",
+      selectedActionType: "run_task",
+      actionExecuted: false,
+      actionAttemptCount: 0,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        pushPerformed: false,
+      },
+    });
+    expect(report.stopReason).toBe(
+      "step_blocked: run_task is blocked until reviewed explicit taskSpecPath/batchSpecPath support exists",
+    );
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(taskSpecPath, "utf8")).toBe(taskSpecText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
   });
 
   test("continuation show prints a rejected report and exits non-zero for invalid artifacts", async () => {

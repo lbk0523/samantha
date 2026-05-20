@@ -8,6 +8,7 @@ import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
   SequentialContinuationRunTaskCandidate,
+  SequentialContinuationRunTaskExecution,
   SequentialContinuationStatusEvidenceDocument,
 } from "../src/core/sequential-ceo-autopilot";
 import {
@@ -15,6 +16,7 @@ import {
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationRunTaskExecutionReport,
   buildSequentialContinuationRunTaskPreflightReport,
   buildSequentialContinuationSingleStep,
   buildSequentialContinuationStatusUpdate,
@@ -119,6 +121,40 @@ function runTaskCandidate(
       cleanupPerformed: false,
       commitPerformed: false,
       pushPerformed: false,
+    },
+    ...overrides,
+  };
+}
+
+function runTaskExecution(
+  overrides: Partial<SequentialContinuationRunTaskExecution> = {},
+): SequentialContinuationRunTaskExecution {
+  const task = runTaskTaskSpec();
+  return {
+    taskSpecPath: "references/tasks/s12-run-task-preflight.json",
+    requiredRuntime: "codex-sdk",
+    executionMode: "single_run_task",
+    worktreePolicy: "samantha_allocated_isolated",
+    lifecycleOwner: "samantha",
+    targetFiles: task.targetFiles,
+    forbiddenChanges: task.forbiddenChanges,
+    verifyCommands: task.verifyCommands,
+    pushAllowed: false,
+    expectedSideEffects: {
+      runTaskCalled: true,
+      workersDispatched: true,
+      worktreesCreated: true,
+      runsCreated: true,
+      deterministicVerification: true,
+      batchesExecuteCalled: false,
+      acceptPerformed: false,
+      lifecycleMutated: false,
+      mergePerformed: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
     },
     ...overrides,
   };
@@ -301,6 +337,32 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         },
       }),
     ).toContain("unknown runTaskCandidate field: command");
+  });
+
+  test("accepts optional runTaskExecution as null or closed object", () => {
+    expect(validateSequentialContinuationArtifact(artifact({ runTaskExecution: null }))).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          runTaskExecution: runTaskExecution(),
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        runTaskExecution: [runTaskExecution()],
+      }),
+    ).toContain("runTaskExecution must be a single object or null when present");
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        runTaskExecution: {
+          ...runTaskExecution(),
+          command: "bun run samantha run-task references/tasks/s12.json",
+        },
+      }),
+    ).toContain("unknown runTaskExecution field: command");
   });
 
   test("builds a deterministic accepted report for the current slice", () => {
@@ -1293,6 +1355,336 @@ describe("Sequential CEO Autopilot run_task preflight report", () => {
     expect(report.blockingReasons).toEqual(["runTaskCandidate.expectedSideEffects.pushPerformed must be false"]);
     expect(report.sideEffects.pushPerformed).toBe(false);
     expect(report.trustedStateChanges).toBe(false);
+  });
+});
+
+describe("Sequential CEO Autopilot guarded single-run_task execution", () => {
+  test("accepts one explicit execution trigger after accepted preflight and stops at run log evidence", async () => {
+    const { root, artifactPath, taskSpecPath, continuation } = await writeRunTaskPreflightFixture({
+      artifact: {
+        runTaskExecution: runTaskExecution(),
+      },
+    });
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunTaskExecutionReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+      executeRunTask: (input) => {
+        executorCalls += 1;
+        expect(input.runtimeKind).toBe("codex-sdk");
+        expect(input.taskPath).toBe(taskSpecPath);
+        expect(input.normalizedTaskSpecPath).toBe("references/tasks/s12-run-task-preflight.json");
+        return {
+          runLogPath: join(root, "runs", "s15.json"),
+          pass: true,
+          harnessResult: { status: "pass", note: "s15 accepted", commit: "" },
+        };
+      },
+    });
+
+    expect(executorCalls).toBe(1);
+    expect(report).toMatchObject({
+      status: "accepted",
+      violations: [],
+      blockingReasons: [],
+      selectedActionType: "run_task",
+      normalizedTaskSpecPath: "references/tasks/s12-run-task-preflight.json",
+      resolvedTaskSpecPath: taskSpecPath,
+      runLogPath: join(root, "runs", "s15.json"),
+      executorEvidencePath: join(root, "runs", "s15.json"),
+      harnessResult: { status: "pass", note: "s15 accepted", commit: "" },
+      executionPass: true,
+      actionAttemptCount: 1,
+      actionExecuted: true,
+      continued: false,
+      stopReason: "run_task_evidence_recorded",
+      trustedStateChanges: ["run_log", "execution_report"],
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: true,
+        batchesExecuteCalled: false,
+        workersDispatched: true,
+        runsCreated: true,
+        worktreesCreated: true,
+        deterministicVerification: true,
+        acceptPerformed: false,
+        lifecycleMutated: false,
+        mergePerformed: false,
+        cleanupPerformed: false,
+        commitPerformed: false,
+        pushPerformed: false,
+        multiStepLoopStarted: false,
+        successorExecuted: false,
+      },
+    });
+    expect(report.runTaskPreflight?.status).toBe("accepted");
+  });
+
+  test("blocks accepted preflight without a distinct execution trigger", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture();
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunTaskExecutionReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+      executeRunTask: () => {
+        executorCalls += 1;
+        return { executorEvidencePath: "unused", pass: true };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain("runTaskExecution must be present for single-run_task execution");
+    expect(report.actionAttemptCount).toBe(0);
+    expect(report.sideEffects.runTaskCalled).toBe(false);
+  });
+
+  test("blocks preflight_only as an execution trigger before executor invocation", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      artifact: {
+        runTaskExecution: runTaskExecution({ executionMode: "preflight_only" }),
+      },
+    });
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunTaskExecutionReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+      executeRunTask: () => {
+        executorCalls += 1;
+        return { executorEvidencePath: "unused", pass: true };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain(
+      "runTaskExecution.executionMode must be single_run_task, not preflight_only",
+    );
+  });
+
+  test("blocks active stop conditions, non-run_task actions, and unmet dependencies without execution", async () => {
+    const cases: Array<{
+      name: string;
+      artifact: Partial<SequentialContinuationArtifact>;
+      reason: string;
+    }> = [
+      {
+        name: "active-stop",
+        artifact: {
+          stopConditionChecklist: artifact().stopConditionChecklist.map((check) =>
+            check.id === "decision_required"
+              ? { ...check, active: true, evidence: "BK decision required." }
+              : check,
+          ),
+          runTaskExecution: runTaskExecution(),
+        },
+        reason: "stop condition active: decision_required: BK decision required.",
+      },
+      {
+        name: "wrong-action",
+        artifact: {
+          currentSlice: {
+            ...artifact().currentSlice,
+            id: "S12",
+            status: "ready",
+            actionType: "report_only",
+            dependencyStatus: "met",
+          },
+          runTaskExecution: runTaskExecution(),
+        },
+        reason: "currentSlice.actionType must be run_task for single-run_task execution: report_only",
+      },
+      {
+        name: "blocked-dependency",
+        artifact: {
+          currentSlice: {
+            ...artifact().currentSlice,
+            id: "S12",
+            status: "ready",
+            actionType: "run_task",
+            dependencyStatus: "blocked",
+            targetFiles: runTaskTaskSpec().targetFiles,
+            forbiddenChanges: runTaskTaskSpec().forbiddenChanges,
+            verifyCommands: runTaskTaskSpec().verifyCommands,
+          },
+          runTaskExecution: runTaskExecution(),
+        },
+        reason: "currentSlice.dependencyStatus must be met for single-run_task execution: blocked",
+      },
+    ];
+
+    for (const item of cases) {
+      const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({ artifact: item.artifact });
+      let executorCalls = 0;
+      const report = await buildSequentialContinuationRunTaskExecutionReport({
+        repoRoot: root,
+        artifactPath,
+        artifact: continuation,
+        executeRunTask: () => {
+          executorCalls += 1;
+          return { executorEvidencePath: "unused", pass: true };
+        },
+      });
+
+      expect(executorCalls, item.name).toBe(0);
+      expect(report.status, item.name).toBe("blocked");
+      expect(report.violations, item.name).toContain(item.reason);
+      expect(report.sideEffects.runTaskCalled, item.name).toBe(false);
+    }
+  });
+
+  test("blocks missing or blocked runTaskPreflight before execution", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      candidate: {
+        requiredRuntime: "exec-json",
+      },
+      artifact: {
+        runTaskExecution: runTaskExecution(),
+      },
+    });
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunTaskExecutionReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+      executeRunTask: () => {
+        executorCalls += 1;
+        return { executorEvidencePath: "unused", pass: true };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain("runTaskPreflight is blocked and cannot trigger single-run_task execution");
+    expect(report.violations).toContain("runTaskPreflight: runTaskCandidate.requiredRuntime must be codex-sdk: exec-json");
+  });
+
+  test("blocks runtime, mode, worktree, lifecycle, and handoff mismatches", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      artifact: {
+        runTaskExecution: runTaskExecution({
+          requiredRuntime: "exec-json",
+          executionMode: "single_run_task",
+          worktreePolicy: "worker_allocated",
+          lifecycleOwner: "worker",
+          targetFiles: ["src/cli.ts"],
+          forbiddenChanges: ["references/tasks/**"],
+          verifyCommands: ["bun test tests/cli.test.ts"],
+        }),
+      },
+    });
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunTaskExecutionReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+      executeRunTask: () => {
+        executorCalls += 1;
+        return { executorEvidencePath: "unused", pass: true };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toEqual([
+      "runTaskExecution.requiredRuntime must be codex-sdk: exec-json",
+      "runTaskExecution.requiredRuntime must match accepted runTaskPreflight requiredRuntime",
+      "runTaskExecution.worktreePolicy must be samantha_allocated_isolated: worker_allocated",
+      "runTaskExecution.worktreePolicy must match accepted runTaskPreflight worktreePolicy",
+      "runTaskExecution.lifecycleOwner must be samantha: worker",
+      "runTaskExecution.lifecycleOwner must match accepted runTaskPreflight lifecycleOwner",
+      "runTaskExecution.targetFiles must match accepted runTaskPreflight targetFiles",
+      "runTaskExecution.forbiddenChanges must match accepted runTaskPreflight forbiddenChanges",
+      "runTaskExecution.verifyCommands must match accepted runTaskPreflight verifyCommands",
+    ]);
+  });
+
+  test("blocks lifecycle, push, batch, multi-step, and successor side-effect requests", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      artifact: {
+        runTaskExecution: runTaskExecution({
+          expectedSideEffects: {
+            ...runTaskExecution().expectedSideEffects,
+            acceptPerformed: true,
+            lifecycleMutated: true,
+            pushPerformed: true,
+            batchesExecuteCalled: true,
+            multiStepLoopStarted: true,
+            successorExecuted: true,
+          },
+        }),
+      },
+    });
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunTaskExecutionReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+      executeRunTask: () => {
+        executorCalls += 1;
+        return { executorEvidencePath: "unused", pass: true };
+      },
+    });
+
+    expect(executorCalls).toBe(0);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.lifecycleMutated must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.acceptPerformed must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.pushPerformed must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.batchesExecuteCalled must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.multiStepLoopStarted must be false");
+    expect(report.violations).toContain("runTaskExecution.expectedSideEffects.successorExecuted must be false");
+  });
+
+  test("reports executor failure as blocked without accepted side effects", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      artifact: {
+        runTaskExecution: runTaskExecution(),
+      },
+    });
+    let executorCalls = 0;
+
+    const report = await buildSequentialContinuationRunTaskExecutionReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+      executeRunTask: () => {
+        executorCalls += 1;
+        throw new Error("stub worker unavailable");
+      },
+    });
+
+    expect(executorCalls).toBe(1);
+    expect(report.status).toBe("blocked");
+    expect(report.violations).toEqual(["run_task executor failed: stub worker unavailable"]);
+    expect(report.actionAttemptCount).toBe(1);
+    expect(report.actionExecuted).toBe(false);
+    expect(report.trustedStateChanges).toEqual([]);
+    expect(report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+      deterministicVerification: false,
+      acceptPerformed: false,
+      lifecycleMutated: false,
+      mergePerformed: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+      multiStepLoopStarted: false,
+      successorExecuted: false,
+    });
   });
 });
 

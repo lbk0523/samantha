@@ -223,8 +223,8 @@ Stop before continuing when any of these appear:
 | S12 | completed | Implement deterministic `run_task` preflight report support for the closed `runTaskCandidate` object without executing `run_task`. Validate committed TaskSpec paths, `requiredRuntime: codex-sdk`, `executionMode: preflight_only`, Samantha-owned worktree/lifecycle requirements, target-file and forbidden-change handoff, verify-command handoff, stale evidence, stop conditions, push rejection, and false side-effect flags. | S11. | S12 added deterministic report-only `runTaskPreflight` visibility on `continuation:show` for accepted and blocked candidates without calling `run_task`, dispatching workers, creating worktrees, mutating lifecycle, merging, cleaning up, committing, or pushing. S12.1 corrected preflight ordering so invalid predecessor artifacts block before absent, null, or malformed `runTaskCandidate` handling. | None. |
 | S13 | completed | Dogfood S12 preflight reports against committed TaskSpec candidates and blocked candidate cases without executing `run_task`. | S12. | Created valid and blocked S13 continuation artifacts plus a dogfood report. `continuation:show` accepts the committed-clean S12 TaskSpec candidate with `requiredRuntime: codex-sdk` and blocks the same candidate with `requiredRuntime: exec-json`; no `run_task` execution, worker dispatch, worktree creation, lifecycle mutation, merge, cleanup, commit, or push occurs. | None. |
 | S14 | completed | Review guarded single-`run_task` execution decision/design after S12/S13 preflight evidence. Keep this decision/design-only until execution authority is explicitly reviewed. | S13. | Created `references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md` and `references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md`. Decision: guarded single `run_task` execution is justified for a narrow S15 implementation only; S14 did not execute `run_task`. | None. |
-| S15 | ready | Implement guarded single-`run_task` execution only. Require exactly one explicit execution-enabling `run_task` action, existing run-task gates, SDK runtime, committed-clean TaskSpec, accepted `runTaskPreflight` evidence, Samantha-allocated isolated worktree, `HARNESS_RESULT`, deterministic verification, `pushPerformed: false`, and an immediate stop after run log/report evidence before accept, merge, cleanup, commit, push, `batch_plan`, multi-step loop, or successor execution. | S14. | Focused implementation evidence should prove accepted and blocked guarded execution paths, rejection of `preflight_only` as an execution trigger, false push, immediate stop after run log/report, readiness check, typecheck or focused tests as applicable, and scoped diff checks. | `sam c: Implement Sequential CEO Autopilot S15 guarded single-run_task execution only. Use an explicit reviewed execution-enabling field or command, preserve existing run-task gates and SDK runtime, execute at most one accepted candidate, stop immediately after run log/report evidence, and do not implement accept, merge, cleanup, commit, push, batch_plan, multi-step loop, or successor execution.` |
-| S16 | pending | Dogfood S15 guarded single-`run_task` execution against one small committed-clean TaskSpec and prove the runner stops at run log/report evidence. | S15. | Evidence should prove exactly one `run_task`, SDK runtime, accepted preflight, valid `HARNESS_RESULT`, deterministic verification, `pushPerformed: false`, and no accept, merge, cleanup, commit, push, `batch_plan`, multi-step loop, or successor execution. | Pending until S15 completes. |
+| S15 | completed | Implement guarded single-`run_task` execution only. Require exactly one explicit execution-enabling `run_task` action, existing run-task gates, SDK runtime, committed-clean TaskSpec, accepted `runTaskPreflight` evidence, Samantha-allocated isolated worktree, `HARNESS_RESULT`, deterministic verification, `pushPerformed: false`, and an immediate stop after run log/report evidence before accept, merge, cleanup, commit, push, `batch_plan`, multi-step loop, or successor execution. | S14. | S15 added a closed optional `runTaskExecution` trigger, `buildSequentialContinuationRunTaskExecutionReport` with executor injection, and `continuation:run-task-once`. Focused tests prove accepted injected execution, missing or `preflight_only` execution triggers, blocked preflight, runtime/mode/worktree/lifecycle/handoff mismatches, active stops, lifecycle/push/batch/multi-step/successor side-effect requests, executor failure, false push, and immediate stop after run log/report evidence. | None. |
+| S16 | ready | Dogfood S15 guarded single-`run_task` execution against one small committed-clean TaskSpec and prove the runner stops at run log/report evidence. | S15. | Evidence should prove exactly one `run_task`, SDK runtime, accepted preflight, valid `HARNESS_RESULT`, deterministic verification, `pushPerformed: false`, and no accept, merge, cleanup, commit, push, `batch_plan`, multi-step loop, or successor execution. | `sam c: Dogfood S15 guarded single-run_task execution against one small committed-clean TaskSpec. Prove exactly one SDK-backed run_task call, accepted preflight, valid HARNESS_RESULT/run log evidence, deterministic verification, pushPerformed false, and no accept, merge, cleanup, commit, push, batch_plan, multi-step loop, or successor execution.` |
 | S17 | pending | Design the post-run lifecycle boundary for `runs:accept`, merge, and cleanup after S16 evidence. | S16. | Decision/design evidence should define accepted run-log requirements, merge-gate handling, lifecycle ownership, cleanup authority, stop conditions, and non-goals before any lifecycle execution implementation. | Pending until S16 completes. |
 | S18 | pending | Implement report-only `runs:accept` preflight visibility for a single run log without accepting, merging, cleaning up, committing, pushing, or continuing. | S17. | Focused implementation evidence should prove accepted and blocked accept-preflight reports, stale or invalid run-log rejection, scope and verification handoff checks, false lifecycle side effects, readiness check, typecheck or focused tests, and scoped diff checks. | Pending until S17 completes. |
 | S19 | pending | Dogfood S18 `runs:accept` preflight against accepted and blocked run logs. | S18. | Dogfood evidence should show deterministic accepted and blocked preflight outcomes and prove no accept, merge, cleanup, commit, push, worker dispatch, new run, or continuation side effects occur. | Pending until S18 completes. |
@@ -236,7 +236,7 @@ Stop before continuing when any of these appear:
 
 ## Current Next Slice
 
-S15 is ready.
+S16 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -272,11 +272,12 @@ preflight ordering so invalid predecessor artifacts expose blocked
 S13 dogfooded accepted and blocked S12 preflight reports against a committed
 TaskSpec candidate without executing `run_task`. S14 reviewed that evidence and
 decided guarded single-`run_task` execution is justified only for a narrow S15
-implementation. The next safe step is exactly one ready slice: S15 guarded
-single-`run_task` execution implementation. S15 must not implement accept,
-merge, cleanup, commit, push, `batch_plan`, multi-step loop, successor
-execution, daemon/watch behavior, remote adapters, dashboards, routine
-triggers, hidden memory, or broad roadmap execution.
+implementation. S15 implemented that guarded single-run surface and preserved
+the immediate stop after run log/report evidence. The next safe step is exactly
+one ready slice: S16 dogfood against one small committed-clean TaskSpec. S16
+must not implement accept, merge, cleanup, commit, push, `batch_plan`,
+multi-step loop, successor execution, daemon/watch behavior, remote adapters,
+dashboards, routine triggers, hidden memory, or broad roadmap execution.
 
 The remaining roadmap is fixed through S24. S18 is only report-only
 `runs:accept` preflight and must not be treated as initiative completion. The
@@ -469,6 +470,34 @@ multi-writer, `batch_plan`, and broader routine use to a separate initiative.
 - Next slice: S15, guarded single-`run_task` execution implementation only.
   S15 must stop immediately after run log/report evidence before accept, merge,
   cleanup, commit, push, `batch_plan`, multi-step loop, or successor execution.
+
+## S15 Evidence And Decision
+
+- Implementation:
+  `src/core/sequential-ceo-autopilot.ts`, `src/cli.ts`,
+  `tests/sequential-ceo-autopilot.test.ts`, and `tests/cli.test.ts`.
+- Decision: `runTaskCandidate.executionMode: preflight_only` remains
+  report-only. Guarded execution requires the distinct closed
+  `runTaskExecution` trigger with `executionMode: single_run_task`,
+  `requiredRuntime: codex-sdk`, matching TaskSpec/preflight handoff, Samantha
+  worktree/lifecycle ownership, `pushAllowed: false`, and explicit
+  expected-side-effect flags.
+- Decision: `continuation:run-task-once` validates the artifact and accepted
+  `runTaskPreflight` first, calls `runTaskCommand` at most once with SDK
+  runtime, prints deterministic JSON, and does not update the artifact.
+- Decision: S15 stops after run log/report evidence. It does not accept, merge,
+  cleanup, commit, push, run `batch_plan`, start a multi-step loop, execute a
+  successor, add daemon/watch behavior, add remote adapters, add dashboards,
+  trigger routines, add hidden memory, or execute broad roadmap work.
+- Evidence: focused core tests cover accepted injected execution, missing or
+  `preflight_only` execution triggers, blocked preflight, runtime, mode,
+  worktree, lifecycle, and handoff mismatches, active stop conditions,
+  side-effect requests, executor failure, exactly one executor call, false
+  push, and immediate stop after run log/report evidence. CLI tests cover
+  parser and blocked behavior without real worker execution and prove no
+  artifact mutation or accept/merge/cleanup/commit/push side effects.
+- Next slice: S16, dogfood S15 against one small committed-clean TaskSpec.
+  Keep S17-S24 pending.
 
 ## End-of-Session Update Rule
 
