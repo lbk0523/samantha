@@ -1,0 +1,47 @@
+{
+  "id": "sequential-ceo-autopilot-s22-post-accept-status-rework",
+  "title": "Rework Sequential CEO Autopilot S22 post-accept evidence binding",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Rework S22 for references/initiatives/sequential-ceo-autopilot.md. The previous candidate commit 0ec1d0521bf72a1c6e8d75854410b29e8834b349 passed tests but was not accepted because review found a trust-binding gap: buildSequentialContinuationPostAcceptStatusUpdate did not verify that the saved continuation:accept-run-once report belongs to the same continuation artifact being updated. You may use git cherry-pick --no-commit 0ec1d0521bf72a1c6e8d75854410b29e8834b349 as a starting point, then make the rework below. Do not create a commit yourself; Samantha will commit after gates pass.\n\nKeep S22's intended feature: post-accept status update and deterministic next-artifact reporting from already accepted lifecycle evidence. Keep the new CLI surface narrow, such as continuation:update-status-after-accept --artifact=<path> --accept-report=<path> --repo-root=<repo>. Do not implement S23 dogfood or S24 closure. Do not call runs:accept, run_task, batch_plan, worker dispatch, multi-step loop execution, successor execution, commit, push, daemon/watch behavior, remote adapters, dashboards, hidden memory, broad roadmap execution, or any Phase 5.5/Phase 5 batch authority.\n\nRequired fix 1: bind accepted lifecycle evidence to the exact artifact being updated. Validate acceptReport.artifactPath as a non-empty string and normalize it the same way as the current artifact path relative to repoRoot. Reject before artifact mutation if it does not match the artifactPath input. Add focused core and CLI tests proving a mismatched acceptReport.artifactPath cannot complete the artifact and the artifact file remains unchanged in the CLI.\n\nRequired fix 2: avoid mixed blocked-plus-mutated reports. If accepted lifecycle evidence completes the current slice but nextArtifactPath is present and blocked, the post-accept status update should still be an accepted status update with artifactUpdated true, stopReason next_artifact_blocked, and nextArtifactLinkage.status blocked. It must not execute the successor. Reserve report.status blocked/rejected for cases that do not mutate the artifact, such as invalid artifact, active stop condition, pushAllowed true, invalid or unrelated accept report, missing lifecycle evidence, or missing run-log trajectory. Add focused tests proving blocked/rejected reports have updatedArtifact null, while blocked next-artifact reporting can complete the current slice without successor execution.\n\nPreserve S22's other constraints: validate the current continuation artifact before reading successor fields; reject active stop conditions and push requirements; reject non-accepted accept reports, wrong side-effect flags, missing lifecycle/cleanup evidence, and run_task/worker/batch/multi-step/successor/commit/push side-effect requests; read the cited run log and confirm merge_checked completed, lifecycle_marked merged, cleanup_finished completed, and lifecycle_marked cleaned; do not trust worker output text or prose-only summaries. Reuse existing helpers where practical. Update references/initiatives/sequential-ceo-autopilot.md to keep S22 completed, S23 ready, and S24 pending, and mention the artifact/evidence binding rework in the S22 evidence. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo post-accept status update",
+  "status": "pending"
+}
