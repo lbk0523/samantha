@@ -137,13 +137,33 @@ S8-S11 are therefore authority-boundary slices, not extra product surfaces:
 - S11 should be the final design/report-only boundary before deterministic
   `run_task` preflight implementation.
 
-Forward slice discipline: do not keep adding design-only slices unless a new
-authority boundary is discovered. The next expected sequence is S11 design,
-S12 deterministic `run_task` preflight report implementation without
-execution, S13 dogfood of that preflight report against committed TaskSpec
-candidates without execution, and only then an S14 decision about guarded
-single-`run_task` execution. `batch_plan` coordination remains separate because
-it crosses Phase 5.5 and Phase 5 boundaries.
+Forward slice discipline: do not keep adding slices ad hoc. After S14, the
+remaining MVP roadmap is fixed as S15-S24 unless a new named blocker or failed
+verification evidence proves the roadmap is wrong. S18 is not completion; it is
+only a report-only preflight for post-run lifecycle acceptance. The first
+credible MVP completion candidate is S23, with S24 reserved for the explicit
+decision to close the MVP or open a separate follow-up initiative.
+
+The fixed remaining roadmap is:
+
+- S15: implement guarded single-`run_task` execution and stop immediately after
+  run log/report evidence.
+- S16: dogfood S15 with one small committed-clean TaskSpec.
+- S17: design the post-run lifecycle boundary for `runs:accept`, merge, and
+  cleanup.
+- S18: implement report-only `runs:accept` preflight visibility.
+- S19: dogfood S18 against accepted and blocked run logs.
+- S20: implement guarded single `runs:accept` execution.
+- S21: dogfood S20 through one accepted run lifecycle.
+- S22: connect post-accept status update and deterministic next-artifact
+  reporting.
+- S23: dogfood one end-to-end writer continuation cycle:
+  `run_task -> accept -> status update -> next ready slice or stop report`.
+- S24: decide MVP closure versus a new initiative for bounded multi-writer or
+  broader routine use.
+
+`batch_plan` coordination remains separate because it crosses Phase 5.5 and
+Phase 5 boundaries.
 
 ## Autonomy Envelope
 
@@ -204,6 +224,15 @@ Stop before continuing when any of these appear:
 | S13 | completed | Dogfood S12 preflight reports against committed TaskSpec candidates and blocked candidate cases without executing `run_task`. | S12. | Created valid and blocked S13 continuation artifacts plus a dogfood report. `continuation:show` accepts the committed-clean S12 TaskSpec candidate with `requiredRuntime: codex-sdk` and blocks the same candidate with `requiredRuntime: exec-json`; no `run_task` execution, worker dispatch, worktree creation, lifecycle mutation, merge, cleanup, commit, or push occurs. | None. |
 | S14 | completed | Review guarded single-`run_task` execution decision/design after S12/S13 preflight evidence. Keep this decision/design-only until execution authority is explicitly reviewed. | S13. | Created `references/initiatives/sequential-ceo-autopilot-s14-single-run-task-decision.md` and `references/operations/sequential-ceo-autopilot-s14-single-run-task-decision-report.md`. Decision: guarded single `run_task` execution is justified for a narrow S15 implementation only; S14 did not execute `run_task`. | None. |
 | S15 | ready | Implement guarded single-`run_task` execution only. Require exactly one explicit execution-enabling `run_task` action, existing run-task gates, SDK runtime, committed-clean TaskSpec, accepted `runTaskPreflight` evidence, Samantha-allocated isolated worktree, `HARNESS_RESULT`, deterministic verification, `pushPerformed: false`, and an immediate stop after run log/report evidence before accept, merge, cleanup, commit, push, `batch_plan`, multi-step loop, or successor execution. | S14. | Focused implementation evidence should prove accepted and blocked guarded execution paths, rejection of `preflight_only` as an execution trigger, false push, immediate stop after run log/report, readiness check, typecheck or focused tests as applicable, and scoped diff checks. | `sam c: Implement Sequential CEO Autopilot S15 guarded single-run_task execution only. Use an explicit reviewed execution-enabling field or command, preserve existing run-task gates and SDK runtime, execute at most one accepted candidate, stop immediately after run log/report evidence, and do not implement accept, merge, cleanup, commit, push, batch_plan, multi-step loop, or successor execution.` |
+| S16 | pending | Dogfood S15 guarded single-`run_task` execution against one small committed-clean TaskSpec and prove the runner stops at run log/report evidence. | S15. | Evidence should prove exactly one `run_task`, SDK runtime, accepted preflight, valid `HARNESS_RESULT`, deterministic verification, `pushPerformed: false`, and no accept, merge, cleanup, commit, push, `batch_plan`, multi-step loop, or successor execution. | Pending until S15 completes. |
+| S17 | pending | Design the post-run lifecycle boundary for `runs:accept`, merge, and cleanup after S16 evidence. | S16. | Decision/design evidence should define accepted run-log requirements, merge-gate handling, lifecycle ownership, cleanup authority, stop conditions, and non-goals before any lifecycle execution implementation. | Pending until S16 completes. |
+| S18 | pending | Implement report-only `runs:accept` preflight visibility for a single run log without accepting, merging, cleaning up, committing, pushing, or continuing. | S17. | Focused implementation evidence should prove accepted and blocked accept-preflight reports, stale or invalid run-log rejection, scope and verification handoff checks, false lifecycle side effects, readiness check, typecheck or focused tests, and scoped diff checks. | Pending until S17 completes. |
+| S19 | pending | Dogfood S18 `runs:accept` preflight against accepted and blocked run logs. | S18. | Dogfood evidence should show deterministic accepted and blocked preflight outcomes and prove no accept, merge, cleanup, commit, push, worker dispatch, new run, or continuation side effects occur. | Pending until S18 completes. |
+| S20 | pending | Implement guarded single `runs:accept` execution for one preflight-accepted run log only. | S19. | Focused implementation evidence should prove exactly one `runs:accept`, merge-gate preservation, lifecycle mark, cleanup, `pushPerformed: false`, deterministic blocked cases, and no commit, push, `batch_plan`, multi-step loop, or successor execution. | Pending until S19 completes. |
+| S21 | pending | Dogfood S20 through one accepted run lifecycle. | S20. | Dogfood evidence should show one run accepted, merged, lifecycle-marked, cleaned up, and stopped with no commit, push, `batch_plan`, multi-step loop, successor execution, daemon/watch, hidden memory, or broad roadmap execution. | Pending until S20 completes. |
+| S22 | pending | Add post-accept status update and deterministic next-artifact reporting from accepted lifecycle evidence. | S21. | Focused evidence should prove accepted lifecycle evidence can complete the current slice, preserve cited evidence, report the next ready artifact or stop reason, and avoid worker text, push, `batch_plan`, or multi-step execution as trusted state. | Pending until S21 completes. |
+| S23 | pending | Dogfood one end-to-end writer continuation cycle: `run_task -> accept -> status update -> next ready slice or stop report`. | S22. | End-to-end evidence should show BK does not need to issue separate scheduler commands inside the single writer-slice lifecycle, while all stop conditions, false push, and lifecycle evidence remain reviewable. | Pending until S22 completes. |
+| S24 | pending | Decide MVP closure versus a separate follow-up initiative for bounded multi-writer, `batch_plan`, or broader routine use. | S23. | Decision evidence should either close the MVP as complete or explicitly move remaining authority expansion into a new reviewed initiative; no implementation or new execution authority in S24. | Pending until S23 completes. |
 
 ## Current Next Slice
 
@@ -248,6 +277,13 @@ single-`run_task` execution implementation. S15 must not implement accept,
 merge, cleanup, commit, push, `batch_plan`, multi-step loop, successor
 execution, daemon/watch behavior, remote adapters, dashboards, routine
 triggers, hidden memory, or broad roadmap execution.
+
+The remaining roadmap is fixed through S24. S18 is only report-only
+`runs:accept` preflight and must not be treated as initiative completion. The
+MVP completion candidate is S23, where one writer slice can complete
+end-to-end through `run_task`, `runs:accept`, status update, and next ready or
+stop reporting. S24 is the explicit closure decision: close the MVP or move
+multi-writer, `batch_plan`, and broader routine use to a separate initiative.
 
 ## S7 Evidence And Decision
 
@@ -448,9 +484,16 @@ stopping:
 ## Completion Rule
 
 The MVP is complete when Samantha can consume a structured continuation
-artifact for a small approved initiative, execute allowed slices through
-existing gates until a stop condition, update local evidence, and report the
-final status without BK issuing a new command for every successful slice.
+artifact for a small approved initiative, run one writer slice through guarded
+`run_task`, accept the verified run through guarded `runs:accept`, update
+status from cited lifecycle evidence, and report the next ready slice or stop
+reason without BK issuing a new scheduler command inside that single writer
+slice lifecycle.
+
+S18 is not completion because it is only report-only accept preflight. S23 is
+the first completion candidate. S24 must either close the MVP or move any
+remaining multi-writer, `batch_plan`, or broader routine-use expansion into a
+separate reviewed initiative.
 
 Push automation, daemon/watch behavior, external agent orchestration, and broad
 natural-language ROADMAP execution remain outside completion.
