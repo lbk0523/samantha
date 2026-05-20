@@ -1,0 +1,47 @@
+{
+  "id": "sequential-ceo-autopilot-s20-single-run-accept-execution",
+  "title": "Implement Sequential CEO Autopilot S20 guarded single runs:accept execution",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Implement only S20 for references/initiatives/sequential-ceo-autopilot.md. Add guarded single runs:accept execution for one preflight-accepted run log only. Do not implement S21 dogfood. Do not add commit, push, batch_plan execution, run_task execution, worker dispatch, multi-step loop execution, successor execution, daemon/watch behavior, remote adapters, dashboards, routine triggers, hidden memory, broad roadmap execution, or any Phase 5.5/Phase 5 batch authority.\n\nS20 must not let accepted runAcceptPreflight execute by itself. Add a distinct explicit execution-enabling field or command, preferably a closed optional continuation artifact object named runAcceptExecution. The execution object should match the accepted runAcceptCandidate/runAcceptPreflight evidence and use executionMode single_run_accept, requiredRuntime codex-sdk, lifecycleOwner samantha, targetBranch main unless supplied, pushAllowed false, and expectedSideEffects that allow exactly one runsAcceptCalled, mergeGateRecorded, mergePerformed, lifecycleMutated, and cleanupPerformed while requiring commitPerformed, pushPerformed, runTaskCalled, workersDispatched, batchesExecuteCalled, multiStepLoopStarted, and successorExecuted to remain false. If the existing acceptRun implementation returns lessonDraft evidence, report it as existing runs:accept output only; do not use it as continuation trusted state and do not add a new learning or lesson authority surface.\n\nValidation order must be: validate the current continuation artifact before reading runAcceptExecution; reject active stop conditions and push requirements; validate runAcceptExecution as a closed object; require currentSlice.status ready, currentSlice.actionType report_only, and dependencyStatus met; require an accepted runAcceptPreflight from buildSequentialContinuationRunAcceptPreflightReport; require runAcceptExecution to match runAcceptCandidate/preflight for runLogPath, expectedRunId, expectedTaskId, expectedCommit, expectedBaseCommit, targetBranch, requiredRuntime, lifecycleOwner, and handoff fields; reject absent execution triggers, executionMode accept_preflight_only, non-matching execution triggers, stale or blocked preflight, dirty repo, wrong branch, cleanup readiness risks, push requests, commit requests, batch/run_task/worker-dispatch/multi-step/successor side-effect requests, and any request to continue after accept.\n\nAdd a core helper such as buildSequentialContinuationRunAcceptExecutionReport with executor injection so focused core tests can prove accepted execution without mutating the real repo. The helper should call the injected accept executor exactly once only after all guards pass. Accepted reports must include status accepted, selectedActionType runs_accept or equivalent, normalized/resolved runLogPath, run id/task id/expected commit/base commit/target branch/runtime fields, accept result summary, lifecycle evidence summary, cleanup evidence summary, actionAttemptCount 1, actionExecuted true, stopReason run_accept_lifecycle_recorded, pushPerformed false, trustedStateChanges limited to run_log_trajectory, lifecycle_record, merge_result, and cleanup_result, and side effects showing runsAcceptCalled, mergeGateRecorded, mergePerformed, lifecycleMutated, and cleanupPerformed true while commit/push/run_task/worker/batch/multi-step/successor effects are false. Blocked and rejected reports must not call the executor and must keep all side-effect flags false.\n\nWire a narrow CLI surface such as continuation:accept-run-once --artifact=<path> --repo-root=<repo> [--state-dir=<dir>]. It should validate the artifact, build or reuse the accepted runAcceptPreflight, call acceptRun exactly once with the normalized run log path, repo root, target branch, and optional state dir only after all S20 guards pass, print deterministic JSON, return non-zero when blocked, and not update the continuation artifact. Do not make continuation:show, continuation:step, continuation:loop, or continuation:run-task-once execute runs:accept. Do not call merge:check CLI, worktree:cleanup CLI, runs:mark-lifecycle CLI, run_task, batch_plan, worker dispatch, commit, push, multi-step loop, or successor execution from the new continuation path.\n\nAdd focused core tests for accepted injected execution, missing execution trigger, preflight_only rejected as execution trigger, blocked runAcceptPreflight, mismatch between execution trigger and preflight, active stop conditions, non-ready/non-report_only/unmet dependency gates, push/commit/batch/run_task/worker-dispatch/multi-step/successor side-effect requests, executor failure or not accepted result, exactly-one executor call, false push, and immediate stop after lifecycle evidence. Add CLI parser and main tests for continuation:accept-run-once blocked validation paths and no artifact mutation; accepted CLI coverage may use a temp git repo fixture only if deterministic and isolated, otherwise rely on core executor-injection for accepted execution and existing acceptRun tests for lifecycle mechanics. Update references/initiatives/sequential-ceo-autopilot.md to mark S20 completed, cite S20 implementation evidence, set exactly one next ready slice: S21 dogfood of S20 through one accepted run lifecycle, and keep S22-S24 pending. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add guarded sequential ceo run accept execution",
+  "status": "pending"
+}
