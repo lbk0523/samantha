@@ -50,6 +50,9 @@ risk, push, or unclear scope.
 - Natural-language markdown may preserve initiative context, but trusted
   continuation must come from a structured, validated artifact or existing
   deterministic Samantha commands.
+- Next-artifact linkage must be a closed-schema explicit local path field such
+  as `nextArtifactPath`, or an equivalent reviewed field. It must never be
+  inferred from markdown prose or command strings.
 - Successful continuation may proceed to the next ready slice after ordinary
   gates pass. Failed-evidence rework is limited to one narrow cycle before
   Samantha stops and reports.
@@ -136,6 +139,9 @@ Stop before continuing when any of these appear:
   templates, package metadata, or lockfiles without a specific reviewed plan;
 - target files, forbidden changes, verify commands, or repo root are missing;
 - the target repo has unrelated dirty changes or stale base evidence;
+- requested multi-step continuation lacks an explicit validated next artifact;
+- the named next artifact is missing, off-repo, cyclic, stale, or fails
+  independent validation;
 - a worker run lacks valid `HARNESS_RESULT`;
 - scope checks fail;
 - deterministic verification fails and the allowed rework cycle is already
@@ -156,11 +162,12 @@ Stop before continuing when any of these appear:
 | S5 | completed | Add guarded single-step continuation: execute exactly one ready slice when its action type is explicit and allowed, then stop with evidence and next status. | S4. | Passed in S5 worker: focused one-step runner tests, CLI step tests, typecheck, readiness check, and scoped diff check. | None. |
 | S6 | completed | Add bounded multi-step continuation: continue across successful slices until a stop condition, with failed-evidence rework limited to one cycle and push still forbidden. | S5 plus dogfood evidence from at least one safe initiative. | Passed in S6 worker: focused fake-artifact loop tests for two successful readiness slices, maxSteps cutoff, status-evidence rejection, one failed-evidence rework cycle, and false side-effect flags; CLI tests cover parser/main loop behavior, blocked stops, rejected artifacts, and no runs/worktrees side effects; typecheck, readiness check, and scoped diff check passed. | None. |
 | S7 | completed | Dogfood the full MVP on a small Samantha self-build initiative and update this brief with outcomes, blocked edges, and whether broader routine use is justified. | S6. | Passed: created `references/initiatives/sequential-ceo-autopilot-s7-dogfood.md` and `references/operations/sequential-ceo-autopilot-s7-continuation.json`; ran `bun run samantha continuation:loop --artifact=references/operations/sequential-ceo-autopilot-s7-continuation.json --max-steps=2`; result accepted one readiness step, updated D1 to completed, preserved false side-effect flags, and stopped with `no_deterministic_next_artifact`; recorded `references/operations/sequential-ceo-autopilot-s7-dogfood-report.md`. | None. |
-| S8 | ready | Design the next deterministic artifact-link and action-execution boundary before broad routine use. Keep this at CEO/product-boundary level: decide how next artifacts are named, how reviewed `run_task`/`batch_plan` support is authorized, and what stop conditions remain mandatory. | S7. | Report-only design or plan artifact that names the boundary, non-goals, validation strategy, and stop conditions without implementing S8. | `sam p: references/initiatives/sequential-ceo-autopilot.md 의 S8을 계획해. broader routine use 전에 deterministic next-artifact linkage 와 reviewed run_task/batch_plan action-execution boundary를 CEO/product-boundary 수준에서 설계해. 구현은 하지 마.` |
+| S8 | completed | Design the next deterministic artifact-link and action-execution boundary before broad routine use. Keep this at CEO/product-boundary level: decide how next artifacts are named, how reviewed `run_task`/`batch_plan` support is authorized, and what stop conditions remain mandatory. | S7. | Created `references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md`; expected verification: required headings present, S9 follow-up named, readiness check passes, and scoped diff check passes. | None. |
+| S9 | ready | Add deterministic validation and report-only visibility for explicit next-artifact linkage before enabling writer action execution. Prefer a narrow `nextArtifactPath` validator/report-only slice that rejects prose or command-string successors, missing files, off-repo paths, cycles, stale evidence, active stop conditions, and push requirements. Do not execute `run_task` or `batch_plan`. | S8. | Focused validator/report-only tests for accepted local next artifact paths and rejection cases; CLI/report evidence shows next path or blocked reason without worker dispatch or batch execution; typecheck, readiness check, and scoped diff check pass. | `sam c: Implement S9 for references/initiatives/sequential-ceo-autopilot.md. Add deterministic validation and report-only visibility for explicit nextArtifactPath linkage before any writer action execution. Reject prose or command-string successors, missing files, off-repo paths, cycles, stale evidence, active stop conditions, and push requirements. Do not execute run_task or batch_plan.` |
 
 ## Current Next Slice
 
-S8 is ready.
+S9 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -181,9 +188,11 @@ false side-effect flags, and stopped with
 
 Broader routine use: not yet justified.
 
-Readiness-only continuation works, but routine multi-slice use still lacks
-deterministic next-artifact linkage and reviewed `run_task`/`batch_plan`
-execution support. S8 should design that boundary before any broad routine use.
+Readiness-only continuation works, and S8 has now documented the boundary for
+deterministic next-artifact linkage plus reviewed `run_task`/`batch_plan`
+coordination. The next safe step is S9: implement only validator/report-only
+support for explicit `nextArtifactPath` linkage before any writer action
+execution is enabled.
 
 ## S7 Evidence And Decision
 
@@ -203,6 +212,28 @@ execution support. S8 should design that boundary before any broad routine use.
   no worker dispatch, batch execution, merge, cleanup, commit, push, daemon,
   remote adapter, dashboard, routine trigger, hidden memory, or broad roadmap
   execution authority.
+
+## S8 Evidence And Decision
+
+- Design artifact:
+  `references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md`
+- Decision: next artifacts must be linked by a closed-schema explicit local
+  path such as `nextArtifactPath`, or an equivalent reviewed field. They must
+  never be inferred from markdown prose or command strings.
+- Decision: the next artifact must validate independently before execution.
+  Missing files, off-repo paths, cycles, stale evidence, dirty repo risk,
+  active stop conditions, and push requirements stop continuation.
+- Decision: `run_task` coordination requires a committed TaskSpec path,
+  existing run-task gates, SDK runtime, isolated worktree, `HARNESS_RESULT`,
+  changed-file scope checks, deterministic verify commands, and
+  Samantha-owned accept/merge/cleanup lifecycle.
+- Decision: `batch_plan` coordination preserves Phase 5.5 `BatchPlanDraft` and
+  Phase 5 `BatchSpec` boundaries. It may only invoke reviewed existing gates
+  and must not replace draft review, preparation, preflight, disjoint write-set
+  proof, serial-only handling, worker execution, integration, lifecycle, or
+  cleanup.
+- Next slice: S9, validator/report-only support for deterministic
+  `nextArtifactPath` linkage. Do not implement writer action execution in S9.
 
 ## End-of-Session Update Rule
 
