@@ -1,0 +1,52 @@
+{
+  "id": "sequential-ceo-autopilot-s9-next-artifact-linkage",
+  "title": "Add Sequential CEO Autopilot next-artifact linkage validation and report-only visibility",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "src/cli.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/commands/**",
+    "src/core/worker-*.ts",
+    "src/core/run-*.ts",
+    "src/core/batch-*.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts tests/sequential-ceo-autopilot.test.ts src/cli.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Read references/initiatives/sequential-ceo-autopilot.md, references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md, references/playbooks/sequential-ceo-autopilot.md, and the current continuation validator, report, CLI, and tests. Perform only S9. Add deterministic validation and report-only visibility for explicit nextArtifactPath linkage before any writer action execution. Extend the closed continuation artifact schema only with optional nextArtifactPath and optional nextArtifactExpectedSliceId fields. If nextArtifactPath is absent or null, preserve the existing no_deterministic_next_artifact stop/report behavior. If nextArtifactPath is present, validate it as a normalized repo-relative local JSON artifact path and reject prose successors, command-string successors such as sam c commands or bun commands, URLs, absolute paths, path traversal, environment expansion, glob-like values, empty strings, missing files, and paths outside the repo. Add a focused pure helper or small report structure that independently reads and validates the successor artifact without executing it. Reject successor linkage when the successor artifact fails the continuation artifact validator, uses a different initiativePath, does not match nextArtifactExpectedSliceId when that field is present, has any active stop condition, sets autonomyEnvelope.pushAllowed to true, creates an artifact path or currentSlice.id cycle within the inspected chain, or has stale evidence. Define stale evidence deterministically for S9 as missing evidence reference files or a successor evidenceReferences list that does not cite either the predecessor artifact path or at least one predecessor evidenceReferences path. Keep this conservative and covered by tests. The report-only visibility must show the explicit next artifact path when present, whether the successor is accepted or blocked, and deterministic blocking reasons. It may extend continuation:show output or add a similarly narrow report-only CLI surface, but it must not execute the successor, run run_task, run batch_plan, call run-task, call batches:execute, dispatch workers, create run logs, create worktrees, mutate lifecycle state, update files, commit, push, or trust worker output text as state. Add focused core tests for accepted local nextArtifactPath values and rejection of prose, command strings, missing files, off-repo paths, path traversal, cycles, stale evidence, active stop conditions, push requirements, mismatched expected slice ids, and independently invalid successor artifacts. Add CLI parser/main tests proving report-only output includes next-artifact status and blocked reasons while leaving runs and worktrees untouched. Update references/initiatives/sequential-ceo-autopilot.md only to mark S9 completed, cite the S9 implementation evidence in the slice table or progress log, preserve Phase 5.5 and Phase 5 boundaries, and make exactly one next slice ready. Prefer S10 as a report-only dogfood or design slice for reviewed action coordination after linked-artifact validation. Do not implement run_task or batch_plan action execution, taskSpecPath or batchSpecPath dispatch, worker dispatch, merge, cleanup, commit, push, daemon or watch behavior, remote adapters, dashboards, routine triggers, hidden memory, broad roadmap execution, policy changes, doctrine changes, task templates, agent profiles, package changes, broad refactors, or worker-owned orchestration. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add sequential ceo next artifact visibility",
+  "status": "pending"
+}
