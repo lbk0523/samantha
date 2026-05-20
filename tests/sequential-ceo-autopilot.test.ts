@@ -542,6 +542,63 @@ describe("Sequential CEO Autopilot next-artifact linkage report", () => {
     ]);
   });
 
+  test("blocks non-string nextArtifactPath as an invalid predecessor before successor inspection", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-next-artifact-malformed-"));
+    tmpRoots.push(root);
+    const predecessor = {
+      ...artifact({
+        nextArtifactExpectedSliceId: "S10",
+      }),
+      nextArtifactPath: ["references/operations/s10.json"],
+    };
+
+    const report = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: root,
+      artifactPath: join(root, "references", "operations", "s9.json"),
+      artifact: predecessor,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.nextArtifactPath).toBeNull();
+    expect(report.nextArtifactExpectedSliceId).toBeNull();
+    expect(report.successor).toBeNull();
+    expect(report.blockingReasons).toEqual([
+      "current artifact must validate before successor linkage is inspected",
+      "nextArtifactPath must be a non-empty repo-relative .json path or null",
+    ]);
+  });
+
+  test("blocks invalid predecessors with absent or null nextArtifactPath instead of reporting absent linkage", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-next-artifact-invalid-predecessor-"));
+    tmpRoots.push(root);
+    const invalidAutonomyEnvelope = {
+      ...artifact().autonomyEnvelope,
+      pushAllowed: true as false,
+    };
+
+    for (const predecessor of [
+      artifact({
+        autonomyEnvelope: invalidAutonomyEnvelope,
+      }),
+      artifact({
+        autonomyEnvelope: invalidAutonomyEnvelope,
+        nextArtifactPath: null,
+      }),
+    ]) {
+      const report = await buildSequentialContinuationNextArtifactReport({
+        repoRoot: root,
+        artifactPath: join(root, "references", "operations", "s9.json"),
+        artifact: predecessor,
+      });
+
+      expect(report.status).toBe("blocked");
+      expect(report.nextArtifactPath).toBeNull();
+      expect(report.successor).toBeNull();
+      expect(report.blockingReasons).toContain("current artifact must validate before successor linkage is inspected");
+      expect(report.blockingReasons).toContain("autonomyEnvelope.pushAllowed must be false");
+    }
+  });
+
   test("blocks successor initiative mismatches and expected slice id mismatches", async () => {
     const { root, predecessorPath, predecessor } = await writeNextArtifactFixture({
       successor: {

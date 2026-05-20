@@ -587,6 +587,63 @@ describe("samantha cli", () => {
     expect(await pathExists(join(root, "worktrees"))).toBe(false);
   });
 
+  test("continuation show exposes blocked linkage for malformed non-string nextArtifactPath", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-next-malformed-"));
+    tmpRoots.push(root);
+    const operationsDir = join(root, "references", "operations");
+    await mkdir(operationsDir, { recursive: true });
+    const artifactPath = join(operationsDir, "s9.json");
+    const malformedArtifact = {
+      ...cliSequentialContinuationArtifact({
+        artifactId: "cli-continuation-s9",
+        currentSlice: {
+          ...cliSequentialContinuationArtifact().currentSlice,
+          id: "S9",
+          status: "completed",
+          actionType: "report_only",
+          dependencyStatus: "met",
+          prerequisites: ["S8 completed"],
+        },
+        nextArtifactExpectedSliceId: "S10",
+      }),
+      nextArtifactPath: ["references/operations/s10.json"],
+    };
+    const artifactText = `${JSON.stringify(malformedArtifact, null, 2)}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain("nextArtifactPath must be a non-empty repo-relative .json path or null");
+    expect(report.nextArtifactLinkage).toMatchObject({
+      nextArtifactPath: null,
+      nextArtifactExpectedSliceId: null,
+      status: "blocked",
+      successor: null,
+      blockingReasons: [
+        "current artifact must validate before successor linkage is inspected",
+        "nextArtifactPath must be a non-empty repo-relative .json path or null",
+      ],
+      trustedStateChanges: false,
+      pushPerformed: false,
+    });
+    expect(report.blockingReasons).toContain(
+      "nextArtifactPath: current artifact must validate before successor linkage is inspected",
+    );
+    expect(report.blockingReasons).toContain(
+      "nextArtifactPath: nextArtifactPath must be a non-empty repo-relative .json path or null",
+    );
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
   test("continuation show prints a rejected report and exits non-zero for invalid artifacts", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-invalid-"));
     tmpRoots.push(root);

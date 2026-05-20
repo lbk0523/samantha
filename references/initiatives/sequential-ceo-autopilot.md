@@ -261,6 +261,15 @@ preserving the Phase 5.5 and Phase 5 boundaries.
   status and deterministic blocking reasons. It does not run `run_task`, run
   `batch_plan`, dispatch workers, create run logs, create worktrees, mutate
   lifecycle state, commit, or push.
+- S9.1 correction: next-artifact linkage reports now validate the predecessor
+  artifact before consuming `nextArtifactPath` or
+  `nextArtifactExpectedSliceId`. Invalid predecessors produce blocked linkage
+  reports, not absent linkage reports, even when successor linkage is absent,
+  `null`, or malformed.
+- S9.1 evidence: focused core tests cover non-string successor linkage plus
+  absent and `null` linkage on invalid predecessors; focused CLI tests cover
+  `continuation:show` exposing blocked linkage and deterministic blocking
+  reasons for malformed non-string linkage.
 - Verification: `bun test tests/sequential-ceo-autopilot.test.ts`,
   `bun test tests/cli.test.ts`, `bun run typecheck`,
   `bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md`,

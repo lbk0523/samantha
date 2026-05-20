@@ -492,8 +492,6 @@ export async function buildSequentialContinuationNextArtifactReport(input: {
 }): Promise<SequentialContinuationNextArtifactReport> {
   const repoRoot = resolve(input.repoRoot ?? ".");
   const previousArtifactPath = normalizePathForReport(input.artifactPath, repoRoot);
-  const nextArtifactPath = readOptionalStringField(input.artifact, "nextArtifactPath");
-  const nextArtifactExpectedSliceId = readOptionalStringField(input.artifact, "nextArtifactExpectedSliceId");
   const inspectedArtifactPaths = uniqueStrings([
     ...(input.visitedArtifactPaths ?? []).map((path) => normalizePathForReport(path, repoRoot)),
     previousArtifactPath,
@@ -503,6 +501,29 @@ export async function buildSequentialContinuationNextArtifactReport(input: {
     ...(input.visitedSliceIds ?? []),
     ...(currentSliceId ? [currentSliceId] : []),
   ]);
+
+  const currentArtifactViolations = validateSequentialContinuationArtifact(input.artifact);
+  if (currentArtifactViolations.length > 0) {
+    return buildNextArtifactReport({
+      previousArtifactPath,
+      repoRoot,
+      nextArtifactPath: null,
+      nextArtifactExpectedSliceId: null,
+      normalizedNextArtifactPath: null,
+      resolvedNextArtifactPath: null,
+      status: "blocked",
+      successor: null,
+      inspectedArtifactPaths,
+      inspectedSliceIds,
+      blockingReasons: [
+        "current artifact must validate before successor linkage is inspected",
+        ...currentArtifactViolations,
+      ],
+    });
+  }
+
+  const nextArtifactPath = readOptionalStringField(input.artifact, "nextArtifactPath");
+  const nextArtifactExpectedSliceId = readOptionalStringField(input.artifact, "nextArtifactExpectedSliceId");
 
   if (nextArtifactPath === null) {
     return buildNextArtifactReport({
@@ -517,26 +538,6 @@ export async function buildSequentialContinuationNextArtifactReport(input: {
       inspectedArtifactPaths,
       inspectedSliceIds,
       blockingReasons: [],
-    });
-  }
-
-  const currentArtifactViolations = validateSequentialContinuationArtifact(input.artifact);
-  if (currentArtifactViolations.length > 0) {
-    return buildNextArtifactReport({
-      previousArtifactPath,
-      repoRoot,
-      nextArtifactPath,
-      nextArtifactExpectedSliceId,
-      normalizedNextArtifactPath: null,
-      resolvedNextArtifactPath: null,
-      status: "blocked",
-      successor: null,
-      inspectedArtifactPaths,
-      inspectedSliceIds,
-      blockingReasons: [
-        "current artifact must validate before successor linkage is inspected",
-        ...currentArtifactViolations,
-      ],
     });
   }
 
