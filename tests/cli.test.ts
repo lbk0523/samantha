@@ -361,6 +361,17 @@ describe("samantha cli", () => {
       command: "continuation:show",
       artifactPath: "references/continuation/s3.json",
     });
+    expect(
+      parseCliArgs([
+        "continuation:show",
+        "--artifact=references/continuation/s3.json",
+        "--repo-root=/tmp/samantha-repo",
+      ]),
+    ).toEqual({
+      command: "continuation:show",
+      artifactPath: "references/continuation/s3.json",
+      repoRoot: "/tmp/samantha-repo",
+    });
     expect(() => parseCliArgs(["continuation:show"])).toThrow(
       "usage: bun run samantha continuation:show --artifact=<path>",
     );
@@ -436,6 +447,141 @@ describe("samantha cli", () => {
       trustedStateChanges: false,
       pushPerformed: false,
     });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation show reports accepted next-artifact linkage without execution side effects", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-next-"));
+    tmpRoots.push(root);
+    const operationsDir = join(root, "references", "operations");
+    await mkdir(operationsDir, { recursive: true });
+    const artifactPath = join(operationsDir, "s9.json");
+    const successorPath = join(operationsDir, "s10.json");
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        artifactId: "cli-continuation-s9",
+        currentSlice: {
+          ...cliSequentialContinuationArtifact().currentSlice,
+          id: "S9",
+          status: "completed",
+          actionType: "report_only",
+          dependencyStatus: "met",
+          prerequisites: ["S8 completed"],
+        },
+        nextArtifactPath: "references/operations/s10.json",
+        nextArtifactExpectedSliceId: "S10",
+      }),
+      null,
+      2,
+    )}\n`;
+    const successorText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        artifactId: "cli-continuation-s10",
+        currentSlice: {
+          ...cliSequentialContinuationArtifact().currentSlice,
+          id: "S10",
+          status: "ready",
+          actionType: "report_only",
+          dependencyStatus: "met",
+          prerequisites: ["S9 completed"],
+        },
+        evidenceReferences: [
+          {
+            path: "references/operations/s9.json",
+            summary: "S10 cites the predecessor continuation artifact.",
+          },
+        ],
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+    await writeFile(successorPath, successorText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report.nextArtifactLinkage).toMatchObject({
+      nextArtifactPath: "references/operations/s10.json",
+      nextArtifactExpectedSliceId: "S10",
+      normalizedNextArtifactPath: "references/operations/s10.json",
+      status: "accepted",
+      successor: {
+        artifactPath: "references/operations/s10.json",
+        currentSliceId: "S10",
+        actionType: "report_only",
+      },
+      blockingReasons: [],
+      trustedStateChanges: false,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        pushPerformed: false,
+      },
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(successorPath, "utf8")).toBe(successorText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation show reports blocked next-artifact reasons without creating runs or worktrees", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-continuation-next-blocked-"));
+    tmpRoots.push(root);
+    const operationsDir = join(root, "references", "operations");
+    await mkdir(operationsDir, { recursive: true });
+    const artifactPath = join(operationsDir, "s9.json");
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        artifactId: "cli-continuation-s9",
+        currentSlice: {
+          ...cliSequentialContinuationArtifact().currentSlice,
+          id: "S9",
+          status: "completed",
+          actionType: "report_only",
+          dependencyStatus: "met",
+          prerequisites: ["S8 completed"],
+        },
+        nextArtifactPath: "references/operations/missing.json",
+        nextArtifactExpectedSliceId: "S10",
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("accepted");
+    expect(report.nextArtifactLinkage).toMatchObject({
+      nextArtifactPath: "references/operations/missing.json",
+      nextArtifactExpectedSliceId: "S10",
+      normalizedNextArtifactPath: "references/operations/missing.json",
+      status: "blocked",
+      blockingReasons: [`nextArtifactPath file not found: ${join(root, "references", "operations", "missing.json")}`],
+      trustedStateChanges: false,
+      pushPerformed: false,
+    });
+    expect(report.blockingReasons).toContain(
+      `nextArtifactPath: nextArtifactPath file not found: ${join(root, "references", "operations", "missing.json")}`,
+    );
     expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
     expect(await pathExists(join(root, "runs"))).toBe(false);
     expect(await pathExists(join(root, "worktrees"))).toBe(false);

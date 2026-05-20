@@ -1,3 +1,6 @@
+import { readFile, stat } from "node:fs/promises";
+import { isAbsolute, posix, relative, resolve } from "node:path";
+
 export const SEQUENTIAL_CONTINUATION_ACTION_TYPES = [
   "manual_decision",
   "report_only",
@@ -106,6 +109,37 @@ export interface SequentialContinuationArtifact {
   stopConditionChecklist: SequentialContinuationStopConditionCheck[];
   evidenceReferences: SequentialContinuationEvidenceReference[];
   nextStep: SequentialContinuationNextStep;
+  nextArtifactPath?: string | null;
+  nextArtifactExpectedSliceId?: string | null;
+}
+
+export interface SequentialContinuationNextArtifactReport {
+  previousArtifactPath: string;
+  repoRoot: string;
+  nextArtifactPath: string | null;
+  nextArtifactExpectedSliceId: string | null;
+  normalizedNextArtifactPath: string | null;
+  resolvedNextArtifactPath: string | null;
+  status: "absent" | "accepted" | "blocked";
+  successor: {
+    artifactPath: string;
+    currentSliceId: string | null;
+    initiativePath: string | null;
+    actionType: string | null;
+  } | null;
+  inspectedArtifactPaths: string[];
+  inspectedSliceIds: string[];
+  blockingReasons: string[];
+  trustedStateChanges: false;
+  pushPerformed: false;
+  sideEffects: {
+    runTaskCalled: false;
+    batchesExecuteCalled: false;
+    workersDispatched: false;
+    runsCreated: false;
+    worktreesCreated: false;
+    pushPerformed: false;
+  };
 }
 
 export interface SequentialContinuationReport {
@@ -126,6 +160,7 @@ export interface SequentialContinuationReport {
   allowedActionType: SequentialContinuationActionType | null;
   exactNextSamanthaCommand: string | null;
   blockedReportText: string | null;
+  nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
   trustedStateChanges: false;
   pushPerformed: false;
 }
@@ -302,6 +337,8 @@ const TOP_LEVEL_FIELDS = new Set([
   "stopConditionChecklist",
   "evidenceReferences",
   "nextStep",
+  "nextArtifactPath",
+  "nextArtifactExpectedSliceId",
 ]);
 const CURRENT_SLICE_FIELDS = new Set([
   "id",
@@ -338,6 +375,10 @@ const STATUS_EVIDENCE_FIELDS = new Set([
 const STATUS_EVIDENCE_REFERENCE_FIELDS = new Set(["kind", "path", "summary", "result"]);
 const DEPENDENCY_STATUSES = new Set(["met", "blocked"]);
 const NEXT_STEP_KINDS = new Set(["samantha_command", "blocked_report"]);
+const NEXT_ARTIFACT_COMMAND_PREFIX_PATTERN = /^(?:sam\s+c:|sam\s+p:|sam\s+command:|bun\s+|npm\s+|pnpm\s+|yarn\s+|git\s+)/i;
+const NEXT_ARTIFACT_URL_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//;
+const NEXT_ARTIFACT_GLOB_PATTERN = /[*?[\]{}]/;
+const NEXT_ARTIFACT_ENV_PATTERN = /(?:\$[A-Za-z_{]|%[A-Za-z_][A-Za-z0-9_]*%)/;
 const FORBIDDEN_FIELD_NAMES = new Set([
   "hiddenmemory",
   "hiddenstate",
@@ -399,6 +440,7 @@ export function validateSequentialContinuationArtifact(input: unknown): string[]
   violations.push(...validateStopConditionChecklist(input.stopConditionChecklist));
   violations.push(...validateEvidenceReferences(input.evidenceReferences));
   violations.push(...validateNextStep(input.nextStep));
+  violations.push(...validateNextArtifactFields(input));
 
   return violations;
 }
@@ -407,6 +449,7 @@ export function buildSequentialContinuationReport(input: {
   artifactPath: string;
   artifact: unknown;
   violations?: string[];
+  nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
 }): SequentialContinuationReport {
   const violations = input.violations ?? validateSequentialContinuationArtifact(input.artifact);
   const currentSlice = readReportCurrentSlice(input.artifact);
@@ -429,13 +472,206 @@ export function buildSequentialContinuationReport(input: {
       currentSlice,
       activeStopConditions,
       nextStep,
+      nextArtifactLinkage: input.nextArtifactLinkage,
     }),
     allowedActionType,
     exactNextSamanthaCommand: nextStep.kind === "samantha_command" ? nextStep.value : null,
     blockedReportText: nextStep.kind === "blocked_report" ? nextStep.value : null,
+    ...(input.nextArtifactLinkage ? { nextArtifactLinkage: input.nextArtifactLinkage } : {}),
     trustedStateChanges: false,
     pushPerformed: false,
   };
+}
+
+export async function buildSequentialContinuationNextArtifactReport(input: {
+  repoRoot?: string;
+  artifactPath: string;
+  artifact: unknown;
+  visitedArtifactPaths?: string[];
+  visitedSliceIds?: string[];
+}): Promise<SequentialContinuationNextArtifactReport> {
+  const repoRoot = resolve(input.repoRoot ?? ".");
+  const previousArtifactPath = normalizePathForReport(input.artifactPath, repoRoot);
+  const nextArtifactPath = readOptionalStringField(input.artifact, "nextArtifactPath");
+  const nextArtifactExpectedSliceId = readOptionalStringField(input.artifact, "nextArtifactExpectedSliceId");
+  const inspectedArtifactPaths = uniqueStrings([
+    ...(input.visitedArtifactPaths ?? []).map((path) => normalizePathForReport(path, repoRoot)),
+    previousArtifactPath,
+  ]);
+  const currentSliceId = readReportCurrentSlice(input.artifact).id;
+  const inspectedSliceIds = uniqueStrings([
+    ...(input.visitedSliceIds ?? []),
+    ...(currentSliceId ? [currentSliceId] : []),
+  ]);
+
+  if (nextArtifactPath === null) {
+    return buildNextArtifactReport({
+      previousArtifactPath,
+      repoRoot,
+      nextArtifactPath: null,
+      nextArtifactExpectedSliceId,
+      normalizedNextArtifactPath: null,
+      resolvedNextArtifactPath: null,
+      status: "absent",
+      successor: null,
+      inspectedArtifactPaths,
+      inspectedSliceIds,
+      blockingReasons: [],
+    });
+  }
+
+  const currentArtifactViolations = validateSequentialContinuationArtifact(input.artifact);
+  if (currentArtifactViolations.length > 0) {
+    return buildNextArtifactReport({
+      previousArtifactPath,
+      repoRoot,
+      nextArtifactPath,
+      nextArtifactExpectedSliceId,
+      normalizedNextArtifactPath: null,
+      resolvedNextArtifactPath: null,
+      status: "blocked",
+      successor: null,
+      inspectedArtifactPaths,
+      inspectedSliceIds,
+      blockingReasons: [
+        "current artifact must validate before successor linkage is inspected",
+        ...currentArtifactViolations,
+      ],
+    });
+  }
+
+  const pathViolations: string[] = [];
+  const normalizedNextArtifactPath = normalizeNextArtifactPath(nextArtifactPath, pathViolations);
+  if (!normalizedNextArtifactPath || pathViolations.length > 0) {
+    return buildNextArtifactReport({
+      previousArtifactPath,
+      repoRoot,
+      nextArtifactPath,
+      nextArtifactExpectedSliceId,
+      normalizedNextArtifactPath,
+      resolvedNextArtifactPath: null,
+      status: "blocked",
+      successor: null,
+      inspectedArtifactPaths,
+      inspectedSliceIds,
+      blockingReasons: pathViolations,
+    });
+  }
+
+  const resolvedNextArtifactPath = resolve(repoRoot, normalizedNextArtifactPath);
+  const resolvedRepoRelativePath = relative(repoRoot, resolvedNextArtifactPath).replaceAll("\\", "/");
+  if (
+    resolvedRepoRelativePath === "" ||
+    resolvedRepoRelativePath.startsWith("../") ||
+    resolvedRepoRelativePath === ".." ||
+    isAbsolute(resolvedRepoRelativePath)
+  ) {
+    return buildNextArtifactReport({
+      previousArtifactPath,
+      repoRoot,
+      nextArtifactPath,
+      nextArtifactExpectedSliceId,
+      normalizedNextArtifactPath,
+      resolvedNextArtifactPath,
+      status: "blocked",
+      successor: null,
+      inspectedArtifactPaths,
+      inspectedSliceIds,
+      blockingReasons: [`nextArtifactPath must stay inside repoRoot: ${nextArtifactPath}`],
+    });
+  }
+  if (inspectedArtifactPaths.includes(normalizedNextArtifactPath)) {
+    return buildNextArtifactReport({
+      previousArtifactPath,
+      repoRoot,
+      nextArtifactPath,
+      nextArtifactExpectedSliceId,
+      normalizedNextArtifactPath,
+      resolvedNextArtifactPath,
+      status: "blocked",
+      successor: null,
+      inspectedArtifactPaths,
+      inspectedSliceIds,
+      blockingReasons: [`nextArtifactPath creates artifact path cycle: ${normalizedNextArtifactPath}`],
+    });
+  }
+
+  const successorRead = await readNextArtifactFile(resolvedNextArtifactPath);
+  if (successorRead.violations.length > 0) {
+    return buildNextArtifactReport({
+      previousArtifactPath,
+      repoRoot,
+      nextArtifactPath,
+      nextArtifactExpectedSliceId,
+      normalizedNextArtifactPath,
+      resolvedNextArtifactPath,
+      status: "blocked",
+      successor: null,
+      inspectedArtifactPaths,
+      inspectedSliceIds,
+      blockingReasons: successorRead.violations,
+    });
+  }
+
+  const successor = successorRead.artifact;
+  const successorSlice = readReportCurrentSlice(successor);
+  const successorArtifactPath = normalizePathForReport(resolvedNextArtifactPath, repoRoot);
+  const nextInspectedArtifactPaths = uniqueStrings([...inspectedArtifactPaths, successorArtifactPath]);
+  const nextInspectedSliceIds = uniqueStrings([
+    ...inspectedSliceIds,
+    ...(successorSlice.id ? [successorSlice.id] : []),
+  ]);
+  const blockingReasons: string[] = [];
+
+  for (const violation of validateSequentialContinuationArtifact(successor)) {
+    blockingReasons.push(`successor artifact invalid: ${violation}`);
+  }
+  if (isRecord(input.artifact) && isRecord(successor) && successor.initiativePath !== input.artifact.initiativePath) {
+    blockingReasons.push(
+      `successor initiativePath must match predecessor initiativePath: ${String(successor.initiativePath)}`,
+    );
+  }
+  if (nextArtifactExpectedSliceId && successorSlice.id !== nextArtifactExpectedSliceId) {
+    blockingReasons.push(
+      `successor currentSlice.id must match nextArtifactExpectedSliceId ${nextArtifactExpectedSliceId}: ${String(successorSlice.id)}`,
+    );
+  }
+  if (successorSlice.id && inspectedSliceIds.includes(successorSlice.id)) {
+    blockingReasons.push(`successor currentSlice.id creates slice cycle: ${successorSlice.id}`);
+  }
+  for (const stopCondition of readReportActiveStopConditions(successor)) {
+    blockingReasons.push(`successor stop condition active: ${stopCondition.id}: ${stopCondition.evidence}`);
+  }
+  if (isRecord(successor) && isRecord(successor.autonomyEnvelope) && successor.autonomyEnvelope.pushAllowed === true) {
+    blockingReasons.push("successor autonomyEnvelope.pushAllowed must be false");
+  }
+  blockingReasons.push(
+    ...(await validateSuccessorEvidenceFreshness({
+      repoRoot,
+      predecessorArtifactPath: input.artifactPath,
+      predecessorArtifact: input.artifact,
+      successorArtifact: successor,
+    })),
+  );
+
+  return buildNextArtifactReport({
+    previousArtifactPath,
+    repoRoot,
+    nextArtifactPath,
+    nextArtifactExpectedSliceId,
+    normalizedNextArtifactPath,
+    resolvedNextArtifactPath,
+    status: blockingReasons.length === 0 ? "accepted" : "blocked",
+    successor: {
+      artifactPath: successorArtifactPath,
+      currentSliceId: successorSlice.id,
+      initiativePath: isRecord(successor) ? stringOrNull(successor.initiativePath) : null,
+      actionType: successorSlice.actionType,
+    },
+    inspectedArtifactPaths: nextInspectedArtifactPaths,
+    inspectedSliceIds: nextInspectedSliceIds,
+    blockingReasons,
+  });
 }
 
 export function validateSequentialContinuationStatusEvidence(input: unknown): string[] {
@@ -1120,6 +1356,202 @@ function validateNextStep(value: unknown): string[] {
   return violations;
 }
 
+function validateNextArtifactFields(value: Record<string, unknown>): string[] {
+  const violations: string[] = [];
+  if (hasOwn(value, "nextArtifactPath") && value.nextArtifactPath !== null) {
+    normalizeNextArtifactPath(value.nextArtifactPath, violations);
+  }
+  if (
+    hasOwn(value, "nextArtifactExpectedSliceId") &&
+    value.nextArtifactExpectedSliceId !== null &&
+    !isNonEmptyString(value.nextArtifactExpectedSliceId)
+  ) {
+    violations.push("nextArtifactExpectedSliceId must be a non-empty string or null when present");
+  }
+  return violations;
+}
+
+function normalizeNextArtifactPath(value: unknown, violations: string[]): string | null {
+  if (!isNonEmptyString(value)) {
+    violations.push("nextArtifactPath must be a non-empty repo-relative .json path or null");
+    return null;
+  }
+
+  const beforeCount = violations.length;
+  const trimmed = value.trim();
+  const candidate = trimmed.replaceAll("\\", "/");
+  const rawSegments = candidate.split("/");
+  if (trimmed !== value || candidate !== trimmed || candidate.includes(":") || /\s/.test(candidate)) {
+    violations.push(`nextArtifactPath must be a normalized repo-relative local .json path: ${value}`);
+  }
+  if (NEXT_ARTIFACT_COMMAND_PREFIX_PATTERN.test(trimmed)) {
+    violations.push(`nextArtifactPath must not be a command string: ${value}`);
+  }
+  if (NEXT_ARTIFACT_URL_PATTERN.test(candidate) || /^file:/i.test(candidate)) {
+    violations.push(`nextArtifactPath must not be a URL: ${value}`);
+  }
+  if (candidate.startsWith("~") || NEXT_ARTIFACT_ENV_PATTERN.test(candidate)) {
+    violations.push(`nextArtifactPath must not use environment expansion: ${value}`);
+  }
+  if (NEXT_ARTIFACT_GLOB_PATTERN.test(candidate)) {
+    violations.push(`nextArtifactPath must not be glob-like: ${value}`);
+  }
+  if (isAbsolute(value) || candidate.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || rawSegments.includes("..")) {
+    violations.push(`nextArtifactPath must be repo-relative and stay inside repoRoot: ${value}`);
+  }
+
+  const normalized = posix.normalize(candidate);
+  if (normalized === "." || normalized.startsWith("../") || normalized === ".." || normalized !== candidate) {
+    violations.push(`nextArtifactPath must be normalized and stay inside repoRoot: ${value}`);
+  }
+  if (!normalized.endsWith(".json")) {
+    violations.push(`nextArtifactPath must end with .json: ${value}`);
+  }
+
+  return violations.length === beforeCount ? normalized : null;
+}
+
+function buildNextArtifactReport(input: {
+  previousArtifactPath: string;
+  repoRoot: string;
+  nextArtifactPath: string | null;
+  nextArtifactExpectedSliceId: string | null;
+  normalizedNextArtifactPath: string | null;
+  resolvedNextArtifactPath: string | null;
+  status: SequentialContinuationNextArtifactReport["status"];
+  successor: SequentialContinuationNextArtifactReport["successor"];
+  inspectedArtifactPaths: string[];
+  inspectedSliceIds: string[];
+  blockingReasons: string[];
+}): SequentialContinuationNextArtifactReport {
+  return {
+    previousArtifactPath: input.previousArtifactPath,
+    repoRoot: input.repoRoot,
+    nextArtifactPath: input.nextArtifactPath,
+    nextArtifactExpectedSliceId: input.nextArtifactExpectedSliceId,
+    normalizedNextArtifactPath: input.normalizedNextArtifactPath,
+    resolvedNextArtifactPath: input.resolvedNextArtifactPath,
+    status: input.status,
+    successor: input.successor,
+    inspectedArtifactPaths: input.inspectedArtifactPaths,
+    inspectedSliceIds: input.inspectedSliceIds,
+    blockingReasons: input.blockingReasons,
+    trustedStateChanges: false,
+    pushPerformed: false,
+    sideEffects: singleStepSideEffects(),
+  };
+}
+
+async function readNextArtifactFile(path: string): Promise<{ artifact: unknown; violations: string[] }> {
+  try {
+    const pathStat = await stat(path);
+    if (!pathStat.isFile()) {
+      return {
+        artifact: undefined,
+        violations: [`nextArtifactPath must point to a JSON file: ${path}`],
+      };
+    }
+    return {
+      artifact: JSON.parse(await readFile(path, "utf8")) as unknown,
+      violations: [],
+    };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return {
+        artifact: undefined,
+        violations: [`nextArtifactPath file not found: ${path}`],
+      };
+    }
+    if (err instanceof SyntaxError) {
+      return {
+        artifact: undefined,
+        violations: [`nextArtifactPath JSON could not be parsed: ${err.message}`],
+      };
+    }
+    return {
+      artifact: undefined,
+      violations: [`nextArtifactPath could not be read: ${err instanceof Error ? err.message : String(err)}`],
+    };
+  }
+}
+
+async function validateSuccessorEvidenceFreshness(input: {
+  repoRoot: string;
+  predecessorArtifactPath: string;
+  predecessorArtifact: unknown;
+  successorArtifact: unknown;
+}): Promise<string[]> {
+  if (!isRecord(input.successorArtifact) || !Array.isArray(input.successorArtifact.evidenceReferences)) {
+    return [];
+  }
+
+  const violations: string[] = [];
+  const successorEvidencePaths = input.successorArtifact.evidenceReferences.flatMap((reference) => {
+    return isRecord(reference) && isNonEmptyString(reference.path) ? [reference.path] : [];
+  });
+  const predecessorEvidencePaths =
+    isRecord(input.predecessorArtifact) && Array.isArray(input.predecessorArtifact.evidenceReferences)
+      ? input.predecessorArtifact.evidenceReferences.flatMap((reference) => {
+          return isRecord(reference) && isNonEmptyString(reference.path) ? [reference.path] : [];
+        })
+      : [];
+  const requiredCitations = new Set(
+    [input.predecessorArtifactPath, ...predecessorEvidencePaths].map((path) =>
+      normalizePathForReport(path, input.repoRoot),
+    ),
+  );
+  const successorCitations = new Set(
+    successorEvidencePaths.map((path) => normalizePathForReport(path, input.repoRoot)),
+  );
+
+  for (const evidencePath of successorEvidencePaths) {
+    if (!(await localEvidenceReferenceExists(input.repoRoot, evidencePath))) {
+      violations.push(`successor evidence reference file is missing: ${evidencePath}`);
+    }
+  }
+  if (![...successorCitations].some((path) => requiredCitations.has(path))) {
+    violations.push("successor evidenceReferences must cite predecessor artifact or evidence reference");
+  }
+
+  return violations;
+}
+
+async function localEvidenceReferenceExists(repoRoot: string, path: string): Promise<boolean> {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(repoRoot, path);
+  const repoRelativePath = relative(repoRoot, resolvedPath).replaceAll("\\", "/");
+  if (repoRelativePath === "" || repoRelativePath.startsWith("../") || repoRelativePath === ".." || isAbsolute(repoRelativePath)) {
+    return false;
+  }
+  try {
+    return (await stat(resolvedPath)).isFile();
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw err;
+  }
+}
+
+function readOptionalStringField(value: unknown, field: string): string | null {
+  if (!isRecord(value) || !hasOwn(value, field) || value[field] === null) {
+    return null;
+  }
+  return typeof value[field] === "string" ? value[field] : null;
+}
+
+function normalizePathForReport(path: string, repoRoot: string): string {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(repoRoot, path);
+  const repoRelativePath = relative(repoRoot, resolvedPath).replaceAll("\\", "/");
+  if (repoRelativePath !== "" && !repoRelativePath.startsWith("../") && repoRelativePath !== ".." && !isAbsolute(repoRelativePath)) {
+    return repoRelativePath;
+  }
+  return path.replaceAll("\\", "/");
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
 function validateForbiddenFieldNames(value: unknown, path = ""): string[] {
   if (Array.isArray(value)) {
     return value.flatMap((item, index) => validateForbiddenFieldNames(item, `${path}[${index}]`));
@@ -1511,6 +1943,7 @@ function buildReportBlockingReasons(input: {
   currentSlice: SequentialContinuationReport["currentSlice"];
   activeStopConditions: SequentialContinuationReport["activeStopConditions"];
   nextStep: { kind: string | null; value: string | null };
+  nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
 }): string[] {
   const reasons: string[] = [];
   for (const stopCondition of input.activeStopConditions) {
@@ -1524,6 +1957,11 @@ function buildReportBlockingReasons(input: {
   }
   for (const violation of input.violations) {
     pushUnique(reasons, violation);
+  }
+  if (input.nextArtifactLinkage?.status === "blocked") {
+    for (const reason of input.nextArtifactLinkage.blockingReasons) {
+      pushUnique(reasons, `nextArtifactPath: ${reason}`);
+    }
   }
   return reasons;
 }

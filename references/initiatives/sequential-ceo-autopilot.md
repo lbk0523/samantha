@@ -163,11 +163,12 @@ Stop before continuing when any of these appear:
 | S6 | completed | Add bounded multi-step continuation: continue across successful slices until a stop condition, with failed-evidence rework limited to one cycle and push still forbidden. | S5 plus dogfood evidence from at least one safe initiative. | Passed in S6 worker: focused fake-artifact loop tests for two successful readiness slices, maxSteps cutoff, status-evidence rejection, one failed-evidence rework cycle, and false side-effect flags; CLI tests cover parser/main loop behavior, blocked stops, rejected artifacts, and no runs/worktrees side effects; typecheck, readiness check, and scoped diff check passed. | None. |
 | S7 | completed | Dogfood the full MVP on a small Samantha self-build initiative and update this brief with outcomes, blocked edges, and whether broader routine use is justified. | S6. | Passed: created `references/initiatives/sequential-ceo-autopilot-s7-dogfood.md` and `references/operations/sequential-ceo-autopilot-s7-continuation.json`; ran `bun run samantha continuation:loop --artifact=references/operations/sequential-ceo-autopilot-s7-continuation.json --max-steps=2`; result accepted one readiness step, updated D1 to completed, preserved false side-effect flags, and stopped with `no_deterministic_next_artifact`; recorded `references/operations/sequential-ceo-autopilot-s7-dogfood-report.md`. | None. |
 | S8 | completed | Design the next deterministic artifact-link and action-execution boundary before broad routine use. Keep this at CEO/product-boundary level: decide how next artifacts are named, how reviewed `run_task`/`batch_plan` support is authorized, and what stop conditions remain mandatory. | S7. | Created `references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md`; expected verification: required headings present, S9 follow-up named, readiness check passes, and scoped diff check passes. | None. |
-| S9 | ready | Add deterministic validation and report-only visibility for explicit next-artifact linkage before enabling writer action execution. Prefer a narrow `nextArtifactPath` validator/report-only slice that rejects prose or command-string successors, missing files, off-repo paths, cycles, stale evidence, active stop conditions, and push requirements. Do not execute `run_task` or `batch_plan`. | S8. | Focused validator/report-only tests for accepted local next artifact paths and rejection cases; CLI/report evidence shows next path or blocked reason without worker dispatch or batch execution; typecheck, readiness check, and scoped diff check pass. | `sam c: Implement S9 for references/initiatives/sequential-ceo-autopilot.md. Add deterministic validation and report-only visibility for explicit nextArtifactPath linkage before any writer action execution. Reject prose or command-string successors, missing files, off-repo paths, cycles, stale evidence, active stop conditions, and push requirements. Do not execute run_task or batch_plan.` |
+| S9 | completed | Add deterministic validation and report-only visibility for explicit next-artifact linkage before enabling writer action execution. Prefer a narrow `nextArtifactPath` validator/report-only slice that rejects prose or command-string successors, missing files, off-repo paths, cycles, stale evidence, active stop conditions, and push requirements. Do not execute `run_task` or `batch_plan`. | S8. | Passed in S9 worker: focused core tests for accepted local `nextArtifactPath` and rejection of prose, command strings, missing files, off-repo paths, path traversal, cycles, stale evidence, active stop conditions, push requirements, mismatched expected slice ids, and invalid successor artifacts; CLI tests prove `continuation:show` reports next-artifact accepted/blocked status and reasons without creating runs or worktrees; typecheck, readiness check, and scoped diff check passed. | None. |
+| S10 | ready | Dogfood S9 report-only next-artifact linkage and design the reviewed action coordination boundary for future `run_task` / `batch_plan` support. Keep this report-only or design-only: no worker dispatch, no batch execution, no merge, no cleanup, no commit/push automation. | S9. | Report-only dogfood evidence or design artifact demonstrates linked-artifact validation behavior and names the exact reviewed gates still required before action coordination; readiness check and scoped diff check pass. | `sam c: Implement S10 for references/initiatives/sequential-ceo-autopilot.md. Dogfood S9 report-only next-artifact linkage or write a narrow reviewed-action-coordination design for future run_task / batch_plan support. Do not execute run_task or batch_plan, dispatch workers, merge, cleanup, commit, push, or bypass Phase 5.5 / Phase 5 gates.` |
 
 ## Current Next Slice
 
-S9 is ready.
+S10 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -190,9 +191,11 @@ Broader routine use: not yet justified.
 
 Readiness-only continuation works, and S8 has now documented the boundary for
 deterministic next-artifact linkage plus reviewed `run_task`/`batch_plan`
-coordination. The next safe step is S9: implement only validator/report-only
-support for explicit `nextArtifactPath` linkage before any writer action
-execution is enabled.
+coordination. S9 implemented only validator/report-only support for explicit
+`nextArtifactPath` linkage before any writer action execution is enabled. The
+next safe step is S10: dogfood that report-only linkage or write the reviewed
+action-coordination design for future `run_task` / `batch_plan` support while
+preserving the Phase 5.5 and Phase 5 boundaries.
 
 ## S7 Evidence And Decision
 
@@ -234,6 +237,37 @@ execution is enabled.
   cleanup.
 - Next slice: S9, validator/report-only support for deterministic
   `nextArtifactPath` linkage. Do not implement writer action execution in S9.
+
+## S9 Evidence And Decision
+
+- Implementation:
+  `src/core/sequential-ceo-autopilot.ts`,
+  `tests/sequential-ceo-autopilot.test.ts`, `src/cli.ts`, and
+  `tests/cli.test.ts`.
+- Decision: the closed continuation artifact schema now allows only two new
+  optional successor fields: `nextArtifactPath` and
+  `nextArtifactExpectedSliceId`.
+- Decision: absent or `null` `nextArtifactPath` preserves the existing
+  `no_deterministic_next_artifact` stop behavior.
+- Decision: present `nextArtifactPath` is report-only validated as a normalized
+  repo-relative local JSON artifact path, then the successor artifact is read
+  and validated independently without executing it.
+- Decision: linkage blocks on prose or command strings, URLs, absolute paths,
+  traversal, environment expansion, globs, empty strings, missing successor
+  files, invalid successors, initiative mismatch, expected slice mismatch,
+  active stop conditions, push requirements, artifact or slice cycles, and
+  stale successor evidence.
+- CLI visibility: `continuation:show` can report next-artifact accepted/blocked
+  status and deterministic blocking reasons. It does not run `run_task`, run
+  `batch_plan`, dispatch workers, create run logs, create worktrees, mutate
+  lifecycle state, commit, or push.
+- Verification: `bun test tests/sequential-ceo-autopilot.test.ts`,
+  `bun test tests/cli.test.ts`, `bun run typecheck`,
+  `bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md`,
+  and scoped `git diff --check` passed in the S9 worker.
+- Next slice: S10, report-only dogfood or reviewed action-coordination design
+  for future `run_task` / `batch_plan` support. Preserve Phase 5.5 draft review
+  and Phase 5 batch gates; do not execute writer actions in S10.
 
 ## End-of-Session Update Rule
 

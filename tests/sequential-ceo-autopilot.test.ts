@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
@@ -8,12 +11,20 @@ import {
   SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS,
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
   buildSequentialContinuationLoop,
+  buildSequentialContinuationNextArtifactReport,
   buildSequentialContinuationSingleStep,
   buildSequentialContinuationStatusUpdate,
   buildSequentialContinuationReport,
   validateSequentialContinuationArtifact,
   validateSequentialContinuationStatusEvidence,
 } from "../src/core/sequential-ceo-autopilot";
+
+let tmpRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
+  tmpRoots = [];
+});
 
 function artifact(overrides: Partial<SequentialContinuationArtifact> = {}): SequentialContinuationArtifact {
   return {
@@ -62,6 +73,66 @@ function artifact(overrides: Partial<SequentialContinuationArtifact> = {}): Sequ
   };
 }
 
+async function writeNextArtifactFixture(
+  overrides: {
+    predecessor?: Partial<SequentialContinuationArtifact>;
+    successor?: Partial<SequentialContinuationArtifact>;
+    successorEvidencePath?: string;
+  } = {},
+): Promise<{
+  root: string;
+  predecessorPath: string;
+  successorPath: string;
+  predecessor: SequentialContinuationArtifact;
+  successor: SequentialContinuationArtifact;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-next-artifact-"));
+  tmpRoots.push(root);
+  const operationsDir = join(root, "references", "operations");
+  await mkdir(operationsDir, { recursive: true });
+  const predecessorPath = join(operationsDir, "s9.json");
+  const successorPath = join(operationsDir, "s10.json");
+  const predecessor = artifact({
+    artifactId: "sequential-ceo-autopilot-s9",
+    currentSlice: {
+      ...artifact().currentSlice,
+      id: "S9",
+      status: "completed",
+      actionType: "report_only",
+      dependencyStatus: "met",
+      prerequisites: ["S8 completed"],
+    },
+    nextArtifactPath: "references/operations/s10.json",
+    nextArtifactExpectedSliceId: "S10",
+    ...overrides.predecessor,
+  });
+  const successor = artifact({
+    artifactId: "sequential-ceo-autopilot-s10",
+    currentSlice: {
+      ...artifact().currentSlice,
+      id: "S10",
+      status: "ready",
+      actionType: "report_only",
+      dependencyStatus: "met",
+      prerequisites: ["S9 completed"],
+    },
+    evidenceReferences: [
+      {
+        path: overrides.successorEvidencePath ?? "references/operations/s9.json",
+        summary: "S10 cites the predecessor continuation artifact.",
+      },
+    ],
+    nextStep: {
+      kind: "samantha_command",
+      value: "sam c: references/initiatives/sequential-ceo-autopilot.md S10",
+    },
+    ...overrides.successor,
+  });
+  await writeFile(predecessorPath, `${JSON.stringify(predecessor, null, 2)}\n`, "utf8");
+  await writeFile(successorPath, `${JSON.stringify(successor, null, 2)}\n`, "utf8");
+  return { root, predecessorPath, successorPath, predecessor, successor };
+}
+
 function statusEvidence(
   overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
 ): SequentialContinuationStatusEvidenceDocument {
@@ -89,6 +160,25 @@ function statusEvidence(
 describe("Sequential CEO Autopilot continuation artifact validation", () => {
   test("accepts a valid current-slice continuation artifact", () => {
     expect(validateSequentialContinuationArtifact(artifact())).toEqual([]);
+  });
+
+  test("accepts optional next artifact linkage fields in the closed schema", () => {
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          nextArtifactPath: "references/operations/sequential-ceo-autopilot-s10.json",
+          nextArtifactExpectedSliceId: "S10",
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          nextArtifactPath: null,
+          nextArtifactExpectedSliceId: null,
+        }),
+      ),
+    ).toEqual([]);
   });
 
   test("builds a deterministic accepted report for the current slice", () => {
@@ -353,6 +443,279 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         ),
       ).toEqual([]);
     }
+  });
+});
+
+describe("Sequential CEO Autopilot next-artifact linkage report", () => {
+  test("accepts a local repo-relative nextArtifactPath without executing the successor", async () => {
+    const { root, predecessorPath, predecessor } = await writeNextArtifactFixture();
+
+    const report = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: root,
+      artifactPath: predecessorPath,
+      artifact: predecessor,
+    });
+
+    expect(report.status).toBe("accepted");
+    expect(report.nextArtifactPath).toBe("references/operations/s10.json");
+    expect(report.normalizedNextArtifactPath).toBe("references/operations/s10.json");
+    expect(report.nextArtifactExpectedSliceId).toBe("S10");
+    expect(report.successor).toMatchObject({
+      artifactPath: "references/operations/s10.json",
+      currentSliceId: "S10",
+      initiativePath: "references/initiatives/sequential-ceo-autopilot.md",
+      actionType: "report_only",
+    });
+    expect(report.blockingReasons).toEqual([]);
+    expect(report.trustedStateChanges).toBe(false);
+    expect(report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+      pushPerformed: false,
+    });
+  });
+
+  test("rejects prose, command strings, URLs, off-repo paths, traversal, env expansion, globs, and empty strings", () => {
+    const cases: Array<{ value: string; reason: string }> = [
+      {
+        value: "Continue with S10 next",
+        reason: "nextArtifactPath must be a normalized repo-relative local .json path: Continue with S10 next",
+      },
+      {
+        value: "sam c: continue S10",
+        reason: "nextArtifactPath must not be a command string: sam c: continue S10",
+      },
+      {
+        value: "bun run samantha continuation:show",
+        reason: "nextArtifactPath must not be a command string: bun run samantha continuation:show",
+      },
+      {
+        value: "https://example.com/s10.json",
+        reason: "nextArtifactPath must not be a URL: https://example.com/s10.json",
+      },
+      {
+        value: "/tmp/s10.json",
+        reason: "nextArtifactPath must be repo-relative and stay inside repoRoot: /tmp/s10.json",
+      },
+      {
+        value: "../references/operations/s10.json",
+        reason: "nextArtifactPath must be repo-relative and stay inside repoRoot: ../references/operations/s10.json",
+      },
+      {
+        value: "$ROOT/references/operations/s10.json",
+        reason: "nextArtifactPath must not use environment expansion: $ROOT/references/operations/s10.json",
+      },
+      {
+        value: "references/operations/*.json",
+        reason: "nextArtifactPath must not be glob-like: references/operations/*.json",
+      },
+      {
+        value: "",
+        reason: "nextArtifactPath must be a non-empty repo-relative .json path or null",
+      },
+    ];
+
+    for (const { value, reason } of cases) {
+      expect(validateSequentialContinuationArtifact(artifact({ nextArtifactPath: value }))).toContain(reason);
+    }
+  });
+
+  test("blocks a present nextArtifactPath when the file is missing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-next-artifact-missing-"));
+    tmpRoots.push(root);
+    const predecessor = artifact({
+      nextArtifactPath: "references/operations/missing.json",
+    });
+
+    const report = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: root,
+      artifactPath: join(root, "references", "operations", "s9.json"),
+      artifact: predecessor,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      `nextArtifactPath file not found: ${join(root, "references", "operations", "missing.json")}`,
+    ]);
+  });
+
+  test("blocks successor initiative mismatches and expected slice id mismatches", async () => {
+    const { root, predecessorPath, predecessor } = await writeNextArtifactFixture({
+      successor: {
+        initiativePath: "references/initiatives/other.md",
+        currentSlice: {
+          ...artifact().currentSlice,
+          id: "S11",
+          status: "ready",
+          actionType: "report_only",
+          dependencyStatus: "met",
+          prerequisites: ["S9 completed"],
+        },
+      },
+    });
+
+    const report = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: root,
+      artifactPath: predecessorPath,
+      artifact: predecessor,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toContain(
+      "successor initiativePath must match predecessor initiativePath: references/initiatives/other.md",
+    );
+    expect(report.blockingReasons).toContain(
+      "successor currentSlice.id must match nextArtifactExpectedSliceId S10: S11",
+    );
+  });
+
+  test("blocks artifact path and currentSlice.id cycles", async () => {
+    const pathCycle = await writeNextArtifactFixture({
+      predecessor: {
+        nextArtifactPath: "references/operations/s9.json",
+      },
+    });
+    const pathCycleReport = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: pathCycle.root,
+      artifactPath: pathCycle.predecessorPath,
+      artifact: pathCycle.predecessor,
+    });
+
+    expect(pathCycleReport.status).toBe("blocked");
+    expect(pathCycleReport.blockingReasons).toContain(
+      "nextArtifactPath creates artifact path cycle: references/operations/s9.json",
+    );
+
+    const sliceCycle = await writeNextArtifactFixture({
+      successor: {
+        currentSlice: {
+          ...artifact().currentSlice,
+          id: "S9",
+          status: "ready",
+          actionType: "report_only",
+          dependencyStatus: "met",
+          prerequisites: ["S9 completed"],
+        },
+      },
+    });
+    const sliceCycleReport = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: sliceCycle.root,
+      artifactPath: sliceCycle.predecessorPath,
+      artifact: sliceCycle.predecessor,
+    });
+
+    expect(sliceCycleReport.status).toBe("blocked");
+    expect(sliceCycleReport.blockingReasons).toContain("successor currentSlice.id creates slice cycle: S9");
+  });
+
+  test("blocks stale successor evidence when references are missing or do not cite predecessor evidence", async () => {
+    const missingEvidence = await writeNextArtifactFixture({
+      successorEvidencePath: "references/reports/missing.json",
+    });
+    const missingEvidenceReport = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: missingEvidence.root,
+      artifactPath: missingEvidence.predecessorPath,
+      artifact: missingEvidence.predecessor,
+    });
+
+    expect(missingEvidenceReport.status).toBe("blocked");
+    expect(missingEvidenceReport.blockingReasons).toContain(
+      "successor evidence reference file is missing: references/reports/missing.json",
+    );
+    expect(missingEvidenceReport.blockingReasons).toContain(
+      "successor evidenceReferences must cite predecessor artifact or evidence reference",
+    );
+
+    const noCitation = await writeNextArtifactFixture({
+      successorEvidencePath: "references/reports/unrelated.json",
+    });
+    await mkdir(join(noCitation.root, "references", "reports"), { recursive: true });
+    await writeFile(join(noCitation.root, "references", "reports", "unrelated.json"), "{}\n", "utf8");
+    const noCitationReport = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: noCitation.root,
+      artifactPath: noCitation.predecessorPath,
+      artifact: noCitation.predecessor,
+    });
+
+    expect(noCitationReport.status).toBe("blocked");
+    expect(noCitationReport.blockingReasons).toEqual([
+      "successor evidenceReferences must cite predecessor artifact or evidence reference",
+    ]);
+  });
+
+  test("blocks active stop conditions and push requirements in the successor", async () => {
+    const activeStop = await writeNextArtifactFixture({
+      successor: {
+        stopConditionChecklist: artifact().stopConditionChecklist.map((check) =>
+          check.id === "decision_required"
+            ? {
+                ...check,
+                active: true,
+                evidence: "BK must choose the next product boundary.",
+              }
+            : check,
+        ),
+      },
+    });
+    const activeStopReport = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: activeStop.root,
+      artifactPath: activeStop.predecessorPath,
+      artifact: activeStop.predecessor,
+    });
+
+    expect(activeStopReport.status).toBe("blocked");
+    expect(activeStopReport.blockingReasons).toContain(
+      "successor stop condition active: decision_required: BK must choose the next product boundary.",
+    );
+
+    const pushRequired = await writeNextArtifactFixture({
+      successor: {
+        autonomyEnvelope: {
+          ...artifact().autonomyEnvelope,
+          pushAllowed: true as false,
+        },
+      },
+    });
+    const pushRequiredReport = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: pushRequired.root,
+      artifactPath: pushRequired.predecessorPath,
+      artifact: pushRequired.predecessor,
+    });
+
+    expect(pushRequiredReport.status).toBe("blocked");
+    expect(pushRequiredReport.blockingReasons).toContain(
+      "successor artifact invalid: autonomyEnvelope.pushAllowed must be false",
+    );
+    expect(pushRequiredReport.blockingReasons).toContain("successor autonomyEnvelope.pushAllowed must be false");
+  });
+
+  test("blocks independently invalid successor artifacts", async () => {
+    const { root, predecessorPath, predecessor } = await writeNextArtifactFixture({
+      successor: {
+        currentSlice: {
+          ...artifact().currentSlice,
+          id: "S10",
+          status: "ready",
+          actionType: "auto_dispatch" as SequentialContinuationActionType,
+          dependencyStatus: "met",
+          prerequisites: ["S9 completed"],
+        },
+      },
+    });
+
+    const report = await buildSequentialContinuationNextArtifactReport({
+      repoRoot: root,
+      artifactPath: predecessorPath,
+      artifact: predecessor,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toContain(
+      "successor artifact invalid: currentSlice.actionType must be manual_decision, report_only, readiness_check, run_task, or batch_plan: auto_dispatch",
+    );
   });
 });
 

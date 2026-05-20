@@ -44,6 +44,7 @@ import { reviewStoredBatchPlanDraft, type BatchPlanReviewInput } from "./core/ba
 import { buildReadinessReport, type BuildReadinessReportInput, type ReadinessReport } from "./core/readiness";
 import {
   buildSequentialContinuationLoop,
+  buildSequentialContinuationNextArtifactReport,
   buildSequentialContinuationSingleStep,
   buildSequentialContinuationReport,
   buildSequentialContinuationStatusUpdate,
@@ -56,6 +57,7 @@ import type { WorkerRuntimeKind } from "./core/worker-runtime-metadata";
 export interface ContinuationShowCliArgs {
   command: "continuation:show";
   artifactPath: string;
+  repoRoot?: string;
 }
 
 export interface ContinuationUpdateStatusCliArgs {
@@ -354,6 +356,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     return {
       command: "continuation:show",
       artifactPath,
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
     };
   }
 
@@ -963,22 +966,27 @@ export async function main(argv: string[]): Promise<number> {
   const args = parseCliArgs(argv);
   if (args.command === "continuation:show") {
     const artifactPath = resolve(args.artifactPath);
-    const report = await (async () => {
-      try {
-        return buildSequentialContinuationReport({
-          artifactPath,
-          artifact: JSON.parse(await readFile(artifactPath, "utf8")) as unknown,
-        });
-      } catch (err) {
-        return buildSequentialContinuationReport({
-          artifactPath,
-          artifact: undefined,
-          violations: [artifactReadViolation(err)],
-        });
-      }
-    })();
+    const repoRoot = resolve(args.repoRoot ?? ".");
+    let artifact: unknown;
+    const violations: string[] = [];
+    try {
+      artifact = JSON.parse(await readFile(artifactPath, "utf8")) as unknown;
+    } catch (err) {
+      violations.push(artifactReadViolation(err));
+    }
+    const nextArtifactLinkage = await buildSequentialContinuationNextArtifactReport({
+      repoRoot,
+      artifactPath,
+      artifact,
+    });
+    const report = buildSequentialContinuationReport({
+      artifactPath,
+      artifact,
+      ...(violations.length > 0 ? { violations } : {}),
+      ...(nextArtifactLinkage.status === "absent" ? {} : { nextArtifactLinkage }),
+    });
     console.log(JSON.stringify(report, null, 2));
-    return report.status === "accepted" ? 0 : 1;
+    return report.status === "accepted" && report.nextArtifactLinkage?.status !== "blocked" ? 0 : 1;
   }
 
   if (args.command === "continuation:update-status") {
