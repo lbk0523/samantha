@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s16-run-task-once",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-20T07:47:53.000Z",
+  "updatedAt": "2026-05-20T07:47:53.000Z",
+  "currentSlice": {
+    "id": "S16",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S15 guarded single-run_task execution is implemented and verified."
+    ],
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'S16 dogfood worker output' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'run_task dogfood only' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S16 dogfoods the already-reviewed S15 single-run_task surface and does not decide post-run lifecycle authority."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S16 uses the S15 reviewed execution boundary and stops after one run evidence report before any later S17+ surface."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S16 cites tracked TaskSpec git evidence and copies its target, forbidden, and verify handoff fields exactly."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "The TaskSpec evidence hash is cited and continuation preflight validates TaskSpec git state before execution."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "S16 requires the run_task executor to return HARNESS_RESULT or pass evidence before the execution report can be accepted."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "The TaskSpec allows only one operation markdown output file and forbids source, tests, initiative docs, task specs, policies, run logs, and package files."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence rework cycle is spent before S16 dogfood execution."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S16 needs only one SDK-backed run_task call; every later S17+ surface and broad roadmap execution remain out of scope."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S16 evidence is limited to the deterministic continuation report, generated run log path, and this operation artifact."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "run_log",
+      "path": "runs/2026-05-20T07-15-08-870Z-sequential-ceo-autopilot-s15-single-run-task-execution.json",
+      "summary": "S15 implementation worker evidence for guarded single-run_task execution.",
+      "result": "completed"
+    },
+    {
+      "kind": "continuation_report",
+      "path": "references/tasks/sequential-ceo-autopilot-s16-dogfood-worker.json",
+      "summary": "S16 TaskSpec with tracked git evidence for one small dogfood worker run.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "blocked_report",
+    "value": "Stop after the single run_task report and record S16 dogfood evidence before designing S17 post-run authority."
+  },
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/sequential-ceo-autopilot-s16-dogfood-worker.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'S16 dogfood worker output' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'run_task dogfood only' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ],
+    "evidence": {
+      "taskSpecCommit": "65d40d89f8a633560e709ca6528e85fb242aef9b",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "runs/2026-05-20T07-15-08-870Z-sequential-ceo-autopilot-s15-single-run-task-execution.json"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  },
+  "runTaskExecution": {
+    "taskSpecPath": "references/tasks/sequential-ceo-autopilot-s16-dogfood-worker.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_task",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'S16 dogfood worker output' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "grep -F 'run_task dogfood only' references/operations/sequential-ceo-autopilot-s16-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s16-worker-output.md"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runTaskCalled": true,
+      "workersDispatched": true,
+      "worktreesCreated": true,
+      "runsCreated": true,
+      "deterministicVerification": true,
+      "batchesExecuteCalled": false,
+      "acceptPerformed": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
