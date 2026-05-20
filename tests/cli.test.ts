@@ -12,6 +12,7 @@ import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationArtifact,
+  SequentialContinuationRunTaskCandidate,
   SequentialContinuationStatusEvidenceDocument,
 } from "../src/core/sequential-ceo-autopilot";
 import { SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS } from "../src/core/sequential-ceo-autopilot";
@@ -243,6 +244,100 @@ function cliSequentialContinuationStatusEvidence(
     },
     ...overrides,
   };
+}
+
+function cliRunTaskSpec(overrides: Partial<TaskSpec> = {}): TaskSpec {
+  return {
+    id: "cli-run-task-preflight",
+    title: "CLI run_task preflight",
+    targetAgent: "codex-worker",
+    targetFiles: ["src/core/sequential-ceo-autopilot.ts", "src/cli.ts"],
+    forbiddenChanges: ["runs/**", "worktrees/**"],
+    verifyCommands: ["bun test tests/cli.test.ts", "bun run typecheck"],
+    instructions: "Expose deterministic run_task preflight reporting without execution.",
+    status: "pending",
+    ...overrides,
+  };
+}
+
+function cliRunTaskCandidate(
+  taskSpecCommit: string,
+  overrides: Partial<SequentialContinuationRunTaskCandidate> = {},
+): SequentialContinuationRunTaskCandidate {
+  const task = cliRunTaskSpec();
+  return {
+    taskSpecPath: "references/tasks/cli-run-task-preflight.json",
+    requiredRuntime: "codex-sdk",
+    executionMode: "preflight_only",
+    worktreePolicy: "samantha_allocated_isolated",
+    lifecycleOwner: "samantha",
+    targetFiles: task.targetFiles,
+    forbiddenChanges: task.forbiddenChanges,
+    verifyCommands: task.verifyCommands,
+    evidence: {
+      taskSpecCommit,
+      taskSpecStatus: "committed_clean",
+      freshnessEvidencePath: "references/operations/cli-preflight-evidence.json",
+    },
+    expectedSideEffects: {
+      runTaskCalled: false,
+      workersDispatched: false,
+      worktreesCreated: false,
+      lifecycleMutated: false,
+      mergePerformed: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+    },
+    ...overrides,
+  };
+}
+
+async function writeCliRunTaskPreflightFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  candidate?: Partial<SequentialContinuationRunTaskCandidate>;
+  taskSpec?: Partial<TaskSpec>;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  taskSpecPath: string;
+  artifactText: string;
+  taskSpecText: string;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-cli-run-task-preflight-"));
+  tmpRoots.push(root);
+  await git(["init"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
+  await mkdir(join(root, "references", "tasks"), { recursive: true });
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  const taskSpec = cliRunTaskSpec(overrides.taskSpec);
+  const taskSpecPath = join(root, "references", "tasks", "cli-run-task-preflight.json");
+  const artifactPath = join(root, "references", "operations", "cli-run-task-preflight.json");
+  const taskSpecText = `${JSON.stringify(taskSpec, null, 2)}\n`;
+  await writeFile(join(root, ".fixture"), "base\n", "utf8");
+  await writeFile(taskSpecPath, taskSpecText, "utf8");
+  await git(["add", ".fixture", "references/tasks/cli-run-task-preflight.json"], root);
+  await git(["commit", "-m", "chore: initial cli run task preflight fixture"], root);
+  const taskSpecCommit = await gitHead(root);
+  const artifact = cliSequentialContinuationArtifact({
+    artifactId: "cli-continuation-s12",
+    currentSlice: {
+      id: "S12",
+      status: "ready",
+      actionType: "run_task",
+      dependencyStatus: "met",
+      prerequisites: ["S11 completed"],
+      targetFiles: taskSpec.targetFiles,
+      forbiddenChanges: taskSpec.forbiddenChanges,
+      verifyCommands: taskSpec.verifyCommands,
+    },
+    runTaskCandidate: cliRunTaskCandidate(taskSpecCommit, overrides.candidate),
+    ...overrides.artifact,
+  });
+  const artifactText = `${JSON.stringify(artifact, null, 2)}\n`;
+  await writeFile(artifactPath, artifactText, "utf8");
+  return { root, artifactPath, taskSpecPath, artifactText, taskSpecText };
 }
 
 async function writeCliBatchStoreFixture(
@@ -640,6 +735,95 @@ describe("samantha cli", () => {
       "nextArtifactPath: nextArtifactPath must be a non-empty repo-relative .json path or null",
     );
     expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation show exposes accepted run_task preflight without creating runs or worktrees", async () => {
+    const { root, artifactPath, taskSpecPath, artifactText, taskSpecText } =
+      await writeCliRunTaskPreflightFixture();
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report.runTaskPreflight).toMatchObject({
+      status: "accepted",
+      taskSpecPath: "references/tasks/cli-run-task-preflight.json",
+      normalizedTaskSpecPath: "references/tasks/cli-run-task-preflight.json",
+      resolvedTaskSpecPath: taskSpecPath,
+      task: {
+        id: "cli-run-task-preflight",
+        title: "CLI run_task preflight",
+      },
+      blockingReasons: [],
+      trustedStateChanges: false,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+        lifecycleMutated: false,
+        mergePerformed: false,
+        cleanupPerformed: false,
+        commitPerformed: false,
+        pushPerformed: false,
+      },
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(taskSpecPath, "utf8")).toBe(taskSpecText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation show exposes blocked run_task preflight without mutating inputs", async () => {
+    const { root, artifactPath, taskSpecPath, artifactText, taskSpecText } =
+      await writeCliRunTaskPreflightFixture({
+        candidate: {
+          taskSpecPath: "references/tasks/missing-cli-run-task-preflight.json",
+        },
+      });
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("accepted");
+    expect(report.runTaskPreflight).toMatchObject({
+      status: "blocked",
+      taskSpecPath: "references/tasks/missing-cli-run-task-preflight.json",
+      normalizedTaskSpecPath: "references/tasks/missing-cli-run-task-preflight.json",
+      blockingReasons: [
+        `runTaskCandidate.taskSpecPath file not found: ${join(
+          root,
+          "references",
+          "tasks",
+          "missing-cli-run-task-preflight.json",
+        )}`,
+      ],
+      trustedStateChanges: false,
+      pushPerformed: false,
+    });
+    expect(report.blockingReasons).toContain(
+      `runTaskPreflight: runTaskCandidate.taskSpecPath file not found: ${join(
+        root,
+        "references",
+        "tasks",
+        "missing-cli-run-task-preflight.json",
+      )}`,
+    );
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await readFile(taskSpecPath, "utf8")).toBe(taskSpecText);
     expect(await pathExists(join(root, "runs"))).toBe(false);
     expect(await pathExists(join(root, "worktrees"))).toBe(false);
   });

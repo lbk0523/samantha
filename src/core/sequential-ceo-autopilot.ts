@@ -1,5 +1,7 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, posix, relative, resolve } from "node:path";
+import type { TaskSpec } from "./contracts";
+import { git, gitRaw } from "./git";
 
 export const SEQUENTIAL_CONTINUATION_ACTION_TYPES = [
   "manual_decision",
@@ -98,6 +100,32 @@ export interface SequentialContinuationNextStep {
   value: string;
 }
 
+export interface SequentialContinuationRunTaskCandidate {
+  taskSpecPath: string;
+  requiredRuntime: string;
+  executionMode: string;
+  worktreePolicy: string;
+  lifecycleOwner: string;
+  targetFiles: string[];
+  forbiddenChanges: string[];
+  verifyCommands: string[];
+  evidence: {
+    taskSpecCommit: string;
+    taskSpecStatus: string;
+    freshnessEvidencePath: string;
+  };
+  expectedSideEffects: {
+    runTaskCalled: boolean;
+    workersDispatched: boolean;
+    worktreesCreated: boolean;
+    lifecycleMutated: boolean;
+    mergePerformed: boolean;
+    cleanupPerformed: boolean;
+    commitPerformed: boolean;
+    pushPerformed: boolean;
+  };
+}
+
 export interface SequentialContinuationArtifact {
   schemaVersion: 1;
   artifactId: string;
@@ -111,6 +139,7 @@ export interface SequentialContinuationArtifact {
   nextStep: SequentialContinuationNextStep;
   nextArtifactPath?: string | null;
   nextArtifactExpectedSliceId?: string | null;
+  runTaskCandidate?: SequentialContinuationRunTaskCandidate | null;
 }
 
 export interface SequentialContinuationNextArtifactReport {
@@ -142,6 +171,41 @@ export interface SequentialContinuationNextArtifactReport {
   };
 }
 
+export interface SequentialContinuationRunTaskPreflightReport {
+  artifactPath: string;
+  repoRoot: string;
+  taskSpecPath: string | null;
+  normalizedTaskSpecPath: string | null;
+  resolvedTaskSpecPath: string | null;
+  status: "absent" | "accepted" | "blocked";
+  task: {
+    id: string;
+    title: string;
+  } | null;
+  requiredRuntime: string | null;
+  executionMode: string | null;
+  worktreePolicy: string | null;
+  lifecycleOwner: string | null;
+  targetFiles: string[];
+  forbiddenChanges: string[];
+  verifyCommands: string[];
+  blockingReasons: string[];
+  trustedStateChanges: false;
+  pushPerformed: false;
+  sideEffects: {
+    runTaskCalled: false;
+    batchesExecuteCalled: false;
+    workersDispatched: false;
+    runsCreated: false;
+    worktreesCreated: false;
+    lifecycleMutated: false;
+    mergePerformed: false;
+    cleanupPerformed: false;
+    commitPerformed: false;
+    pushPerformed: false;
+  };
+}
+
 export interface SequentialContinuationReport {
   artifactPath: string;
   status: "accepted" | "rejected";
@@ -161,6 +225,7 @@ export interface SequentialContinuationReport {
   exactNextSamanthaCommand: string | null;
   blockedReportText: string | null;
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
+  runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
   trustedStateChanges: false;
   pushPerformed: false;
 }
@@ -339,6 +404,7 @@ const TOP_LEVEL_FIELDS = new Set([
   "nextStep",
   "nextArtifactPath",
   "nextArtifactExpectedSliceId",
+  "runTaskCandidate",
 ]);
 const CURRENT_SLICE_FIELDS = new Set([
   "id",
@@ -364,6 +430,49 @@ const AUTONOMY_ENVELOPE_FIELDS = new Set([
 const STOP_CONDITION_FIELDS = new Set(["id", "active", "evidence"]);
 const EVIDENCE_REFERENCE_FIELDS = new Set(["path", "summary", "kind", "result"]);
 const NEXT_STEP_FIELDS = new Set(["kind", "value"]);
+const RUN_TASK_CANDIDATE_FIELDS = new Set([
+  "taskSpecPath",
+  "requiredRuntime",
+  "executionMode",
+  "worktreePolicy",
+  "lifecycleOwner",
+  "targetFiles",
+  "forbiddenChanges",
+  "verifyCommands",
+  "evidence",
+  "expectedSideEffects",
+]);
+const RUN_TASK_CANDIDATE_EVIDENCE_FIELDS = new Set([
+  "taskSpecCommit",
+  "taskSpecStatus",
+  "freshnessEvidencePath",
+]);
+const RUN_TASK_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES = [
+  "runTaskCalled",
+  "workersDispatched",
+  "worktreesCreated",
+  "lifecycleMutated",
+  "mergePerformed",
+  "cleanupPerformed",
+  "commitPerformed",
+  "pushPerformed",
+] as const;
+const RUN_TASK_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS = new Set<string>(
+  RUN_TASK_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES,
+);
+const TASK_SPEC_FIELDS = new Set([
+  "id",
+  "title",
+  "targetAgent",
+  "targetFiles",
+  "forbiddenChanges",
+  "setupCommands",
+  "verifyCommands",
+  "instructions",
+  "resultMode",
+  "expectedCommitSubject",
+  "status",
+]);
 const STATUS_EVIDENCE_FIELDS = new Set([
   "schemaVersion",
   "currentSliceId",
@@ -379,6 +488,8 @@ const NEXT_ARTIFACT_COMMAND_PREFIX_PATTERN = /^(?:sam\s+c:|sam\s+p:|sam\s+comman
 const NEXT_ARTIFACT_URL_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//;
 const NEXT_ARTIFACT_GLOB_PATTERN = /[*?[\]{}]/;
 const NEXT_ARTIFACT_ENV_PATTERN = /(?:\$[A-Za-z_{]|%[A-Za-z_][A-Za-z0-9_]*%)/;
+const TASK_SPEC_STATUSES = new Set(["pending", "in_progress", "completed", "failed", "blocked"]);
+const TASK_RESULT_MODES = new Set(["write", "report"]);
 const FORBIDDEN_FIELD_NAMES = new Set([
   "hiddenmemory",
   "hiddenstate",
@@ -441,6 +552,7 @@ export function validateSequentialContinuationArtifact(input: unknown): string[]
   violations.push(...validateEvidenceReferences(input.evidenceReferences));
   violations.push(...validateNextStep(input.nextStep));
   violations.push(...validateNextArtifactFields(input));
+  violations.push(...validateRunTaskCandidateFields(input));
 
   return violations;
 }
@@ -450,6 +562,7 @@ export function buildSequentialContinuationReport(input: {
   artifact: unknown;
   violations?: string[];
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
+  runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
 }): SequentialContinuationReport {
   const violations = input.violations ?? validateSequentialContinuationArtifact(input.artifact);
   const currentSlice = readReportCurrentSlice(input.artifact);
@@ -473,11 +586,13 @@ export function buildSequentialContinuationReport(input: {
       activeStopConditions,
       nextStep,
       nextArtifactLinkage: input.nextArtifactLinkage,
+      runTaskPreflight: input.runTaskPreflight,
     }),
     allowedActionType,
     exactNextSamanthaCommand: nextStep.kind === "samantha_command" ? nextStep.value : null,
     blockedReportText: nextStep.kind === "blocked_report" ? nextStep.value : null,
     ...(input.nextArtifactLinkage ? { nextArtifactLinkage: input.nextArtifactLinkage } : {}),
+    ...(input.runTaskPreflight ? { runTaskPreflight: input.runTaskPreflight } : {}),
     trustedStateChanges: false,
     pushPerformed: false,
   };
@@ -672,6 +787,244 @@ export async function buildSequentialContinuationNextArtifactReport(input: {
     inspectedArtifactPaths: nextInspectedArtifactPaths,
     inspectedSliceIds: nextInspectedSliceIds,
     blockingReasons,
+  });
+}
+
+export async function buildSequentialContinuationRunTaskPreflightReport(input: {
+  repoRoot?: string;
+  artifactPath: string;
+  artifact: unknown;
+}): Promise<SequentialContinuationRunTaskPreflightReport> {
+  const repoRoot = resolve(input.repoRoot ?? ".");
+  const artifactPath = normalizePathForReport(input.artifactPath, repoRoot);
+  if (!isRecord(input.artifact) || !hasOwn(input.artifact, "runTaskCandidate") || input.artifact.runTaskCandidate === null) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "absent",
+      blockingReasons: [],
+    });
+  }
+
+  const currentArtifactViolations = validateSequentialContinuationArtifact(input.artifact);
+  if (currentArtifactViolations.length > 0) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      blockingReasons: [
+        "current artifact must validate before runTaskCandidate is inspected",
+        ...currentArtifactViolations,
+      ],
+    });
+  }
+
+  const artifact = input.artifact as unknown as SequentialContinuationArtifact;
+  const candidate = artifact.runTaskCandidate as SequentialContinuationRunTaskCandidate;
+
+  const activeStopConditions = artifact.stopConditionChecklist.flatMap((stopCondition) => {
+    return stopCondition.active ? [`stop condition active: ${stopCondition.id}: ${stopCondition.evidence}`] : [];
+  });
+  if (activeStopConditions.length > 0) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: activeStopConditions,
+    });
+  }
+
+  const gateReasons: string[] = [];
+  if (artifact.currentSlice.status !== "ready") {
+    gateReasons.push(`currentSlice.status must be ready for run_task preflight: ${artifact.currentSlice.status}`);
+  }
+  if (artifact.currentSlice.actionType !== "run_task") {
+    gateReasons.push(`currentSlice.actionType must be run_task for run_task preflight: ${artifact.currentSlice.actionType}`);
+  }
+  if (artifact.currentSlice.dependencyStatus !== "met") {
+    gateReasons.push(`currentSlice.dependencyStatus must be met for run_task preflight: ${artifact.currentSlice.dependencyStatus}`);
+  }
+  if (gateReasons.length > 0) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: gateReasons,
+    });
+  }
+
+  const candidateReasons = validateRunTaskCandidatePreflightRequirements(candidate);
+  if (candidateReasons.length > 0) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: candidateReasons,
+    });
+  }
+
+  const pathReasons: string[] = [];
+  const normalizedTaskSpecPath = normalizeRunTaskTaskSpecPath(candidate.taskSpecPath, pathReasons);
+  if (!normalizedTaskSpecPath || pathReasons.length > 0) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: pathReasons,
+    });
+  }
+
+  const resolvedTaskSpecPath = resolve(repoRoot, normalizedTaskSpecPath);
+  const resolvedRepoRelativePath = relative(repoRoot, resolvedTaskSpecPath).replaceAll("\\", "/");
+  if (
+    resolvedRepoRelativePath === "" ||
+    resolvedRepoRelativePath.startsWith("../") ||
+    resolvedRepoRelativePath === ".." ||
+    isAbsolute(resolvedRepoRelativePath)
+  ) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      normalizedTaskSpecPath,
+      resolvedTaskSpecPath,
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: [`runTaskCandidate.taskSpecPath must stay inside repoRoot: ${candidate.taskSpecPath}`],
+    });
+  }
+
+  const taskSpecRead = await readRunTaskTaskSpecFile({
+    repoRoot,
+    normalizedTaskSpecPath,
+    resolvedTaskSpecPath,
+  });
+  if (taskSpecRead.violations.length > 0 || !taskSpecRead.taskSpec) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      normalizedTaskSpecPath,
+      resolvedTaskSpecPath,
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: taskSpecRead.violations,
+    });
+  }
+
+  const taskSpecValue = taskSpecRead.taskSpec;
+  const taskSpecReasons = validateRunTaskTaskSpec(taskSpecValue);
+  if (taskSpecReasons.length > 0) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      normalizedTaskSpecPath,
+      resolvedTaskSpecPath,
+      task: taskSpecTitleForReport(taskSpecValue),
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: taskSpecReasons,
+    });
+  }
+
+  const taskSpec = taskSpecValue as TaskSpec;
+  const gitReasons = await validateCommittedCleanTaskSpec({
+    repoRoot,
+    normalizedTaskSpecPath,
+    taskSpecCommit: candidate.evidence.taskSpecCommit,
+  });
+  if (gitReasons.length > 0) {
+    return buildRunTaskPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      taskSpecPath: candidate.taskSpecPath,
+      normalizedTaskSpecPath,
+      resolvedTaskSpecPath,
+      task: taskSpecTitleForReport(taskSpec),
+      requiredRuntime: candidate.requiredRuntime,
+      executionMode: candidate.executionMode,
+      worktreePolicy: candidate.worktreePolicy,
+      lifecycleOwner: candidate.lifecycleOwner,
+      targetFiles: candidate.targetFiles,
+      forbiddenChanges: candidate.forbiddenChanges,
+      verifyCommands: candidate.verifyCommands,
+      blockingReasons: gitReasons,
+    });
+  }
+
+  const handoffReasons = validateRunTaskHandoff({
+    candidate,
+    taskSpec,
+    currentSlice: artifact.currentSlice,
+  });
+  return buildRunTaskPreflightReport({
+    artifactPath,
+    repoRoot,
+    status: handoffReasons.length === 0 ? "accepted" : "blocked",
+    taskSpecPath: candidate.taskSpecPath,
+    normalizedTaskSpecPath,
+    resolvedTaskSpecPath,
+    task: taskSpecTitleForReport(taskSpec),
+    requiredRuntime: candidate.requiredRuntime,
+    executionMode: candidate.executionMode,
+    worktreePolicy: candidate.worktreePolicy,
+    lifecycleOwner: candidate.lifecycleOwner,
+    targetFiles: candidate.targetFiles,
+    forbiddenChanges: candidate.forbiddenChanges,
+    verifyCommands: candidate.verifyCommands,
+    blockingReasons: handoffReasons,
   });
 }
 
@@ -1372,6 +1725,68 @@ function validateNextArtifactFields(value: Record<string, unknown>): string[] {
   return violations;
 }
 
+function validateRunTaskCandidateFields(value: Record<string, unknown>): string[] {
+  if (!hasOwn(value, "runTaskCandidate") || value.runTaskCandidate === null) {
+    return [];
+  }
+  if (!isRecord(value.runTaskCandidate)) {
+    return ["runTaskCandidate must be an object or null when present"];
+  }
+
+  const candidate = value.runTaskCandidate;
+  const violations: string[] = [];
+  violations.push(
+    ...validateAllowedFields(candidate, RUN_TASK_CANDIDATE_FIELDS, (key) => `unknown runTaskCandidate field: ${key}`),
+  );
+
+  for (const field of ["taskSpecPath", "requiredRuntime", "executionMode", "worktreePolicy", "lifecycleOwner"] as const) {
+    if (!isNonEmptyString(candidate[field])) {
+      violations.push(`runTaskCandidate.${field} must be a non-empty string`);
+    }
+  }
+  for (const field of ["targetFiles", "forbiddenChanges", "verifyCommands"] as const) {
+    if (!hasOnlyNonEmptyStrings(candidate[field], { allowEmpty: false })) {
+      violations.push(`runTaskCandidate.${field} must be a non-empty string array`);
+    }
+  }
+
+  if (!isRecord(candidate.evidence)) {
+    violations.push("runTaskCandidate.evidence must be an object");
+  } else {
+    violations.push(
+      ...validateAllowedFields(
+        candidate.evidence,
+        RUN_TASK_CANDIDATE_EVIDENCE_FIELDS,
+        (key) => `unknown runTaskCandidate.evidence field: ${key}`,
+      ),
+    );
+    for (const field of ["taskSpecCommit", "taskSpecStatus", "freshnessEvidencePath"] as const) {
+      if (!isNonEmptyString(candidate.evidence[field])) {
+        violations.push(`runTaskCandidate.evidence.${field} must be a non-empty string`);
+      }
+    }
+  }
+
+  if (!isRecord(candidate.expectedSideEffects)) {
+    violations.push("runTaskCandidate.expectedSideEffects must be an object");
+  } else {
+    violations.push(
+      ...validateAllowedFields(
+        candidate.expectedSideEffects,
+        RUN_TASK_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS,
+        (key) => `unknown runTaskCandidate.expectedSideEffects field: ${key}`,
+      ),
+    );
+    for (const field of RUN_TASK_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES) {
+      if (typeof candidate.expectedSideEffects[field] !== "boolean") {
+        violations.push(`runTaskCandidate.expectedSideEffects.${field} must be a boolean`);
+      }
+    }
+  }
+
+  return violations;
+}
+
 function normalizeNextArtifactPath(value: unknown, violations: string[]): string | null {
   if (!isNonEmptyString(value)) {
     violations.push("nextArtifactPath must be a non-empty repo-relative .json path or null");
@@ -1474,6 +1889,276 @@ async function readNextArtifactFile(path: string): Promise<{ artifact: unknown; 
       violations: [`nextArtifactPath could not be read: ${err instanceof Error ? err.message : String(err)}`],
     };
   }
+}
+
+function buildRunTaskPreflightReport(input: {
+  artifactPath: string;
+  repoRoot: string;
+  status: SequentialContinuationRunTaskPreflightReport["status"];
+  taskSpecPath?: string | null;
+  normalizedTaskSpecPath?: string | null;
+  resolvedTaskSpecPath?: string | null;
+  task?: SequentialContinuationRunTaskPreflightReport["task"];
+  requiredRuntime?: string | null;
+  executionMode?: string | null;
+  worktreePolicy?: string | null;
+  lifecycleOwner?: string | null;
+  targetFiles?: string[];
+  forbiddenChanges?: string[];
+  verifyCommands?: string[];
+  blockingReasons: string[];
+}): SequentialContinuationRunTaskPreflightReport {
+  return {
+    artifactPath: input.artifactPath,
+    repoRoot: input.repoRoot,
+    taskSpecPath: input.taskSpecPath ?? null,
+    normalizedTaskSpecPath: input.normalizedTaskSpecPath ?? null,
+    resolvedTaskSpecPath: input.resolvedTaskSpecPath ?? null,
+    status: input.status,
+    task: input.task ?? null,
+    requiredRuntime: input.requiredRuntime ?? null,
+    executionMode: input.executionMode ?? null,
+    worktreePolicy: input.worktreePolicy ?? null,
+    lifecycleOwner: input.lifecycleOwner ?? null,
+    targetFiles: input.targetFiles ?? [],
+    forbiddenChanges: input.forbiddenChanges ?? [],
+    verifyCommands: input.verifyCommands ?? [],
+    blockingReasons: input.blockingReasons,
+    trustedStateChanges: false,
+    pushPerformed: false,
+    sideEffects: runTaskPreflightSideEffects(),
+  };
+}
+
+function validateRunTaskCandidatePreflightRequirements(
+  candidate: SequentialContinuationRunTaskCandidate,
+): string[] {
+  const reasons: string[] = [];
+  if (candidate.requiredRuntime !== "codex-sdk") {
+    reasons.push(`runTaskCandidate.requiredRuntime must be codex-sdk: ${candidate.requiredRuntime}`);
+  }
+  if (candidate.executionMode !== "preflight_only") {
+    reasons.push(`runTaskCandidate.executionMode must be preflight_only: ${candidate.executionMode}`);
+  }
+  if (candidate.worktreePolicy !== "samantha_allocated_isolated") {
+    reasons.push(`runTaskCandidate.worktreePolicy must be samantha_allocated_isolated: ${candidate.worktreePolicy}`);
+  }
+  if (candidate.lifecycleOwner !== "samantha") {
+    reasons.push(`runTaskCandidate.lifecycleOwner must be samantha: ${candidate.lifecycleOwner}`);
+  }
+  if (candidate.evidence.taskSpecStatus !== "committed_clean") {
+    reasons.push(`runTaskCandidate.evidence.taskSpecStatus must be committed_clean: ${candidate.evidence.taskSpecStatus}`);
+  }
+  for (const field of RUN_TASK_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES) {
+    if (candidate.expectedSideEffects[field] !== false) {
+      reasons.push(`runTaskCandidate.expectedSideEffects.${field} must be false`);
+    }
+  }
+  return reasons;
+}
+
+function normalizeRunTaskTaskSpecPath(value: unknown, violations: string[]): string | null {
+  if (!isNonEmptyString(value)) {
+    violations.push("runTaskCandidate.taskSpecPath must be a non-empty repo-relative references/tasks/*.json path");
+    return null;
+  }
+
+  const beforeCount = violations.length;
+  const trimmed = value.trim();
+  const candidate = trimmed.replaceAll("\\", "/");
+  const rawSegments = candidate.split("/");
+  if (trimmed !== value || candidate !== trimmed || candidate.includes(":") || /\s/.test(candidate)) {
+    violations.push(`runTaskCandidate.taskSpecPath must be a normalized repo-relative local references/tasks/*.json path: ${value}`);
+  }
+  if (NEXT_ARTIFACT_COMMAND_PREFIX_PATTERN.test(trimmed)) {
+    violations.push(`runTaskCandidate.taskSpecPath must not be a command string: ${value}`);
+  }
+  if (NEXT_ARTIFACT_URL_PATTERN.test(candidate) || /^file:/i.test(candidate)) {
+    violations.push(`runTaskCandidate.taskSpecPath must not be a URL: ${value}`);
+  }
+  if (candidate.startsWith("~") || NEXT_ARTIFACT_ENV_PATTERN.test(candidate)) {
+    violations.push(`runTaskCandidate.taskSpecPath must not use environment expansion: ${value}`);
+  }
+  if (NEXT_ARTIFACT_GLOB_PATTERN.test(candidate)) {
+    violations.push(`runTaskCandidate.taskSpecPath must not be glob-like: ${value}`);
+  }
+  if (isAbsolute(value) || candidate.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || rawSegments.includes("..")) {
+    violations.push(`runTaskCandidate.taskSpecPath must be repo-relative and stay inside repoRoot: ${value}`);
+  }
+
+  const normalized = posix.normalize(candidate);
+  if (normalized === "." || normalized.startsWith("../") || normalized === ".." || normalized !== candidate) {
+    violations.push(`runTaskCandidate.taskSpecPath must be normalized and stay inside repoRoot: ${value}`);
+  }
+  if (!normalized.startsWith("references/tasks/")) {
+    violations.push(`runTaskCandidate.taskSpecPath must be under references/tasks/: ${value}`);
+  }
+  if (!normalized.endsWith(".json")) {
+    violations.push(`runTaskCandidate.taskSpecPath must end with .json: ${value}`);
+  }
+
+  return violations.length === beforeCount ? normalized : null;
+}
+
+async function readRunTaskTaskSpecFile(input: {
+  repoRoot: string;
+  normalizedTaskSpecPath: string;
+  resolvedTaskSpecPath: string;
+}): Promise<{ taskSpec: unknown; violations: string[] }> {
+  try {
+    const pathStat = await stat(input.resolvedTaskSpecPath);
+    if (!pathStat.isFile()) {
+      return {
+        taskSpec: undefined,
+        violations: [`runTaskCandidate.taskSpecPath must point to a JSON file: ${input.resolvedTaskSpecPath}`],
+      };
+    }
+    const [repoRealPath, taskSpecRealPath] = await Promise.all([
+      realpath(input.repoRoot),
+      realpath(input.resolvedTaskSpecPath),
+    ]);
+    const realRepoRelativePath = relative(repoRealPath, taskSpecRealPath).replaceAll("\\", "/");
+    if (
+      realRepoRelativePath === "" ||
+      realRepoRelativePath.startsWith("../") ||
+      realRepoRelativePath === ".." ||
+      isAbsolute(realRepoRelativePath)
+    ) {
+      return {
+        taskSpec: undefined,
+        violations: [`runTaskCandidate.taskSpecPath must stay inside repoRoot after resolving symlinks: ${input.normalizedTaskSpecPath}`],
+      };
+    }
+    return {
+      taskSpec: JSON.parse(await readFile(input.resolvedTaskSpecPath, "utf8")) as unknown,
+      violations: [],
+    };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return {
+        taskSpec: undefined,
+        violations: [`runTaskCandidate.taskSpecPath file not found: ${input.resolvedTaskSpecPath}`],
+      };
+    }
+    if (err instanceof SyntaxError) {
+      return {
+        taskSpec: undefined,
+        violations: [`runTaskCandidate.taskSpecPath JSON could not be parsed: ${err.message}`],
+      };
+    }
+    return {
+      taskSpec: undefined,
+      violations: [`runTaskCandidate.taskSpecPath could not be read: ${err instanceof Error ? err.message : String(err)}`],
+    };
+  }
+}
+
+function validateRunTaskTaskSpec(value: unknown): string[] {
+  if (!isRecord(value)) {
+    return ["TaskSpec must be an object"];
+  }
+
+  const violations: string[] = [];
+  violations.push(...validateAllowedFields(value, TASK_SPEC_FIELDS, (key) => `unknown TaskSpec field: ${key}`));
+  for (const field of ["id", "title", "targetAgent", "instructions"] as const) {
+    if (!isNonEmptyString(value[field])) {
+      violations.push(`TaskSpec.${field} must be a non-empty string`);
+    }
+  }
+  for (const field of ["targetFiles", "forbiddenChanges", "verifyCommands"] as const) {
+    if (!hasOnlyNonEmptyStrings(value[field], { allowEmpty: false })) {
+      violations.push(`TaskSpec.${field} must be a non-empty string array`);
+    }
+  }
+  if (hasOwn(value, "setupCommands") && !hasOnlyNonEmptyStrings(value.setupCommands, { allowEmpty: true })) {
+    violations.push("TaskSpec.setupCommands must be a string array when present");
+  }
+  if (hasOwn(value, "resultMode") && !TASK_RESULT_MODES.has(value.resultMode as string)) {
+    violations.push(`TaskSpec.resultMode must be write or report when present: ${String(value.resultMode)}`);
+  }
+  if (hasOwn(value, "expectedCommitSubject") && !isNonEmptyString(value.expectedCommitSubject)) {
+    violations.push("TaskSpec.expectedCommitSubject must be a non-empty string when present");
+  }
+  if (!TASK_SPEC_STATUSES.has(value.status as string)) {
+    violations.push(`TaskSpec.status must be pending, in_progress, completed, failed, or blocked: ${String(value.status)}`);
+  }
+
+  return violations;
+}
+
+async function validateCommittedCleanTaskSpec(input: {
+  repoRoot: string;
+  normalizedTaskSpecPath: string;
+  taskSpecCommit: string;
+}): Promise<string[]> {
+  const reasons: string[] = [];
+  try {
+    await git(["cat-file", "-e", `${input.taskSpecCommit}^{commit}`], input.repoRoot);
+  } catch {
+    return [`runTaskCandidate.evidence.taskSpecCommit must name a local commit: ${input.taskSpecCommit}`];
+  }
+
+  const trackedAtCommit = await git(["ls-tree", "--name-only", input.taskSpecCommit, "--", input.normalizedTaskSpecPath], input.repoRoot);
+  if (!trackedAtCommit.split("\n").includes(input.normalizedTaskSpecPath)) {
+    reasons.push(`runTaskCandidate.evidence.taskSpecCommit does not contain taskSpecPath: ${input.taskSpecCommit} ${input.normalizedTaskSpecPath}`);
+  }
+
+  const workingTreeStatus = await gitRaw(
+    ["status", "--porcelain=v1", "--untracked-files=all", "-z", "--", input.normalizedTaskSpecPath],
+    input.repoRoot,
+  );
+  if (workingTreeStatus) {
+    reasons.push(`runTaskCandidate.taskSpecPath must be tracked and committed_clean: ${input.normalizedTaskSpecPath}`);
+    return reasons;
+  }
+
+  if (reasons.length > 0) {
+    return reasons;
+  }
+
+  try {
+    await gitRaw(["diff", "--quiet", input.taskSpecCommit, "--", input.normalizedTaskSpecPath], input.repoRoot);
+  } catch {
+    reasons.push(`runTaskCandidate.evidence.taskSpecCommit is stale for taskSpecPath: ${input.taskSpecCommit} ${input.normalizedTaskSpecPath}`);
+  }
+  return reasons;
+}
+
+function validateRunTaskHandoff(input: {
+  candidate: SequentialContinuationRunTaskCandidate;
+  taskSpec: TaskSpec;
+  currentSlice: SequentialContinuationCurrentSlice;
+}): string[] {
+  const reasons: string[] = [];
+  if (!sameStringArray(input.candidate.targetFiles, input.taskSpec.targetFiles)) {
+    reasons.push("runTaskCandidate.targetFiles must match TaskSpec targetFiles");
+  }
+  if (!sameStringArray(input.candidate.forbiddenChanges, input.taskSpec.forbiddenChanges)) {
+    reasons.push("runTaskCandidate.forbiddenChanges must match TaskSpec forbiddenChanges");
+  }
+  if (!sameStringArray(input.candidate.verifyCommands, input.taskSpec.verifyCommands)) {
+    reasons.push("runTaskCandidate.verifyCommands must match TaskSpec verifyCommands");
+  }
+  if (!sameStringArray(input.candidate.targetFiles, input.currentSlice.targetFiles ?? [])) {
+    reasons.push("runTaskCandidate.targetFiles must match currentSlice targetFiles");
+  }
+  if (!sameStringArray(input.candidate.forbiddenChanges, input.currentSlice.forbiddenChanges ?? [])) {
+    reasons.push("runTaskCandidate.forbiddenChanges must match currentSlice forbiddenChanges");
+  }
+  if (!sameStringArray(input.candidate.verifyCommands, input.currentSlice.verifyCommands ?? [])) {
+    reasons.push("runTaskCandidate.verifyCommands must match currentSlice verifyCommands");
+  }
+  return reasons;
+}
+
+function taskSpecTitleForReport(taskSpec: unknown): SequentialContinuationRunTaskPreflightReport["task"] {
+  if (!isRecord(taskSpec) || !isNonEmptyString(taskSpec.id) || !isNonEmptyString(taskSpec.title)) {
+    return null;
+  }
+  return {
+    id: taskSpec.id,
+    title: taskSpec.title,
+  };
 }
 
 async function validateSuccessorEvidenceFreshness(input: {
@@ -1876,6 +2561,21 @@ function singleStepSideEffects(): SequentialContinuationSingleStepReport["sideEf
   };
 }
 
+function runTaskPreflightSideEffects(): SequentialContinuationRunTaskPreflightReport["sideEffects"] {
+  return {
+    runTaskCalled: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    runsCreated: false,
+    worktreesCreated: false,
+    lifecycleMutated: false,
+    mergePerformed: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+  };
+}
+
 function singleStepGuardViolations(artifact: SequentialContinuationArtifact): string[] {
   const violations: string[] = [];
 
@@ -1945,6 +2645,7 @@ function buildReportBlockingReasons(input: {
   activeStopConditions: SequentialContinuationReport["activeStopConditions"];
   nextStep: { kind: string | null; value: string | null };
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
+  runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
 }): string[] {
   const reasons: string[] = [];
   for (const stopCondition of input.activeStopConditions) {
@@ -1962,6 +2663,11 @@ function buildReportBlockingReasons(input: {
   if (input.nextArtifactLinkage?.status === "blocked") {
     for (const reason of input.nextArtifactLinkage.blockingReasons) {
       pushUnique(reasons, `nextArtifactPath: ${reason}`);
+    }
+  }
+  if (input.runTaskPreflight?.status === "blocked") {
+    for (const reason of input.runTaskPreflight.blockingReasons) {
+      pushUnique(reasons, `runTaskPreflight: ${reason}`);
     }
   }
   return reasons;
@@ -1996,6 +2702,10 @@ function hasOnlyNonEmptyStrings(value: unknown, options: { allowEmpty: boolean }
   }
 
   return value.every(isNonEmptyString);
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function joinOptions(values: readonly string[]): string {

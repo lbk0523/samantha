@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { TaskSpec } from "../src/core/contracts";
+import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
+  SequentialContinuationRunTaskCandidate,
   SequentialContinuationStatusEvidenceDocument,
 } from "../src/core/sequential-ceo-autopilot";
 import {
@@ -12,6 +15,7 @@ import {
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
+  buildSequentialContinuationRunTaskPreflightReport,
   buildSequentialContinuationSingleStep,
   buildSequentialContinuationStatusUpdate,
   buildSequentialContinuationReport,
@@ -71,6 +75,104 @@ function artifact(overrides: Partial<SequentialContinuationArtifact> = {}): Sequ
     },
     ...overrides,
   };
+}
+
+function runTaskTaskSpec(overrides: Partial<TaskSpec> = {}): TaskSpec {
+  return {
+    id: "s12-run-task-preflight",
+    title: "Implement S12 run_task preflight",
+    targetAgent: "codex-worker",
+    targetFiles: ["src/core/sequential-ceo-autopilot.ts", "tests/sequential-ceo-autopilot.test.ts"],
+    forbiddenChanges: ["runs/**", "worktrees/**"],
+    verifyCommands: ["bun test tests/sequential-ceo-autopilot.test.ts", "bun run typecheck"],
+    instructions: "Implement deterministic preflight reporting without executing run_task.",
+    status: "pending",
+    ...overrides,
+  };
+}
+
+function runTaskCandidate(
+  taskSpecCommit: string,
+  overrides: Partial<SequentialContinuationRunTaskCandidate> = {},
+): SequentialContinuationRunTaskCandidate {
+  const task = runTaskTaskSpec();
+  return {
+    taskSpecPath: "references/tasks/s12-run-task-preflight.json",
+    requiredRuntime: "codex-sdk",
+    executionMode: "preflight_only",
+    worktreePolicy: "samantha_allocated_isolated",
+    lifecycleOwner: "samantha",
+    targetFiles: task.targetFiles,
+    forbiddenChanges: task.forbiddenChanges,
+    verifyCommands: task.verifyCommands,
+    evidence: {
+      taskSpecCommit,
+      taskSpecStatus: "committed_clean",
+      freshnessEvidencePath: "references/operations/s11-run-task-preflight-report.md",
+    },
+    expectedSideEffects: {
+      runTaskCalled: false,
+      workersDispatched: false,
+      worktreesCreated: false,
+      lifecycleMutated: false,
+      mergePerformed: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+    },
+    ...overrides,
+  };
+}
+
+async function writeRunTaskPreflightFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  candidate?: Partial<SequentialContinuationRunTaskCandidate>;
+  taskSpec?: Partial<TaskSpec>;
+  commitTaskSpec?: boolean;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  taskSpecPath: string;
+  taskSpec: TaskSpec;
+  taskSpecCommit: string;
+  continuation: SequentialContinuationArtifact;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-run-task-preflight-"));
+  tmpRoots.push(root);
+  await git(["init"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
+  await mkdir(join(root, "references", "tasks"), { recursive: true });
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  const taskSpecPath = join(root, "references", "tasks", "s12-run-task-preflight.json");
+  const artifactPath = join(root, "references", "operations", "s12-continuation.json");
+  const taskSpec = runTaskTaskSpec(overrides.taskSpec);
+  await writeFile(join(root, ".fixture"), "base\n", "utf8");
+  await writeFile(taskSpecPath, `${JSON.stringify(taskSpec, null, 2)}\n`, "utf8");
+  await git(["add", ".fixture"], root);
+  if (overrides.commitTaskSpec !== false) {
+    await git(["add", "references/tasks/s12-run-task-preflight.json"], root);
+  }
+  await git(["commit", "-m", "chore: initial run task preflight fixture"], root);
+  const taskSpecCommit = await gitHead(root);
+  const candidate = runTaskCandidate(taskSpecCommit, overrides.candidate);
+  const continuation = artifact({
+    artifactId: "sequential-ceo-autopilot-s12",
+    currentSlice: {
+      id: "S12",
+      status: "ready",
+      actionType: "run_task",
+      dependencyStatus: "met",
+      prerequisites: ["S11 completed"],
+      targetFiles: taskSpec.targetFiles,
+      forbiddenChanges: taskSpec.forbiddenChanges,
+      verifyCommands: taskSpec.verifyCommands,
+    },
+    runTaskCandidate: candidate,
+    ...overrides.artifact,
+  });
+  await writeFile(artifactPath, `${JSON.stringify(continuation, null, 2)}\n`, "utf8");
+  return { root, artifactPath, taskSpecPath, taskSpec, taskSpecCommit, continuation };
 }
 
 async function writeNextArtifactFixture(
@@ -179,6 +281,26 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         }),
       ),
     ).toEqual([]);
+  });
+
+  test("accepts optional runTaskCandidate as null or closed object", () => {
+    expect(validateSequentialContinuationArtifact(artifact({ runTaskCandidate: null }))).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          runTaskCandidate: runTaskCandidate("abc123"),
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        runTaskCandidate: {
+          ...runTaskCandidate("abc123"),
+          command: "bun run samantha run-task references/tasks/s12.json",
+        },
+      }),
+    ).toContain("unknown runTaskCandidate field: command");
   });
 
   test("builds a deterministic accepted report for the current slice", () => {
@@ -773,6 +895,372 @@ describe("Sequential CEO Autopilot next-artifact linkage report", () => {
     expect(report.blockingReasons).toContain(
       "successor artifact invalid: currentSlice.actionType must be manual_decision, report_only, readiness_check, run_task, or batch_plan: auto_dispatch",
     );
+  });
+});
+
+describe("Sequential CEO Autopilot run_task preflight report", () => {
+  test("accepts a committed-clean TaskSpec candidate without execution side effects", async () => {
+    const { root, artifactPath, taskSpecPath, taskSpec, continuation } = await writeRunTaskPreflightFixture();
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("accepted");
+    expect(report.normalizedTaskSpecPath).toBe("references/tasks/s12-run-task-preflight.json");
+    expect(report.resolvedTaskSpecPath).toBe(taskSpecPath);
+    expect(report.task).toEqual({
+      id: taskSpec.id,
+      title: taskSpec.title,
+    });
+    expect(report.blockingReasons).toEqual([]);
+    expect(report.trustedStateChanges).toBe(false);
+    expect(report.pushPerformed).toBe(false);
+    expect(report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+      lifecycleMutated: false,
+      mergePerformed: false,
+      cleanupPerformed: false,
+      commitPerformed: false,
+      pushPerformed: false,
+    });
+  });
+
+  test("blocks malformed candidates through current artifact validation first", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture();
+    const malformed = {
+      ...continuation,
+      runTaskCandidate: "bun run samantha run-task references/tasks/s12-run-task-preflight.json",
+    };
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: malformed,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "current artifact must validate before runTaskCandidate is inspected",
+      "runTaskCandidate must be an object or null when present",
+    ]);
+  });
+
+  test("blocks unsafe taskSpecPath strings before reading files", async () => {
+    const { root, artifactPath, continuation, taskSpecCommit } = await writeRunTaskPreflightFixture();
+    const cases: Array<{ value: string; reason: string }> = [
+      {
+        value: "Continue with the S12 TaskSpec",
+        reason:
+          "runTaskCandidate.taskSpecPath must be a normalized repo-relative local references/tasks/*.json path: Continue with the S12 TaskSpec",
+      },
+      {
+        value: "bun run samantha run-task references/tasks/s12-run-task-preflight.json",
+        reason:
+          "runTaskCandidate.taskSpecPath must not be a command string: bun run samantha run-task references/tasks/s12-run-task-preflight.json",
+      },
+      {
+        value: "https://example.com/s12.json",
+        reason: "runTaskCandidate.taskSpecPath must not be a URL: https://example.com/s12.json",
+      },
+      {
+        value: "/tmp/s12.json",
+        reason: "runTaskCandidate.taskSpecPath must be repo-relative and stay inside repoRoot: /tmp/s12.json",
+      },
+      {
+        value: "../references/tasks/s12.json",
+        reason:
+          "runTaskCandidate.taskSpecPath must be repo-relative and stay inside repoRoot: ../references/tasks/s12.json",
+      },
+      {
+        value: "$ROOT/references/tasks/s12.json",
+        reason:
+          "runTaskCandidate.taskSpecPath must not use environment expansion: $ROOT/references/tasks/s12.json",
+      },
+      {
+        value: "references/tasks/*.json",
+        reason: "runTaskCandidate.taskSpecPath must not be glob-like: references/tasks/*.json",
+      },
+      {
+        value: "",
+        reason: "runTaskCandidate.taskSpecPath must be a non-empty string",
+      },
+    ];
+
+    for (const { value, reason } of cases) {
+      const report = await buildSequentialContinuationRunTaskPreflightReport({
+        repoRoot: root,
+        artifactPath,
+        artifact: {
+          ...continuation,
+          runTaskCandidate: runTaskCandidate(taskSpecCommit, { taskSpecPath: value }),
+        },
+      });
+
+      expect(report.status).toBe("blocked");
+      expect(report.blockingReasons).toContain(reason);
+    }
+  });
+
+  test("blocks missing, off-repo, and invalid JSON TaskSpec files", async () => {
+    const missing = await writeRunTaskPreflightFixture({
+      candidate: {
+        taskSpecPath: "references/tasks/missing.json",
+      },
+    });
+    const missingReport = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: missing.root,
+      artifactPath: missing.artifactPath,
+      artifact: missing.continuation,
+    });
+    expect(missingReport.status).toBe("blocked");
+    expect(missingReport.blockingReasons).toEqual([
+      `runTaskCandidate.taskSpecPath file not found: ${join(missing.root, "references", "tasks", "missing.json")}`,
+    ]);
+
+    const offRepo = await writeRunTaskPreflightFixture();
+    const outsideRoot = await mkdtemp(join(tmpdir(), "samantha-run-task-preflight-outside-"));
+    tmpRoots.push(outsideRoot);
+    const outsideTaskSpecPath = join(outsideRoot, "outside.json");
+    await writeFile(outsideTaskSpecPath, `${JSON.stringify(runTaskTaskSpec(), null, 2)}\n`, "utf8");
+    await rm(offRepo.taskSpecPath);
+    await symlink(outsideTaskSpecPath, offRepo.taskSpecPath);
+    await git(["add", "references/tasks/s12-run-task-preflight.json"], offRepo.root);
+    await git(["commit", "-m", "chore: replace task spec with symlink"], offRepo.root);
+    const offRepoCommit = await gitHead(offRepo.root);
+    const offRepoReport = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: offRepo.root,
+      artifactPath: offRepo.artifactPath,
+      artifact: {
+        ...offRepo.continuation,
+        runTaskCandidate: runTaskCandidate(offRepoCommit),
+      },
+    });
+    expect(offRepoReport.status).toBe("blocked");
+    expect(offRepoReport.blockingReasons).toEqual([
+      "runTaskCandidate.taskSpecPath must stay inside repoRoot after resolving symlinks: references/tasks/s12-run-task-preflight.json",
+    ]);
+
+    const invalidJson = await writeRunTaskPreflightFixture();
+    await writeFile(invalidJson.taskSpecPath, "{ invalid json\n", "utf8");
+    await git(["add", "references/tasks/s12-run-task-preflight.json"], invalidJson.root);
+    await git(["commit", "-m", "chore: make task spec invalid json"], invalidJson.root);
+    const invalidJsonCommit = await gitHead(invalidJson.root);
+    const invalidJsonReport = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: invalidJson.root,
+      artifactPath: invalidJson.artifactPath,
+      artifact: {
+        ...invalidJson.continuation,
+        runTaskCandidate: runTaskCandidate(invalidJsonCommit),
+      },
+    });
+    expect(invalidJsonReport.status).toBe("blocked");
+    expect(invalidJsonReport.blockingReasons[0]).toStartWith("runTaskCandidate.taskSpecPath JSON could not be parsed:");
+  });
+
+  test("blocks invalid TaskSpec fields before git cleanliness checks", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      taskSpec: {
+        id: "",
+      },
+    });
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toContain("TaskSpec.id must be a non-empty string");
+  });
+
+  test("blocks untracked, dirty, and stale TaskSpec commit evidence", async () => {
+    const untracked = await writeRunTaskPreflightFixture({ commitTaskSpec: false });
+    const untrackedReport = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: untracked.root,
+      artifactPath: untracked.artifactPath,
+      artifact: untracked.continuation,
+    });
+    expect(untrackedReport.status).toBe("blocked");
+    expect(untrackedReport.blockingReasons).toContain(
+      "runTaskCandidate.taskSpecPath must be tracked and committed_clean: references/tasks/s12-run-task-preflight.json",
+    );
+
+    const dirty = await writeRunTaskPreflightFixture();
+    await writeFile(
+      dirty.taskSpecPath,
+      `${JSON.stringify({ ...dirty.taskSpec, title: "Dirty TaskSpec" }, null, 2)}\n`,
+      "utf8",
+    );
+    const dirtyReport = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: dirty.root,
+      artifactPath: dirty.artifactPath,
+      artifact: dirty.continuation,
+    });
+    expect(dirtyReport.status).toBe("blocked");
+    expect(dirtyReport.blockingReasons).toContain(
+      "runTaskCandidate.taskSpecPath must be tracked and committed_clean: references/tasks/s12-run-task-preflight.json",
+    );
+
+    const stale = await writeRunTaskPreflightFixture();
+    await writeFile(
+      stale.taskSpecPath,
+      `${JSON.stringify({ ...stale.taskSpec, title: "Newer committed TaskSpec" }, null, 2)}\n`,
+      "utf8",
+    );
+    await git(["add", "references/tasks/s12-run-task-preflight.json"], stale.root);
+    await git(["commit", "-m", "chore: update task spec after evidence"], stale.root);
+    const staleReport = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: stale.root,
+      artifactPath: stale.artifactPath,
+      artifact: stale.continuation,
+    });
+    expect(staleReport.status).toBe("blocked");
+    expect(staleReport.blockingReasons).toContain(
+      `runTaskCandidate.evidence.taskSpecCommit is stale for taskSpecPath: ${stale.taskSpecCommit} references/tasks/s12-run-task-preflight.json`,
+    );
+  });
+
+  test("blocks active stop conditions before candidate inspection proceeds", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      artifact: {
+        stopConditionChecklist: artifact().stopConditionChecklist.map((check) =>
+          check.id === "dirty_or_stale_repo"
+            ? {
+                ...check,
+                active: true,
+                evidence: "target repo has dirty TaskSpec evidence risk",
+              }
+            : check,
+        ),
+      },
+    });
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "stop condition active: dirty_or_stale_repo: target repo has dirty TaskSpec evidence risk",
+    ]);
+  });
+
+  test("blocks non-run_task action types before task file inspection", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      artifact: {
+        currentSlice: {
+          ...artifact().currentSlice,
+          id: "S12",
+          status: "ready",
+          actionType: "report_only",
+          dependencyStatus: "met",
+        },
+      },
+    });
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "currentSlice.actionType must be run_task for run_task preflight: report_only",
+    ]);
+  });
+
+  test("blocks runtime, mode, worktree, and lifecycle ownership mismatches", async () => {
+    const { root, artifactPath, continuation, taskSpecCommit } = await writeRunTaskPreflightFixture({
+      candidate: {
+        requiredRuntime: "exec-json",
+        executionMode: "execute",
+        worktreePolicy: "worker_allocated",
+        lifecycleOwner: "worker",
+      },
+    });
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: {
+        ...continuation,
+        runTaskCandidate: runTaskCandidate(taskSpecCommit, {
+          requiredRuntime: "exec-json",
+          executionMode: "execute",
+          worktreePolicy: "worker_allocated",
+          lifecycleOwner: "worker",
+        }),
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "runTaskCandidate.requiredRuntime must be codex-sdk: exec-json",
+      "runTaskCandidate.executionMode must be preflight_only: execute",
+      "runTaskCandidate.worktreePolicy must be samantha_allocated_isolated: worker_allocated",
+      "runTaskCandidate.lifecycleOwner must be samantha: worker",
+    ]);
+  });
+
+  test("blocks target, forbidden, and verify handoff mismatches", async () => {
+    const { root, artifactPath, continuation, taskSpecCommit } = await writeRunTaskPreflightFixture();
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: {
+        ...continuation,
+        runTaskCandidate: runTaskCandidate(taskSpecCommit, {
+          targetFiles: ["src/cli.ts"],
+          forbiddenChanges: ["references/tasks/**"],
+          verifyCommands: ["bun test tests/cli.test.ts"],
+        }),
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "runTaskCandidate.targetFiles must match TaskSpec targetFiles",
+      "runTaskCandidate.forbiddenChanges must match TaskSpec forbiddenChanges",
+      "runTaskCandidate.verifyCommands must match TaskSpec verifyCommands",
+      "runTaskCandidate.targetFiles must match currentSlice targetFiles",
+      "runTaskCandidate.forbiddenChanges must match currentSlice forbiddenChanges",
+      "runTaskCandidate.verifyCommands must match currentSlice verifyCommands",
+    ]);
+  });
+
+  test("blocks push and side-effect requests", async () => {
+    const { root, artifactPath, continuation, taskSpecCommit } = await writeRunTaskPreflightFixture();
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: {
+        ...continuation,
+        runTaskCandidate: runTaskCandidate(taskSpecCommit, {
+          expectedSideEffects: {
+            ...runTaskCandidate(taskSpecCommit).expectedSideEffects,
+            pushPerformed: true,
+          },
+        }),
+      },
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual(["runTaskCandidate.expectedSideEffects.pushPerformed must be false"]);
+    expect(report.sideEffects.pushPerformed).toBe(false);
+    expect(report.trustedStateChanges).toBe(false);
   });
 });
 
