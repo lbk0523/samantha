@@ -1,0 +1,56 @@
+{
+  "id": "sequential-ceo-autopilot-s10-report-only-linkage-dogfood-retry",
+  "title": "Retry Sequential CEO Autopilot S10 report-only linkage dogfood with worktree-local verification",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sequential-ceo-autopilot.md",
+    "references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md",
+    "references/operations/sequential-ceo-autopilot-s10-linkage-predecessor.json",
+    "references/operations/sequential-ceo-autopilot-s10-linkage-successor.json",
+    "references/operations/sequential-ceo-autopilot-s10-linkage-invalid-predecessor.json",
+    "references/operations/sequential-ceo-autopilot-s10-dogfood-report.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md",
+    "test -f references/operations/sequential-ceo-autopilot-s10-linkage-predecessor.json",
+    "test -f references/operations/sequential-ceo-autopilot-s10-linkage-successor.json",
+    "test -f references/operations/sequential-ceo-autopilot-s10-linkage-invalid-predecessor.json",
+    "test -f references/operations/sequential-ceo-autopilot-s10-dogfood-report.md",
+    "bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s10-linkage-predecessor.json --repo-root=.",
+    "bash -lc 'if bun run samantha continuation:show --artifact=references/operations/sequential-ceo-autopilot-s10-linkage-invalid-predecessor.json --repo-root=. > /tmp/samantha-s10-invalid-linkage.json; then exit 1; else grep -F \"current artifact must validate before successor linkage is inspected\" /tmp/samantha-s10-invalid-linkage.json; fi'",
+    "grep -F 'No run_task execution' references/operations/sequential-ceo-autopilot-s10-dogfood-report.md",
+    "grep -F 'No batch_plan execution' references/operations/sequential-ceo-autopilot-s10-dogfood-report.md",
+    "grep -F 'Phase 5.5' references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md",
+    "grep -F 'Phase 5' references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md references/operations/sequential-ceo-autopilot-s10-linkage-predecessor.json references/operations/sequential-ceo-autopilot-s10-linkage-successor.json references/operations/sequential-ceo-autopilot-s10-linkage-invalid-predecessor.json references/operations/sequential-ceo-autopilot-s10-dogfood-report.md"
+  ],
+  "instructions": "This retries S10 after run 2026-05-20T03-30-18-759Z-sequential-ceo-autopilot-s10-report-only-linkage-dogfood blocked because the verify command used the main repo as repoRoot and could not see newly created worktree artifacts. Do not copy or trust artifacts from the blocked worktree. Regenerate S10 artifacts from the committed initiative and S8/S9/S9.1 contracts. Perform only S10. Do not change source code or tests. Create explicit operation artifacts under references/operations to dogfood report-only nextArtifactPath linkage: a valid predecessor artifact that points to a valid successor artifact and cites local evidence so continuation:show accepts the linkage, and a narrow invalid-predecessor artifact that demonstrates the S9.1 predecessor-validation-first behavior through continuation:show returning a blocked linkage report. Use worktree-local report commands in the dogfood report, with --repo-root=. rather than an absolute main-repo path. Create references/operations/sequential-ceo-autopilot-s10-dogfood-report.md recording the exact report-only commands, accepted/blocked outcomes, false side-effect expectations, and explicit statements: No run_task execution; No batch_plan execution; no worker dispatch; no run log creation by continuation; no worktree creation by continuation; no lifecycle mutation; no merge, cleanup, commit, or push by continuation. Create references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md as a design artifact for future run_task and batch_plan coordination. The design must preserve existing gates: run_task coordination may only route to a committed TaskSpec through existing run-task gates, SDK runtime, isolated worktree allocation by Samantha, HARNESS_RESULT, changed-file scope checks, deterministic verification, Samantha-owned accept, merge, lifecycle record, cleanup, and local commit/report; batch_plan coordination must preserve Phase 5.5 BatchPlanDraft review and Phase 5 BatchSpec preparation, preflight, disjoint write-set proof, serial-only handling, worker run evidence, ordered integration, lifecycle, and cleanup. Make non-goals explicit: no action execution in S10, no source/tests changes, no worker dispatch from continuation, no taskSpecPath or batchSpecPath dispatch, no batch execution, no merge, cleanup, commit, push, daemon/watch, remote adapter, dashboard, routine trigger, hidden memory, broad roadmap execution, policy or doctrine change, task template or agent profile change, package change, or worker-owned orchestration. Update references/initiatives/sequential-ceo-autopilot.md only to mark S10 completed, cite the dogfood report and S10 boundary design, preserve S10 as report-only/design-only evidence, and set exactly one next ready slice. Prefer S11 as a reviewed run_task coordination design or preflight-only slice through existing run-task gates; do not make S11 execute run_task yet unless the S10 design explicitly proves it is safe. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: dogfood sequential ceo linkage boundary",
+  "status": "pending"
+}
