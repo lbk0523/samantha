@@ -1,0 +1,47 @@
+{
+  "id": "sequential-ceo-autopilot-s12-1-run-task-preflight-validation-order",
+  "title": "Fix Sequential CEO Autopilot S12 run_task preflight validation order",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Perform only the S12.1 correction for the S12 runTaskPreflight implementation. Fix buildSequentialContinuationRunTaskPreflightReport so it validates the current continuation artifact before deciding whether runTaskCandidate is absent or null. Invalid predecessor artifacts must produce blocked runTaskPreflight reports, not absent reports, even when runTaskCandidate is absent, null, or malformed. Ensure the implementation does not read runTaskCandidate fields before the invalid-predecessor block. Add focused core and CLI tests for invalid predecessor artifacts with absent and null runTaskCandidate, and preserve existing accepted/blocked runTaskPreflight behavior. continuation:show should expose the blocked runTaskPreflight report and deterministic blocking reasons for these invalid-predecessor cases. Do not execute run_task, call runTaskCommand, call executeWorkerDispatch, dispatch workers, create worktrees, write run logs from continuation, mutate lifecycle state, merge, cleanup, commit, push, execute batch_plan, change S13 scope, or bypass existing gates. Update references/initiatives/sequential-ceo-autopilot.md only if needed to record the S12.1 correction as evidence while keeping exactly one next ready slice: S13. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: validate run task preflight predecessor first",
+  "status": "pending"
+}
