@@ -1,0 +1,47 @@
+{
+  "id": "sequential-ceo-autopilot-s15-single-run-task-execution",
+  "title": "Implement Sequential CEO Autopilot S15 guarded single-run_task execution",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- src/core/sequential-ceo-autopilot.ts src/cli.ts tests/sequential-ceo-autopilot.test.ts tests/cli.test.ts references/initiatives/sequential-ceo-autopilot.md"
+  ],
+  "instructions": "Implement only S15 for references/initiatives/sequential-ceo-autopilot.md. Add guarded single-run_task execution and stop immediately after run log/report evidence. Preserve existing run-task gates and SDK runtime. Do not implement S16 dogfood. Do not implement runs:accept, merge, cleanup, commit, push, batch_plan execution, multi-step loop execution, successor execution, daemon/watch behavior, remote adapters, dashboards, routine triggers, hidden memory, broad roadmap execution, or any Phase 5.5/Phase 5 batch authority. The implementation must keep preflight_only report-only: runTaskCandidate.executionMode preflight_only and accepted runTaskPreflight evidence cannot by themselves trigger execution. Add a distinct explicit execution-enabling field or command for S15, preferably a closed optional artifact object such as runTaskExecution with executionMode single_run_task, requiredRuntime codex-sdk, taskSpecPath matching the accepted runTaskPreflight candidate, Samantha-allocated isolated worktree policy, Samantha lifecycle ownership, targetFiles/forbiddenChanges/verifyCommands matching the TaskSpec and runTaskCandidate, pushAllowed false, and expectedSideEffects that allow exactly one runTaskCalled, one workersDispatched, one worktreesCreated, one runsCreated, and deterministic verification while requiring batchesExecuteCalled, lifecycleMutated, mergePerformed, cleanupPerformed, commitPerformed, pushPerformed, multiStepLoopStarted, and successorExecuted to remain false. Extend the closed continuation artifact schema only as needed for this explicit execution trigger. Validation order must be: validate the current artifact before reading execution fields; reject active stop conditions, push requirements, invalid or absent execution trigger, executionMode preflight_only, more than one execution request, non-run_task action type, unmet dependency, missing or blocked runTaskPreflight, stale or mismatched preflight evidence, taskSpecPath/runtime/worktree/lifecycle/handoff mismatches, and any request for accept, merge, cleanup, commit, push, batch_plan, multi-step loop, or successor execution. Add a core helper with executor injection so focused core tests can prove accepted execution without spawning a real worker. The accepted report must include status accepted, selectedActionType run_task, normalized/resolved taskSpecPath, run log path or equivalent executor evidence path, HARNESS_RESULT or pass evidence from the injected executor, actionAttemptCount 1, actionExecuted true, pushPerformed false, trustedStateChanges limited to run log/report evidence, and side effects showing only run-task execution/run log/worktree/worker dispatch are true while lifecycle/merge/cleanup/commit/push/batch/multi-step/successor effects are false. Blocked and rejected reports must not call the executor and must keep all side-effect flags false. Wire a narrow CLI surface such as continuation:run-task-once --artifact=<path> --repo-root=<repo> [--agent=<profile.json>] [--worktrees-dir=<dir>] [--runs-dir=<dir>] [--codex-bin=<path>] that validates the artifact, reuses buildSequentialContinuationRunTaskPreflightReport, calls runTaskCommand exactly once with runtimeKind codex-sdk only after all S15 guards pass, prints deterministic JSON, and does not update the artifact. Do not make continuation:loop execute run_task. Add parser/main CLI tests for the new command, blocked validation paths, no artifact mutation, and no accept/merge/cleanup/commit/push side effects; avoid real Codex worker execution in tests by using core executor-injection tests for accepted execution and CLI tests for parser/blocking behavior unless a deterministic local stub already exists. Add focused core tests for accepted single-run_task execution, rejection of preflight_only as execution trigger, missing execution trigger, blocked runTaskPreflight, runtime/mode/handoff mismatches, active stop conditions, push or lifecycle side-effect requests, executor failure, exactly-one executor call, false push, and immediate stop after run log/report evidence. Update references/initiatives/sequential-ceo-autopilot.md to mark S15 completed, cite the S15 implementation evidence, and set exactly one next ready slice: S16 dogfood of S15 against one small committed-clean TaskSpec. Keep S17-S24 pending. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add guarded sequential ceo run task execution",
+  "status": "pending"
+}
