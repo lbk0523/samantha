@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s21-accept-run-once",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-20T13:35:00.000Z",
+  "updatedAt": "2026-05-20T13:35:00.000Z",
+  "currentSlice": {
+    "id": "S21",
+    "status": "ready",
+    "actionType": "report_only",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S20 guarded single-run surface is complete."
+    ],
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s21-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s21-worker-output.md",
+      "grep -F 'S21 lifecycle worker output' references/operations/sequential-ceo-autopilot-s21-worker-output.md",
+      "grep -F 'runs_accept dogfood only' references/operations/sequential-ceo-autopilot-s21-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s21-worker-output.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S21 follows the reviewed S20 guard and leaves S22 pending."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S21 uses one explicit S20 command result and then stops."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "The cited run log carries matching target, forbidden, and verify fields."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "The target repo starts clean at the cited worker base."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "The cited run log includes HARNESS_RESULT status pass."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "The cited run log reports no scope violations."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed-evidence rework cycle is spent in S21."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S21 does not require broader routine authority."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S21 records deterministic command output before moving to S22."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "run_log",
+      "path": "runs/2026-05-20T13-32-23-170Z-sequential-ceo-autopilot-s21-lifecycle-worker.json",
+      "summary": "S21 worker run log includes pass, scope, verify, base, and candidate evidence.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "blocked_report",
+    "value": "Stop after S21 command evidence; S22 remains pending."
+  },
+  "runAcceptCandidate": {
+    "runLogPath": "runs/2026-05-20T13-32-23-170Z-sequential-ceo-autopilot-s21-lifecycle-worker.json",
+    "expectedRunId": "2026-05-20T13-32-23-170Z-sequential-ceo-autopilot-s21-lifecycle-worker",
+    "expectedTaskId": "sequential-ceo-autopilot-s21-lifecycle-worker",
+    "expectedCommit": "ee9d851741d834aac6df6e20b0489b6dbc876484",
+    "expectedBaseCommit": "073838d055650e47d0d281ecf73231d0ce035a09",
+    "targetBranch": "main",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "accept_preflight_only",
+    "lifecycleOwner": "samantha",
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runsAcceptCalled": false,
+      "mergeGateRecorded": false,
+      "mergePerformed": false,
+      "lifecycleMutated": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "batchesExecuteCalled": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  },
+  "runAcceptExecution": {
+    "runLogPath": "runs/2026-05-20T13-32-23-170Z-sequential-ceo-autopilot-s21-lifecycle-worker.json",
+    "expectedRunId": "2026-05-20T13-32-23-170Z-sequential-ceo-autopilot-s21-lifecycle-worker",
+    "expectedTaskId": "sequential-ceo-autopilot-s21-lifecycle-worker",
+    "expectedCommit": "ee9d851741d834aac6df6e20b0489b6dbc876484",
+    "expectedBaseCommit": "073838d055650e47d0d281ecf73231d0ce035a09",
+    "targetBranch": "main",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_accept",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s21-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s21-worker-output.md",
+      "grep -F 'S21 lifecycle worker output' references/operations/sequential-ceo-autopilot-s21-worker-output.md",
+      "grep -F 'runs_accept dogfood only' references/operations/sequential-ceo-autopilot-s21-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s21-worker-output.md"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runsAcceptCalled": true,
+      "mergeGateRecorded": true,
+      "mergePerformed": true,
+      "lifecycleMutated": true,
+      "cleanupPerformed": true,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "batchesExecuteCalled": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
