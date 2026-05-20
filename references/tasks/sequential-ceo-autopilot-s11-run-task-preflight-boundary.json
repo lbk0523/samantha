@@ -1,0 +1,51 @@
+{
+  "id": "sequential-ceo-autopilot-s11-run-task-preflight-boundary",
+  "title": "Design Sequential CEO Autopilot S11 run_task preflight boundary",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/sequential-ceo-autopilot.md",
+    "references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "test -f references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md",
+    "grep -F 'preflight-only' references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "grep -F 'runTaskCandidate' references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "grep -F 'requiredRuntime' references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "grep -F 'codex-sdk' references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md",
+    "grep -F 'S12' references/initiatives/sequential-ceo-autopilot.md",
+    "grep -F 'No run_task execution' references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md",
+    "grep -F 'No batch_plan execution' references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/sequential-ceo-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/sequential-ceo-autopilot.md references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md"
+  ],
+  "instructions": "Perform only S11 for references/initiatives/sequential-ceo-autopilot.md. Keep S11 design-only and report-only. Do not change source code, tests, task templates, agent profiles, package files, policy, doctrine, Phase 5.5 or Phase 5 batch artifacts, run logs, or worktrees. Do not execute run_task or batch_plan from the continuation product surface; do not dispatch workers recursively, create worktrees from the continuation path, merge, cleanup, commit, push, or bypass existing run-task gates. Write references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md defining reviewed run_task coordination as a preflight-only report path through existing run-task gates. Decide the continuation artifact fields, validation order, stop conditions, evidence requirements, non-goals, and follow-up slices before any source implementation. Prefer a closed runTaskCandidate object instead of scattered top-level authority fields. The boundary must require a committed TaskSpec path, requiredRuntime codex-sdk, executionMode preflight_only, Samantha-allocated isolated worktree ownership, Samantha lifecycle ownership, target-file and forbidden-change handoff, verify-command handoff, and deterministic report-only output with side effects false. It must reject prose or command-string task successors, missing files, off-repo paths, uncommitted or dirty TaskSpecs, stale evidence, active stop conditions, push requirements, and any path that would allocate worktrees or dispatch workers during preflight. Write references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md citing the S10 dogfood report and S10 action coordination boundary, recording why S11 is the last design/report-only boundary before S12 implementation, and explicitly stating: No run_task execution; No batch_plan execution; no worker dispatch by continuation; no worktree creation by continuation; no lifecycle mutation; no merge, cleanup, commit, push, daemon/watch, remote adapter, dashboard, routine trigger, hidden memory, or broad roadmap execution by continuation. Update references/initiatives/sequential-ceo-autopilot.md to mark S11 completed, cite the S11 boundary and report artifacts, preserve S11 as design-only/report-only evidence, and set exactly one next ready slice: S12 deterministic run_task preflight report implementation without executing run_task. Do not mark S12 completed or implement S12. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: design sequential ceo run task preflight",
+  "status": "pending"
+}
