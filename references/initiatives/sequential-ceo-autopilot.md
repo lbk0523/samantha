@@ -199,11 +199,12 @@ Stop before continuing when any of these appear:
 | S8 | completed | Design the next deterministic artifact-link and action-execution boundary before broad routine use. Keep this at CEO/product-boundary level: decide how next artifacts are named, how reviewed `run_task`/`batch_plan` support is authorized, and what stop conditions remain mandatory. | S7. | Created `references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md`; expected verification: required headings present, S9 follow-up named, readiness check passes, and scoped diff check passes. | None. |
 | S9 | completed | Add deterministic validation and report-only visibility for explicit next-artifact linkage before enabling writer action execution. Prefer a narrow `nextArtifactPath` validator/report-only slice that rejects prose or command-string successors, missing files, off-repo paths, cycles, stale evidence, active stop conditions, and push requirements. Do not execute `run_task` or `batch_plan`. | S8. | Passed in S9 worker: focused core tests for accepted local `nextArtifactPath` and rejection of prose, command strings, missing files, off-repo paths, path traversal, cycles, stale evidence, active stop conditions, push requirements, mismatched expected slice ids, and invalid successor artifacts; CLI tests prove `continuation:show` reports next-artifact accepted/blocked status and reasons without creating runs or worktrees; typecheck, readiness check, and scoped diff check passed. | None. |
 | S10 | completed | Dogfood S9 report-only next-artifact linkage and design the reviewed action coordination boundary for future `run_task` / `batch_plan` support. Keep this report-only or design-only: no worker dispatch, no batch execution, no merge, no cleanup, no commit/push automation. | S9. | Passed: created `references/operations/sequential-ceo-autopilot-s10-dogfood-report.md` and `references/initiatives/sequential-ceo-autopilot-s10-action-coordination-boundary.md`; `continuation:show --repo-root=.` accepted the valid predecessor/successor linkage and blocked the invalid predecessor before successor inspection; readiness check and scoped diff check pass. | None. |
-| S11 | ready | Design reviewed `run_task` coordination or a preflight-only report path through existing run-task gates. Do not execute `run_task`; prove only committed TaskSpec routing, SDK runtime requirement, isolated worktree ownership by Samantha, scope/verify handoff, and stop behavior. | S10. | Design or preflight-only evidence cites S10 dogfood and preserves existing run-task gates without worker dispatch or lifecycle mutation; readiness check and scoped diff check pass. | `sam p: Design S11 run_task coordination or preflight-only reporting for references/initiatives/sequential-ceo-autopilot.md. Do not execute run_task, dispatch workers, create worktrees, merge, cleanup, commit, push, or bypass existing run-task gates.` |
+| S11 | completed | Design reviewed `run_task` coordination or a preflight-only report path through existing run-task gates. Do not execute `run_task`; prove only committed TaskSpec routing, SDK runtime requirement, isolated worktree ownership by Samantha, scope/verify handoff, and stop behavior. | S10. | Created `references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md` and `references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md`; S11 remains design-only/report-only evidence and preserves existing run-task gates without worker dispatch or lifecycle mutation. | None. |
+| S12 | ready | Implement deterministic `run_task` preflight report support for the closed `runTaskCandidate` object without executing `run_task`. Validate committed TaskSpec paths, `requiredRuntime: codex-sdk`, `executionMode: preflight_only`, Samantha-owned worktree/lifecycle requirements, target-file and forbidden-change handoff, verify-command handoff, stale evidence, stop conditions, push rejection, and false side-effect flags. | S11. | Focused tests and CLI/report evidence show accepted and blocked preflight reports without calling `run_task`, dispatching workers, creating worktrees, mutating lifecycle, merging, cleaning up, committing, or pushing; readiness check and scoped diff check pass. | `sam c: Implement S12 deterministic run_task preflight report support for references/initiatives/sequential-ceo-autopilot.md. Do not execute run_task, dispatch workers, create worktrees, merge, cleanup, commit, push, or bypass existing run-task gates.` |
 
 ## Current Next Slice
 
-S11 is ready.
+S12 is ready.
 
 S6 added bounded continuation through
 `continuation:loop --artifact=<path> --max-steps=<n>`. The core loop builds on
@@ -229,10 +230,11 @@ deterministic next-artifact linkage plus reviewed `run_task`/`batch_plan`
 coordination. S9 implemented only validator/report-only support for explicit
 `nextArtifactPath` linkage before any writer action execution is enabled. S10
 dogfooded that report-only linkage with worktree-local `--repo-root=.` commands
-and recorded the action coordination boundary. The next safe step is S11: a
-reviewed `run_task` coordination design or preflight-only report path through
-existing run-task gates. S11 should close the remaining design question instead
-of opening another general planning track. Do not execute `run_task` yet.
+and recorded the action coordination boundary. S11 closed the remaining
+`run_task` preflight design question as design-only/report-only evidence. The
+next safe step is exactly one ready slice: S12 deterministic `run_task`
+preflight report implementation for a closed `runTaskCandidate` object, without
+executing `run_task`.
 
 ## S7 Evidence And Decision
 
@@ -347,6 +349,31 @@ of opening another general planning track. Do not execute `run_task` yet.
   integration, lifecycle, and cleanup.
 - Next slice: S11, reviewed `run_task` coordination design or preflight-only
   reporting through existing run-task gates. Do not execute `run_task` yet.
+
+## S11 Evidence And Decision
+
+- Run-task preflight boundary:
+  `references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md`
+- Preflight report:
+  `references/operations/sequential-ceo-autopilot-s11-run-task-preflight-report.md`
+- Decision: S11 remains design-only and report-only evidence. It defines a
+  closed `runTaskCandidate` object for future deterministic preflight reports
+  instead of scattered top-level authority fields.
+- Decision: future preflight reports must require a committed TaskSpec path,
+  `requiredRuntime: codex-sdk`, `executionMode: preflight_only`,
+  Samantha-allocated isolated worktree ownership, Samantha lifecycle ownership,
+  target-file and forbidden-change handoff, verify-command handoff,
+  deterministic report-only output, and false side-effect flags.
+- Decision: future preflight reports must reject prose or command-string task
+  successors, missing files, off-repo paths, uncommitted or dirty TaskSpecs,
+  stale evidence, active stop conditions, push requirements, and any path that
+  would allocate worktrees or dispatch workers during preflight.
+- Decision: S11 does not run `run_task`, run `batch_plan`, dispatch workers,
+  create worktrees, mutate lifecycle state, merge, cleanup, commit, push,
+  start daemon/watch behavior, add remote adapters, add dashboards, trigger
+  routines, add hidden memory, or execute broad roadmap work.
+- Next slice: S12, deterministic `run_task` preflight report implementation
+  without executing `run_task`.
 
 ## End-of-Session Update Rule
 
