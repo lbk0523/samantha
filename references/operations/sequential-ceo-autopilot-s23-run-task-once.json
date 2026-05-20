@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "sequential-ceo-autopilot-s23-run-task-once",
+  "initiativePath": "references/initiatives/sequential-ceo-autopilot.md",
+  "createdAt": "2026-05-21T00:00:00.000Z",
+  "updatedAt": "2026-05-21T00:00:00.000Z",
+  "currentSlice": {
+    "id": "S23",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S22 post-accept status surface is complete."
+    ],
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "grep -F 'S23 end-to-end worker output' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "grep -F 'end_to_end_continuation dogfood only' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S23 follows the fixed S15-S24 roadmap and leaves S24 as the decision slice."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S23 uses only the reviewed S15, S20, and S22 command surfaces."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S23 copies the target, forbidden, and verify handoff fields from the tracked TaskSpec."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "S23 cites the current TaskSpec revision before the guarded run."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "The guarded run report must cite HARNESS_RESULT status pass."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "The TaskSpec allows only one operation markdown output file."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed-evidence rework cycle is spent before S23 dogfood execution."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S23 does not require broader routine authority."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S23 will cite structured command reports and the generated run log."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "continuation_report",
+      "path": "references/initiatives/sequential-ceo-autopilot.md",
+      "summary": "S22 is complete and S23 is ready for one end-to-end dogfood cycle.",
+      "result": "completed"
+    },
+    {
+      "kind": "continuation_report",
+      "path": "references/tasks/sequential-ceo-autopilot-s23-cycle-worker.json",
+      "summary": "S23 TaskSpec is tracked and scoped to one operation output file.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "blocked_report",
+    "value": "Stop after the guarded run_task report, then continue through the reviewed status commands."
+  },
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/sequential-ceo-autopilot-s23-cycle-worker.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "grep -F 'S23 end-to-end worker output' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "grep -F 'end_to_end_continuation dogfood only' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+    ],
+    "evidence": {
+      "taskSpecCommit": "de34c6c4a00f54c30040c7225353e1587c96f3d5",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "references/initiatives/sequential-ceo-autopilot.md"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  },
+  "runTaskExecution": {
+    "taskSpecPath": "references/tasks/sequential-ceo-autopilot-s23-cycle-worker.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_task",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "src/**",
+      "tests/**",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/initiatives/**",
+      "references/lessons/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "grep -F 'S23 end-to-end worker output' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "grep -F 'end_to_end_continuation dogfood only' references/operations/sequential-ceo-autopilot-s23-worker-output.md",
+      "git diff --check HEAD -- references/operations/sequential-ceo-autopilot-s23-worker-output.md"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runTaskCalled": true,
+      "workersDispatched": true,
+      "worktreesCreated": true,
+      "runsCreated": true,
+      "deterministicVerification": true,
+      "batchesExecuteCalled": false,
+      "acceptPerformed": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
