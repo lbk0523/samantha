@@ -6,7 +6,7 @@ Classify AI-collaboration preferences into reviewable Samantha artifacts without
 turning taste, stale constraints, or external advice into hidden memory,
 runtime config automation, or broad doctrine.
 
-This S2 playbook is a manual reviewable procedure. It does not implement
+This playbook is a manual reviewable procedure. It does not implement
 configuration, enforcement, promotion, pruning, resolver behavior, or trusted
 state.
 
@@ -55,6 +55,30 @@ trusted state behavior.
 Workers must not use this playbook to dispatch work, create worktrees, merge,
 commit, push, clean up lifecycle state, or override Samantha-owned verification
 and lifecycle boundaries.
+
+## Verification Ladder
+
+S3 is manual guidance only. It does not create or modify policy, tests, task
+templates, agent profiles, CLI/runtime code, source code, run logs, lifecycle
+behavior, worker dispatch, trusted state behavior, or report-only trust gates.
+
+For insight-derived artifact changes, use the lowest rung that verifies the
+changed surface. Stronger rungs are required when a change affects executable
+behavior, authority, lifecycle, dispatch, merge, scope, or trusted-state
+accept/reject behavior.
+
+Report-only/LLM review is advice-only evidence and deterministic checks own trust.
+Report-only review may recommend a next action or classify risk, but it must
+not make worker output trusted, accept runs, merge, clean up, change lifecycle
+state, or replace deterministic verification.
+
+| Rung | Sufficient when | Required when | Concise example |
+| --- | --- | --- | --- |
+| Docs check | The change is markdown-only guidance, an initiative brief update, or playbook wording that does not grant authority or change behavior. | Every insight-derived artifact change needs at least a docs check. | `git diff --check` plus grep for the new playbook terms after wording-only guidance. |
+| Report-only review | The question is judgment-heavy and advice-only: doctrine fit, authority boundary, product boundary, stale constraint, or artifact placement. | Required before promoting ambiguous guidance that could be mistaken for authority or product direction. | Ask a report-only reviewer whether old dashboard/daemon/remote non-goals are stale evidence or current doctrine. |
+| Focused tests | The change touches executable source, CLI behavior, parsers, template/profile behavior, or deterministic transforms. | Required before trusting any executable behavior affected by an insight-derived change. | Add a parser test proving a new artifact marker is recognized without changing unrelated CLI output. |
+| Policy tests | The change affects dispatch, scope, merge, lifecycle, authority, trusted-state accept/reject behavior, or any new trust gate. | Required for any policy or trust-boundary change, even if the behavior seems small. | Add accept/reject cases proving workers cannot mark report-only output as trusted run evidence. |
+| Later run evidence | The question is whether promoted guidance helps or hurts repeated real work after review. | Required before treating a reviewed guidance pattern as proven durable across repeated use. | Compare later Samantha run summaries to see whether the correction-loop guidance reduced stale-constraint drift. |
 
 ## Verification Expectations
 

@@ -99,18 +99,25 @@ has changed.
 
 ### S3: Verification Ladder
 
-- Status: ready
+- Status: completed
 - Objective: Define a verification ladder for insight-derived artifact changes:
   docs check, report-only review, focused tests, policy tests, and later run
   evidence.
 - Dependency: S2 completed.
 - Verification: Markdown diff check plus explicit examples showing when each
   rung is sufficient and when stronger verification is required.
+- Verification note: Added an S3 manual verification ladder for
+  insight-derived artifact changes, including docs check, report-only review,
+  focused tests, policy tests, and later run evidence. The ladder preserves
+  report-only review as advice-only evidence and deterministic checks as the
+  owner of trust. No policy, tests, task templates, agent profiles, source
+  code, run logs, lifecycle, worker dispatch, trusted state, or report-only
+  trust gate changes were added.
 - Next prompt: `sam p: Continue compound-loop-hygiene with S3. Draft a verification ladder for insight-derived artifact changes, preserving Samantha-owned deterministic gates.`
 
 ### S4: Correction Loop
 
-- Status: pending
+- Status: ready
 - Objective: Shape BK corrections into reviewable candidates using explicit
   evidence without transcript hunting, automatic promotion, or direct durable
   artifact edits during mining.
@@ -142,14 +149,15 @@ has changed.
 
 ## Current Next Slice
 
-S3: Verification Ladder is the only ready next slice.
+S4: Correction Loop is the only ready next slice.
 
 Start by reading this brief, the S1 context route in
 `references/context-resolver-index.md`, and the S2 playbook in
-`references/playbooks/compound-loop-hygiene.md`. The slice should define the
-verification ladder for insight-derived artifact changes. Stop before hidden
-memory, runtime automation, policy changes, task template changes, worker
-dispatch changes, lifecycle changes, or trusted state changes.
+`references/playbooks/compound-loop-hygiene.md`. The slice should use explicit
+evidence to shape BK corrections into reviewable candidates without transcript
+hunting, automatic promotion, or direct durable artifact edits during mining.
+Stop before hidden memory, runtime automation, policy changes, task template
+changes, worker dispatch changes, lifecycle changes, or trusted state changes.
 
 ## End-of-Session Update Rule
 
