@@ -1,0 +1,43 @@
+{
+  "id": "clarify-brainstorm-execution-authorization",
+  "title": "Clarify brainstorm decision acceptance versus execution authorization",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "OPERATING_GUIDE_KR.md",
+    "OPERATING_GUIDE.md",
+    "references/playbooks/samantha-brainstorming.md",
+    "references/playbooks/web-design-guardrails.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "README.md",
+    "references/agent-profiles/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "rg \"Brainstorm decision acceptance|Execution authorization|accepted decision|execution authorization\" OPERATING_GUIDE.md references/playbooks/samantha-brainstorming.md",
+    "rg \"Brainstorm 결정|실행 승인|accepted decision|execution authorization|Option A|분리만 하자|구현해|수정해|작업 시작해|파일 바꿔|실행해\" OPERATING_GUIDE_KR.md references/playbooks/samantha-brainstorming.md",
+    "rg \"web-design-guardrails|전에 정한 규약|웹 디자인 규약|guardrail|DESIGN.md\" OPERATING_GUIDE_KR.md OPERATING_GUIDE.md references/playbooks/web-design-guardrails.md",
+    "bash -lc '! rg \"malang|말랑\" OPERATING_GUIDE_KR.md OPERATING_GUIDE.md references/playbooks/samantha-brainstorming.md references/playbooks/web-design-guardrails.md'",
+    "git diff --check HEAD -- OPERATING_GUIDE_KR.md OPERATING_GUIDE.md references/playbooks/samantha-brainstorming.md references/playbooks/web-design-guardrails.md"
+  ],
+  "instructions": "Update only the declared markdown files to clarify Samantha operating protocol after brainstorm sticky follow-ups. Add Korean-first rules in OPERATING_GUIDE_KR.md and equivalent English rules in OPERATING_GUIDE.md that separate brainstorm accepted decisions from execution authorization. State that after sam b: or Samantha brainstorm:, prefix-free phrases such as Option A로 진행하자, 이걸로 하자, 좋아, 분리만 하자, and 그 방향으로 가자 are decision acceptance by default, not authorization to edit files, run commands, create task specs, dispatch workers, create prototype routes, or mutate target repos. State that execution requires an explicit execution phrase such as 구현해, 수정해, 작업 시작해, 파일 바꿔, 실행해, 이 계획대로 패치해, or explicit sam c:. State that ambiguous follow-ups should record the decision, stop, and recommend the next prompt. Update references/playbooks/samantha-brainstorming.md so Brainstorm Brief closure distinguishes accepted decision from execution authorization and uses Execution authorization: none when absent. Update references/playbooks/web-design-guardrails.md so Samantha consults the canonical shared web-design-guardrails skill when BK mentions 전에 정한 규약, 웹 디자인 규약, frontend design 규약, skill, guardrail, or guardrails before frontend design implementation. Make clear that target repo DESIGN.md is project-specific context and does not replace the shared skill when both are relevant. Do not duplicate the full guardrail text. Do not mention malang, App-in-Toss, or any project-specific brand colors, component names, store-release details, or platform constraints. Do not change source code, tests, task specs, task templates, agent profiles, run logs, worktrees, package files, hidden memory, remote adapters, daemon/watch behavior, dashboards, routine triggers, or lifecycle authority. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: clarify brainstorm execution authorization",
+  "status": "pending"
+}
