@@ -117,18 +117,26 @@ has changed.
 
 ### S4: Correction Loop
 
-- Status: ready
+- Status: completed
 - Objective: Shape BK corrections into reviewable candidates using explicit
   evidence without transcript hunting, automatic promotion, or direct durable
   artifact edits during mining.
 - Dependency: S3 completed.
 - Verification: Markdown diff check plus a sample correction candidate for the
   dashboard/daemon/remote-control proof case.
+- Verification note: Added the S4 Correction Loop section to the compound-loop
+  hygiene playbook with the explicit correction evidence -> correction
+  candidate -> BK review -> promoted artifact only if separately approved ->
+  later run evidence flow. Included an illustrative
+  dashboard/daemon/remote-control proof case only; no candidate artifact,
+  hidden memory, automatic transcript scanning, automatic promotion, source,
+  tests, policy, templates, profiles, run logs, worktrees, lifecycle, or
+  runtime behavior was added.
 - Next prompt: `sam p: Continue compound-loop-hygiene with S4. Use the correction mining playbook to model the proof case as reviewable evidence, not promotion.`
 
 ### S5: Drift Review
 
-- Status: pending
+- Status: ready
 - Objective: Define how Samantha checks future plans or task specs for stale
   constraint drift before dispatch.
 - Dependency: S4 completed.
@@ -149,15 +157,16 @@ has changed.
 
 ## Current Next Slice
 
-S4: Correction Loop is the only ready next slice.
+S5: Drift Review is the only ready next slice.
 
 Start by reading this brief, the S1 context route in
 `references/context-resolver-index.md`, and the S2 playbook in
-`references/playbooks/compound-loop-hygiene.md`. The slice should use explicit
-evidence to shape BK corrections into reviewable candidates without transcript
-hunting, automatic promotion, or direct durable artifact edits during mining.
-Stop before hidden memory, runtime automation, policy changes, task template
-changes, worker dispatch changes, lifecycle changes, or trusted state changes.
+`references/playbooks/compound-loop-hygiene.md`. The slice should define a
+report-only stale-constraint drift review procedure and apply it to the
+dashboard/daemon/remote-control proof case as candidate-surface doctrine, not a
+hard rejection. Stop before hidden memory, runtime automation, policy changes,
+task template changes, worker dispatch changes, lifecycle changes, or trusted
+state changes.
 
 ## End-of-Session Update Rule
 

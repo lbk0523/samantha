@@ -80,6 +80,63 @@ state, or replace deterministic verification.
 | Policy tests | The change affects dispatch, scope, merge, lifecycle, authority, trusted-state accept/reject behavior, or any new trust gate. | Required for any policy or trust-boundary change, even if the behavior seems small. | Add accept/reject cases proving workers cannot mark report-only output as trusted run evidence. |
 | Later run evidence | The question is whether promoted guidance helps or hurts repeated real work after review. | Required before treating a reviewed guidance pattern as proven durable across repeated use. | Compare later Samantha run summaries to see whether the correction-loop guidance reduced stale-constraint drift. |
 
+## Correction Loop
+
+S4 is manual guidance for shaping BK corrections into reviewable candidates. It
+uses the correction transcript mining boundary without turning mining into
+promotion, enforcement, or durable artifact mutation.
+
+The preserved loop is:
+
+```text
+explicit correction evidence
+-> correction candidate
+-> BK review
+-> promoted artifact only if separately approved
+-> later run evidence
+```
+
+Boundary language for this loop is strict: no transcript hunting, no automatic
+transcript scanning, no automatic promotion, no hidden memory, and no direct
+durable artifact edits during mining. Evidence must be explicit and
+reviewable. Correction mining creates candidates only; promotion requires
+separate BK review; durable guidance edits are not part of mining unless
+separately authorized. A candidate becomes durable guidance only through that
+promotion action, and later run evidence is needed before treating the promoted
+guidance as proven.
+
+Correction candidates should preserve the smallest auditable evidence that
+survives without private context. Older slice-local constraints may be cited as
+evidence to review, but they do not become global authority unless a current
+canonical artifact separately promotes them.
+
+### Sample Correction Candidate: dashboard/daemon/remote-control proof case
+
+This sample is illustrative only. It is not a created candidate artifact and
+does not authorize edits under `references/lessons/**` or any other path.
+
+- Source type: `session_excerpt`
+- Source reference: BK's explicit correction in the compound-loop hygiene
+  source discussion, as summarized in this initiative brief.
+- Excerpt or evidence: BK corrected the stale reading that dashboard,
+  daemon/watch, and remote/control-plane surfaces were legacy prohibitions.
+- Correction signal: Under current v1 doctrine, dashboard, daemon/watch, and
+  remote/control-plane are v1 candidate surfaces, not automatic scope and not
+  automatic rejections.
+- Classification: `routing-intent`
+- Affected layer: compound-loop hygiene playbook or a future reviewed stale
+  constraint drift review artifact.
+- Proposed change: Treat older slice-local non-goal language about
+  dashboard/daemon/remote-control as evidence to review, not global authority.
+- Why it matters: Reusing stale non-goal language as a hard rejection would
+  block valid v1 candidate surfaces and distort future planning.
+- Promotion risk: Promoting the correction too broadly could be misread as
+  authorization to implement dashboard, daemon/watch, or remote/control-plane
+  surfaces without a separate product slice and verification gates.
+- Review question: Should this proof case be promoted into a durable stale
+  constraint drift review checklist after BK review?
+- Status: `candidate`
+
 ## Verification Expectations
 
 Verification for S2 is markdown-surface verification:
