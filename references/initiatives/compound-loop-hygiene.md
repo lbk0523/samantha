@@ -1,0 +1,159 @@
+# Compound Loop Hygiene Initiative Brief
+
+## Goal
+
+Absorb external AI collaboration insights into Samantha through explicit,
+reviewable roadmap artifacts while preventing stale constraint drift.
+
+Stale constraint drift means a previously valid or slice-local constraint
+reappears later as if it were current global doctrine after canonical direction
+has changed.
+
+## Source
+
+- BK's `sam b` / `sam p` / `sam c` discussion about
+  `https://eugeneyan.com/writing/working-with-ai/`.
+- The same session's correction that dashboard, daemon/watch, and
+  remote-control surfaces are v1 candidate surfaces, not global rejections.
+- Current canonical direction in `NORTH_STAR.md`, `ARCHITECTURE.md`,
+  `ROADMAP.md`, `OPERATING_GUIDE_KR.md`, and the continuity, correction mining,
+  drift review, and context resolver playbooks.
+
+## Accepted Decisions
+
+- Samantha should intake durable AI-collaboration insights only through
+  reviewable artifacts: direction docs, playbooks, task templates, agent
+  profiles, policy checks with tests, run summaries, lifecycle records, and
+  initiative briefs.
+- Dashboard, daemon/watch, and remote/control-plane surfaces are not legacy
+  prohibitions in Samantha v1. They are v1 candidate surfaces, not automatic
+  scope and not automatic rejections.
+- Older slice-local non-goal language about dashboard, daemon/watch, or remote
+  control is evidence to review, not global authority.
+- The proof case for this initiative is: under current v1 doctrine,
+  dashboard/daemon/remote-control must be classified as candidate surfaces,
+  while older slice-local non-goal language must be treated as review evidence
+  instead of a hard constraint.
+- The initiative exists to improve the compound loop between external insight,
+  BK correction, explicit artifacts, verification, and later pruning. It does
+  not create runtime surfaces or hidden learning.
+
+## Non-Goals
+
+- Do not implement dashboard, daemon/watch, remote-control, Telegram, remote
+  adapters, routine triggers, CEO-office memory, budget governance, or
+  multi-project orchestration.
+- Do not add hidden memory, automatic transcript scanning, automatic promotion,
+  automatic pruning, or automatic conflict resolution.
+- Do not change policy, task templates, agent profiles, CLI/runtime automation,
+  worker dispatch, writer concurrency, lifecycle behavior, or trusted state
+  rules.
+- Do not treat this brief as authority to create task specs, dispatch workers,
+  mutate run lifecycle, commit, push, clean worktrees, or accept unverified
+  state changes.
+
+## Invariants
+
+- No hidden memory.
+- No worker-owned orchestration.
+- No trusted state change without deterministic verification.
+- No worker merge, push, cleanup, policy, doctrine, lifecycle, or promotion
+  authority.
+- Candidate surfaces need separate reviewed product slices with explicit
+  authority, verification, evidence, and lifecycle gates before implementation.
+- Slice-local constraints remain local unless promoted through current
+  canonical artifacts.
+- Reviewable procedures guide judgment; deterministic checks own trust.
+
+## Slice Queue
+
+### S1: Context Infrastructure
+
+- Status: ready
+- Objective: Define the minimum reviewable context route for external AI
+  collaboration insights so future sessions know what to read before proposing
+  artifact changes.
+- Dependency: This brief.
+- Verification: Markdown diff check plus explicit confirmation that no resolver
+  code, automatic loading, transcript scanning, or runtime behavior was added.
+- Next prompt: `sam p: Read references/initiatives/compound-loop-hygiene.md and plan S1 Context Infrastructure only. Produce the smallest artifact-level route for AI-collaboration insight intake. Do not implement runtime resolver code or edit task templates/policy.`
+
+### S2: Taste And Config As Reviewable Configuration
+
+- Status: pending
+- Objective: Decide which AI-collaboration preferences belong in reviewable
+  configuration or playbook guidance instead of hidden memory or broad doctrine.
+- Dependency: S1 completed.
+- Verification: Markdown diff check plus a table separating advisory taste,
+  default configuration candidates, and hard gates.
+- Next prompt: `sam p: Continue compound-loop-hygiene with S2. Classify taste/config insights as advisory guidance, reviewable configuration candidates, or rejected scope. Do not add hidden memory or runtime config automation.`
+
+### S3: Verification Ladder
+
+- Status: pending
+- Objective: Define a verification ladder for insight-derived artifact changes:
+  docs check, report-only review, focused tests, policy tests, and later run
+  evidence.
+- Dependency: S2 completed.
+- Verification: Markdown diff check plus explicit examples showing when each
+  rung is sufficient and when stronger verification is required.
+- Next prompt: `sam p: Continue compound-loop-hygiene with S3. Draft a verification ladder for insight-derived artifact changes, preserving Samantha-owned deterministic gates.`
+
+### S4: Correction Loop
+
+- Status: pending
+- Objective: Shape BK corrections into reviewable candidates using explicit
+  evidence without transcript hunting, automatic promotion, or direct durable
+  artifact edits during mining.
+- Dependency: S3 completed.
+- Verification: Markdown diff check plus a sample correction candidate for the
+  dashboard/daemon/remote-control proof case.
+- Next prompt: `sam p: Continue compound-loop-hygiene with S4. Use the correction mining playbook to model the proof case as reviewable evidence, not promotion.`
+
+### S5: Drift Review
+
+- Status: pending
+- Objective: Define how Samantha checks future plans or task specs for stale
+  constraint drift before dispatch.
+- Dependency: S4 completed.
+- Verification: Markdown diff check plus a report-only drift-review example
+  classifying the proof case as candidate-surface doctrine, not a hard
+  rejection.
+- Next prompt: `sam p: Continue compound-loop-hygiene with S5. Define a report-only stale-constraint drift review procedure and apply it to the proof case.`
+
+### S6: Pruning And Conflict Review
+
+- Status: pending
+- Objective: Decide when accumulated insight artifacts should be merged,
+  narrowed, rejected, or moved into a separate initiative boundary.
+- Dependency: S5 completed.
+- Verification: Markdown diff check plus a closure checklist that distinguishes
+  completion evidence from authority expansion.
+- Next prompt: `sam p: Continue compound-loop-hygiene with S6. Plan pruning/conflict review for accumulated insight artifacts and define the closure decision for this initiative.`
+
+## Current Next Slice
+
+S1: Context Infrastructure is the only ready next slice.
+
+Start by reading this brief and the existing context resolver principle. The
+slice should produce reviewable artifact guidance only. Stop before resolver
+code, runtime automation, task template changes, policy changes, worker dispatch
+changes, or trusted state changes.
+
+## End-of-Session Update Rule
+
+Before stopping any session that works on this initiative, update this brief
+with completed slice status, changed accepted decisions, verification result,
+new blockers, and exactly one next `ready` slice. If a session finds that the
+initiative needs dashboard, daemon/watch, remote-control, runtime automation,
+policy changes, task template changes, or trusted state changes, record that as
+a separate candidate initiative boundary instead of appending it silently here.
+
+## Completion Rule
+
+Close this initiative only when S1 through S6 are completed or explicitly
+dropped, the dashboard/daemon/remote-control proof case is classified correctly
+against current v1 doctrine, and remaining adjacent authority is either rejected
+or moved into a separate reviewed initiative. Completion does not authorize any
+runtime surface, hidden memory, automatic promotion, policy change, task
+template change, worker dispatch change, or trusted state change.
