@@ -19,6 +19,13 @@ product UX, this means what the first usable workflow should be, what the user
 sees, what decisions remain open, and what should become a later
 `Samantha plan` or `Samantha command`.
 
+Brainstorm follow-ups can accept a decision without authorizing execution.
+Treat prefix-free phrases such as "Proceed with Option A," "let's go with
+this," "good," "just separate it," or "go in that direction" as accepted
+decision signals by default. They do not authorize file edits, command
+execution, task specs, worker dispatch, prototype routes, or target repo
+mutation unless BK also uses an explicit execution phrase or `sam c:`.
+
 ## Operating Loop
 
 1. Inspect the target repo or product context before asking BK questions.
@@ -171,8 +178,15 @@ Brainstorm Brief
 - Open questions:
 - Self-review notes:
 - Continuity artifact:
+- Execution authorization:
 - Recommended next prompt:
 ```
+
+Use `Execution authorization: none` when BK has accepted a decision but has not
+explicitly authorized execution. If a closure follow-up is ambiguous, record the
+accepted decision, stop, set execution authorization to none, and recommend the
+next prompt rather than creating task specs, dispatching workers, running
+commands, editing files, or building prototype routes.
 
 The recommended next prompt should usually be `Samantha plan:` when the result
 needs a decision-complete implementation plan, or `Samantha command:` when the

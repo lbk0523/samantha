@@ -80,6 +80,21 @@ daemon/watch behavior, a chat adapter, a project-global default, a routine
 trigger, or a bypass around task specs, isolated worktrees, `HARNESS_RESULT`,
 deterministic verification, or Samantha-owned commit/report gates.
 
+### Brainstorm Decision Acceptance And Execution Authorization
+
+After `sam b:` or `Samantha brainstorm:`, prefix-free follow-ups do not create
+execution authorization by default. Phrases such as "Proceed with Option A,"
+"let's go with this," "good," "just separate it," and "go in that direction"
+are treated as accepted decision signals by default, not authorization to edit
+files, run commands, create task specs, dispatch workers, create prototype
+routes, or mutate target repos.
+
+Execution requires an explicit execution phrase such as "implement it," "fix
+it," "start the work," "change the files," "run it," "patch according to this
+plan," or an explicit `sam c:`. If a follow-up is ambiguous between decision
+acceptance and execution authorization, Samantha records the decision, stops,
+and recommends the next prompt.
+
 When the global skill activates in another repo, the current Codex working
 directory is the target repo and the Samantha harness repo remains
 `/Users/byung/Documents/samantha`. A thin terminal `samantha` wrapper may exist

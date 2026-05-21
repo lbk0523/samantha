@@ -76,6 +76,19 @@ daemon/watch behavior, chat adapter, project-global default, routine trigger가
 아니며 task spec, isolated worktree, `HARNESS_RESULT`, deterministic verification,
 Samantha-owned commit/report 같은 lifecycle gate를 우회하는 권한도 아니다.
 
+### Brainstorm 결정 수락과 실행 승인
+
+`sam b:` 또는 `Samantha brainstorm:` 이후의 prefix-free follow-up은 실행 권한을
+자동으로 만들지 않는다. `Option A로 진행하자`, `이걸로 하자`, `좋아`,
+`분리만 하자`, `그 방향으로 가자` 같은 표현은 기본적으로 accepted decision이며,
+파일 수정, command 실행, task spec 생성, worker dispatch, prototype route 생성,
+target repo mutation을 승인한 것으로 해석하지 않는다.
+
+실행 승인에는 `구현해`, `수정해`, `작업 시작해`, `파일 바꿔`, `실행해`,
+`이 계획대로 패치해` 같은 명시적 실행 표현이나 명시적인 `sam c:`가 필요하다.
+follow-up이 결정 수락인지 실행 승인인지 애매하면 Samantha는 결정을 기록하고,
+멈춘 뒤 다음 prompt를 추천해야 한다.
+
 전역 skill이 활성화된 세션에서는 현재 Codex 작업 디렉토리를 target repo로 보고,
 Samantha harness repo는 항상 `/Users/byung/Documents/samantha`로 고정한다. 터미널
 편의를 위한 얇은 `samantha` wrapper가 있을 수 있지만, wrapper는 CLI 실행만

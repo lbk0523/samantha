@@ -15,6 +15,9 @@ current design guidance.
 - Planning: consult the shared skill before shaping frontend design work. First
   inspect the target project's existing design system, tokens, components,
   styling framework, and conventions.
+- Sticky or explicit references: before frontend design implementation, consult
+  the canonical shared skill when BK mentions `전에 정한 규약`, `웹 디자인 규약`,
+  `frontend design 규약`, `skill`, `guardrail`, or `guardrails`.
 - Review: use the shared skill as an advisory review lens for maintainability
   and consistency issues in website or web app UI diffs.
 - Command or task shaping: use the shared skill when normalizing implementation
@@ -28,6 +31,11 @@ Existing project design systems, brand guidelines, tokens, components, and
 styling conventions remain authoritative. The shared skill supplies
 project-neutral guardrails only when they do not conflict with the target
 project.
+
+A target repo `DESIGN.md` is project-specific context. Read it when relevant,
+but it does not replace the canonical shared `web-design-guardrails` skill when
+both are relevant; use `DESIGN.md` for local product and design-system facts and
+the shared skill for project-neutral maintainability guardrails.
 
 The shared skill is reviewable guidance, not hidden memory and not a
 deterministic trust gate. Do not duplicate, fork, or locally extend the full
