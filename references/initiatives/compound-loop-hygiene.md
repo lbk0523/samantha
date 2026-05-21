@@ -80,7 +80,7 @@ has changed.
   AI-collaboration insight intake and stale constraint drift. No resolver code,
   automatic loading, transcript scanning, runtime behavior, policy, task
   template, worker dispatch, lifecycle, or trusted state change was added.
-- Next prompt: `sam p: Read references/initiatives/compound-loop-hygiene.md and plan S1 Context Infrastructure only. Produce the smallest artifact-level route for AI-collaboration insight intake. Do not implement runtime resolver code or edit task templates/policy.`
+- Historical handoff prompt: `sam p: Read references/initiatives/compound-loop-hygiene.md and plan S1 Context Infrastructure only. Produce the smallest artifact-level route for AI-collaboration insight intake. Do not implement runtime resolver code or edit task templates/policy.` (slice completed; not current handoff.)
 
 ### S2: Taste And Config As Reviewable Configuration
 
@@ -95,7 +95,7 @@ has changed.
   configuration candidates, hard gates, or rejected scope. No hidden memory,
   runtime config automation, enforcement, policy, template, profile, resolver,
   lifecycle, or trusted state changes were added.
-- Next prompt: `sam p: Continue compound-loop-hygiene with S2. Classify taste/config insights as advisory guidance, reviewable configuration candidates, or rejected scope. Do not add hidden memory or runtime config automation.`
+- Historical handoff prompt: `sam p: Continue compound-loop-hygiene with S2. Classify taste/config insights as advisory guidance, reviewable configuration candidates, or rejected scope. Do not add hidden memory or runtime config automation.` (slice completed; not current handoff.)
 
 ### S3: Verification Ladder
 
@@ -113,7 +113,7 @@ has changed.
   owner of trust. No policy, tests, task templates, agent profiles, source
   code, run logs, lifecycle, worker dispatch, trusted state, or report-only
   trust gate changes were added.
-- Next prompt: `sam p: Continue compound-loop-hygiene with S3. Draft a verification ladder for insight-derived artifact changes, preserving Samantha-owned deterministic gates.`
+- Historical handoff prompt: `sam p: Continue compound-loop-hygiene with S3. Draft a verification ladder for insight-derived artifact changes, preserving Samantha-owned deterministic gates.` (slice completed; not current handoff.)
 
 ### S4: Correction Loop
 
@@ -132,7 +132,7 @@ has changed.
   hidden memory, automatic transcript scanning, automatic promotion, source,
   tests, policy, templates, profiles, run logs, worktrees, lifecycle, or
   runtime behavior was added.
-- Next prompt: `sam p: Continue compound-loop-hygiene with S4. Use the correction mining playbook to model the proof case as reviewable evidence, not promotion.`
+- Historical handoff prompt: `sam p: Continue compound-loop-hygiene with S4. Use the correction mining playbook to model the proof case as reviewable evidence, not promotion.` (slice completed; not current handoff.)
 
 ### S5: Drift Review
 
@@ -152,7 +152,7 @@ has changed.
   hidden memory, automatic monitoring, automatic transcript capture, task
   creation, policy, template, source, test, runtime, CLI, lifecycle, worker
   dispatch, or trusted state changes were added.
-- Next prompt: `sam p: Continue compound-loop-hygiene with S5. Define a report-only stale-constraint drift review procedure and apply it to the proof case.`
+- Historical handoff prompt: `sam p: Continue compound-loop-hygiene with S5. Define a report-only stale-constraint drift review procedure and apply it to the proof case.` (slice completed; not current handoff.)
 
 ### S6: Pruning And Conflict Review
 
@@ -190,14 +190,14 @@ trusted state changes must be routed to a separate reviewed initiative.
 
 ## End-of-Session Update Rule
 
-Before stopping any session that works on this initiative, update this brief
-with completed slice status, changed accepted decisions, verification result,
-new blockers, and exactly one next `ready` slice while the initiative is open,
-or `No ready next slice` when the initiative is closed. If a session finds that
-the initiative needs dashboard, daemon/watch, remote-control, runtime
-automation, policy changes, task template changes, or trusted state changes,
-record that as a separate candidate initiative boundary instead of appending it
-silently here.
+If this initiative is later reopened, or future work is explicitly routed to
+this closed initiative, update this brief before stopping with completed slice
+status, changed accepted decisions, verification result, new blockers, and
+exactly one next `ready` slice while the initiative is open, or `No ready next
+slice` when it remains closed. If a routed session finds that the initiative
+needs dashboard, daemon/watch, remote-control, runtime automation, policy
+changes, task template changes, or trusted state changes, record that as a
+separate candidate initiative boundary instead of appending it silently here.
 
 ## Completion Rule
 

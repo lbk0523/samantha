@@ -135,7 +135,7 @@ does not authorize edits under `references/lessons/**` or any other path.
   surfaces without a separate product slice and verification gates.
 - Review question: Should this proof case be promoted into a durable stale
   constraint drift review checklist after BK review?
-- Status: `candidate`
+- Historical sample status: `candidate`
 
 ## Stale-Constraint Drift Review
 
