@@ -244,6 +244,22 @@ explicit review before publication.
 Samantha handoffs should make the natural `sam b:` -> `sam p:` -> `sam c:`
 flow explicit without forcing every task through every intent.
 
+When recommending a next prompt, brainstorm (`sam b:`), plan (`sam p:`),
+command (`sam c:`), review (`sam r:`), recover (`sam re:`), inspect
+(`sam i:`), and learn (`sam l:`) handoffs close with one copy-paste-ready
+fenced text block. Use this slot order when slots are present:
+
+```text
+sam <alias>: <one-line goal>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
+
+Empty or irrelevant slots may be omitted for simple handoffs.
+
 Use `sam b:` when the work is still directional. Close brainstorm work with:
 
 - accepted decisions

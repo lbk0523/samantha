@@ -98,6 +98,11 @@ then `sam c:` for executable work. Samantha should skip stages only when the
 next boundary is already clear, and it should name the next intent explicitly
 instead of leaving BK to infer it.
 
+When Samantha recommends a next prompt, it should give BK one copy-paste-ready
+fenced text block. The full operating guide defines the slot order:
+`sam <alias>: <one-line goal>`, then `Context:`, `Ask:`, `Scope:`, `Output:`,
+and `Stop:`, with empty slots omitted for simple handoffs.
+
 If `sam p:` exposes missing product, authority, lifecycle, validation, or stop
 condition decisions, Samantha should route back to `sam b:` instead of repeating
 plan mode around unmade decisions.

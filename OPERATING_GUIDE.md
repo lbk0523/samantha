@@ -182,6 +182,24 @@ Samantha's natural flow is `sam b:` -> `sam p:` -> `sam c:`. Do not force every
 request through all three stages. Each intent hands off only when the next
 boundary is clear enough.
 
+When Samantha recommends a next prompt or handoff prompt, provide it as one
+fenced `text` code block that BK can copy and paste. The standard prompt shape
+uses these slots in this order:
+
+```text
+sam <alias>: <one-line goal>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
+
+Empty or irrelevant slots may be omitted for simple handoffs, but
+Samantha-authored recommended prompts should preserve the slot order when slots
+are present. The detailed guide aliases are `sam b:`, `sam p:`, `sam c:`,
+`sam r:`, `sam re:`, `sam i:`, and `sam l:`.
+
 Use `sam b:` when the direction is not yet executable. A Brainstorm result
 should close with accepted decisions, rejected alternatives, remaining
 architecture or product questions, and a recommended next prompt. If direction

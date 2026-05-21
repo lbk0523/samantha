@@ -200,6 +200,24 @@ Samantha의 자연스러운 흐름은 `sam b:` -> `sam p:` -> `sam c:`이다. �
 기계적으로 세 단계를 통과시키지는 않는다. 각 intent는 다음 경계가 충분히 명확할 때만
 다음 intent로 넘긴다.
 
+Samantha가 next prompt 또는 handoff prompt를 추천할 때는 BK가 그대로 복사해 붙일 수
+있도록 하나의 fenced `text` 코드 블럭으로 제공한다. 표준 prompt shape은 아래 슬롯
+순서다.
+
+```text
+sam <alias>: <one-line goal>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
+
+단순 handoff에서는 비어 있거나 관련 없는 슬롯을 생략할 수 있다. 단,
+Samantha-authored recommended prompt에서 슬롯을 쓰는 경우 `Context:`, `Ask:`,
+`Scope:`, `Output:`, `Stop:` 순서를 보존한다. 상세 guide에서 사용하는 alias는
+`sam b:`, `sam p:`, `sam c:`, `sam r:`, `sam re:`, `sam i:`, `sam l:`이다.
+
 `sam b:`는 방향이 아직 executable하지 않을 때 쓴다. Brainstorm 결과는 accepted
 decisions, rejected alternatives, remaining architecture/product questions,
 recommended next prompt를 분리해서 끝낸다. 방향은 잡혔지만 실행 경계가 아직 불완전하면
