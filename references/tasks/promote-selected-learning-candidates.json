@@ -1,0 +1,40 @@
+{
+  "id": "promote-selected-learning-candidates",
+  "title": "Promote selected learning candidates",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/failed-run-recovery-dogfood.md",
+    "references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/lessons/reviews/**",
+    "references/initiatives/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "test -f references/playbooks/failed-run-recovery-dogfood.md",
+    "test -f references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md",
+    "grep -F 'Design failed-run recovery dogfood with fixable failures' references/playbooks/failed-run-recovery-dogfood.md",
+    "grep -F 'Do not accept DOM class names or image src changes as sufficient visual proof' references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md",
+    "grep -F 'Separate functional MVP closure from platform submission readiness' references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md",
+    "git diff --check HEAD -- references/playbooks/failed-run-recovery-dogfood.md references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md"
+  ],
+  "instructions": "Promote exactly the selected learning candidates from the lesson inbox into reviewable markdown artifacts. Create references/playbooks/failed-run-recovery-dogfood.md as a concise playbook promoted from references/lessons/inbox/2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood.md. It must state when to use the playbook, required inputs, procedure, verification expectations, authority limits, and source evidence. The core invariant is: design failed-run recovery dogfood with fixable failures; the source run should fail because an artifact is incomplete, not because the verification command is permanently impossible. Create references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md as a consolidated lesson candidate from references/lessons/inbox/2026-05-16T05-21-22-haechi-native-companion-visual-qa.md and references/lessons/inbox/2026-05-16T08-39-19-haechi-reading-animation-css-cascade.md, with references to the related functional MVP vs submission readiness candidate. Keep it as a candidate, not a promoted playbook. It must preserve these lessons: brand-sensitive companion UI needs screenshot-driven visual QA; transparent character assets need alpha-aware compositing; frame or fallback UI bugs need computed style, layering, and screenshot or pixel-visible evidence; and functional MVP closure is separate from platform submission readiness. Do not delete, rewrite, or review the source candidates. Do not run lessons:review-inbox or update references/lessons/reviews/index.json. Do not change source code, tests, package configuration, run logs, worktrees, task specs, task templates, agent profiles, policy, doctrine, initiatives, operation reports, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, or automatic promotion behavior.",
+  "expectedCommitSubject": "docs: promote selected learning candidates",
+  "status": "pending"
+}
