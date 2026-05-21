@@ -84,17 +84,22 @@ has changed.
 
 ### S2: Taste And Config As Reviewable Configuration
 
-- Status: ready
+- Status: completed
 - Objective: Decide which AI-collaboration preferences belong in reviewable
   configuration or playbook guidance instead of hidden memory or broad doctrine.
 - Dependency: S1 completed.
-- Verification: Markdown diff check plus a table separating advisory taste,
-  default configuration candidates, and hard gates.
+- Verification: Markdown diff check plus a table separating advisory guidance,
+  reviewable configuration candidates, hard gates, and rejected scope.
+- Verification note: Added a manual S2 playbook with the Taste And Config
+  Placement Matrix classifying preferences as advisory guidance, reviewable
+  configuration candidates, hard gates, or rejected scope. No hidden memory,
+  runtime config automation, enforcement, policy, template, profile, resolver,
+  lifecycle, or trusted state changes were added.
 - Next prompt: `sam p: Continue compound-loop-hygiene with S2. Classify taste/config insights as advisory guidance, reviewable configuration candidates, or rejected scope. Do not add hidden memory or runtime config automation.`
 
 ### S3: Verification Ladder
 
-- Status: pending
+- Status: ready
 - Objective: Define a verification ladder for insight-derived artifact changes:
   docs check, report-only review, focused tests, policy tests, and later run
   evidence.
@@ -137,14 +142,14 @@ has changed.
 
 ## Current Next Slice
 
-S2: Taste And Config As Reviewable Configuration is the only ready next slice.
+S3: Verification Ladder is the only ready next slice.
 
-Start by reading this brief and the S1 context route in
-`references/context-resolver-index.md`. The slice should decide which
-AI-collaboration preferences belong in reviewable configuration or playbook
-guidance. Stop before hidden memory, runtime automation, policy changes, task
-template changes, worker dispatch changes, lifecycle changes, or trusted state
-changes.
+Start by reading this brief, the S1 context route in
+`references/context-resolver-index.md`, and the S2 playbook in
+`references/playbooks/compound-loop-hygiene.md`. The slice should define the
+verification ladder for insight-derived artifact changes. Stop before hidden
+memory, runtime automation, policy changes, task template changes, worker
+dispatch changes, lifecycle changes, or trusted state changes.
 
 ## End-of-Session Update Rule
 
