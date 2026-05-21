@@ -156,34 +156,48 @@ has changed.
 
 ### S6: Pruning And Conflict Review
 
-- Status: ready
+- Status: completed
 - Objective: Decide when accumulated insight artifacts should be merged,
   narrowed, rejected, or moved into a separate initiative boundary.
 - Dependency: S5 completed.
 - Verification: Markdown diff check plus a closure checklist that distinguishes
   completion evidence from authority expansion.
-- Next prompt: `sam p: Continue compound-loop-hygiene with S6. Plan pruning/conflict review for accumulated insight artifacts and define the closure decision for this initiative.`
+- Verification note: Added the Pruning And Conflict Review section to the
+  compound-loop hygiene playbook with merge, narrow, reject, and separate
+  initiative criteria plus a closure checklist distinguishing completion
+  evidence from authority expansion. The closure preserves the
+  dashboard/daemon/remote-control proof case as v1 candidate surfaces, not
+  legacy prohibitions, not automatic rejections, and not implementation scope
+  for this initiative. No hidden memory, automatic pruning, automatic conflict
+  resolution, automatic promotion, policy, task template, agent profile, source,
+  test, runtime, CLI, lifecycle, worker dispatch, trusted state, or report-only
+  trust gate change was added.
+- Next prompt: None. Initiative closed.
 
 ## Current Next Slice
 
-S6: Pruning And Conflict Review is the only ready next slice.
+No ready next slice.
 
-Start by reading this brief, the S1 context route in
-`references/context-resolver-index.md`, and the S2 playbook in
-`references/playbooks/compound-loop-hygiene.md`. The slice should plan
-pruning/conflict review for accumulated insight artifacts and define the
-closure decision for this initiative. Stop before hidden memory, runtime
-automation, policy changes, task template changes, worker dispatch changes,
-lifecycle changes, or trusted state changes.
+Initiative status: closed.
+
+S1 through S6 are completed. The closure decision preserves dashboard,
+daemon/watch, and remote/control-plane as v1 candidate surfaces, not legacy
+prohibitions, not automatic rejections, and not implementation scope for this
+initiative. Any future work that needs hidden memory, runtime automation,
+automatic pruning, automatic conflict resolution, automatic promotion, policy
+changes, task template changes, worker dispatch changes, lifecycle changes, or
+trusted state changes must be routed to a separate reviewed initiative.
 
 ## End-of-Session Update Rule
 
 Before stopping any session that works on this initiative, update this brief
 with completed slice status, changed accepted decisions, verification result,
-new blockers, and exactly one next `ready` slice. If a session finds that the
-initiative needs dashboard, daemon/watch, remote-control, runtime automation,
-policy changes, task template changes, or trusted state changes, record that as
-a separate candidate initiative boundary instead of appending it silently here.
+new blockers, and exactly one next `ready` slice while the initiative is open,
+or `No ready next slice` when the initiative is closed. If a session finds that
+the initiative needs dashboard, daemon/watch, remote-control, runtime
+automation, policy changes, task template changes, or trusted state changes,
+record that as a separate candidate initiative boundary instead of appending it
+silently here.
 
 ## Completion Rule
 

@@ -187,15 +187,74 @@ Cited evidence:
 Next action: Advise the plan author to replace the global rejection with planning language that treats dashboard/daemon/remote-control as v1 candidate surfaces requiring a separate reviewed product slice.
 ```
 
+## Pruning And Conflict Review
+
+S6 is manual review guidance only. It does not add hidden memory, automatic
+pruning, automatic conflict resolution, automatic promotion, policy changes,
+task template changes, agent profile changes, source changes, test changes,
+runtime changes, CLI changes, lifecycle mutation, worker dispatch change,
+trusted state change, or a report-only trust gate.
+
+Use this review when accumulated insight artifacts start to overlap, contradict
+current doctrine, repeat the same manual guidance, or point beyond the current
+initiative boundary.
+
+- Merge when two or more reviewable artifacts preserve the same current
+  guidance, cite compatible evidence, and can be represented more clearly as
+  one manual playbook note or initiative decision without changing authority.
+- Narrow when an artifact is directionally useful but too broad, mixes advice
+  with authority, overstates a candidate surface as implementation scope, or
+  needs wording that confines it to the slice, evidence source, or manual review
+  procedure it actually supports.
+- Reject when an artifact depends on hidden memory, automatic transcript
+  scanning, automatic pruning, automatic conflict resolution, automatic
+  promotion, worker-owned orchestration, trusted state changes, or stale
+  slice-local constraints treated as current global doctrine.
+- Separate initiative when the accumulated insight requires product direction,
+  architecture, policy/template/profile changes, source/test/runtime/CLI work,
+  lifecycle mutation, worker dispatch changes, trusted state changes, or any
+  implementation surface outside this initiative.
+
+Dashboard, daemon/watch, and remote/control-plane remain the proof case for
+this boundary. They are v1 candidate surfaces, not legacy prohibitions, not
+automatic rejections, and not implementation scope for this initiative. Older
+slice-local non-goal language about those surfaces is review evidence, not
+global authority.
+
+### Closure Checklist
+
+Use this checklist to distinguish completion evidence from authority expansion:
+
+- Completion evidence: S1 through S6 are completed or explicitly dropped in the
+  initiative brief.
+- Completion evidence: the dashboard/daemon/remote-control proof case is
+  classified against current v1 doctrine as candidate surfaces, not automatic
+  scope and not automatic rejections.
+- Completion evidence: remaining adjacent authority is rejected for this
+  initiative or moved into a separate reviewed initiative boundary.
+- Completion evidence: docs-only verification confirms the changed playbook and
+  initiative brief contain the required closure language.
+- Authority expansion: any hidden memory, automatic pruning, automatic conflict
+  resolution, automatic promotion, policy/template/profile/source/test/runtime
+  or CLI change, lifecycle mutation, worker dispatch change, trusted state
+  change, or report-only trust gate. Stop instead of treating these as closure.
+- Authority expansion: treating dashboard, daemon/watch, or
+  remote/control-plane as implementation scope here. Move that work to a
+  separate reviewed product slice if BK chooses to pursue it.
+
 ## Verification Expectations
 
-Verification for S2 is markdown-surface verification:
+Verification for this playbook is markdown-surface verification:
 
-- The playbook contains the required matrix and the four primary categories.
-- The text states that S2 is manual reviewable guidance, not runtime config
-  automation.
-- The initiative brief marks S2 complete and names S3 as the only ready next
-  slice.
+- The playbook contains the required manual guidance for S2 through S6,
+  including placement, verification ladder, correction loop, drift review, and
+  pruning/conflict review.
+- The text states that the playbook is manual reviewable guidance, not runtime
+  config automation, automatic promotion, automatic pruning, automatic conflict
+  resolution, lifecycle mutation, worker dispatch change, trusted state change,
+  or a report-only trust gate.
+- The initiative brief records the current slice status and, at closure, states
+  that there is no ready next slice.
 - The diff contains no source, tests, policy, templates, profiles, resolver
   code, run logs, worktrees, or runtime configuration changes.
 
@@ -203,9 +262,9 @@ Verification for S2 is markdown-surface verification:
 
 Stop and route to a separate reviewed slice if the work needs policy
 enforcement, runtime config automation, resolver behavior, automatic transcript
-scanning, hidden memory, automatic promotion, automatic pruning, task template
-changes, agent profile changes, worker-owned orchestration, or trusted state
-changes.
+scanning, hidden memory, automatic promotion, automatic pruning, automatic
+conflict resolution, task template changes, agent profile changes, worker-owned
+orchestration, or trusted state changes.
 
 Stop if a stale slice-local non-goal is being treated as current global
 doctrine instead of evidence to review.
