@@ -136,18 +136,27 @@ has changed.
 
 ### S5: Drift Review
 
-- Status: ready
+- Status: completed
 - Objective: Define how Samantha checks future plans or task specs for stale
   constraint drift before dispatch.
 - Dependency: S4 completed.
 - Verification: Markdown diff check plus a report-only drift-review example
   classifying the proof case as candidate-surface doctrine, not a hard
   rejection.
+- Verification note: Added the Stale-Constraint Drift Review procedure to the
+  compound-loop hygiene playbook with an advice-only report-only proof case.
+  The proof case classifies older slice-local dashboard/daemon/remote-control
+  non-goal language reused as a global rejection as confirmed product-boundary
+  drift while preserving dashboard, daemon/watch, and remote/control-plane as
+  v1 candidate surfaces, not automatic rejections and not a hard rejection. No
+  hidden memory, automatic monitoring, automatic transcript capture, task
+  creation, policy, template, source, test, runtime, CLI, lifecycle, worker
+  dispatch, or trusted state changes were added.
 - Next prompt: `sam p: Continue compound-loop-hygiene with S5. Define a report-only stale-constraint drift review procedure and apply it to the proof case.`
 
 ### S6: Pruning And Conflict Review
 
-- Status: pending
+- Status: ready
 - Objective: Decide when accumulated insight artifacts should be merged,
   narrowed, rejected, or moved into a separate initiative boundary.
 - Dependency: S5 completed.
@@ -157,16 +166,15 @@ has changed.
 
 ## Current Next Slice
 
-S5: Drift Review is the only ready next slice.
+S6: Pruning And Conflict Review is the only ready next slice.
 
 Start by reading this brief, the S1 context route in
 `references/context-resolver-index.md`, and the S2 playbook in
-`references/playbooks/compound-loop-hygiene.md`. The slice should define a
-report-only stale-constraint drift review procedure and apply it to the
-dashboard/daemon/remote-control proof case as candidate-surface doctrine, not a
-hard rejection. Stop before hidden memory, runtime automation, policy changes,
-task template changes, worker dispatch changes, lifecycle changes, or trusted
-state changes.
+`references/playbooks/compound-loop-hygiene.md`. The slice should plan
+pruning/conflict review for accumulated insight artifacts and define the
+closure decision for this initiative. Stop before hidden memory, runtime
+automation, policy changes, task template changes, worker dispatch changes,
+lifecycle changes, or trusted state changes.
 
 ## End-of-Session Update Rule
 

@@ -137,6 +137,56 @@ does not authorize edits under `references/lessons/**` or any other path.
   constraint drift review checklist after BK review?
 - Status: `candidate`
 
+## Stale-Constraint Drift Review
+
+S5 is a report-only procedure for checking whether a future plan or task spec
+reuses a stale slice-local constraint as current global doctrine. It produces
+advice-only output for BK or Samantha. It does not create tasks, mutate
+lifecycle state, perform automatic monitoring, capture transcripts
+automatically, make trusted state changes, change policy, change templates,
+change source, change tests, change runtime behavior, change CLI behavior, or
+create a report-only trust gate.
+
+Use this check when a plan or task spec rejects a candidate surface, authority
+route, or artifact direction by citing older non-goal language that may have
+been local to a previous slice.
+
+### Procedure
+
+1. Name the current plan or task-spec claim being reviewed.
+2. Cite the current canonical artifact that accepts, rejects, or narrows the
+   surface.
+3. Cite the older slice-local constraint being reused.
+4. Decide whether the older constraint is still current global doctrine,
+   review evidence only, or superseded by later accepted direction.
+5. If the older constraint is being used as a global rejection after later
+   accepted direction made it a candidate surface, report
+   `Outcome: confirmed_drift` and `Drift category: product_boundary`.
+6. Return exactly one advice-only next action. Do not perform the action.
+
+The output stays inside the drift-review boundary: advice-only output; no
+lifecycle mutation; no task creation; no automatic monitoring; no automatic
+transcript capture; no trusted state change; no policy, template, source, test,
+runtime, or CLI changes; and no report-only trust gate.
+
+### Proof Case: dashboard/daemon/remote-control
+
+Under current v1 doctrine, dashboard, daemon/watch, and remote/control-plane
+are v1 candidate surfaces. They are not legacy prohibitions, not automatic
+rejections, and not a hard rejection. Older slice-local non-goal language about
+dashboard/daemon/remote-control is evidence to review, not global authority.
+
+Example report:
+
+```text
+Outcome: confirmed_drift
+Drift category: product_boundary
+Cited evidence:
+- references/initiatives/compound-loop-hygiene.md: states that dashboard, daemon/watch, and remote/control-plane are v1 candidate surfaces, not automatic scope and not automatic rejections.
+- Older slice-local non-goal language in a future plan or task spec: used dashboard/daemon/remote-control as a global rejection instead of review evidence.
+Next action: Advise the plan author to replace the global rejection with planning language that treats dashboard/daemon/remote-control as v1 candidate surfaces requiring a separate reviewed product slice.
+```
+
 ## Verification Expectations
 
 Verification for S2 is markdown-surface verification:
