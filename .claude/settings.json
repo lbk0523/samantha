@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl *slack.com/api*)"
+    ]
+  },
+  "env": {
+    "SLACK_CHANNEL_ID": "C087HTW9HH7",
+    "SLACK_LIST_ID": "F0AP6MU29TR"
+  }
+}
