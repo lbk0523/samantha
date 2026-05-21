@@ -69,18 +69,22 @@ has changed.
 
 ### S1: Context Infrastructure
 
-- Status: ready
+- Status: completed
 - Objective: Define the minimum reviewable context route for external AI
   collaboration insights so future sessions know what to read before proposing
   artifact changes.
 - Dependency: This brief.
 - Verification: Markdown diff check plus explicit confirmation that no resolver
   code, automatic loading, transcript scanning, or runtime behavior was added.
+- Verification note: Added a manual context-resolver route for
+  AI-collaboration insight intake and stale constraint drift. No resolver code,
+  automatic loading, transcript scanning, runtime behavior, policy, task
+  template, worker dispatch, lifecycle, or trusted state change was added.
 - Next prompt: `sam p: Read references/initiatives/compound-loop-hygiene.md and plan S1 Context Infrastructure only. Produce the smallest artifact-level route for AI-collaboration insight intake. Do not implement runtime resolver code or edit task templates/policy.`
 
 ### S2: Taste And Config As Reviewable Configuration
 
-- Status: pending
+- Status: ready
 - Objective: Decide which AI-collaboration preferences belong in reviewable
   configuration or playbook guidance instead of hidden memory or broad doctrine.
 - Dependency: S1 completed.
@@ -133,12 +137,14 @@ has changed.
 
 ## Current Next Slice
 
-S1: Context Infrastructure is the only ready next slice.
+S2: Taste And Config As Reviewable Configuration is the only ready next slice.
 
-Start by reading this brief and the existing context resolver principle. The
-slice should produce reviewable artifact guidance only. Stop before resolver
-code, runtime automation, task template changes, policy changes, worker dispatch
-changes, or trusted state changes.
+Start by reading this brief and the S1 context route in
+`references/context-resolver-index.md`. The slice should decide which
+AI-collaboration preferences belong in reviewable configuration or playbook
+guidance. Stop before hidden memory, runtime automation, policy changes, task
+template changes, worker dispatch changes, lifecycle changes, or trusted state
+changes.
 
 ## End-of-Session Update Rule
 
