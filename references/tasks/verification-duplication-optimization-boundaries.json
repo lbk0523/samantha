@@ -1,0 +1,53 @@
+{
+  "id": "verification-duplication-optimization-boundaries",
+  "title": "Shape verification duplication optimization boundaries",
+  "taskFamily": "docs-and-prompt",
+  "workMode": "minimal-change",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/verification-duplication.md",
+    "references/task-templates/docs-only.json",
+    "references/task-templates/core-module-with-tests.json",
+    "references/task-templates/cli-command-with-tests.json",
+    "src/core/codex-dispatch.ts",
+    "tests/codex-dispatch.test.ts",
+    "tests/task-template.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/worker-result.ts",
+    "src/core/run-log.ts",
+    "src/core/worker-verify-evidence.ts",
+    "references/agent-profiles/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun run typecheck",
+    "bun test tests/codex-dispatch.test.ts tests/task-template.test.ts",
+    "rg \"focused|broad|docs-surface|policy-gate|WORKER_VERIFY_EVIDENCE|harness\" references/playbooks/verification-duplication.md",
+    "bun test"
+  ],
+  "instructions": "Implement only the safe, evidence-respecting parts of verification duplication Slices 2 through 5. Add a reviewable playbook at references/playbooks/verification-duplication.md that defines verification command classification vocabulary such as focused, broad, docs-surface, and policy-gate as planning/advisory vocabulary only. State clearly that harness verification remains the acceptance gate, WORKER_VERIFY_EVIDENCE remains advisory, existing verifyCommands string arrays remain valid, and TaskSpec contract changes require explicit repeated evidence plus focused tests. Update worker prompt and task templates only as needed to distinguish worker advisory self-checks from harness-required verification. Workers may be guided to run focused or applicable checks first and disclose skipped broad checks through WORKER_VERIFY_EVIDENCE. Harness must still run declared verifyCommands as the acceptance gate. Do not let workers decide which harness verify commands are authoritative. For Slice 4, do not implement fail-fast or parallel verify execution unless current run evidence and command structure prove it safe; if not proven, document the boundary and stop before behavior changes. For Slice 5, add playbook guidance for evidence review and policy/template tightening without hidden memory or trusted state changes; do not add automatic policy changes unless repeated run evidence justifies them. Do not change src/core/contracts.ts, policy, worker-result evaluation, run-log semantics, HARNESS_RESULT semantics, verification execution order, parallel execution, daemon/watch behavior, dashboards, remote adapters, hidden memory, routine triggers, or any file outside targetFiles. Add or update focused tests for changed prompt/template behavior. Run the verify commands after implementation. End with exactly one HARNESS_RESULT line that says which slices were implemented vs intentionally left as documented boundaries.",
+  "expectedCommitSubject": "docs: shape verification optimization boundaries",
+  "status": "pending"
+}
