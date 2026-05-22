@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { OperationTiming } from "./command-runner";
 import type { AgentProfile, TaskSpec } from "./contracts";
 import type { WorkerDispatchExecution } from "./worker-dispatch";
 import { sanitizeTaskId } from "./worktree";
@@ -17,12 +18,15 @@ export interface WorkerRunLogInput {
 export type WorkerRunTrajectoryEvent =
   | "planned"
   | "worktree_created"
+  | "setup_finished"
   | "worker_dispatched"
   | "worker_output_received"
   | "harness_result_parsed"
   | "verification_started"
   | "verification_finished"
+  | "worker_commit_finished"
   | "merge_checked"
+  | "merge_finished"
   | "lifecycle_marked"
   | "cleanup_finished";
 
@@ -34,6 +38,9 @@ export interface WorkerRunTrajectoryEntry {
   status: WorkerRunTrajectoryStatus;
   note: string;
   details?: Record<string, string | number | boolean | string[]>;
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
 }
 
 export type WorkerRunTrajectoryEntryInput = Omit<WorkerRunTrajectoryEntry, "sequence">;
@@ -64,6 +71,40 @@ export function timestampForFile(value: string): string {
 
 export function buildWorkerRunId(input: { startedAt: string; taskId: string }): string {
   return `${timestampForFile(input.startedAt)}-${sanitizeTaskId(input.taskId)}`;
+}
+
+function timingFields(
+  timing: Partial<OperationTiming> | undefined,
+): Partial<WorkerRunTrajectoryEntry> {
+  return isCompleteTiming(timing)
+    ? {
+        startedAt: timing.startedAt,
+        finishedAt: timing.finishedAt,
+        durationMs: timing.durationMs,
+      }
+    : {};
+}
+
+function isCompleteTiming(input: Partial<OperationTiming> | undefined): input is OperationTiming {
+  return Boolean(input?.startedAt && input.finishedAt && typeof input.durationMs === "number");
+}
+
+function aggregateTiming(
+  timings: Array<Partial<OperationTiming> | undefined>,
+): OperationTiming | undefined {
+  const complete = timings.filter(isCompleteTiming);
+  if (complete.length === 0) return undefined;
+  const startedAt = complete.reduce((earliest, timing) =>
+    Date.parse(timing.startedAt) < Date.parse(earliest.startedAt) ? timing : earliest,
+  ).startedAt;
+  const finishedAt = complete.reduce((latest, timing) =>
+    Date.parse(timing.finishedAt) > Date.parse(latest.finishedAt) ? timing : latest,
+  ).finishedAt;
+  return {
+    startedAt,
+    finishedAt,
+    durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
+  };
 }
 
 export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTrajectoryEntry[] {
@@ -99,6 +140,7 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
             branch: execution.preparation.allocation.branch,
             baseCommit: execution.preparation.allocation.baseCommit,
           },
+          ...timingFields(execution.preparation.allocationTiming),
         }
       : {
           event: "worktree_created",
@@ -110,6 +152,24 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
             worktreePath: execution.preparation.worktreePath,
           },
         },
+  ];
+
+  if (execution.setupResults.length > 0) {
+    const failed = execution.setupResults.filter((result) => result.exitCode !== 0).length;
+    entries.push({
+      event: "setup_finished",
+      status: failed === 0 ? "completed" : "failed",
+      note: "setup commands finished",
+      details: {
+        commandCount: execution.setupResults.length,
+        passed: execution.setupResults.length - failed,
+        failed,
+      },
+      ...timingFields(aggregateTiming(execution.setupResults)),
+    });
+  }
+
+  entries.push(
     execution.command
       ? {
           event: "worker_dispatched",
@@ -136,6 +196,7 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
           details: {
             exitCode: execution.command.exitCode,
           },
+          ...timingFields(execution.command),
         }
       : {
           event: "worker_output_received",
@@ -150,6 +211,7 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
           details: {
             harnessStatus: execution.evaluation.harness.status,
           },
+          ...timingFields(execution.evaluation.harnessTiming),
         }
       : execution.evaluation?.parseError
         ? {
@@ -159,13 +221,14 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
             details: {
               parseError: execution.evaluation.parseError,
             },
+            ...timingFields(execution.evaluation.harnessTiming),
           }
         : {
             event: "harness_result_parsed",
             status: "skipped",
             note: "worker result was not evaluated",
           },
-  ];
+  );
   const verifyResults = execution.evaluation?.verifyResults ?? [];
 
   if (verifyResults.length > 0) {
@@ -188,6 +251,7 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
           passed,
           failed,
         },
+        ...timingFields(execution.evaluation?.verificationTiming ?? aggregateTiming(verifyResults)),
       },
     );
   } else {
@@ -203,6 +267,22 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
         note: "verification results were not available",
       },
     );
+  }
+
+  if (execution.commit) {
+    const commitFailed =
+      execution.commit.add.exitCode !== 0 || execution.commit.commit.exitCode !== 0;
+    entries.push({
+      event: "worker_commit_finished",
+      status: commitFailed ? "failed" : "completed",
+      note: "worker commit finished",
+      details: {
+        subject: execution.commit.subject,
+        fileCount: execution.commit.files.length,
+        commitHash: execution.commit.commitHash,
+      },
+      ...timingFields(aggregateTiming([execution.commit.add, execution.commit.commit])),
+    });
   }
 
   return entries.map((entry, index) => ({

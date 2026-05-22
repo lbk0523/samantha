@@ -14,6 +14,22 @@ import type { WorktreeCleanupResult } from "../src/core/worktree-cleanup";
 
 let tmpRoots: string[] = [];
 
+function timing(startSecond: number, durationMs: number) {
+  return {
+    startedAt: `2026-05-13T10:02:${String(startSecond).padStart(2, "0")}.000Z`,
+    finishedAt: `2026-05-13T10:02:${String(startSecond).padStart(2, "0")}.010Z`,
+    durationMs,
+  };
+}
+
+function expectTiming(entry: { startedAt?: string; finishedAt?: string; durationMs?: number }) {
+  expect(entry.startedAt).toBeTruthy();
+  expect(entry.finishedAt).toBeTruthy();
+  expect(Number.isNaN(Date.parse(entry.startedAt!))).toBe(false);
+  expect(Number.isNaN(Date.parse(entry.finishedAt!))).toBe(false);
+  expect(entry.durationMs).toBeGreaterThanOrEqual(0);
+}
+
 function baseRunLog(): WorkerRunLog {
   return {
     schemaVersion: 1,
@@ -120,9 +136,9 @@ describe("post-run trajectory", () => {
       violations: [],
     };
 
-    await recordMergeChecked(path, merge);
-    await recordLifecycleMarked(path, "merged", lifecycle);
-    await recordCleanupFinished(path, cleanup);
+    await recordMergeChecked(path, merge, timing(1, 10));
+    await recordLifecycleMarked(path, "merged", lifecycle, timing(2, 20));
+    await recordCleanupFinished(path, cleanup, timing(3, 30));
 
     const log = await readRunLog(path);
 
@@ -158,6 +174,9 @@ describe("post-run trajectory", () => {
         cleaned: true,
       },
     });
+    expectTiming(log.trajectory![1]!);
+    expectTiming(log.trajectory![2]!);
+    expectTiming(log.trajectory![3]!);
   });
 
   test("can append to legacy run logs without trajectory", async () => {
@@ -185,5 +204,32 @@ describe("post-run trajectory", () => {
       event: "merge_checked",
       status: "completed",
     });
+  });
+
+  test("can represent skipped post-run events without fake timing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-post-run-trajectory-"));
+    tmpRoots.push(root);
+    const path = await writeRunLog(root, baseRunLog());
+
+    await recordCleanupFinished(path, {
+      mayCleanup: false,
+      cleaned: false,
+      classification: "already_cleaned",
+      targetBranch: "main",
+      worktreePath: "/repo/worktrees/post-run-trajectory",
+      branch: "samantha/post-run-trajectory",
+      commit: "a".repeat(40),
+      violations: [],
+    });
+
+    const updated = await readRunLog(path);
+
+    expect(updated.trajectory?.[1]).toMatchObject({
+      event: "cleanup_finished",
+      status: "skipped",
+    });
+    expect(updated.trajectory?.[1]).not.toHaveProperty("startedAt");
+    expect(updated.trajectory?.[1]).not.toHaveProperty("finishedAt");
+    expect(updated.trajectory?.[1]).not.toHaveProperty("durationMs");
   });
 });

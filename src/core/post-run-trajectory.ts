@@ -1,3 +1,4 @@
+import type { OperationTiming } from "./command-runner";
 import type { MergeGateResult } from "./merge-gate";
 import type { RunLifecycleEvent, RunLifecycleRecord } from "./run-lifecycle-store";
 import {
@@ -16,9 +17,20 @@ function cleanupStatus(result: WorktreeCleanupResult): WorkerRunTrajectoryStatus
   return result.violations.length > 0 ? "failed" : "skipped";
 }
 
+function timingFields(timing: OperationTiming | undefined): Partial<WorkerRunTrajectoryEntry> {
+  return timing
+    ? {
+        startedAt: timing.startedAt,
+        finishedAt: timing.finishedAt,
+        durationMs: timing.durationMs,
+      }
+    : {};
+}
+
 export async function recordMergeChecked(
   runLogPath: string,
   result: MergeGateResult,
+  timing?: OperationTiming,
 ): Promise<WorkerRunTrajectoryEntry> {
   return appendWorkerRunTrajectoryEntry(runLogPath, {
     event: "merge_checked",
@@ -34,6 +46,37 @@ export async function recordMergeChecked(
       ...(result.command ? { command: result.command } : {}),
       ...(result.violations.length > 0 ? { violations: result.violations } : {}),
     },
+    ...timingFields(timing),
+  });
+}
+
+export async function recordMergeFinished(
+  runLogPath: string,
+  result: {
+    command: string[];
+    exitCode: number;
+    startedAt?: string;
+    finishedAt?: string;
+    durationMs?: number;
+  },
+): Promise<WorkerRunTrajectoryEntry> {
+  return appendWorkerRunTrajectoryEntry(runLogPath, {
+    event: "merge_finished",
+    status: result.exitCode === 0 ? "completed" : "failed",
+    note: "merge command finished",
+    details: {
+      command: result.command,
+      exitCode: result.exitCode,
+    },
+    ...timingFields(
+      result.startedAt && result.finishedAt && typeof result.durationMs === "number"
+        ? {
+            startedAt: result.startedAt,
+            finishedAt: result.finishedAt,
+            durationMs: result.durationMs,
+          }
+        : undefined,
+    ),
   });
 }
 
@@ -41,6 +84,7 @@ export async function recordLifecycleMarked(
   runLogPath: string,
   event: RunLifecycleEvent,
   record: RunLifecycleRecord,
+  timing?: OperationTiming,
 ): Promise<WorkerRunTrajectoryEntry> {
   return appendWorkerRunTrajectoryEntry(runLogPath, {
     event: "lifecycle_marked",
@@ -53,12 +97,14 @@ export async function recordLifecycleMarked(
       ...(record.cleanedAt ? { cleanedAt: record.cleanedAt } : {}),
       updatedAt: record.updatedAt,
     },
+    ...timingFields(timing),
   });
 }
 
 export async function recordCleanupFinished(
   runLogPath: string,
   result: WorktreeCleanupResult,
+  timing?: OperationTiming,
 ): Promise<WorkerRunTrajectoryEntry> {
   return appendWorkerRunTrajectoryEntry(runLogPath, {
     event: "cleanup_finished",
@@ -74,5 +120,6 @@ export async function recordCleanupFinished(
       ...(result.commit ? { commit: result.commit } : {}),
       ...(result.violations.length > 0 ? { violations: result.violations } : {}),
     },
+    ...timingFields(timing),
   });
 }

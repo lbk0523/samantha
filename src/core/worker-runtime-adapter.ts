@@ -1,5 +1,10 @@
 import { Codex, type ThreadEvent, type ThreadOptions } from "@openai/codex-sdk";
-import { runCommand, type CommandRunResult } from "./command-runner";
+import {
+  finishOperationTiming,
+  runCommand,
+  startOperationTiming,
+  type CommandRunResult,
+} from "./command-runner";
 import type { AgentProfile, TaskSpec } from "./contracts";
 import { buildCodexWorkerPrompt, type PreparedCodexDispatch } from "./codex-dispatch";
 import type { WorkerRuntimeKind, WorkerRuntimeMetadata } from "./worker-runtime-metadata";
@@ -125,6 +130,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
       let finalResponse = "";
       let threadId: string | undefined;
       let runtimeError: string | undefined;
+      const timing = startOperationTiming();
 
       try {
         const client =
@@ -158,6 +164,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
             exitCode: runtimeError ? 1 : 0,
             stdout: finalResponse,
             stderr: runtimeError ?? "",
+            ...finishOperationTiming(timing),
           },
           runtime: {
             kind: "codex-sdk",
@@ -174,6 +181,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
             exitCode: 1,
             stdout: finalResponse,
             stderr: `codex-sdk runtime failed: ${message}`,
+            ...finishOperationTiming(timing),
           },
           runtime: {
             kind: "codex-sdk",

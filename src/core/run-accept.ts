@@ -1,9 +1,14 @@
 import { dirname, join, resolve } from "node:path";
+import {
+  finishOperationTiming,
+  startOperationTiming,
+} from "./command-runner";
 import { evaluateMergeGate, readWorkerRunLog, type MergeGateResult } from "./merge-gate";
 import {
   recordCleanupFinished,
   recordLifecycleMarked,
   recordMergeChecked,
+  recordMergeFinished,
 } from "./post-run-trajectory";
 import {
   lifecycleBaseFromRunLog,
@@ -28,6 +33,9 @@ export interface RunAcceptCommandResult {
   exitCode: number;
   stdout: string;
   stderr: string;
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
 }
 
 export type RunAcceptStatus = "accepted" | "not_mergeable" | "merge_failed";
@@ -69,6 +77,16 @@ async function runCommand(command: string[], cwd: string): Promise<RunAcceptComm
   return { command, exitCode, stdout, stderr };
 }
 
+async function timedRunCommand(
+  run: (command: string[], cwd: string) => Promise<RunAcceptCommandResult>,
+  command: string[],
+  cwd: string,
+): Promise<RunAcceptCommandResult> {
+  const timing = startOperationTiming();
+  const result = await run(command, cwd);
+  return { ...result, ...finishOperationTiming(timing) };
+}
+
 async function markLifecycle(input: {
   runLogPath: string;
   repoRoot: string;
@@ -77,6 +95,7 @@ async function markLifecycle(input: {
 }): Promise<RunLifecycleRecord> {
   const log = await readWorkerRunLog(input.runLogPath);
   const at = new Date().toISOString();
+  const timing = startOperationTiming();
   const record = await new RunLifecycleStore(lifecyclePath(input)).mark(
     lifecycleBaseFromRunLog({
       log,
@@ -87,7 +106,8 @@ async function markLifecycle(input: {
     input.event,
     at,
   );
-  await recordLifecycleMarked(input.runLogPath, input.event, record);
+  const lifecycleTiming = finishOperationTiming(timing);
+  await recordLifecycleMarked(input.runLogPath, input.event, record, lifecycleTiming);
   return record;
 }
 
@@ -98,13 +118,14 @@ export async function acceptRun(
   const runLogPath = resolve(input.runLogPath);
   const repoRoot = resolve(input.repoRoot);
   const run = deps.runCommand ?? runCommand;
+  const gateTiming = startOperationTiming();
   const gate = await evaluateMergeGate({
     runLogPath,
     repoRoot,
     targetBranch: input.targetBranch,
   });
 
-  await recordMergeChecked(runLogPath, gate);
+  await recordMergeChecked(runLogPath, gate, finishOperationTiming(gateTiming));
 
   if (!gate.mayMerge || !gate.command) {
     return {
@@ -114,7 +135,8 @@ export async function acceptRun(
     };
   }
 
-  const merge = await run(gate.command, repoRoot);
+  const merge = await timedRunCommand(run, gate.command, repoRoot);
+  await recordMergeFinished(runLogPath, merge);
   if (merge.exitCode !== 0) {
     return {
       accepted: false,
@@ -130,12 +152,13 @@ export async function acceptRun(
     event: "merged",
     stateDir: input.stateDir,
   });
+  const cleanupTiming = startOperationTiming();
   const cleanup = await cleanupCompletedWorktree({
     runLogPath,
     repoRoot,
     targetBranch: input.targetBranch,
   });
-  await recordCleanupFinished(runLogPath, cleanup);
+  await recordCleanupFinished(runLogPath, cleanup, finishOperationTiming(cleanupTiming));
   const cleaned = cleanup.cleaned
     ? await markLifecycle({
         runLogPath,

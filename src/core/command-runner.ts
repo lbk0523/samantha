@@ -1,8 +1,24 @@
+import { performance } from "node:perf_hooks";
+
+export interface OperationTiming {
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+}
+
+export interface OperationTimingStart {
+  startedAt: string;
+  startedAtMs: number;
+}
+
 export interface CommandRunResult {
   command: string[];
   exitCode: number;
   stdout: string;
   stderr: string;
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
 }
 
 const WORKER_ENV_KEYS = [
@@ -26,10 +42,26 @@ function workerSubprocessEnv(source: NodeJS.ProcessEnv = process.env): Record<st
   return env;
 }
 
+export function startOperationTiming(): OperationTimingStart {
+  return {
+    startedAt: new Date().toISOString(),
+    startedAtMs: performance.now(),
+  };
+}
+
+export function finishOperationTiming(start: OperationTimingStart): OperationTiming {
+  return {
+    startedAt: start.startedAt,
+    finishedAt: new Date().toISOString(),
+    durationMs: Math.max(0, Math.round(performance.now() - start.startedAtMs)),
+  };
+}
+
 export async function runCommand(
   command: string[],
   options: { cwd?: string } = {},
 ): Promise<CommandRunResult> {
+  const timing = startOperationTiming();
   const child = Bun.spawn(command, {
     cwd: options.cwd,
     env: workerSubprocessEnv(),
@@ -43,5 +75,5 @@ export async function runCommand(
     child.exited,
   ]);
 
-  return { command, exitCode, stdout, stderr };
+  return { command, exitCode, stdout, stderr, ...finishOperationTiming(timing) };
 }

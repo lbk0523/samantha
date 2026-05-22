@@ -3,7 +3,13 @@ import type { PreparedCodexDispatch } from "./codex-dispatch";
 import { gitHead } from "./git";
 import { validateDispatch } from "./policy";
 import { unresolvedDispatchPlaceholders } from "./task-placeholders";
-import { runCommand as runProcessCommand, type CommandRunResult } from "./command-runner";
+import {
+  finishOperationTiming,
+  runCommand as runProcessCommand,
+  startOperationTiming,
+  type CommandRunResult,
+  type OperationTiming,
+} from "./command-runner";
 import {
   workerRuntimeAdapterForKind,
   type WorkerRuntimeAdapter,
@@ -34,6 +40,7 @@ export interface WorkerDispatchPreparation {
   agentId: string;
   worktreePath: string;
   allocation?: WorktreeAllocation;
+  allocationTiming?: OperationTiming;
   codex: PreparedCodexDispatch;
 }
 
@@ -70,15 +77,18 @@ export async function prepareWorkerDispatch(
     throw new Error(`dispatch blocked:\n${plan.violations.join("\n")}`);
   }
 
-  const allocation =
-    input.agent.worktreePolicy === "per-task"
-      ? await allocateWorktree({
-          repoRoot: input.repoRoot,
-          taskId: input.task.id,
-          worktreesDir: input.worktreesDir,
-          baseRef: input.baseRef,
-        })
-      : undefined;
+  let allocation: WorktreeAllocation | undefined;
+  let allocationTiming: OperationTiming | undefined;
+  if (input.agent.worktreePolicy === "per-task") {
+    const timing = startOperationTiming();
+    allocation = await allocateWorktree({
+      repoRoot: input.repoRoot,
+      taskId: input.task.id,
+      worktreesDir: input.worktreesDir,
+      baseRef: input.baseRef,
+    });
+    allocationTiming = finishOperationTiming(timing);
+  }
   const worktreePath = allocation?.worktreePath ?? input.repoRoot;
   const runtimeAdapter =
     input.runtimeAdapter ?? workerRuntimeAdapterForKind(input.runtimeKind ?? "exec-json");
@@ -88,6 +98,7 @@ export async function prepareWorkerDispatch(
     agentId: input.agent.id,
     worktreePath,
     allocation,
+    ...(allocationTiming ? { allocationTiming } : {}),
     codex: runtimeAdapter.prepare({
       task: input.task,
       agent: input.agent,

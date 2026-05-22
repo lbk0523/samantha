@@ -10,6 +10,14 @@ import { allocateWorktree } from "../src/core/worktree";
 
 let tmpRoots: string[] = [];
 
+function expectTiming(entry: { startedAt?: string; finishedAt?: string; durationMs?: number }) {
+  expect(entry.startedAt).toBeTruthy();
+  expect(entry.finishedAt).toBeTruthy();
+  expect(Number.isNaN(Date.parse(entry.startedAt!))).toBe(false);
+  expect(Number.isNaN(Date.parse(entry.finishedAt!))).toBe(false);
+  expect(entry.durationMs).toBeGreaterThanOrEqual(0);
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -184,6 +192,7 @@ describe("acceptRun", () => {
       command: ["git", "merge", "--ff-only", commit],
       exitCode: 0,
     });
+    expectTiming(result.merge!);
     expect(result.lifecycle?.merged.mergedAt).toBeTruthy();
     expect(result.lifecycle?.cleaned?.cleanedAt).toBeTruthy();
     expect(result.cleanup?.cleaned).toBe(true);
@@ -215,10 +224,12 @@ describe("acceptRun", () => {
     const log = await readLog(logPath);
     expect(log.trajectory?.map((entry) => entry.event)).toEqual([
       "merge_checked",
+      "merge_finished",
       "lifecycle_marked",
       "cleanup_finished",
       "lifecycle_marked",
     ]);
+    for (const entry of log.trajectory ?? []) expectTiming(entry);
   });
 
   test("records merge-check evidence and stops when the gate is not mergeable", async () => {
@@ -253,6 +264,7 @@ describe("acceptRun", () => {
         mayMerge: false,
       },
     });
+    expectTiming(log.trajectory![0]!);
   });
 
   test("does not mark merged or clean up when the merge command fails", async () => {
@@ -284,6 +296,7 @@ describe("acceptRun", () => {
         stderr: "merge failed by test",
       },
     });
+    expectTiming(result.merge!);
     expect(result.lifecycle).toBeUndefined();
     expect(result.cleanup).toBeUndefined();
     expect(await gitHead(root)).toBe(baseCommit);
@@ -292,6 +305,14 @@ describe("acceptRun", () => {
     expect(await exists(join(stateDir, "run-lifecycle.jsonl"))).toBe(false);
 
     const log = await readLog(logPath);
-    expect(log.trajectory?.map((entry) => entry.event)).toEqual(["merge_checked"]);
+    expect(log.trajectory?.map((entry) => entry.event)).toEqual(["merge_checked", "merge_finished"]);
+    expect(log.trajectory?.[1]).toMatchObject({
+      event: "merge_finished",
+      status: "failed",
+      details: {
+        exitCode: 42,
+      },
+    });
+    for (const entry of log.trajectory ?? []) expectTiming(entry);
   });
 });

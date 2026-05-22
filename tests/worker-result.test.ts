@@ -34,6 +34,18 @@ const task: TaskSpec = {
   status: "pending",
 };
 
+function expectTiming(result: {
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
+}): void {
+  expect(result.startedAt).toBeTruthy();
+  expect(result.finishedAt).toBeTruthy();
+  expect(Number.isNaN(Date.parse(result.startedAt!))).toBe(false);
+  expect(Number.isNaN(Date.parse(result.finishedAt!))).toBe(false);
+  expect(result.durationMs).toBeGreaterThanOrEqual(0);
+}
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -57,6 +69,9 @@ describe("evaluateWorkerResult", () => {
     expect(result.changedFiles).toEqual(["allowed.txt"]);
     expect(result.scopeViolations).toEqual([]);
     expect(result.verifyResults[0]?.exitCode).toBe(0);
+    expectTiming(result.harnessTiming!);
+    expectTiming(result.verificationTiming!);
+    expectTiming(result.verifyResults[0]!);
   });
 
   test("includes uncommitted working tree changes", async () => {
@@ -164,6 +179,8 @@ describe("evaluateWorkerResult", () => {
       command: "touch verify-created.txt",
       exitCode: 0,
     });
+    expectTiming(result.verifyResults[0]!);
+    expectTiming(result.verificationTiming!);
   });
 
   test("rejects forbidden changed files", async () => {
@@ -226,6 +243,8 @@ describe("evaluateWorkerResult", () => {
     ]);
     expect(result.verifyResults[0]?.exitCode).toBe(0);
     expect(result.verifyResults[1]?.exitCode).not.toBe(0);
+    for (const verifyResult of result.verifyResults) expectTiming(verifyResult);
+    expectTiming(result.verificationTiming!);
   });
 
   test("fails when HARNESS_RESULT is missing", async () => {
@@ -241,6 +260,8 @@ describe("evaluateWorkerResult", () => {
     expect(result.pass).toBe(false);
     expect(result.parseError).toContain("missing HARNESS_RESULT");
     expect(result.verifyResults).toEqual([]);
+    expectTiming(result.harnessTiming!);
+    expect(result.verificationTiming).toBeUndefined();
   });
 
   test("fails when harness status is not pass", async () => {

@@ -98,6 +98,18 @@ function sdkReportTask(id: string): TaskSpec {
   };
 }
 
+function expectCommandTiming(result: {
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
+}): void {
+  expect(result.startedAt).toBeTruthy();
+  expect(result.finishedAt).toBeTruthy();
+  expect(Number.isNaN(Date.parse(result.startedAt!))).toBe(false);
+  expect(Number.isNaN(Date.parse(result.finishedAt!))).toBe(false);
+  expect(result.durationMs).toBeGreaterThanOrEqual(0);
+}
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -208,12 +220,20 @@ describe("worker dispatch", () => {
     });
 
     expect(result.pass).toBe(true);
+    expectCommandTiming(result.preparation.allocationTiming!);
+    expectCommandTiming(result.setupResults[0]!);
+    expectCommandTiming(result.command!);
     expect(result.setupResults[0]?.exitCode).toBe(0);
     expect(result.command?.command[0]).toBe(fakeCodex);
     expect(result.command?.command).toEqual(result.preparation.codex.command);
     expect(result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(result.evaluation?.changedFiles).toEqual(["README.md"]);
+    expectCommandTiming(result.evaluation?.harnessTiming!);
+    expectCommandTiming(result.evaluation?.verificationTiming!);
+    expectCommandTiming(result.evaluation?.verifyResults[0]!);
     expect(result.commit?.subject).toBe("test: dispatch worker fixture");
+    expectCommandTiming(result.commit?.add!);
+    expectCommandTiming(result.commit?.commit!);
     expect(result.commit?.commitHash).toHaveLength(40);
     expect(await git(["log", "-1", "--pretty=%s"], result.preparation.worktreePath)).toBe(
       "test: dispatch worker fixture",
@@ -317,6 +337,7 @@ describe("worker dispatch", () => {
       command: ["codex-sdk", "run", "--cd", repo, "--sandbox", "read-only", "--model", "gpt-5.5"],
       exitCode: 0,
     });
+    expectCommandTiming(result.command!);
     expect(result.command?.stdout).toContain("HARNESS_RESULT");
     expect(result.runtime).toEqual({
       kind: "codex-sdk",
@@ -367,6 +388,7 @@ describe("worker dispatch", () => {
       exitCode: 1,
       stderr: "model rejected the request",
     });
+    expectCommandTiming(result.command!);
     expect(result.runtime).toEqual({
       kind: "codex-sdk",
       approvalPolicy: "never",
@@ -520,6 +542,7 @@ describe("worker dispatch", () => {
 
     expect(result.pass).toBe(false);
     expect(result.setupResults[0]?.exitCode).not.toBe(0);
+    expectCommandTiming(result.setupResults[0]!);
     expect(result.command).toBeUndefined();
     expect(result.evaluation).toBeUndefined();
     expect(result.commit).toBeUndefined();
@@ -562,6 +585,7 @@ describe("worker dispatch", () => {
       command: "grep -q missing README.md",
       exitCode: 1,
     });
+    expectCommandTiming(result.execution.evaluation?.verifyResults[0]!);
     expect(parsed.result.pass).toBe(false);
     expect(result.execution.preparation.allocation).toBeDefined();
     expect(await gitHead(result.execution.preparation.worktreePath)).toBe(
@@ -624,6 +648,7 @@ describe("worker dispatch", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout.trim()).toBe("out");
     expect(result.stderr.trim()).toBe("err");
+    expectCommandTiming(result);
   });
 
   test("runs setup commands in order and stops after first failure", async () => {
@@ -631,8 +656,10 @@ describe("worker dispatch", () => {
     const fail = await runSetupCommands(["echo one", "exit 7", "echo skipped"], "/tmp");
 
     expect(pass.map((result) => result.stdout.trim())).toEqual(["one", "two"]);
+    for (const result of pass) expectCommandTiming(result);
     expect(fail).toHaveLength(2);
     expect(fail[1]?.exitCode).toBe(7);
+    for (const result of fail) expectCommandTiming(result);
   });
 
   test("creates a Samantha-owned commit from evaluated worker files", async () => {
@@ -647,6 +674,8 @@ describe("worker dispatch", () => {
 
     expect(result.add.exitCode).toBe(0);
     expect(result.commit.exitCode).toBe(0);
+    expectCommandTiming(result.add);
+    expectCommandTiming(result.commit);
     expect(result.commitHash).toHaveLength(40);
     expect(await git(["log", "-1", "--pretty=%s"], repo)).toBe("test: dispatch worker fixture");
   });

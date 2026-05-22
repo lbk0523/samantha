@@ -5,12 +5,20 @@ import type { HarnessResult, TaskSpec } from "./contracts";
 import { gitChangedFilesSince, gitWorkingTreeFiles } from "./git";
 import { matchesAnyGlob } from "./glob";
 import { HarnessResultParseError, parseHarnessResult } from "./harness-result";
+import {
+  finishOperationTiming,
+  startOperationTiming,
+  type OperationTiming,
+} from "./command-runner";
 
 export interface VerifyCommandResult {
   command: string;
   exitCode: number;
   stdout: string;
   stderr: string;
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
 }
 
 export interface ScopeViolation {
@@ -26,6 +34,8 @@ export interface WorkerResultEvaluation {
   changedFiles: string[];
   scopeViolations: ScopeViolation[];
   verifyResults: VerifyCommandResult[];
+  harnessTiming?: OperationTiming;
+  verificationTiming?: OperationTiming;
 }
 
 export interface ChangedFileSnapshot {
@@ -67,6 +77,7 @@ async function fileContentHash(cwd: string, file: string): Promise<string | null
 }
 
 async function runVerifyCommand(command: string, cwd: string): Promise<VerifyCommandResult> {
+  const timing = startOperationTiming();
   const child = Bun.spawn(["bash", "-lc", command], {
     cwd,
     stdout: "pipe",
@@ -79,7 +90,7 @@ async function runVerifyCommand(command: string, cwd: string): Promise<VerifyCom
     child.exited,
   ]);
 
-  return { command, exitCode, stdout, stderr };
+  return { command, exitCode, stdout, stderr, ...finishOperationTiming(timing) };
 }
 
 function findScopeViolations(task: TaskSpec, changedFiles: string[]): ScopeViolation[] {
@@ -133,6 +144,7 @@ export async function evaluateWorkerResult(input: {
   output: string;
   baselineChangedFiles?: ChangedFileSnapshot[];
 }): Promise<WorkerResultEvaluation> {
+  const harnessTimingStart = startOperationTiming();
   let harness: HarnessResult | undefined;
   let parseError: string | undefined;
 
@@ -145,15 +157,25 @@ export async function evaluateWorkerResult(input: {
 
   const initialChangedFiles = await collectChangedFilesAfterBaseline(input);
   const initialScopeViolations = findScopeViolations(input.task, initialChangedFiles);
+  const harnessTiming = finishOperationTiming(harnessTimingStart);
 
-  const shouldRunVerify = harness?.status === "pass" && initialScopeViolations.length === 0;
+  const shouldRunVerify =
+    harness?.status === "pass" &&
+    initialScopeViolations.length === 0 &&
+    input.task.verifyCommands.length > 0;
+  const verificationTimingStart = shouldRunVerify ? startOperationTiming() : undefined;
   const verifyResults = shouldRunVerify
-    ? await Promise.all(input.task.verifyCommands.map((command) => runVerifyCommand(command, input.cwd)))
+    ? await Promise.all(
+        input.task.verifyCommands.map((command) => runVerifyCommand(command, input.cwd)),
+      )
     : [];
   const changedFiles =
     verifyResults.length > 0 ? await collectChangedFilesAfterBaseline(input) : initialChangedFiles;
   const scopeViolations =
     verifyResults.length > 0 ? findScopeViolations(input.task, changedFiles) : initialScopeViolations;
+  const verificationTiming = verificationTimingStart
+    ? finishOperationTiming(verificationTimingStart)
+    : undefined;
   const verifyPassed = verifyResults.every((result) => result.exitCode === 0);
 
   return {
@@ -163,5 +185,7 @@ export async function evaluateWorkerResult(input: {
     changedFiles,
     scopeViolations,
     verifyResults,
+    harnessTiming,
+    ...(verificationTiming ? { verificationTiming } : {}),
   };
 }
