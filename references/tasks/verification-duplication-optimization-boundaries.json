@@ -1,7 +1,7 @@
 {
   "id": "verification-duplication-optimization-boundaries",
   "title": "Shape verification duplication optimization boundaries",
-  "taskFamily": "docs-and-prompt",
+  "taskFamily": "docs-only",
   "workMode": "minimal-change",
   "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
