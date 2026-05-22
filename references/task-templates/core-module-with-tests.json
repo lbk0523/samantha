@@ -35,7 +35,7 @@
       "bun test tests/<module>.test.ts",
       "bun test"
     ],
-    "instructions": "Add the smallest core module implementation that satisfies this task. Start with focused behavior tests in tests/<module>.test.ts, then implement src/core/<module>.ts. Keep the change inside the core module boundary. Do not add CLI surface, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, or promoted learning artifact edits.",
+    "instructions": "Add the smallest core module implementation that satisfies this task. Start with focused behavior tests in tests/<module>.test.ts, then implement src/core/<module>.ts. Treat references/playbooks/verification-duplication.md vocabulary as advisory planning only: harness verifyCommands remain the acceptance gate, and WORKER_VERIFY_EVIDENCE may disclose worker self-checks or skipped broad checks but cannot waive declared verification. Keep the change inside the core module boundary. Do not add CLI surface, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, or promoted learning artifact edits.",
     "expectedCommitSubject": "feat: add <module> core behavior",
     "status": "pending"
   }

@@ -53,6 +53,8 @@ describe("codex dispatch preparation", () => {
     expect(prompt).toContain("src/core/codex-dispatch.ts");
     expect(prompt).toContain("runs/**");
     expect(prompt).toContain("bun test tests/codex-dispatch.test.ts");
+    expect(prompt).toContain("These are harness-required verification commands");
+    expect(prompt).toContain("do not decide which harness verify commands are authoritative");
     expect(prompt).toContain("Samantha commit subject after gates pass");
     expect(prompt).toContain("HARNESS_RESULT");
     expect(prompt).toContain("WORKER_VERIFY_EVIDENCE");

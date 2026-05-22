@@ -38,6 +38,9 @@ describe("task templates", () => {
     expect(template.task.verifyCommands).toContain("bun run typecheck");
     expect(template.task.verifyCommands).toContain("bun test");
     expect(template.task.instructions).toContain("references/playbooks/cli-core-command-with-tests.md");
+    expect(template.task.instructions).toContain("references/playbooks/verification-duplication.md");
+    expect(template.task.instructions).toContain("harness verifyCommands remain the acceptance gate");
+    expect(template.task.instructions).toContain("WORKER_VERIFY_EVIDENCE");
     expect(validateDispatch(template.task, agent).violations).toEqual([]);
   });
 
@@ -63,6 +66,9 @@ describe("task templates", () => {
     expect(template.task.verifyCommands).toContain("bun run typecheck");
     expect(template.task.verifyCommands).toContain("bun test tests/<module>.test.ts");
     expect(template.task.verifyCommands).toContain("bun test");
+    expect(template.task.instructions).toContain("references/playbooks/verification-duplication.md");
+    expect(template.task.instructions).toContain("harness verifyCommands remain the acceptance gate");
+    expect(template.task.instructions).toContain("WORKER_VERIFY_EVIDENCE");
     expect(validateDispatch(template.task, agent).violations).toEqual([]);
   });
 
@@ -89,6 +95,9 @@ describe("task templates", () => {
     expect(template.task.verifyCommands).toEqual([
       "git diff --check HEAD -- '*.md' 'references/**/*.md'",
     ]);
+    expect(template.task.instructions).toContain("references/playbooks/verification-duplication.md");
+    expect(template.task.instructions).toContain("harness verifyCommands remain the acceptance gate");
+    expect(template.task.instructions).toContain("WORKER_VERIFY_EVIDENCE");
     expect(validateDispatch(template.task, agent).violations).toEqual([]);
   });
 

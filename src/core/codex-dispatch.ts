@@ -50,6 +50,7 @@ export function buildCodexWorkerPrompt(task: TaskSpec, agent: AgentProfile): str
     "",
     "Verify commands:",
     ...bulletList(task.verifyCommands, "(none)"),
+    "These are harness-required verification commands. You may run focused or otherwise applicable self-checks first, but do not decide which harness verify commands are authoritative.",
     "",
     task.expectedCommitSubject
       ? `Samantha commit subject after gates pass: ${task.expectedCommitSubject}`
