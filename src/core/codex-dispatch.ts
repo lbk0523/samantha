@@ -56,6 +56,9 @@ export function buildCodexWorkerPrompt(task: TaskSpec, agent: AgentProfile): str
       : "Samantha chooses the commit subject after gates pass.",
     "",
     "Before final response, run the verify commands if you changed files.",
+    "When you run, skip, or cannot run verification checks, include optional advisory evidence before HARNESS_RESULT:",
+    'WORKER_VERIFY_EVIDENCE: {"ran":["<command>"],"skipped":["<reason>"],"failed":["<command>"],"note":"short"}',
+    "WORKER_VERIFY_EVIDENCE is advisory only; HARNESS_RESULT remains the required worker status line.",
     "Final response must include exactly one HARNESS_RESULT line.",
     'HARNESS_RESULT: {"status":"pass|rework|blocked","note":"short"}',
   ].join("\n");

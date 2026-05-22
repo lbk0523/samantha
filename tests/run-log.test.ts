@@ -241,6 +241,83 @@ describe("worker run logs", () => {
     expect(parsed.result.preparation.codex.prompt).toBe("prompt");
   });
 
+  test("records parsed advisory verification evidence in run logs", () => {
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: {
+        ...execution,
+        evaluation: {
+          ...execution.evaluation!,
+          workerVerifyEvidence: {
+            status: "parsed",
+            raw: '{"ran":["bun test"],"skipped":[],"failed":[],"note":"ok"}',
+            evidence: {
+              ran: ["bun test"],
+              skipped: [],
+              failed: [],
+              note: "ok",
+            },
+          },
+        },
+      },
+    });
+
+    expect(log.result.evaluation?.workerVerifyEvidence).toEqual({
+      status: "parsed",
+      raw: '{"ran":["bun test"],"skipped":[],"failed":[],"note":"ok"}',
+      evidence: {
+        ran: ["bun test"],
+        skipped: [],
+        failed: [],
+        note: "ok",
+      },
+    });
+    expect(log.trajectory?.[4]).toMatchObject({
+      event: "worker_output_received",
+      details: {
+        workerVerifyEvidence: "parsed",
+      },
+    });
+  });
+
+  test("records malformed advisory verification evidence in run logs without changing pass", () => {
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution: {
+        ...execution,
+        evaluation: {
+          ...execution.evaluation!,
+          workerVerifyEvidence: {
+            status: "unparseable",
+            raw: "{bad json}",
+            parseError: "invalid WORKER_VERIFY_EVIDENCE json: Expected property name or '}' in JSON",
+          },
+        },
+      },
+    });
+
+    expect(log.result.pass).toBe(true);
+    expect(log.result.evaluation?.workerVerifyEvidence).toEqual({
+      status: "unparseable",
+      raw: "{bad json}",
+      parseError: "invalid WORKER_VERIFY_EVIDENCE json: Expected property name or '}' in JSON",
+    });
+    expect(log.trajectory?.[4]).toMatchObject({
+      event: "worker_output_received",
+      details: {
+        workerVerifyEvidence: "unparseable",
+      },
+    });
+  });
+
   test("keeps legacy run logs compatible when runtime metadata is absent", () => {
     const legacyExecution: WorkerDispatchExecution = {
       ...execution,

@@ -10,6 +10,10 @@ import {
   startOperationTiming,
   type OperationTiming,
 } from "./command-runner";
+import {
+  parseWorkerVerifyEvidence,
+  type WorkerVerifyEvidenceParseResult,
+} from "./worker-verify-evidence";
 
 export interface VerifyCommandResult {
   command: string;
@@ -34,6 +38,7 @@ export interface WorkerResultEvaluation {
   changedFiles: string[];
   scopeViolations: ScopeViolation[];
   verifyResults: VerifyCommandResult[];
+  workerVerifyEvidence?: WorkerVerifyEvidenceParseResult;
   harnessTiming?: OperationTiming;
   verificationTiming?: OperationTiming;
 }
@@ -154,6 +159,7 @@ export async function evaluateWorkerResult(input: {
     parseError =
       err instanceof HarnessResultParseError || err instanceof Error ? err.message : String(err);
   }
+  const workerVerifyEvidence = parseWorkerVerifyEvidence(input.output);
 
   const initialChangedFiles = await collectChangedFilesAfterBaseline(input);
   const initialScopeViolations = findScopeViolations(input.task, initialChangedFiles);
@@ -185,6 +191,7 @@ export async function evaluateWorkerResult(input: {
     changedFiles,
     scopeViolations,
     verifyResults,
+    ...(workerVerifyEvidence ? { workerVerifyEvidence } : {}),
     harnessTiming,
     ...(verificationTiming ? { verificationTiming } : {}),
   };

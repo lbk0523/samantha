@@ -195,6 +195,9 @@ export function buildWorkerRunTrajectory(input: WorkerRunLogInput): WorkerRunTra
           note: "worker command finished",
           details: {
             exitCode: execution.command.exitCode,
+            ...(execution.evaluation?.workerVerifyEvidence
+              ? { workerVerifyEvidence: execution.evaluation.workerVerifyEvidence.status }
+              : {}),
           },
           ...timingFields(execution.command),
         }

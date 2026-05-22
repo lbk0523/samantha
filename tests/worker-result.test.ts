@@ -69,6 +69,7 @@ describe("evaluateWorkerResult", () => {
     expect(result.changedFiles).toEqual(["allowed.txt"]);
     expect(result.scopeViolations).toEqual([]);
     expect(result.verifyResults[0]?.exitCode).toBe(0);
+    expect(result.workerVerifyEvidence).toBeUndefined();
     expectTiming(result.harnessTiming!);
     expectTiming(result.verificationTiming!);
     expectTiming(result.verifyResults[0]!);
@@ -262,6 +263,55 @@ describe("evaluateWorkerResult", () => {
     expect(result.verifyResults).toEqual([]);
     expectTiming(result.harnessTiming!);
     expect(result.verificationTiming).toBeUndefined();
+  });
+
+  test("keeps advisory verification evidence out of pass/fail semantics", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");
+
+    const result = await evaluateWorkerResult({
+      task,
+      cwd: root,
+      baseCommit,
+      output: [
+        'WORKER_VERIFY_EVIDENCE: {"ran":["manual check"],"skipped":[],"failed":["optional lint"],"note":"worker-reported failure stays advisory"}',
+        'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+      ].join("\n"),
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.workerVerifyEvidence).toEqual({
+      status: "parsed",
+      raw: '{"ran":["manual check"],"skipped":[],"failed":["optional lint"],"note":"worker-reported failure stays advisory"}',
+      evidence: {
+        ran: ["manual check"],
+        skipped: [],
+        failed: ["optional lint"],
+        note: "worker-reported failure stays advisory",
+      },
+    });
+  });
+
+  test("records malformed advisory verification evidence without failing evaluation", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");
+
+    const result = await evaluateWorkerResult({
+      task,
+      cwd: root,
+      baseCommit,
+      output: [
+        'WORKER_VERIFY_EVIDENCE: {"ran":"bun test","skipped":[],"failed":[],"note":"bad shape"}',
+        'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+      ].join("\n"),
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.workerVerifyEvidence).toEqual({
+      status: "unparseable",
+      raw: '{"ran":"bun test","skipped":[],"failed":[],"note":"bad shape"}',
+      parseError: "WORKER_VERIFY_EVIDENCE.ran must be a string array",
+    });
   });
 
   test("fails when harness status is not pass", async () => {

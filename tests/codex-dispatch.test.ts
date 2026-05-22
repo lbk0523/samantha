@@ -55,6 +55,10 @@ describe("codex dispatch preparation", () => {
     expect(prompt).toContain("bun test tests/codex-dispatch.test.ts");
     expect(prompt).toContain("Samantha commit subject after gates pass");
     expect(prompt).toContain("HARNESS_RESULT");
+    expect(prompt).toContain("WORKER_VERIFY_EVIDENCE");
+    expect(prompt).toContain(
+      'WORKER_VERIFY_EVIDENCE: {"ran":["<command>"],"skipped":["<reason>"],"failed":["<command>"],"note":"short"}',
+    );
   });
 
   test("does not ask writer workers to report commit hashes", () => {
