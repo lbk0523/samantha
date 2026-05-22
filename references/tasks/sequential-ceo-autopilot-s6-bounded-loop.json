@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s6-bounded-loop",
   "title": "Add Sequential CEO Autopilot bounded successful continuation loop",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

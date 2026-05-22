@@ -1,6 +1,13 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, posix, relative, resolve } from "node:path";
-import type { HarnessResult, TaskSpec, WorktreeAllocation } from "./contracts";
+import {
+  RISK_CLASSES,
+  TASK_FAMILIES,
+  WORK_MODES,
+  type HarnessResult,
+  type TaskSpec,
+  type WorktreeAllocation,
+} from "./contracts";
 import { git, gitRaw } from "./git";
 import { actionableCommitForRunLog } from "./run-commit";
 import type { RunAcceptResult } from "./run-accept";
@@ -866,6 +873,9 @@ const RUN_ACCEPT_EXECUTION_EXPECTED_SIDE_EFFECT_FIELDS = new Set<string>(
 const TASK_SPEC_FIELDS = new Set([
   "id",
   "title",
+  "taskFamily",
+  "workMode",
+  "riskClass",
   "targetAgent",
   "targetFiles",
   "forbiddenChanges",
@@ -3288,6 +3298,9 @@ function validateRunTaskTaskSpec(value: unknown): string[] {
       violations.push(`TaskSpec.${field} must be a non-empty string`);
     }
   }
+  validateTaskSpecEnumField(value.taskFamily, "taskFamily", TASK_FAMILIES, violations);
+  validateTaskSpecEnumField(value.workMode, "workMode", WORK_MODES, violations);
+  validateTaskSpecEnumField(value.riskClass, "riskClass", RISK_CLASSES, violations);
   for (const field of ["targetFiles", "forbiddenChanges", "verifyCommands"] as const) {
     if (!hasOnlyNonEmptyStrings(value[field], { allowEmpty: false })) {
       violations.push(`TaskSpec.${field} must be a non-empty string array`);
@@ -3307,6 +3320,23 @@ function validateRunTaskTaskSpec(value: unknown): string[] {
   }
 
   return violations;
+}
+
+function validateTaskSpecEnumField(
+  value: unknown,
+  fieldName: "taskFamily" | "workMode" | "riskClass",
+  allowedValues: readonly string[],
+  violations: string[],
+): void {
+  if (typeof value === "string" && allowedValues.includes(value)) {
+    return;
+  }
+
+  violations.push(
+    `TaskSpec.${fieldName} must be ${joinOptions(allowedValues)}: ${
+      typeof value === "string" && value.trim().length > 0 ? value : "(empty)"
+    }`,
+  );
 }
 
 async function validateCommittedCleanTaskSpec(input: {

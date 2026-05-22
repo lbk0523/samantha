@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s1-design-contract",
   "title": "Document Sequential CEO Autopilot design contract",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/playbooks/sequential-ceo-autopilot.md",

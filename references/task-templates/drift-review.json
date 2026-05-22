@@ -11,6 +11,9 @@
   "task": {
     "id": "replace-with-task-id",
     "title": "Review drift for <evidence-topic>",
+    "taskFamily": "report-review",
+    "workMode": "diagnosis-first",
+    "riskClass": "routine",
     "targetAgent": "codex-reviewer",
     "targetFiles": [],
     "forbiddenChanges": [

@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s15-single-run-task-execution",
   "title": "Implement Sequential CEO Autopilot S15 guarded single-run_task execution",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

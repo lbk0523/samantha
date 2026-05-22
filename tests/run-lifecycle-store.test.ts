@@ -54,6 +54,9 @@ describe("RunLifecycleStore", () => {
       task: {
         id: "report-fixture",
         title: "Report fixture",
+        taskFamily: "report-review",
+        workMode: "diagnosis-first",
+        riskClass: "routine",
         targetAgent: "codex-reviewer",
         targetFiles: [],
         forbiddenChanges: ["**/*"],

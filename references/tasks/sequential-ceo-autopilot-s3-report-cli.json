@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s3-report-cli",
   "title": "Add Sequential CEO Autopilot report-only CLI",
+  "taskFamily": "cli-command",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

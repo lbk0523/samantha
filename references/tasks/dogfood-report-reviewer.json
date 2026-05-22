@@ -1,6 +1,9 @@
 {
   "id": "dogfood-report-reviewer",
   "title": "Dogfood report-only reviewer",
+  "taskFamily": "report-review",
+  "workMode": "diagnosis-first",
+  "riskClass": "routine",
   "targetAgent": "codex-reviewer",
   "targetFiles": [],
   "forbiddenChanges": [

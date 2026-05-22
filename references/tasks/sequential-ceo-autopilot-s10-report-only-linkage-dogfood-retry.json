@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s10-report-only-linkage-dogfood-retry",
   "title": "Retry Sequential CEO Autopilot S10 report-only linkage dogfood with worktree-local verification",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot.md",

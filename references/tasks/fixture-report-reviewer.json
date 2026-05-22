@@ -1,6 +1,9 @@
 {
   "id": "fixture-report-reviewer",
   "title": "Review Samantha harness evidence boundaries",
+  "taskFamily": "report-review",
+  "workMode": "diagnosis-first",
+  "riskClass": "routine",
   "targetAgent": "codex-reviewer",
   "targetFiles": [],
   "forbiddenChanges": [

@@ -16,6 +16,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "original-task",
   title: "Original task",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["src/core/original.ts", "tests/original.test.ts"],
   forbiddenChanges: ["runs/**", "worktrees/**"],
@@ -169,6 +172,9 @@ function reportOnlyTask(taskId: string): TaskSpec {
   return {
     ...task,
     id: taskId,
+    taskFamily: "report-review",
+    workMode: "diagnosis-first",
+    riskClass: "routine",
     targetAgent: "codex-reviewer",
     targetFiles: [],
     forbiddenChanges: ["**/*"],
@@ -278,6 +284,9 @@ describe("task creation from run evidence", () => {
     const root = await makeRoot();
     const reportTask: TaskSpec = {
       ...task,
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
@@ -313,11 +322,11 @@ describe("task creation from run evidence", () => {
 
     await expect(
       createTaskFromRun({
-        repoRoot: root,
-        runLogPath,
-        taskId: "report-follow-up",
-        title: "Report follow up",
-      }),
+      repoRoot: root,
+      runLogPath,
+      taskId: "report-follow-up",
+      title: "Report follow up",
+    }),
     ).resolves.toMatchObject({
       status: "refused",
       created: false,
@@ -331,6 +340,9 @@ describe("task creation from run evidence", () => {
     const root = await makeRoot();
     const reportTask: TaskSpec = {
       ...task,
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
@@ -381,6 +393,9 @@ describe("task creation from run evidence", () => {
       outcome: "rework",
     });
     expect(generated).toMatchObject({
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
@@ -519,6 +534,9 @@ describe("task creation from run evidence", () => {
       outcome: "rework",
     });
     expect(generated).toMatchObject({
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       verifyCommands: [],
@@ -752,7 +770,51 @@ describe("task creation from run evidence", () => {
       "bun test tests/original.test.ts",
       "bun run typecheck",
     ]);
+    expect(generated).toMatchObject({
+      taskFamily: "core-module",
+      workMode: "tdd-first",
+      riskClass: "lifecycle-sensitive",
+    });
     expect(generated.instructions).toContain("Keep this failed verify command in verifyCommands: bun test tests/original.test.ts");
+  });
+
+  test("uses conservative recovery metadata defaults for legacy failed run logs", async () => {
+    const root = await makeRoot();
+    const legacyTask = { ...task } as unknown as Record<string, unknown>;
+    delete legacyTask.taskFamily;
+    delete legacyTask.workMode;
+    delete legacyTask.riskClass;
+    const runLogPath = await writeRunLog(
+      root,
+      baseLog({
+        task: legacyTask as unknown as TaskSpec,
+        result: baseExecution({
+          evaluation: {
+            pass: false,
+            harness: { status: "pass", note: "ok", commit: "" },
+            changedFiles: ["src/core/original.ts"],
+            scopeViolations: [],
+            verifyResults: [{ command: "bun test tests/original.test.ts", exitCode: 1, stdout: "", stderr: "" }],
+          },
+          commit: undefined,
+          pass: false,
+        }),
+      }),
+    );
+
+    const result = await createTaskFromRun({
+      repoRoot: root,
+      runLogPath,
+      taskId: "legacy-metadata-follow-up",
+      title: "Recover legacy metadata run",
+    });
+    const generated = await readTask(result.path ?? "");
+
+    expect(generated).toMatchObject({
+      taskFamily: "recovery",
+      workMode: "diagnosis-first",
+      riskClass: "lifecycle-sensitive",
+    });
   });
 
   test("keeps SDK thread continuity bounded to failed-run follow-up context", async () => {

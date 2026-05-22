@@ -1,6 +1,9 @@
 {
   "id": "sdk-failed-recovery-dogfood",
   "title": "Dogfood SDK failed-run recovery",
+  "taskFamily": "recovery",
+  "workMode": "diagnosis-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sdk-adapter-s7-failed-dogfood.md"

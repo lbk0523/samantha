@@ -1,6 +1,9 @@
 {
   "id": "add-annotated-context-resolver-index",
   "title": "Add annotated context resolver index",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "ARCHITECTURE.md",

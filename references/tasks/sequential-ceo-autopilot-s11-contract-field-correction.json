@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s11-contract-field-correction",
   "title": "Correct Sequential CEO Autopilot S11 runTaskCandidate field contract",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot-s11-run-task-preflight-boundary.md"

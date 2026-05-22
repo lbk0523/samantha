@@ -5,6 +5,23 @@ export type MergePolicy = "samantha-controlled" | "none";
 export type TaskStatus = "pending" | "in_progress" | "completed" | "failed" | "blocked";
 export type HarnessStatus = "pass" | "rework" | "blocked";
 export type TaskResultMode = "write" | "report";
+export const TASK_FAMILIES = [
+  "cli-command",
+  "core-module",
+  "docs-only",
+  "report-review",
+  "recovery",
+] as const;
+export const WORK_MODES = ["minimal-change", "tdd-first", "diagnosis-first"] as const;
+export const RISK_CLASSES = [
+  "routine",
+  "authority-sensitive",
+  "doctrine-sensitive",
+  "lifecycle-sensitive",
+] as const;
+export type TaskFamily = (typeof TASK_FAMILIES)[number];
+export type WorkMode = (typeof WORK_MODES)[number];
+export type RiskClass = (typeof RISK_CLASSES)[number];
 
 export interface SkillBundleRef {
   id: string;
@@ -31,6 +48,9 @@ export interface AgentProfile {
 export interface TaskSpec {
   id: string;
   title: string;
+  taskFamily: TaskFamily;
+  workMode: WorkMode;
+  riskClass: RiskClass;
   targetAgent: string;
   targetFiles: string[];
   forbiddenChanges: string[];

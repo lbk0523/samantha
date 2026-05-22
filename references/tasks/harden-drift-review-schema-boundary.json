@@ -1,6 +1,9 @@
 {
   "id": "harden-drift-review-schema-boundary",
   "title": "Harden Drift Review schema boundary",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "routine",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/drift-review.ts",

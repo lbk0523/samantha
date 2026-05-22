@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s22-post-accept-status",
   "title": "Implement Sequential CEO Autopilot S22 post-accept status and next-artifact reporting",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

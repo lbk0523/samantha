@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s10-report-only-linkage-dogfood",
   "title": "Dogfood Sequential CEO Autopilot report-only linkage and design action coordination boundary",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot.md",

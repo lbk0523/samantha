@@ -1,6 +1,9 @@
 {
   "id": "add-runs-diagnose-command",
   "title": "Add runs diagnose command",
+  "taskFamily": "cli-command",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/cli.ts",

@@ -8,6 +8,9 @@ import {
 const task: TaskSpec = {
   id: "placeholder-fixture",
   title: "Placeholder fixture",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["src/core/<module>.ts", "tests/<module>.test.ts", "src/<area>/index.ts"],
   forbiddenChanges: ["runs/<runId>/**", "worktrees/**"],

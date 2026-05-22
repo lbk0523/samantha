@@ -30,6 +30,9 @@ function reportTask(id: string): TaskSpec {
   return {
     id,
     title: `Review ${id}`,
+    taskFamily: "report-review",
+    workMode: "diagnosis-first",
+    riskClass: "routine",
     targetAgent: "codex-reviewer",
     targetFiles: [],
     forbiddenChanges: ["**/*"],

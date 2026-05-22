@@ -11,6 +11,9 @@
   "task": {
     "id": "replace-with-task-id",
     "title": "Implement <command> CLI command",
+    "taskFamily": "cli-command",
+    "workMode": "tdd-first",
+    "riskClass": "routine",
     "targetAgent": "codex-worker",
     "targetFiles": [
       "src/cli.ts",

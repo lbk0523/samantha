@@ -90,6 +90,9 @@ function runTaskTaskSpec(overrides: Partial<TaskSpec> = {}): TaskSpec {
   return {
     id: "s12-run-task-preflight",
     title: "Implement S12 run_task preflight",
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "lifecycle-sensitive",
     targetAgent: "codex-worker",
     targetFiles: ["src/core/sequential-ceo-autopilot.ts", "tests/sequential-ceo-autopilot.test.ts"],
     forbiddenChanges: ["runs/**", "worktrees/**"],
@@ -351,6 +354,9 @@ async function writeRunAcceptPreflightFixture(overrides: {
     task: {
       id: "accept-fixture",
       title: "Accept fixture",
+      taskFamily: "core-module",
+      workMode: "tdd-first",
+      riskClass: "lifecycle-sensitive",
       targetAgent: "codex-worker",
       targetFiles: ["allowed.txt"],
       forbiddenChanges: ["runs/**", "worktrees/**"],
@@ -1629,6 +1635,9 @@ describe("Sequential CEO Autopilot run_task preflight report", () => {
     const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
       taskSpec: {
         id: "",
+        taskFamily: "persona" as TaskSpec["taskFamily"],
+        workMode: "roleplay" as TaskSpec["workMode"],
+        riskClass: "admin" as TaskSpec["riskClass"],
       },
     });
 
@@ -1640,6 +1649,15 @@ describe("Sequential CEO Autopilot run_task preflight report", () => {
 
     expect(report.status).toBe("blocked");
     expect(report.blockingReasons).toContain("TaskSpec.id must be a non-empty string");
+    expect(report.blockingReasons).toContain(
+      "TaskSpec.taskFamily must be cli-command, core-module, docs-only, report-review, or recovery: persona",
+    );
+    expect(report.blockingReasons).toContain(
+      "TaskSpec.workMode must be minimal-change, tdd-first, or diagnosis-first: roleplay",
+    );
+    expect(report.blockingReasons).toContain(
+      "TaskSpec.riskClass must be routine, authority-sensitive, doctrine-sensitive, or lifecycle-sensitive: admin",
+    );
   });
 
   test("blocks untracked, dirty, and stale TaskSpec commit evidence", async () => {

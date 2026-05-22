@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s12-1-run-task-preflight-validation-order",
   "title": "Fix Sequential CEO Autopilot S12 run_task preflight validation order",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

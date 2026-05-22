@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s7-dogfood",
   "title": "Dogfood Sequential CEO Autopilot MVP and record routine-use decision",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot.md",

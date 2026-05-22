@@ -1,10 +1,21 @@
 {
   "id": "fixture-single-writer",
   "title": "Validate the first Codex harness safety contract",
+  "taskFamily": "core-module",
+  "workMode": "minimal-change",
+  "riskClass": "routine",
   "targetAgent": "codex-worker",
-  "targetFiles": ["src/core/policy.ts"],
-  "forbiddenChanges": ["references/**", "runs/**", "worktrees/**"],
-  "verifyCommands": ["bun test tests/policy.test.ts"],
+  "targetFiles": [
+    "src/core/policy.ts"
+  ],
+  "forbiddenChanges": [
+    "references/**",
+    "runs/**",
+    "worktrees/**"
+  ],
+  "verifyCommands": [
+    "bun test tests/policy.test.ts"
+  ],
   "instructions": "No code change is required. Inspect the policy fixture and report whether it is dispatch-safe.",
   "expectedCommitSubject": "test: validate safety policy fixture",
   "status": "pending"

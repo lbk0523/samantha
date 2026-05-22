@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s21-lifecycle-worker",
   "title": "Create Sequential CEO Autopilot S21 lifecycle worker output",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/operations/sequential-ceo-autopilot-s21-worker-output.md"

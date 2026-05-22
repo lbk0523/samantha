@@ -1,6 +1,9 @@
 {
   "id": "link-web-design-guardrails-skill-v2",
   "title": "Link web design guardrails shared skill v2",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/playbooks/web-design-guardrails.md"

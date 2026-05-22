@@ -11,6 +11,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "Audit Log Fixture",
   title: "Write audit log",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["forbidden/**"],

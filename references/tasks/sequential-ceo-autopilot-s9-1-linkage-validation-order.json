@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s9-1-linkage-validation-order",
   "title": "Fix Sequential CEO Autopilot next-artifact predecessor validation order",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

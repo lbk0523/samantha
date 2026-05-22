@@ -7,6 +7,9 @@ function proposedTask(overrides: Partial<BatchPlanDraft["proposedTasks"][number]
     id: "draft-validator-contract",
     title: "Add BatchPlanDraft validator",
     summary: "Create the pure BatchPlanDraft contract and focused validator tests.",
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "routine",
     targetFileHints: ["src/core/batch-plan-draft.ts", "tests/batch-plan-draft.test.ts"],
     forbiddenChangeHints: ["src/cli.ts", "src/core/batch-spec.ts", "references/**", "runs/**", "worktrees/**"],
     verifyCommandHints: ["bun test tests/batch-plan-draft.test.ts", "bun run typecheck", "bun test"],
@@ -197,6 +200,49 @@ describe("BatchPlanDraft validation", () => {
     );
     expect(violations).toContain(
       "proposedTasks[].independentlyVerifiableRationale must be a non-empty string: draft-validator-contract",
+    );
+  });
+
+  test("rejects missing or unknown worker assignment metadata on proposed tasks", () => {
+    const missingMetadata = proposedTask() as unknown as Record<string, unknown>;
+    delete missingMetadata.taskFamily;
+    delete missingMetadata.workMode;
+    delete missingMetadata.riskClass;
+
+    const missingViolations = validateBatchPlanDraft(
+      draft({
+        proposedTasks: [missingMetadata as unknown as BatchPlanDraft["proposedTasks"][number]],
+      }),
+    );
+    const unknownViolations = validateBatchPlanDraft(
+      draft({
+        proposedTasks: [
+          proposedTask({
+            taskFamily: "persona" as BatchPlanDraft["proposedTasks"][number]["taskFamily"],
+            workMode: "roleplay" as BatchPlanDraft["proposedTasks"][number]["workMode"],
+            riskClass: "admin" as BatchPlanDraft["proposedTasks"][number]["riskClass"],
+          }),
+        ],
+      }),
+    );
+
+    expect(missingViolations).toContain(
+      "proposedTasks[].taskFamily must be one of cli-command, core-module, docs-only, report-review, recovery: draft-validator-contract has (empty)",
+    );
+    expect(missingViolations).toContain(
+      "proposedTasks[].workMode must be one of minimal-change, tdd-first, diagnosis-first: draft-validator-contract has (empty)",
+    );
+    expect(missingViolations).toContain(
+      "proposedTasks[].riskClass must be one of routine, authority-sensitive, doctrine-sensitive, lifecycle-sensitive: draft-validator-contract has (empty)",
+    );
+    expect(unknownViolations).toContain(
+      "proposedTasks[].taskFamily must be one of cli-command, core-module, docs-only, report-review, recovery: draft-validator-contract has persona",
+    );
+    expect(unknownViolations).toContain(
+      "proposedTasks[].workMode must be one of minimal-change, tdd-first, diagnosis-first: draft-validator-contract has roleplay",
+    );
+    expect(unknownViolations).toContain(
+      "proposedTasks[].riskClass must be one of routine, authority-sensitive, doctrine-sensitive, lifecycle-sensitive: draft-validator-contract has admin",
     );
   });
 

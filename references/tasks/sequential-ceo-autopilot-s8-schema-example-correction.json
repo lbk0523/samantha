@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s8-schema-example-correction",
   "title": "Correct S8 action-boundary schema examples",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot-s8-action-boundary.md"

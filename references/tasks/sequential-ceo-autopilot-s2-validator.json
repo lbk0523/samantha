@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s2-validator",
   "title": "Add Sequential CEO Autopilot continuation artifact validator",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

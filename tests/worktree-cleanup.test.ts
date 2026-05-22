@@ -60,6 +60,9 @@ async function makePassedRun(options: { merge: boolean }): Promise<{
     task: {
       id: "cleanup-fixture",
       title: "Cleanup fixture",
+      taskFamily: "core-module",
+      workMode: "tdd-first",
+      riskClass: "lifecycle-sensitive",
       targetAgent: "codex-worker",
       targetFiles: ["allowed.txt"],
       forbiddenChanges: ["state/**"],
@@ -162,6 +165,9 @@ describe("cleanupCompletedWorktree", () => {
     const log = JSON.parse(await readFile(logPath, "utf8")) as WorkerRunLog;
     log.task = {
       ...log.task,
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],

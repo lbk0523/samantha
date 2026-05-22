@@ -1,6 +1,9 @@
 {
   "id": "clarify-brainstorm-execution-authorization",
   "title": "Clarify brainstorm decision acceptance versus execution authorization",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "OPERATING_GUIDE_KR.md",

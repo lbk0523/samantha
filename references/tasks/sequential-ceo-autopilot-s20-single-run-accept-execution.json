@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s20-single-run-accept-execution",
   "title": "Implement Sequential CEO Autopilot S20 guarded single runs:accept execution",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

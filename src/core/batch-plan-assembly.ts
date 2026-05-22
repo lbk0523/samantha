@@ -8,6 +8,9 @@ export interface TaskSpecPlan {
   taskId: string;
   taskSpecPath: string;
   title: string;
+  taskFamily: BatchPlanDraft["proposedTasks"][number]["taskFamily"];
+  workMode: BatchPlanDraft["proposedTasks"][number]["workMode"];
+  riskClass: BatchPlanDraft["proposedTasks"][number]["riskClass"];
   targetAgent: "codex-worker";
   targetFiles: string[];
   forbiddenChanges: string[];
@@ -113,6 +116,9 @@ function taskSpecPlanFor(task: BatchPlanDraft["proposedTasks"][number], taskSpec
     taskId: task.id,
     taskSpecPath: join(taskSpecDir ?? DEFAULT_TASK_SPEC_DIR, `${task.id}.json`),
     title: task.title,
+    taskFamily: task.taskFamily,
+    workMode: task.workMode,
+    riskClass: task.riskClass,
     targetAgent: "codex-worker",
     targetFiles: [...task.targetFileHints],
     forbiddenChanges: [...task.forbiddenChangeHints],

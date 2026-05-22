@@ -64,6 +64,9 @@ async function makeRun(): Promise<{
     task: {
       id: "accept-fixture",
       title: "Accept fixture",
+      taskFamily: "core-module",
+      workMode: "tdd-first",
+      riskClass: "lifecycle-sensitive",
       targetAgent: "codex-worker",
       targetFiles: ["allowed.txt"],
       forbiddenChanges: ["state/**"],

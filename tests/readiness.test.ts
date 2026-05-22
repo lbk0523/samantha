@@ -13,6 +13,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "readiness-fixture",
   title: "Readiness fixture",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["src/example.ts", "tests/example.test.ts"],
   forbiddenChanges: ["runs/**", "worktrees/**"],

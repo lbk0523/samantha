@@ -12,6 +12,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "ledger-fixture",
   title: "Ledger fixture",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**"],
@@ -163,6 +166,9 @@ describe("RunIndex", () => {
     };
     const reportTask: TaskSpec = {
       ...task,
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],

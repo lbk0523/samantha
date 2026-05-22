@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s16-dogfood-worker",
   "title": "Create Sequential CEO Autopilot S16 dogfood worker output",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/operations/sequential-ceo-autopilot-s16-worker-output.md"

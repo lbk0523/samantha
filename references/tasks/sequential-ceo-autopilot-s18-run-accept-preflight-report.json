@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s18-run-accept-preflight-report",
   "title": "Implement Sequential CEO Autopilot S18 runs:accept preflight report",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

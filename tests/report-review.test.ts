@@ -15,6 +15,9 @@ let tmpRoots: string[] = [];
 const reportTask: TaskSpec = {
   id: "review-fixture",
   title: "Review fixture evidence",
+  taskFamily: "report-review",
+  workMode: "diagnosis-first",
+  riskClass: "routine",
   targetAgent: "codex-reviewer",
   targetFiles: [],
   forbiddenChanges: ["**/*"],

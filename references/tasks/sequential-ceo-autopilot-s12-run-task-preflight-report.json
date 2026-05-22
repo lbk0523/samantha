@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s12-run-task-preflight-report",
   "title": "Implement Sequential CEO Autopilot S12 run_task preflight reporting",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

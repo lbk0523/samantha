@@ -41,6 +41,9 @@ async function makeRepo(): Promise<{
     task: {
       id: "merge-fixture",
       title: "Merge fixture",
+      taskFamily: "core-module",
+      workMode: "tdd-first",
+      riskClass: "lifecycle-sensitive",
       targetAgent: "codex-worker",
       targetFiles: ["allowed.txt"],
       forbiddenChanges: ["state/**"],
@@ -207,6 +210,9 @@ describe("evaluateMergeGate", () => {
     const log = JSON.parse(await readFile(logPath, "utf8")) as WorkerRunLog;
     log.task = {
       ...log.task,
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],

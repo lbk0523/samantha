@@ -23,6 +23,9 @@ async function makeRepo(): Promise<{ root: string; baseCommit: string }> {
 const task: TaskSpec = {
   id: "worker-result-fixture",
   title: "Evaluate worker result",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**", "worktrees/**"],
@@ -79,6 +82,9 @@ describe("evaluateWorkerResult", () => {
     const result = await evaluateWorkerResult({
       task: {
         ...task,
+        taskFamily: "report-review",
+        workMode: "diagnosis-first",
+        riskClass: "routine",
         targetAgent: "codex-reviewer",
         targetFiles: [],
         forbiddenChanges: ["**/*"],
@@ -104,6 +110,9 @@ describe("evaluateWorkerResult", () => {
     const result = await evaluateWorkerResult({
       task: {
         ...task,
+        taskFamily: "report-review",
+        workMode: "diagnosis-first",
+        riskClass: "routine",
         targetAgent: "codex-reviewer",
         targetFiles: [],
         forbiddenChanges: ["**/*"],
@@ -130,6 +139,9 @@ describe("evaluateWorkerResult", () => {
     const result = await evaluateWorkerResult({
       task: {
         ...task,
+        taskFamily: "report-review",
+        workMode: "diagnosis-first",
+        riskClass: "routine",
         targetAgent: "codex-reviewer",
         targetFiles: [],
         forbiddenChanges: ["**/*"],

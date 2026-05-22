@@ -1,6 +1,9 @@
 {
   "id": "add-correction-transcript-mining-playbook",
   "title": "Add correction transcript mining playbook",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "ARCHITECTURE.md",

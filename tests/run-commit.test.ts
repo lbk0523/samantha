@@ -6,6 +6,9 @@ import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
 const task: TaskSpec = {
   id: "commit-fixture",
   title: "Commit fixture",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**"],
@@ -82,6 +85,9 @@ describe("actionableCommitForExecution", () => {
       actionableCommitForExecution({
         task: {
           ...task,
+          taskFamily: "report-review",
+          workMode: "diagnosis-first",
+          riskClass: "routine",
           targetAgent: "codex-reviewer",
           targetFiles: [],
           forbiddenChanges: ["**/*"],

@@ -13,6 +13,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "show-fixture",
   title: "Show fixture",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**"],

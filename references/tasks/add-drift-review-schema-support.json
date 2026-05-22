@@ -1,6 +1,9 @@
 {
   "id": "add-drift-review-schema-support",
   "title": "Add Drift Review schema support",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "routine",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/drift-review.ts",

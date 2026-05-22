@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s11-run-task-preflight-boundary",
   "title": "Design Sequential CEO Autopilot S11 run_task preflight boundary",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot.md",

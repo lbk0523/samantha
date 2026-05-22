@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s9-next-artifact-linkage",
   "title": "Add Sequential CEO Autopilot next-artifact linkage validation and report-only visibility",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

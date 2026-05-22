@@ -1,6 +1,9 @@
 {
   "id": "promote-selected-learning-candidates",
   "title": "Promote selected learning candidates",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/playbooks/failed-run-recovery-dogfood.md",

@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s14-single-run-task-decision",
   "title": "Review Sequential CEO Autopilot S14 guarded single-run_task execution decision",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot.md",

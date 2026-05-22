@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s22-post-accept-status-rework",
   "title": "Rework Sequential CEO Autopilot S22 post-accept evidence binding",
+  "taskFamily": "recovery",
+  "workMode": "diagnosis-first",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

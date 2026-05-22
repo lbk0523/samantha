@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s13-run-task-preflight-dogfood",
   "title": "Dogfood Sequential CEO Autopilot S13 run_task preflight reports",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot.md",

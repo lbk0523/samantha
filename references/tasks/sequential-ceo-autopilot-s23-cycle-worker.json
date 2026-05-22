@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s23-cycle-worker",
   "title": "Create Sequential CEO Autopilot S23 cycle worker output",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/operations/sequential-ceo-autopilot-s23-worker-output.md"

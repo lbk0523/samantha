@@ -36,6 +36,9 @@ const agent: AgentProfile = {
 const task: TaskSpec = {
   id: "worker-dispatch-fixture",
   title: "Run worker dispatch",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["README.md"],
   forbiddenChanges: ["runs/**", "worktrees/**"],
@@ -82,6 +85,9 @@ function sdkReportTask(id: string): TaskSpec {
   return {
     id,
     title: "Review SDK runtime fixture",
+    taskFamily: "report-review",
+    workMode: "diagnosis-first",
+    riskClass: "routine",
     targetAgent: "codex-reviewer",
     targetFiles: [],
     forbiddenChanges: ["**/*"],
@@ -159,6 +165,9 @@ describe("worker dispatch", () => {
     const reportTask: TaskSpec = {
       id: "review-fixture",
       title: "Review fixture",
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
@@ -225,6 +234,9 @@ describe("worker dispatch", () => {
     const reportTask: TaskSpec = {
       id: "review-fixture",
       title: "Review fixture",
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
@@ -458,6 +470,9 @@ describe("worker dispatch", () => {
     const reportTask: TaskSpec = {
       id: "review-fixture",
       title: "Review fixture",
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],

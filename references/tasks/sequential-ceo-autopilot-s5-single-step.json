@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s5-single-step",
   "title": "Add Sequential CEO Autopilot guarded single-step continuation",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

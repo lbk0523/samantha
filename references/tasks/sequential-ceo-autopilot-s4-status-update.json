@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s4-status-update",
   "title": "Add Sequential CEO Autopilot evidence-based status update support",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "src/core/sequential-ceo-autopilot.ts",

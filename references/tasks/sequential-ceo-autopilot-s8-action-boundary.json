@@ -1,6 +1,9 @@
 {
   "id": "sequential-ceo-autopilot-s8-action-boundary",
   "title": "Document Sequential CEO Autopilot next-artifact and action-execution boundary",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "authority-sensitive",
   "targetAgent": "codex-worker",
   "targetFiles": [
     "references/initiatives/sequential-ceo-autopilot.md",

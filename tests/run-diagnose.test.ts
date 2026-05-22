@@ -12,6 +12,9 @@ let tmpRoots: string[] = [];
 const task: TaskSpec = {
   id: "diagnose-fixture",
   title: "Diagnose fixture",
+  taskFamily: "core-module",
+  workMode: "tdd-first",
+  riskClass: "lifecycle-sensitive",
   targetAgent: "codex-worker",
   targetFiles: ["allowed.txt"],
   forbiddenChanges: ["state/**"],
@@ -114,6 +117,9 @@ describe("diagnoseRun", () => {
   test("reports passing report-only runs as evidence instead of mergeable work", () => {
     const reportTask: TaskSpec = {
       ...task,
+      taskFamily: "report-review",
+      workMode: "diagnosis-first",
+      riskClass: "routine",
       targetAgent: "codex-reviewer",
       targetFiles: [],
       forbiddenChanges: ["**/*"],
