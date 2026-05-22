@@ -1,0 +1,52 @@
+{
+  "id": "advisory-worker-verification-evidence",
+  "title": "Log advisory worker verification evidence",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/codex-dispatch.ts",
+    "src/core/worker-result.ts",
+    "src/core/run-log.ts",
+    "src/core/worker-verify-evidence.ts",
+    "tests/codex-dispatch.test.ts",
+    "tests/worker-result.test.ts",
+    "tests/run-log.test.ts",
+    "tests/worker-verify-evidence.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun run typecheck",
+    "bun test tests/codex-dispatch.test.ts tests/worker-verify-evidence.test.ts tests/worker-result.test.ts tests/run-log.test.ts",
+    "bun test"
+  ],
+  "instructions": "Implement only Slice 1: advisory worker verification evidence logging. Keep harness pass/fail semantics unchanged. Add an optional worker output line shape such as WORKER_VERIFY_EVIDENCE: {\"ran\":[\"...\"],\"skipped\":[\"...\"],\"failed\":[\"...\"],\"note\":\"...\"}. Update the worker prompt to request this optional advisory evidence when workers run or skip verification checks. Parse this line from plain output and Codex JSONL agent messages, and record parsed or malformed advisory evidence in run logs. Missing advisory evidence must not fail a run. Malformed advisory evidence must not fail a run; record it as unparseable advisory evidence. Advisory evidence must never affect WorkerResultEvaluation.pass. Harness pass must remain exactly HARNESS_RESULT pass plus changed-file scope pass plus harness verify pass. Do not change HARNESS_RESULT semantics. Do not add verification classification, fail-fast execution, parallel execution, template tuning, policy changes, CLI changes, doctrine changes, task template changes, remote adapters, daemon/watch behavior, dashboards, routine triggers, hidden memory, or any file outside targetFiles. Add focused tests for prompt text, advisory evidence parsing/logging, malformed and missing advisory evidence behavior, and unchanged worker-result pass/fail semantics. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: log advisory worker verification evidence",
+  "status": "pending"
+}
