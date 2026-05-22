@@ -1,0 +1,61 @@
+{
+  "id": "minimal-run-log-event-timing",
+  "title": "Add minimal run-log event timing for bottleneck measurement",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/run-log.ts",
+    "src/core/command-runner.ts",
+    "src/core/worker-runtime-adapter.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "src/core/post-run-trajectory.ts",
+    "src/core/run-accept.ts",
+    "tests/run-log.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/worker-result.test.ts",
+    "tests/post-run-trajectory.test.ts",
+    "tests/run-accept.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "src/cli.ts",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/initiatives/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/run-log.test.ts",
+    "bun test tests/worker-dispatch.test.ts",
+    "bun test tests/worker-result.test.ts",
+    "bun test tests/post-run-trajectory.test.ts",
+    "bun test tests/run-accept.test.ts",
+    "bun run typecheck",
+    "git diff --check HEAD -- src/core/run-log.ts src/core/command-runner.ts src/core/worker-runtime-adapter.ts src/core/worker-dispatch.ts src/core/worker-result.ts src/core/post-run-trajectory.ts src/core/run-accept.ts tests/run-log.test.ts tests/worker-dispatch.test.ts tests/worker-result.test.ts tests/post-run-trajectory.test.ts tests/run-accept.test.ts"
+  ],
+  "instructions": "Add only the first useful slice of bottleneck measurement: optional per-event timing evidence in existing worker run logs and post-run trajectory entries. Do not add dashboards, daemon/watch behavior, remote adapters, OpenTelemetry, trace exporters, token/cost analytics, schema-breaking migrations, CLI surfaces, hidden memory, broader routine authority, or real TaskSpec drafting-time measurement.\n\nKeep existing run logs backward compatible. Extend WorkerRunTrajectoryEntry with optional startedAt, finishedAt, and durationMs fields. Do not require old logs to contain these fields. Keep schemaVersion unchanged unless a focused test proves existing readers require a bump; prefer additive optional fields.\n\nCapture timing for run-task execution phases that are already inside Samantha-owned execution: worktree allocation, setup commands when present, worker runtime execution, HARNESS_RESULT/evaluation, verification, and worker commit when present. It is acceptable to add optional timing fields to CommandRunResult and VerifyCommandResult where that is the smallest local way to preserve phase evidence. For codex-sdk runtime execution, measure the SDK stream from before runStreamed through final event handling and include the timing in the returned command result. Duration must be a non-negative number of milliseconds captured at runtime; ISO timestamps must be valid strings.\n\nCapture timing for post-run lifecycle phases in the existing runs:accept path: merge gate check, merge command when present, lifecycle mark, cleanup, and cleaned lifecycle mark when present. Existing post-run trajectory events should receive timing where the operation boundary is available. Do not make accepted lifecycle preflight execute anything by itself. Do not add accept, merge, cleanup, commit, push, batch_plan, multi-step loop, successor execution, or worker dispatch authority.\n\nUpdate focused tests to prove: old trajectory entries without timing remain valid; new run logs include timing on relevant trajectory events; failed or skipped events can still be represented without fake timing when no operation ran; verify command results include timing for executed commands; post-run trajectory appenders can persist timing fields; runs:accept records timed merge/lifecycle/cleanup trajectory entries; and durationMs is never negative. Preserve existing behavior, statuses, notes, details, and ordering.\n\nIf exact TaskSpec prep or report-writing time cannot be measured from the current run-log boundary, leave it out and document that limitation in the final HARNESS_RESULT note. Do not fabricate TaskSpec prep timing from task loading time. Run the verify commands after implementation. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add minimal run log event timing",
+  "status": "pending"
+}
