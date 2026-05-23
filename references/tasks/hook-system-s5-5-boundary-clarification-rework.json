@@ -1,0 +1,42 @@
+{
+  "id": "hook-system-s5-5-boundary-clarification-rework",
+  "title": "Rework hook boundary clarification to avoid overstating S1-S5 integration",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/samantha-hook-system.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Rework the S5.5 boundary clarification. The previous candidate commit 73a28cb8e74e99f5636211ac003a641fdd091f2b was not accepted because it still slightly overstated S1-S5 behavior by saying hook run evidence is recorded with the Samantha run. S1-S5 added optional hookEvidence support to run logs/readers, but did not integrate hook execution into run-task, worker-dispatch, CLI, or lifecycle flows. You may use git cherry-pick --no-commit 73a28cb8e74e99f5636211ac003a641fdd091f2b as a starting point, then make the correction below. Do not commit from the worker; Samantha will commit after gates pass.\n\nModify only references/initiatives/samantha-hook-system.md. Preserve the useful boundary clarification from the previous candidate: V1 hooks are reviewed repo artifact commands, not an untrusted plugin sandbox; context injection is bounded but not a repo file-read sandbox; hook commands run from repo root; OS-level read sandbox, strict file-read allowlists, MCP, remote/plugin, and daemon/watch behavior stay future capabilities; write prohibition remains a product rule enforced today through mutation evidence and trust-gate fail-closed behavior.\n\nRequired rework: any Current V1 Guarantees / Run Evidence language must not imply hooks are already executed during Samantha run-task or worker-dispatch. Say that S1-S5 provides the optional run-log shape/readers for hook evidence when supplied, or that hook evidence can be recorded by Samantha core once integration supplies it. Keep the distinction between implemented runner APIs and not-yet-integrated runtime dispatch clear.\n\nVerification must pass: bun test tests/hooks.test.ts and bun run typecheck.",
+  "expectedCommitSubject": "docs: clarify hook system boundary",
+  "status": "pending"
+}
