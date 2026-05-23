@@ -180,6 +180,11 @@ Stop before continuing when any of these appear:
 No next implementation slice is ready. S5 closed the initiative with
 `references/operations/structured-agent-fanout-s5-dogfood-report.md`.
 
+S5 evidence boundary recovery: completed. Current-head replay evidence is
+recorded in
+`references/operations/structured-agent-fanout-s5-current-head-replay-report.md`.
+The initiative remains closed with no next implementation slice ready.
+
 Decision: S4 report-only boundaries are sufficient for visibility.
 `batchPlanExecution` or guarded batch execution coordination requires a
 separate reviewed initiative or reviewed follow-up slice before any

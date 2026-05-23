@@ -102,6 +102,14 @@ Material output:
 
 accepted batch_spec_preflight batchPlanPreflight.status: accepted
 
+Evidence boundary: S5 BatchSpec dogfood accepted output is worker-run evidence
+captured in the accepted run log
+`runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json`.
+It is not a promise that the committed preflight artifact remains accepted when
+replayed from later repository bases. Current-head replay evidence is recorded
+separately in
+`references/operations/structured-agent-fanout-s5-current-head-replay-report.md`.
+
 `bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json --repo-root=.`
 
 Expected non-zero output was accepted as dogfood evidence because the artifact
