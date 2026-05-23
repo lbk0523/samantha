@@ -1,6 +1,6 @@
 # Initiative: Structured Agent Fanout Autopilot
 
-Status: S1 completed; S2 ready/proposed
+Status: S2 completed; S3 ready/proposed
 Source: Samantha worker task `structured-agent-fanout-autopilot-docs`.
 Last updated: 2026-05-23
 
@@ -63,6 +63,12 @@ approved initiative
 - Treating `BatchPlanDraft` advice, report fanout output, evaluator prose, or a
   reviewer summary as trusted completion evidence.
 
+## Non-Goals
+
+The rejected alternatives above remain non-goals for this initiative. S2 adds
+only dogfood evidence for report-only candidate visibility and does not add any
+dispatch or execution authority.
+
 ## Initiative Boundary
 
 This initiative may design and later implement deterministic report-only
@@ -81,6 +87,15 @@ It must not weaken existing gates:
   Samantha-owned lifecycle records.
 - Batch planning and execution remain under Phase 5.5 `BatchPlanDraft`
   validation/promotion and Phase 5 `BatchSpec` preflight/execution.
+
+## Invariants
+
+- Samantha owns orchestration, verification, lifecycle records, local reporting,
+  and final integration gates.
+- Report fanout advice remains untrusted until deterministic synthesis/status
+  evidence accepts it.
+- Existing Phase 5.5 and Phase 5 gates remain the only batch planning and batch
+  execution path.
 
 ## Lifecycle
 
@@ -144,10 +159,36 @@ Stop before continuing when any of these appear:
 | --- | --- | --- | --- |
 | S0 | completed | Create this initiative brief and the design contract playbook. | Markdown files exist, required contract terms are present, and scoped diff check passes. |
 | S1 | completed | Implement report-only validation and visibility for closed `reportFanoutCandidate` objects. No fanout dispatch. | Current-head recovery adds closed candidate validation, source-artifact preflight, `continuation:show` visibility, and focused accepted/blocked false-side-effect tests. |
-| S2 | ready | Dogfood S1 against one accepted and one blocked report/spec/reviewer/evaluator fanout candidate. | Operation report cites CLI output, accepted/blocked reasons, and false writer/batch/push side effects. |
-| S3 | proposed | Add deterministic synthesis/status evidence for report fanout outputs. No writer or batch execution. | Tests prove advice cannot update status without cited synthesis evidence and conflicting advice blocks instead of averaging. |
+| S2 | completed | Dogfood S1 against one accepted and one blocked report/spec/reviewer/evaluator fanout candidate. | `references/operations/structured-agent-fanout-s2-dogfood-report.md` cites CLI output, accepted/blocked reasons, and false writer/batch/push side effects. |
+| S3 | ready | Add deterministic synthesis/status evidence for report fanout outputs. No writer or batch execution. | Tests prove advice cannot update status without cited synthesis evidence and conflicting advice blocks instead of averaging. |
 | S4 | proposed | Add report-only `batchPlanCandidate` validation that reuses Phase 5.5 `BatchPlanDraft` and Phase 5 `BatchSpec` gates. No batch execution. | Tests prove accepted/blocked batch candidates and rejection of any parallel batch authority. |
 | S5 | proposed | Dogfood S4 against existing Phase 5.5/Phase 5 fixtures and decide whether guarded batch execution coordination is justified. | Report cites existing batch gate evidence and recommends stop or next reviewed implementation slice. |
+
+## Slice Queue
+
+| Slice | Status | Objective | Depends on | Verification | Next prompt |
+| --- | --- | --- | --- | --- | --- |
+| S0 | completed | Create this initiative brief and the design contract playbook. | none | Markdown files exist, required contract terms are present, and scoped diff check passes. | n/a |
+| S1 | completed | Implement report-only validation and visibility for closed `reportFanoutCandidate` objects. | S0 | Current-head recovery adds closed candidate validation, source-artifact preflight, `continuation:show` visibility, and focused accepted/blocked false-side-effect tests. | n/a |
+| S2 | completed | Dogfood S1 against accepted and blocked report/spec/reviewer/evaluator fanout candidates. | S1 | `references/operations/structured-agent-fanout-s2-dogfood-report.md` records accepted and blocked CLI output with false side effects. | n/a |
+| S3 | ready | Add deterministic synthesis/status evidence for report fanout outputs. | S2 | Tests prove advice cannot update status without cited synthesis evidence and conflicting advice blocks. | Review S3 deterministic synthesis/status evidence. |
+| S4 | pending | Add report-only `batchPlanCandidate` validation through existing batch gates. | S3 | Tests prove accepted/blocked batch candidates and rejection of parallel batch authority. | Wait for S3 evidence. |
+| S5 | pending | Dogfood S4 and decide whether guarded batch execution coordination is justified. | S4 | Report cites existing batch gate evidence and recommends stop or next reviewed implementation slice. | Wait for S4 evidence. |
+
+## Current Next Slice
+
+S3 is ready/proposed: add deterministic synthesis/status evidence for report
+fanout outputs without writer or batch execution.
+
+## End-of-Session Update Rule
+
+After each accepted slice, update this initiative with the completed evidence
+path and exactly one active or ready next slice.
+
+## Completion Rule
+
+This initiative is complete only when the planned slices either finish with
+deterministic verification evidence or stop with a reviewed boundary report.
 
 ## Dogfood Evidence Expectations
 

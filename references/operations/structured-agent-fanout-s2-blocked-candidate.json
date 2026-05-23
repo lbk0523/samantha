@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "structured-agent-fanout-s2-blocked-candidate",
+  "initiativePath": "references/initiatives/structured-agent-fanout-autopilot.md",
+  "createdAt": "2026-05-23T08:30:00.000Z",
+  "updatedAt": "2026-05-23T08:30:00.000Z",
+  "currentSlice": {
+    "id": "S2-blocked",
+    "status": "ready",
+    "actionType": "report_only",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S1 reportFanoutCandidate validation/report-only visibility has accepted revision d857d2a."
+    ],
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+      "references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+      "references/operations/structured-agent-fanout-s2-dogfood-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s2-run-task.json",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-blocked-candidate.json --repo-root=/Users/byung/Documents/samantha"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S2 dogfoods an already accepted S1 report-only visibility surface."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S2 adds visibility evidence only and does not add a dispatch surface."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S2 cites the accepted S1 run log and accepted revision d857d2a."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "S2 is dogfood against the accepted current-head S1 evidence."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "S2 cites the accepted S1 run log and will record this worker HARNESS_RESULT separately."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "S2 target files are limited to two candidate artifacts, one report, and the initiative update."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No S2 verification rework cycle is spent before dogfood verification."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S2 uses only continuation show visibility for a report-only candidate."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S2 records deterministic accepted or blocked preflight output before S3."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "run_log",
+      "path": "runs/2026-05-23T07-15-58-998Z-structured-agent-fanout-s1-current-head-recovery.json",
+      "summary": "Accepted S1 run log for reportFanoutCandidate validation/report-only visibility.",
+      "result": "completed"
+    },
+    {
+      "kind": "continuation_report",
+      "path": "references/operations/structured-agent-fanout-s1-current-head-recovery.json",
+      "summary": "S1 recovery continuation artifact accepted at revision d857d2a.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "sam p: Review S3 deterministic synthesis/status evidence for references/initiatives/structured-agent-fanout-autopilot.md."
+  },
+  "nextArtifactPath": null,
+  "nextArtifactExpectedSliceId": null,
+  "reportFanoutCandidate": {
+    "requestedRoles": [
+      "report",
+      "spec",
+      "reviewer",
+      "evaluator"
+    ],
+    "sourceArtifacts": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/playbooks/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s2-missing-source.md"
+    ],
+    "expectedReportPaths": [
+      "references/operations/structured-agent-fanout-s2-report.md",
+      "references/operations/structured-agent-fanout-s2-spec.md",
+      "references/operations/structured-agent-fanout-s2-reviewer.md",
+      "references/operations/structured-agent-fanout-s2-evaluator.md"
+    ],
+    "synthesisRequired": true,
+    "executionMode": "report_only",
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "batchesExecuteCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "runsCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "successorExecuted": false,
+      "daemonWatchStarted": false,
+      "remoteAdapterCalled": false,
+      "dashboardUpdated": false,
+      "connectorExpansionPerformed": false,
+      "hiddenMemoryWritten": false,
+      "workerOwnedOrchestrationStarted": false
+    }
+  }
+}
