@@ -1,0 +1,56 @@
+{
+  "id": "structured-agent-fanout-s4-batch-plan-candidate-preflight",
+  "title": "Add report-only batchPlanCandidate preflight visibility",
+  "taskFamily": "cli-command",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/structured-agent-fanout-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "src/core/batch-plan-*.ts",
+    "src/core/batch-spec.ts",
+    "src/core/batch-spec-store.ts",
+    "src/core/batch-execution.ts",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun test tests/batch-plan-review.test.ts tests/batch-spec.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Implement only S4 for references/initiatives/structured-agent-fanout-autopilot.md. Add report-only `batchPlanCandidate` validation and `continuation:show` visibility that reuses existing Phase 5.5 BatchPlanDraft review and Phase 5 BatchSpec preflight gates. Do not implement S5, batchPlanExecution, batch execution, BatchPlanDraft authoring, BatchPlan prepare writes, TaskSpec writes, BatchSpec writes, worker dispatch, worktree creation, lifecycle mutation, merge, cleanup, commit, push, writerCap changes, worker-owned orchestration, hidden memory, daemon/watch behavior, dashboards, remote adapters, connector expansion, or any natural-language-only dispatch.\n\nKeep implementation local to src/core/sequential-ceo-autopilot.ts and minimal src/cli.ts wiring for continuation:show output/non-zero behavior. Reuse existing functions such as reviewStoredBatchPlanDraft, readBatchSpec/readBatchSpecById, and preflightBatchSpec rather than reimplementing BatchPlanDraft or BatchSpec gates. Do not edit existing batch modules; if a batch module change seems required, stop with HARNESS_RESULT blocked and explain the boundary.\n\nCandidate contract: add optional `batchPlanCandidate` to SequentialContinuationArtifact. It may be absent or null. When present it must be a single closed object and is never an execution trigger. Use deterministic fields such as `gate`, `draftId`, `draftsDir`, `batchSpecPath`, `batchId`, `batchesDir`, `executionMode`, and `expectedSideEffects`. Supported gates should be narrow: `batch_plan_review` for Phase 5.5 stored BatchPlanDraft review and `batch_spec_preflight` for Phase 5 BatchSpec preflight. Reject unknown gates, unknown fields, arrays where a single object is required, unsafe paths, command strings, URLs, absolute paths, traversal, environment expansion, globs, missing IDs, conflicting path/id inputs, executionMode values other than report_only or preflight_only, push requests, prepare/write/execute authority, and any non-false side-effect flag.\n\nReport contract: add a deterministic `batchPlanPreflight` report to continuation:show when batchPlanCandidate is present. The report should be `absent`, `accepted`, or `blocked`; include the selected gate, normalized inputs, relevant review/preflight summary, blockingReasons, trustedStateChanges false, pushPerformed false, trustedForDispatch false, and false side effects. For `batch_plan_review`, call existing BatchPlanDraft review and accept only when the draft review is prepareEligible while still reporting trustedForDispatch false and no prepare/write side effects. For non-routine, placeholder-blocked, missing, or invalid drafts, block with deterministic reasons from the review/preflight gate. For `batch_spec_preflight`, call existing BatchSpec preflight from either a repo-local batchSpecPath or batchId+batchesDir and accept only when mayDispatch is true while still not dispatching. Block stale base, invalid BatchSpec, missing task specs, write-set violations, serial-only violations, or path/id errors with deterministic reasons. `continuation:show` must return non-zero when batchPlanPreflight.status is blocked.\n\nTests must prove accepted and blocked batch_plan_review candidates; accepted and blocked batch_spec_preflight candidates if practical within existing fixtures; rejection of batch execution/prepare/write/push authority; false side effects; invalid predecessor validation before candidate inspection; absent/null candidates do not block; CLI continuation:show exposes batchPlanPreflight without creating runs, worktrees, TaskSpecs, BatchSpecs, execution batches, commits, pushes, or lifecycle records. Preserve existing reportFanoutCandidate, reportFanoutSynthesis, runTaskCandidate, runAcceptCandidate, nextArtifactPath, and status update behavior.\n\nUpdate references/initiatives/structured-agent-fanout-autopilot.md only to mark S4 completed with focused verification and set exactly one next ready slice: S5 dogfood S4 and decide whether guarded batch execution coordination is justified. Do not implement S5. Run all verify commands after implementation. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add batch plan candidate preflight",
+  "status": "pending"
+}
