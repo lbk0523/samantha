@@ -12,6 +12,7 @@ import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationArtifact,
+  SequentialContinuationReportFanoutCandidate,
   SequentialContinuationRunAcceptCandidate,
   SequentialContinuationRunAcceptExecution,
   SequentialContinuationRunTaskCandidate,
@@ -235,6 +236,66 @@ function cliSequentialContinuationArtifact(
   };
 }
 
+function cliReportFanoutExpectedSideEffects() {
+  return {
+    runTaskCalled: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    worktreesCreated: false,
+    runsCreated: false,
+    lifecycleMutated: false,
+    mergePerformed: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    successorExecuted: false,
+    daemonWatchStarted: false,
+    remoteAdapterCalled: false,
+    dashboardUpdated: false,
+    connectorExpansionPerformed: false,
+    hiddenMemoryWritten: false,
+    workerOwnedOrchestrationStarted: false,
+  } as const;
+}
+
+function cliReportFanoutCandidate(
+  overrides: Partial<SequentialContinuationReportFanoutCandidate> = {},
+): SequentialContinuationReportFanoutCandidate {
+  return {
+    requestedRoles: ["report", "spec", "reviewer", "evaluator"],
+    sourceArtifacts: ["references/initiatives/structured-agent-fanout-autopilot.md"],
+    expectedReportPaths: ["references/reports/structured-agent-fanout-s3-report.md"],
+    synthesisRequired: true,
+    executionMode: "preflight_only",
+    expectedSideEffects: cliReportFanoutExpectedSideEffects(),
+    ...overrides,
+  };
+}
+
+type CliReportFanoutSynthesisEvidence = NonNullable<
+  SequentialContinuationStatusEvidenceDocument["reportFanoutSynthesis"]
+>;
+
+function cliReportFanoutSynthesisEvidence(
+  overrides: Partial<CliReportFanoutSynthesisEvidence> = {},
+): CliReportFanoutSynthesisEvidence {
+  return {
+    candidateArtifactPath: "references/operations/structured-agent-fanout-s3-candidate.json",
+    synthesisReportPath: "references/reports/structured-agent-fanout-s3-synthesis.md",
+    inputReportPaths: [
+      "references/reports/structured-agent-fanout-s3-report.md",
+      "references/reports/structured-agent-fanout-s3-spec.md",
+      "references/reports/structured-agent-fanout-s3-review.md",
+      "references/reports/structured-agent-fanout-s3-evaluation.md",
+    ],
+    rolesReviewed: ["report", "spec", "reviewer", "evaluator"],
+    status: "accepted",
+    conflicts: [],
+    expectedSideEffects: cliReportFanoutExpectedSideEffects(),
+    ...overrides,
+  };
+}
+
 function cliSequentialContinuationStatusEvidence(
   overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
 ): SequentialContinuationStatusEvidenceDocument {
@@ -257,6 +318,31 @@ function cliSequentialContinuationStatusEvidence(
     },
     ...overrides,
   };
+}
+
+function cliReportFanoutStatusEvidence(
+  overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
+): SequentialContinuationStatusEvidenceDocument {
+  const synthesis = cliReportFanoutSynthesisEvidence();
+  return cliSequentialContinuationStatusEvidence({
+    currentSliceId: "S3",
+    outcome: "completed",
+    updatedAt: "2026-05-23T01:00:00.000Z",
+    evidenceReferences: [
+      {
+        kind: "continuation_report",
+        path: synthesis.synthesisReportPath,
+        summary: "Deterministic synthesis accepted the report fanout outputs.",
+        result: "completed",
+      },
+    ],
+    nextStep: {
+      kind: "samantha_command",
+      value: "sam c: references/initiatives/structured-agent-fanout-autopilot.md S4",
+    },
+    reportFanoutSynthesis: synthesis,
+    ...overrides,
+  });
 }
 
 function cliRunTaskSpec(overrides: Partial<TaskSpec> = {}): TaskSpec {
@@ -1731,6 +1817,132 @@ describe("samantha cli", () => {
     expect(await readFile(markerPath, "utf8")).toBe("leave me alone\n");
     expect(await pathExists(join(root, "runs"))).toBe(false);
     expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation update-status accepts cited report fanout synthesis without side effects", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-report-fanout-update-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const evidencePath = join(root, "evidence.json");
+    const markerPath = join(root, "marker.txt");
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        reportFanoutCandidate: cliReportFanoutCandidate(),
+      }),
+      null,
+      2,
+    )}\n`;
+    const evidenceText = `${JSON.stringify(cliReportFanoutStatusEvidence(), null, 2)}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+    await writeFile(evidencePath, evidenceText, "utf8");
+    await writeFile(markerPath, "leave me alone\n", "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:update-status",
+      `--artifact=${artifactPath}`,
+      `--evidence=${evidencePath}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report).toMatchObject({
+      status: "accepted",
+      violations: [],
+      requestedOutcome: "completed",
+      acceptedOutcome: "completed",
+      currentSlice: {
+        id: "S3",
+        previousStatus: "ready",
+        updatedStatus: "completed",
+        actionType: "report_only",
+        dependencyStatus: "met",
+      },
+      exactNextSamanthaCommand: "sam c: references/initiatives/structured-agent-fanout-autopilot.md S4",
+      artifactUpdated: true,
+      trustedStateChanges: true,
+      pushPerformed: false,
+      sideEffects: {
+        runTaskCalled: false,
+        batchesExecuteCalled: false,
+        workersDispatched: false,
+        runsCreated: false,
+        worktreesCreated: false,
+      },
+    });
+    expect(report.evidenceReferences).toEqual(cliReportFanoutStatusEvidence().evidenceReferences);
+    const updatedArtifact = JSON.parse(await readFile(artifactPath, "utf8"));
+    expect(updatedArtifact.currentSlice.status).toBe("completed");
+    expect(updatedArtifact.evidenceReferences).toEqual(cliReportFanoutStatusEvidence().evidenceReferences);
+    expect(await readFile(evidencePath, "utf8")).toBe(evidenceText);
+    expect(await readFile(markerPath, "utf8")).toBe("leave me alone\n");
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+    expect(await pathExists(join(root, "references", "batch-specs"))).toBe(false);
+    expect(await pathExists(join(root, "references", "batch-plans"))).toBe(false);
+    expect(await pathExists(join(root, ".git"))).toBe(false);
+  });
+
+  test("continuation update-status rejects uncited report fanout synthesis without updating the artifact", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-report-fanout-update-invalid-"));
+    tmpRoots.push(root);
+    const artifactPath = join(root, "continuation.json");
+    const evidencePath = join(root, "evidence.json");
+    const artifactText = `${JSON.stringify(
+      cliSequentialContinuationArtifact({
+        reportFanoutCandidate: cliReportFanoutCandidate(),
+      }),
+      null,
+      2,
+    )}\n`;
+    await writeFile(artifactPath, artifactText, "utf8");
+    await writeFile(
+      evidencePath,
+      `${JSON.stringify(
+        cliReportFanoutStatusEvidence({
+          evidenceReferences: [
+            {
+              kind: "report_review",
+              path: "references/reports/different-synthesis.md",
+              summary: "Reviewer cites a different synthesis artifact.",
+              result: "passed",
+            },
+          ],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const result = await runCliCapturingStdout([
+      "continuation:update-status",
+      `--artifact=${artifactPath}`,
+      `--evidence=${evidencePath}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("rejected");
+    expect(report.violations).toContain(
+      "completed report fanout update requires evidenceReferences to cite reportFanoutSynthesis.synthesisReportPath as continuation_report or report_review with passed, clear, or completed result",
+    );
+    expect(report.artifactUpdated).toBe(false);
+    expect(report.pushPerformed).toBe(false);
+    expect(report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+    });
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "runs", "run-lifecycle.jsonl"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+    expect(await pathExists(join(root, "references", "batch-specs"))).toBe(false);
+    expect(await pathExists(join(root, "references", "batch-plans"))).toBe(false);
+    expect(await pathExists(join(root, ".git"))).toBe(false);
   });
 
   test("continuation update-status rejects invalid evidence non-zero without updating the artifact", async () => {

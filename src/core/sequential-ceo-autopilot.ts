@@ -142,6 +142,18 @@ export interface SequentialContinuationReportFanoutCandidate {
   expectedSideEffects: SequentialContinuationReportFanoutExpectedSideEffects;
 }
 
+export type SequentialContinuationReportFanoutSynthesisStatus = "accepted" | "blocked";
+
+export interface SequentialContinuationReportFanoutSynthesis {
+  candidateArtifactPath: string;
+  synthesisReportPath: string;
+  inputReportPaths: string[];
+  rolesReviewed: SequentialContinuationReportFanoutRole[];
+  status: SequentialContinuationReportFanoutSynthesisStatus;
+  conflicts: string[];
+  expectedSideEffects: SequentialContinuationReportFanoutExpectedSideEffects;
+}
+
 export interface SequentialContinuationRunTaskCandidate {
   taskSpecPath: string;
   requiredRuntime: string;
@@ -622,6 +634,7 @@ export interface SequentialContinuationStatusEvidenceDocument {
   updatedAt: string;
   evidenceReferences: SequentialContinuationStatusEvidenceReference[];
   nextStep: SequentialContinuationNextStep;
+  reportFanoutSynthesis?: SequentialContinuationReportFanoutSynthesis;
 }
 
 export interface SequentialContinuationStatusUpdateReport {
@@ -771,6 +784,8 @@ const REPORT_FANOUT_ROLE_VALUES = ["report", "spec", "reviewer", "evaluator"] as
 const REPORT_FANOUT_ROLE_SET = new Set<string>(REPORT_FANOUT_ROLE_VALUES);
 const REPORT_FANOUT_EXECUTION_MODE_VALUES = ["report_only", "preflight_only"] as const;
 const REPORT_FANOUT_EXECUTION_MODE_SET = new Set<string>(REPORT_FANOUT_EXECUTION_MODE_VALUES);
+const REPORT_FANOUT_SYNTHESIS_STATUS_VALUES = ["accepted", "blocked"] as const;
+const REPORT_FANOUT_SYNTHESIS_STATUS_SET = new Set<string>(REPORT_FANOUT_SYNTHESIS_STATUS_VALUES);
 const WRITE_CAPABLE_ACTION_TYPES = new Set<SequentialContinuationActionType>(["run_task", "batch_plan"]);
 const SINGLE_STEP_EXECUTABLE_ACTION_TYPE = "readiness_check";
 const TOP_LEVEL_FIELDS = new Set([
@@ -981,8 +996,18 @@ const STATUS_EVIDENCE_FIELDS = new Set([
   "updatedAt",
   "evidenceReferences",
   "nextStep",
+  "reportFanoutSynthesis",
 ]);
 const STATUS_EVIDENCE_REFERENCE_FIELDS = new Set(["kind", "path", "summary", "result"]);
+const REPORT_FANOUT_SYNTHESIS_FIELDS = new Set([
+  "candidateArtifactPath",
+  "synthesisReportPath",
+  "inputReportPaths",
+  "rolesReviewed",
+  "status",
+  "conflicts",
+  "expectedSideEffects",
+]);
 const DEPENDENCY_STATUSES = new Set(["met", "blocked"]);
 const NEXT_STEP_KINDS = new Set(["samantha_command", "blocked_report"]);
 const NEXT_ARTIFACT_COMMAND_PREFIX_PATTERN = /^(?:sam\s+c:|sam\s+p:|sam\s+command:|bun\s+|npm\s+|pnpm\s+|yarn\s+|git\s+)/i;
@@ -2301,6 +2326,7 @@ function validateSequentialContinuationStatusEvidenceWithOptions(
   }
   violations.push(...validateStatusEvidenceReferences(input.evidenceReferences));
   violations.push(...validateNextStep(input.nextStep));
+  violations.push(...validateReportFanoutSynthesisFields(input));
 
   if (
     (input.outcome === "blocked" || input.outcome === "failed") &&
@@ -2344,6 +2370,7 @@ export function buildSequentialContinuationStatusUpdate(input: {
   const currentSlice = readStatusUpdateCurrentSlice(input.artifact);
   const requestedOutcome = readStatusUpdateOutcome(input.evidence);
   const evidenceReferences = readStatusEvidenceReferences(input.evidence);
+  const reportFanoutSynthesis = readReportFanoutSynthesis(input.evidence);
   const nextStep = readReportNextStep(input.evidence);
   const violations = [...readViolations, ...artifactViolations, ...evidenceViolations];
 
@@ -2370,6 +2397,32 @@ export function buildSequentialContinuationStatusUpdate(input: {
     }
     if (!hasTrustedCompletionEvidence(actionType as SequentialContinuationActionType, evidenceReferences)) {
       violations.push(`completed update requires trusted structured evidence for ${actionType}`);
+    }
+  }
+
+  if (isReportFanoutReportOnlyStatusUpdate(input.artifact, actionType)) {
+    if (requestedOutcome === "completed") {
+      if (!reportFanoutSynthesis || reportFanoutSynthesis.status !== "accepted") {
+        violations.push("completed report fanout update requires accepted reportFanoutSynthesis evidence");
+      }
+      if (reportFanoutSynthesis && reportFanoutSynthesis.conflicts.length > 0) {
+        violations.push("completed report fanout update requires reportFanoutSynthesis.conflicts to be empty");
+      }
+      if (
+        reportFanoutSynthesis &&
+        !hasCitedAcceptedReportFanoutSynthesis(reportFanoutSynthesis.synthesisReportPath, evidenceReferences)
+      ) {
+        violations.push(
+          "completed report fanout update requires evidenceReferences to cite reportFanoutSynthesis.synthesisReportPath as continuation_report or report_review with passed, clear, or completed result",
+        );
+      }
+    }
+    if (
+      requestedOutcome === "blocked" &&
+      reportFanoutSynthesis?.status === "blocked" &&
+      reportFanoutSynthesis.conflicts.length === 0
+    ) {
+      violations.push("blocked report fanout update requires non-empty reportFanoutSynthesis.conflicts");
     }
   }
 
@@ -2954,6 +3007,88 @@ function validateStatusEvidenceReferences(value: unknown): string[] {
       );
     }
   });
+
+  return violations;
+}
+
+function validateReportFanoutSynthesisFields(value: Record<string, unknown>): string[] {
+  if (!hasOwn(value, "reportFanoutSynthesis")) {
+    return [];
+  }
+  if (!isRecord(value.reportFanoutSynthesis)) {
+    return ["reportFanoutSynthesis must be an object when present"];
+  }
+
+  const synthesis = value.reportFanoutSynthesis;
+  const violations: string[] = [];
+  violations.push(
+    ...validateAllowedFields(
+      synthesis,
+      REPORT_FANOUT_SYNTHESIS_FIELDS,
+      (key) => `unknown reportFanoutSynthesis field: ${key}`,
+    ),
+  );
+
+  normalizeReportFanoutLocalPath(
+    synthesis.candidateArtifactPath,
+    "reportFanoutSynthesis.candidateArtifactPath",
+    violations,
+  );
+  normalizeReportFanoutLocalPath(
+    synthesis.synthesisReportPath,
+    "reportFanoutSynthesis.synthesisReportPath",
+    violations,
+  );
+
+  if (!hasOnlyNonEmptyStrings(synthesis.inputReportPaths, { allowEmpty: false })) {
+    violations.push("reportFanoutSynthesis.inputReportPaths must be a non-empty string array");
+  } else {
+    for (const path of synthesis.inputReportPaths) {
+      normalizeReportFanoutLocalPath(path, "reportFanoutSynthesis.inputReportPaths[]", violations);
+    }
+  }
+
+  if (!hasOnlyNonEmptyStrings(synthesis.rolesReviewed, { allowEmpty: false })) {
+    violations.push("reportFanoutSynthesis.rolesReviewed must be a non-empty string array");
+  } else {
+    for (const role of synthesis.rolesReviewed) {
+      if (!REPORT_FANOUT_ROLE_SET.has(role)) {
+        violations.push(`reportFanoutSynthesis.rolesReviewed contains unknown role: ${role}`);
+      }
+    }
+  }
+
+  if (
+    !isNonEmptyString(synthesis.status) ||
+    !REPORT_FANOUT_SYNTHESIS_STATUS_SET.has(synthesis.status)
+  ) {
+    violations.push(
+      `reportFanoutSynthesis.status must be accepted or blocked: ${String(synthesis.status)}`,
+    );
+  }
+
+  if (!hasOnlyNonEmptyStrings(synthesis.conflicts, { allowEmpty: true })) {
+    violations.push("reportFanoutSynthesis.conflicts must be an array");
+  }
+
+  if (!isRecord(synthesis.expectedSideEffects)) {
+    violations.push("reportFanoutSynthesis.expectedSideEffects must be an object");
+  } else {
+    violations.push(
+      ...validateAllowedFields(
+        synthesis.expectedSideEffects,
+        REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS,
+        (key) => `unknown reportFanoutSynthesis.expectedSideEffects field: ${key}`,
+      ),
+    );
+    for (const field of REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES) {
+      if (typeof synthesis.expectedSideEffects[field] !== "boolean") {
+        violations.push(`reportFanoutSynthesis.expectedSideEffects.${field} must be a boolean`);
+      } else if (synthesis.expectedSideEffects[field] !== false) {
+        violations.push(`reportFanoutSynthesis.expectedSideEffects.${field} must be false`);
+      }
+    }
+  }
 
   return violations;
 }
@@ -4411,11 +4546,21 @@ function validateForbiddenFieldNames(value: unknown, path = ""): string[] {
 }
 
 function isAllowedReportFanoutFalseSideEffect(fieldPath: string, value: unknown): boolean {
-  const prefix = "reportFanoutCandidate.expectedSideEffects.";
-  if (!fieldPath.startsWith(prefix) || value !== false) {
+  if (value !== false) {
     return false;
   }
-  return REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS.has(fieldPath.slice(prefix.length));
+  for (const prefix of [
+    "reportFanoutCandidate.expectedSideEffects.",
+    "reportFanoutSynthesis.expectedSideEffects.",
+  ]) {
+    if (
+      fieldPath.startsWith(prefix) &&
+      REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS.has(fieldPath.slice(prefix.length))
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function validateForbiddenLifecycleWording(value: unknown, path = ""): string[] {
@@ -4583,6 +4728,59 @@ function readStatusEvidenceReferences(value: unknown): SequentialContinuationSta
       },
     ];
   });
+}
+
+function readReportFanoutSynthesis(value: unknown): SequentialContinuationReportFanoutSynthesis | null {
+  if (!isRecord(value) || !isRecord(value.reportFanoutSynthesis)) {
+    return null;
+  }
+
+  const synthesis = value.reportFanoutSynthesis;
+  if (
+    !isNonEmptyString(synthesis.candidateArtifactPath) ||
+    !isNonEmptyString(synthesis.synthesisReportPath) ||
+    !hasOnlyNonEmptyStrings(synthesis.inputReportPaths, { allowEmpty: false }) ||
+    !hasOnlyNonEmptyStrings(synthesis.rolesReviewed, { allowEmpty: false }) ||
+    !isNonEmptyString(synthesis.status) ||
+    !REPORT_FANOUT_SYNTHESIS_STATUS_SET.has(synthesis.status) ||
+    !hasOnlyNonEmptyStrings(synthesis.conflicts, { allowEmpty: true }) ||
+    !isRecord(synthesis.expectedSideEffects)
+  ) {
+    return null;
+  }
+
+  return {
+    candidateArtifactPath: synthesis.candidateArtifactPath,
+    synthesisReportPath: synthesis.synthesisReportPath,
+    inputReportPaths: synthesis.inputReportPaths,
+    rolesReviewed: synthesis.rolesReviewed as SequentialContinuationReportFanoutRole[],
+    status: synthesis.status as SequentialContinuationReportFanoutSynthesisStatus,
+    conflicts: synthesis.conflicts,
+    expectedSideEffects:
+      synthesis.expectedSideEffects as unknown as SequentialContinuationReportFanoutExpectedSideEffects,
+  };
+}
+
+function isReportFanoutReportOnlyStatusUpdate(artifact: unknown, actionType: string | null): boolean {
+  return (
+    actionType === "report_only" &&
+    isRecord(artifact) &&
+    hasOwn(artifact, "reportFanoutCandidate") &&
+    artifact.reportFanoutCandidate !== null &&
+    artifact.reportFanoutCandidate !== undefined
+  );
+}
+
+function hasCitedAcceptedReportFanoutSynthesis(
+  synthesisReportPath: string,
+  references: SequentialContinuationStatusEvidenceReference[],
+): boolean {
+  return references.some(
+    (reference) =>
+      reference.path === synthesisReportPath &&
+      (reference.kind === "continuation_report" || reference.kind === "report_review") &&
+      (reference.result === "passed" || reference.result === "clear" || reference.result === "completed"),
+  );
 }
 
 function hasTrustedCompletionEvidence(

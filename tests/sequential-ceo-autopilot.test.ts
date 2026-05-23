@@ -794,6 +794,53 @@ function statusEvidence(
   };
 }
 
+type ReportFanoutSynthesisEvidence = NonNullable<SequentialContinuationStatusEvidenceDocument["reportFanoutSynthesis"]>;
+
+function reportFanoutSynthesisEvidence(
+  overrides: Partial<ReportFanoutSynthesisEvidence> = {},
+): ReportFanoutSynthesisEvidence {
+  return {
+    candidateArtifactPath: "references/operations/structured-agent-fanout-s3-candidate.json",
+    synthesisReportPath: "references/reports/structured-agent-fanout-s3-synthesis.md",
+    inputReportPaths: [
+      "references/reports/structured-agent-fanout-s3-report.md",
+      "references/reports/structured-agent-fanout-s3-spec.md",
+      "references/reports/structured-agent-fanout-s3-review.md",
+      "references/reports/structured-agent-fanout-s3-evaluation.md",
+    ],
+    rolesReviewed: ["report", "spec", "reviewer", "evaluator"],
+    status: "accepted",
+    conflicts: [],
+    expectedSideEffects: reportFanoutExpectedSideEffects(),
+    ...overrides,
+  };
+}
+
+function reportFanoutStatusEvidence(
+  overrides: Partial<SequentialContinuationStatusEvidenceDocument> = {},
+): SequentialContinuationStatusEvidenceDocument {
+  const synthesis = reportFanoutSynthesisEvidence();
+  return statusEvidence({
+    currentSliceId: "S3",
+    outcome: "completed",
+    updatedAt: "2026-05-23T01:00:00.000Z",
+    evidenceReferences: [
+      {
+        kind: "continuation_report",
+        path: synthesis.synthesisReportPath,
+        summary: "Deterministic report fanout synthesis accepted the cited reports.",
+        result: "completed",
+      },
+    ],
+    nextStep: {
+      kind: "samantha_command",
+      value: "sam c: references/initiatives/structured-agent-fanout-autopilot.md S4",
+    },
+    reportFanoutSynthesis: synthesis,
+    ...overrides,
+  });
+}
+
 async function pathExists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -3724,6 +3771,238 @@ describe("Sequential CEO Autopilot status update evidence", () => {
         markdownRoadmapText: "S2 is done.",
       }),
     ).toContain("unknown status evidence field: markdownRoadmapText");
+  });
+
+  test("accepts closed reportFanoutSynthesis status evidence", () => {
+    expect(validateSequentialContinuationStatusEvidence(reportFanoutStatusEvidence())).toEqual([]);
+    expect(validateSequentialContinuationStatusEvidence(statusEvidence())).toEqual([]);
+  });
+
+  test("rejects unsafe reportFanoutSynthesis values in the closed schema", () => {
+    const cases: Array<{
+      synthesis: Partial<ReportFanoutSynthesisEvidence> | Record<string, unknown>;
+      reason: string;
+    }> = [
+      {
+        synthesis: { command: "bun run samantha reports:orchestrate" },
+        reason: "unknown reportFanoutSynthesis field: command",
+      },
+      {
+        synthesis: { rolesReviewed: ["report", "writer"] },
+        reason: "reportFanoutSynthesis.rolesReviewed contains unknown role: writer",
+      },
+      {
+        synthesis: { status: "averaged" },
+        reason: "reportFanoutSynthesis.status must be accepted or blocked: averaged",
+      },
+      {
+        synthesis: { candidateArtifactPath: "sam c: continue S3" },
+        reason: "reportFanoutSynthesis.candidateArtifactPath must not be a command string: sam c: continue S3",
+      },
+      {
+        synthesis: { synthesisReportPath: "https://example.com/synthesis.md" },
+        reason: "reportFanoutSynthesis.synthesisReportPath must not be a URL: https://example.com/synthesis.md",
+      },
+      {
+        synthesis: { inputReportPaths: ["/tmp/report.md"] },
+        reason: "reportFanoutSynthesis.inputReportPaths[] must be repo-relative and stay inside repoRoot: /tmp/report.md",
+      },
+      {
+        synthesis: { inputReportPaths: ["../report.md"] },
+        reason: "reportFanoutSynthesis.inputReportPaths[] must be repo-relative and stay inside repoRoot: ../report.md",
+      },
+      {
+        synthesis: { synthesisReportPath: "$ROOT/report.md" },
+        reason: "reportFanoutSynthesis.synthesisReportPath must not use environment expansion: $ROOT/report.md",
+      },
+      {
+        synthesis: { synthesisReportPath: "references/reports/*.md" },
+        reason: "reportFanoutSynthesis.synthesisReportPath must not be glob-like: references/reports/*.md",
+      },
+      {
+        synthesis: { expectedSideEffects: { ...reportFanoutExpectedSideEffects(), workersDispatched: true } },
+        reason: "reportFanoutSynthesis.expectedSideEffects.workersDispatched must be false",
+      },
+    ];
+
+    for (const { synthesis, reason } of cases) {
+      expect(
+        validateSequentialContinuationStatusEvidence(
+          reportFanoutStatusEvidence({
+            reportFanoutSynthesis: {
+              ...reportFanoutSynthesisEvidence(),
+              ...synthesis,
+            },
+          }),
+        ),
+      ).toContain(reason);
+    }
+
+    expect(
+      validateSequentialContinuationStatusEvidence({
+        ...reportFanoutStatusEvidence(),
+        reportFanoutSynthesis: {
+          candidateArtifactPath: "references/operations/structured-agent-fanout-s3-candidate.json",
+          synthesisReportPath: "references/reports/structured-agent-fanout-s3-synthesis.md",
+          status: "accepted",
+          expectedSideEffects: reportFanoutExpectedSideEffects(),
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "reportFanoutSynthesis.inputReportPaths must be a non-empty string array",
+        "reportFanoutSynthesis.rolesReviewed must be a non-empty string array",
+        "reportFanoutSynthesis.conflicts must be an array",
+      ]),
+    );
+  });
+
+  test("requires accepted cited synthesis evidence before completing a report fanout slice", () => {
+    const reportFanoutArtifact = artifact({
+      currentSlice: {
+        ...artifact().currentSlice,
+        id: "S3",
+        actionType: "report_only",
+      },
+      reportFanoutCandidate: reportFanoutCandidate(),
+    });
+
+    const result = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s3.json",
+      evidencePath: "/repo/references/continuation/s3-evidence.json",
+      artifact: reportFanoutArtifact,
+      evidence: reportFanoutStatusEvidence(),
+    });
+
+    expect(result.report.status).toBe("accepted");
+    expect(result.report.acceptedOutcome).toBe("completed");
+    expect(result.report.sideEffects).toEqual({
+      runTaskCalled: false,
+      batchesExecuteCalled: false,
+      workersDispatched: false,
+      runsCreated: false,
+      worktreesCreated: false,
+    });
+    expect(result.updatedArtifact?.currentSlice.status).toBe("completed");
+    expect(result.updatedArtifact?.evidenceReferences).toEqual(reportFanoutStatusEvidence().evidenceReferences);
+  });
+
+  test("rejects missing, recommendation-only, and uncited synthesis evidence for report fanout completion", () => {
+    const reportFanoutArtifact = artifact({
+      currentSlice: {
+        ...artifact().currentSlice,
+        id: "S3",
+        actionType: "report_only",
+      },
+      reportFanoutCandidate: reportFanoutCandidate(),
+    });
+
+    const missingSynthesis = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s3.json",
+      evidencePath: "/repo/references/continuation/s3-evidence.json",
+      artifact: reportFanoutArtifact,
+      evidence: reportFanoutStatusEvidence({
+        reportFanoutSynthesis: undefined,
+      }),
+    });
+    expect(missingSynthesis.report.status).toBe("rejected");
+    expect(missingSynthesis.report.violations).toContain(
+      "completed report fanout update requires accepted reportFanoutSynthesis evidence",
+    );
+
+    const recommendationOnly = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s3.json",
+      evidencePath: "/repo/references/continuation/s3-evidence.json",
+      artifact: reportFanoutArtifact,
+      evidence: reportFanoutStatusEvidence({
+        evidenceReferences: [
+          {
+            kind: "report_review",
+            path: "references/reports/structured-agent-fanout-s3-review.md",
+            summary: "Reviewer recommends completion but did not cite deterministic synthesis.",
+            result: "recommendation_only",
+          },
+        ],
+      }),
+    });
+    expect(recommendationOnly.report.status).toBe("rejected");
+    expect(recommendationOnly.report.violations).toContain("report-only recommendation-only evidence cannot complete a slice");
+
+    const uncitedSynthesis = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s3.json",
+      evidencePath: "/repo/references/continuation/s3-evidence.json",
+      artifact: reportFanoutArtifact,
+      evidence: reportFanoutStatusEvidence({
+        evidenceReferences: [
+          {
+            kind: "report_review",
+            path: "references/reports/different-synthesis.md",
+            summary: "Reviewer cites a different report.",
+            result: "passed",
+          },
+        ],
+      }),
+    });
+    expect(uncitedSynthesis.report.status).toBe("rejected");
+    expect(uncitedSynthesis.report.violations).toContain(
+      "completed report fanout update requires evidenceReferences to cite reportFanoutSynthesis.synthesisReportPath as continuation_report or report_review with passed, clear, or completed result",
+    );
+  });
+
+  test("blocks or rejects report fanout conflicts instead of averaging advice", () => {
+    const reportFanoutArtifact = artifact({
+      currentSlice: {
+        ...artifact().currentSlice,
+        id: "S3",
+        actionType: "report_only",
+      },
+      reportFanoutCandidate: reportFanoutCandidate(),
+    });
+    const conflictedSynthesis = reportFanoutSynthesisEvidence({
+      status: "blocked",
+      conflicts: ["reviewer and evaluator disagree on whether S4 is safe"],
+    });
+
+    const blocked = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s3.json",
+      evidencePath: "/repo/references/continuation/s3-evidence.json",
+      artifact: reportFanoutArtifact,
+      evidence: reportFanoutStatusEvidence({
+        outcome: "blocked",
+        evidenceReferences: [
+          {
+            kind: "report_review",
+            path: conflictedSynthesis.synthesisReportPath,
+            summary: "Synthesis found conflicting report fanout advice.",
+            result: "blocked",
+          },
+        ],
+        nextStep: {
+          kind: "blocked_report",
+          value: "Blocked: report fanout synthesis found conflicting advice; prepare a reviewed follow-up.",
+        },
+        reportFanoutSynthesis: conflictedSynthesis,
+      }),
+    });
+    expect(blocked.report.status).toBe("accepted");
+    expect(blocked.report.acceptedOutcome).toBe("blocked");
+    expect(blocked.updatedArtifact?.currentSlice.status).toBe("blocked");
+    expect(blocked.updatedArtifact?.nextStep.kind).toBe("blocked_report");
+
+    const completedWithConflicts = buildSequentialContinuationStatusUpdate({
+      artifactPath: "/repo/references/continuation/s3.json",
+      evidencePath: "/repo/references/continuation/s3-evidence.json",
+      artifact: reportFanoutArtifact,
+      evidence: reportFanoutStatusEvidence({
+        reportFanoutSynthesis: reportFanoutSynthesisEvidence({
+          conflicts: ["report and spec disagree on next scope"],
+        }),
+      }),
+    });
+    expect(completedWithConflicts.report.status).toBe("rejected");
+    expect(completedWithConflicts.report.violations).toContain(
+      "completed report fanout update requires reportFanoutSynthesis.conflicts to be empty",
+    );
   });
 
   test("preserves failed-as-blocked status vocabulary", () => {

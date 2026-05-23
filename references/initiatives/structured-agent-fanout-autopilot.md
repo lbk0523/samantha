@@ -1,6 +1,6 @@
 # Initiative: Structured Agent Fanout Autopilot
 
-Status: S2 completed; S3 ready/proposed
+Status: S3 completed; S4 ready
 Source: Samantha worker task `structured-agent-fanout-autopilot-docs`.
 Last updated: 2026-05-23
 
@@ -160,8 +160,8 @@ Stop before continuing when any of these appear:
 | S0 | completed | Create this initiative brief and the design contract playbook. | Markdown files exist, required contract terms are present, and scoped diff check passes. |
 | S1 | completed | Implement report-only validation and visibility for closed `reportFanoutCandidate` objects. No fanout dispatch. | Current-head recovery adds closed candidate validation, source-artifact preflight, `continuation:show` visibility, and focused accepted/blocked false-side-effect tests. |
 | S2 | completed | Dogfood S1 against one accepted and one blocked report/spec/reviewer/evaluator fanout candidate. | `references/operations/structured-agent-fanout-s2-dogfood-report.md` cites CLI output, accepted/blocked reasons, and false writer/batch/push side effects. |
-| S3 | ready | Add deterministic synthesis/status evidence for report fanout outputs. No writer or batch execution. | Tests prove advice cannot update status without cited synthesis evidence and conflicting advice blocks instead of averaging. |
-| S4 | proposed | Add report-only `batchPlanCandidate` validation that reuses Phase 5.5 `BatchPlanDraft` and Phase 5 `BatchSpec` gates. No batch execution. | Tests prove accepted/blocked batch candidates and rejection of any parallel batch authority. |
+| S3 | completed | Add deterministic synthesis/status evidence for report fanout outputs. No writer or batch execution. | Focused verification: `bun test tests/sequential-ceo-autopilot.test.ts` and `bun test tests/cli.test.ts` prove cited accepted synthesis can complete, missing/recommendation-only/uncited synthesis cannot complete, conflicts block or reject, and CLI status update creates no runs, worktrees, batch artifacts, commits, pushes, or lifecycle side effects beyond the artifact update. |
+| S4 | ready | Add report-only `batchPlanCandidate` validation/report-only visibility that reuses Phase 5.5 `BatchPlanDraft` and Phase 5 `BatchSpec` gates. No batch execution. | Tests prove accepted/blocked batch candidates and rejection of any parallel batch authority. |
 | S5 | proposed | Dogfood S4 against existing Phase 5.5/Phase 5 fixtures and decide whether guarded batch execution coordination is justified. | Report cites existing batch gate evidence and recommends stop or next reviewed implementation slice. |
 
 ## Slice Queue
@@ -171,14 +171,15 @@ Stop before continuing when any of these appear:
 | S0 | completed | Create this initiative brief and the design contract playbook. | none | Markdown files exist, required contract terms are present, and scoped diff check passes. | n/a |
 | S1 | completed | Implement report-only validation and visibility for closed `reportFanoutCandidate` objects. | S0 | Current-head recovery adds closed candidate validation, source-artifact preflight, `continuation:show` visibility, and focused accepted/blocked false-side-effect tests. | n/a |
 | S2 | completed | Dogfood S1 against accepted and blocked report/spec/reviewer/evaluator fanout candidates. | S1 | `references/operations/structured-agent-fanout-s2-dogfood-report.md` records accepted and blocked CLI output with false side effects. | n/a |
-| S3 | ready | Add deterministic synthesis/status evidence for report fanout outputs. | S2 | Tests prove advice cannot update status without cited synthesis evidence and conflicting advice blocks. | Review S3 deterministic synthesis/status evidence. |
-| S4 | pending | Add report-only `batchPlanCandidate` validation through existing batch gates. | S3 | Tests prove accepted/blocked batch candidates and rejection of parallel batch authority. | Wait for S3 evidence. |
+| S3 | completed | Add deterministic synthesis/status evidence for report fanout outputs. | S2 | Focused verification: `bun test tests/sequential-ceo-autopilot.test.ts` and `bun test tests/cli.test.ts`. | n/a |
+| S4 | ready | Add report-only `batchPlanCandidate` validation/report-only visibility through existing batch gates. | S3 | Tests prove accepted/blocked batch candidates and rejection of parallel batch authority. | Review S4 batchPlanCandidate validation/report-only visibility. |
 | S5 | pending | Dogfood S4 and decide whether guarded batch execution coordination is justified. | S4 | Report cites existing batch gate evidence and recommends stop or next reviewed implementation slice. | Wait for S4 evidence. |
 
 ## Current Next Slice
 
-S3 is ready/proposed: add deterministic synthesis/status evidence for report
-fanout outputs without writer or batch execution.
+S4 is ready: add report-only `batchPlanCandidate` validation/report-only
+visibility through existing Phase 5.5 `BatchPlanDraft` and Phase 5 `BatchSpec`
+gates without batch execution.
 
 ## End-of-Session Update Rule
 
