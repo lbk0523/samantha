@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TaskSpec } from "../src/core/contracts";
@@ -7,6 +7,7 @@ import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
+  SequentialContinuationReportFanoutCandidate,
   SequentialContinuationRunAcceptCandidate,
   SequentialContinuationRunAcceptExecution,
   SequentialContinuationRunTaskCandidate,
@@ -19,6 +20,7 @@ import {
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
   buildSequentialContinuationPostAcceptStatusUpdate,
+  buildSequentialContinuationReportFanoutPreflightReport,
   buildSequentialContinuationRunAcceptExecutionReport,
   buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
@@ -132,6 +134,42 @@ function runTaskCandidate(
       commitPerformed: false,
       pushPerformed: false,
     },
+    ...overrides,
+  };
+}
+
+function reportFanoutExpectedSideEffects() {
+  return {
+    runTaskCalled: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    worktreesCreated: false,
+    runsCreated: false,
+    lifecycleMutated: false,
+    mergePerformed: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    successorExecuted: false,
+    daemonWatchStarted: false,
+    remoteAdapterCalled: false,
+    dashboardUpdated: false,
+    connectorExpansionPerformed: false,
+    hiddenMemoryWritten: false,
+    workerOwnedOrchestrationStarted: false,
+  } as const;
+}
+
+function reportFanoutCandidate(
+  overrides: Partial<SequentialContinuationReportFanoutCandidate> = {},
+): SequentialContinuationReportFanoutCandidate {
+  return {
+    requestedRoles: ["report", "spec", "reviewer", "evaluator"],
+    sourceArtifacts: ["references/initiatives/structured-agent-fanout-autopilot.md"],
+    expectedReportPaths: ["references/reports/structured-agent-fanout-s1-report.md"],
+    synthesisRequired: true,
+    executionMode: "preflight_only",
+    expectedSideEffects: reportFanoutExpectedSideEffects(),
     ...overrides,
   };
 }
@@ -639,6 +677,39 @@ async function writeRunTaskPreflightFixture(overrides: {
   return { root, artifactPath, taskSpecPath, taskSpec, taskSpecCommit, continuation };
 }
 
+async function writeReportFanoutPreflightFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  candidate?: Partial<SequentialContinuationReportFanoutCandidate>;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  sourceArtifactPath: string;
+  continuation: SequentialContinuationArtifact;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-report-fanout-preflight-"));
+  tmpRoots.push(root);
+  await mkdir(join(root, "references", "initiatives"), { recursive: true });
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  const sourceArtifactPath = join(root, "references", "initiatives", "structured-agent-fanout-autopilot.md");
+  const artifactPath = join(root, "references", "operations", "structured-agent-fanout-s1.json");
+  await writeFile(sourceArtifactPath, "# Structured Agent Fanout\n", "utf8");
+  const continuation = artifact({
+    artifactId: "structured-agent-fanout-s1",
+    initiativePath: "references/initiatives/structured-agent-fanout-autopilot.md",
+    currentSlice: {
+      id: "S1",
+      status: "ready",
+      actionType: "report_only",
+      dependencyStatus: "met",
+      prerequisites: ["S0 completed"],
+    },
+    reportFanoutCandidate: reportFanoutCandidate(overrides.candidate),
+    ...overrides.artifact,
+  });
+  await writeFile(artifactPath, `${JSON.stringify(continuation, null, 2)}\n`, "utf8");
+  return { root, artifactPath, sourceArtifactPath, continuation };
+}
+
 async function writeNextArtifactFixture(
   overrides: {
     predecessor?: Partial<SequentialContinuationArtifact>;
@@ -723,6 +794,16 @@ function statusEvidence(
   };
 }
 
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
+  }
+}
+
 describe("Sequential CEO Autopilot continuation artifact validation", () => {
   test("accepts a valid current-slice continuation artifact", () => {
     expect(validateSequentialContinuationArtifact(artifact())).toEqual([]);
@@ -765,6 +846,88 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         },
       }),
     ).toContain("unknown runTaskCandidate field: command");
+  });
+
+  test("accepts optional reportFanoutCandidate as null or closed advice object", () => {
+    expect(validateSequentialContinuationArtifact(artifact({ reportFanoutCandidate: null }))).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          reportFanoutCandidate: reportFanoutCandidate(),
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        reportFanoutCandidate: [reportFanoutCandidate()],
+      }),
+    ).toContain("reportFanoutCandidate must be a single object or null when present");
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        reportFanoutCandidate: {
+          ...reportFanoutCandidate(),
+          command: "bun run samantha reports:orchestrate",
+        },
+      }),
+    ).toContain("unknown reportFanoutCandidate field: command");
+  });
+
+  test("rejects unsafe reportFanoutCandidate values in the closed schema", () => {
+    const invalidSideEffects = {
+      ...reportFanoutExpectedSideEffects(),
+      workersDispatched: true,
+    } as unknown as SequentialContinuationReportFanoutCandidate["expectedSideEffects"];
+
+    const cases: Array<{ candidate: Partial<SequentialContinuationReportFanoutCandidate>; reason: string }> = [
+      { candidate: { requestedRoles: [] }, reason: "reportFanoutCandidate.requestedRoles must be a non-empty string array" },
+      { candidate: { requestedRoles: ["writer" as "report"] }, reason: "reportFanoutCandidate.requestedRoles contains unknown role: writer" },
+      { candidate: { sourceArtifacts: [] }, reason: "reportFanoutCandidate.sourceArtifacts must be a non-empty string array" },
+      { candidate: { expectedReportPaths: [] }, reason: "reportFanoutCandidate.expectedReportPaths must be a non-empty string array" },
+      { candidate: { executionMode: "execute" as "report_only" }, reason: "reportFanoutCandidate.executionMode must be report_only or preflight_only: execute" },
+      { candidate: { synthesisRequired: false as true }, reason: "reportFanoutCandidate.synthesisRequired must be true" },
+      { candidate: { expectedSideEffects: invalidSideEffects }, reason: "reportFanoutCandidate.expectedSideEffects.workersDispatched must be false" },
+      {
+        candidate: { sourceArtifacts: ["sam c: continue S2"] },
+        reason: "reportFanoutCandidate.sourceArtifacts[] must not be a command string: sam c: continue S2",
+      },
+      {
+        candidate: { sourceArtifacts: ["https://example.com/source.md"] },
+        reason: "reportFanoutCandidate.sourceArtifacts[] must not be a URL: https://example.com/source.md",
+      },
+      {
+        candidate: { sourceArtifacts: ["/tmp/source.md"] },
+        reason: "reportFanoutCandidate.sourceArtifacts[] must be repo-relative and stay inside repoRoot: /tmp/source.md",
+      },
+      {
+        candidate: { sourceArtifacts: ["../source.md"] },
+        reason: "reportFanoutCandidate.sourceArtifacts[] must be repo-relative and stay inside repoRoot: ../source.md",
+      },
+      {
+        candidate: { sourceArtifacts: ["$ROOT/source.md"] },
+        reason: "reportFanoutCandidate.sourceArtifacts[] must not use environment expansion: $ROOT/source.md",
+      },
+      {
+        candidate: { sourceArtifacts: ["references/**/*.md"] },
+        reason: "reportFanoutCandidate.sourceArtifacts[] must not be glob-like: references/**/*.md",
+      },
+      {
+        candidate: { expectedReportPaths: ["Write reports wherever useful"] },
+        reason:
+          "reportFanoutCandidate.expectedReportPaths[] must be a normalized repo-relative local path: Write reports wherever useful",
+      },
+    ];
+
+    for (const { candidate, reason } of cases) {
+      expect(
+        validateSequentialContinuationArtifact(
+          artifact({
+            reportFanoutCandidate: reportFanoutCandidate(candidate),
+          }),
+        ),
+      ).toContain(reason);
+    }
   });
 
   test("accepts optional runTaskExecution as null or closed object", () => {
@@ -1430,6 +1593,141 @@ describe("Sequential CEO Autopilot next-artifact linkage report", () => {
     expect(report.blockingReasons).toContain(
       "successor artifact invalid: currentSlice.actionType must be manual_decision, report_only, readiness_check, run_task, or batch_plan: auto_dispatch",
     );
+  });
+});
+
+describe("Sequential CEO Autopilot reportFanoutCandidate preflight report", () => {
+  test("accepts a closed report fanout candidate without execution side effects", async () => {
+    const { root, artifactPath, sourceArtifactPath, continuation } = await writeReportFanoutPreflightFixture();
+
+    const report = await buildSequentialContinuationReportFanoutPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("accepted");
+    expect(report.requestedRoles).toEqual(["report", "spec", "reviewer", "evaluator"]);
+    expect(report.sourceArtifacts).toEqual(["references/initiatives/structured-agent-fanout-autopilot.md"]);
+    expect(report.normalizedSourceArtifacts).toEqual([
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+    ]);
+    expect(report.resolvedSourceArtifacts).toEqual([sourceArtifactPath]);
+    expect(report.expectedReportPaths).toEqual(["references/reports/structured-agent-fanout-s1-report.md"]);
+    expect(report.normalizedExpectedReportPaths).toEqual([
+      "references/reports/structured-agent-fanout-s1-report.md",
+    ]);
+    expect(report.executionMode).toBe("preflight_only");
+    expect(report.synthesisRequired).toBe(true);
+    expect(report.blockingReasons).toEqual([]);
+    expect(report.trustedStateChanges).toBe(false);
+    expect(report.pushPerformed).toBe(false);
+    expect(report.sideEffects).toEqual(reportFanoutExpectedSideEffects());
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("omits absent or null candidates for valid artifacts", async () => {
+    for (const continuation of [artifact(), artifact({ reportFanoutCandidate: null })]) {
+      const report = await buildSequentialContinuationReportFanoutPreflightReport({
+        repoRoot: ".",
+        artifactPath: "references/operations/structured-agent-fanout-s1.json",
+        artifact: continuation,
+      });
+
+      expect(report.status).toBe("absent");
+      expect(report.blockingReasons).toEqual([]);
+    }
+  });
+
+  test("blocks malformed candidates through current artifact validation first", async () => {
+    const { root, artifactPath, continuation } = await writeReportFanoutPreflightFixture();
+    const malformed = {
+      ...continuation,
+      reportFanoutCandidate: "run a report fanout",
+    };
+
+    const report = await buildSequentialContinuationReportFanoutPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: malformed,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toEqual([
+      "current artifact must validate before reportFanoutCandidate is inspected",
+      "reportFanoutCandidate must be an object or null when present",
+    ]);
+  });
+
+  test("blocks invalid predecessor artifacts before absent or null reportFanoutCandidate reports", async () => {
+    const invalidAutonomyEnvelope = {
+      ...artifact().autonomyEnvelope,
+      pushAllowed: true as false,
+    };
+    const cases: Array<{ name: string; continuation: SequentialContinuationArtifact }> = [
+      {
+        name: "absent",
+        continuation: artifact({ autonomyEnvelope: invalidAutonomyEnvelope }),
+      },
+      {
+        name: "null",
+        continuation: artifact({ autonomyEnvelope: invalidAutonomyEnvelope, reportFanoutCandidate: null }),
+      },
+    ];
+
+    for (const { name, continuation } of cases) {
+      const report = await buildSequentialContinuationReportFanoutPreflightReport({
+        repoRoot: ".",
+        artifactPath: `references/operations/report-fanout-${name}.json`,
+        artifact: continuation,
+      });
+
+      expect(report.status).toBe("blocked");
+      expect(report.requestedRoles).toEqual([]);
+      expect(report.blockingReasons).toEqual([
+        "current artifact must validate before reportFanoutCandidate is inspected",
+        "autonomyEnvelope.pushAllowed must be false",
+      ]);
+    }
+  });
+
+  test("blocks missing and off-repo source artifacts without dispatching work", async () => {
+    const missing = await writeReportFanoutPreflightFixture({
+      candidate: {
+        sourceArtifacts: ["references/initiatives/missing.md"],
+      },
+    });
+    const missingReport = await buildSequentialContinuationReportFanoutPreflightReport({
+      repoRoot: missing.root,
+      artifactPath: missing.artifactPath,
+      artifact: missing.continuation,
+    });
+    expect(missingReport.status).toBe("blocked");
+    expect(missingReport.blockingReasons).toEqual([
+      `reportFanoutCandidate.sourceArtifacts[] file not found: ${join(missing.root, "references", "initiatives", "missing.md")}`,
+    ]);
+
+    const offRepo = await writeReportFanoutPreflightFixture();
+    const outsideRoot = await mkdtemp(join(tmpdir(), "samantha-report-fanout-outside-"));
+    tmpRoots.push(outsideRoot);
+    const outsideSourcePath = join(outsideRoot, "outside.md");
+    await writeFile(outsideSourcePath, "# Outside\n", "utf8");
+    await rm(offRepo.sourceArtifactPath);
+    await symlink(outsideSourcePath, offRepo.sourceArtifactPath);
+    const offRepoReport = await buildSequentialContinuationReportFanoutPreflightReport({
+      repoRoot: offRepo.root,
+      artifactPath: offRepo.artifactPath,
+      artifact: offRepo.continuation,
+    });
+    expect(offRepoReport.status).toBe("blocked");
+    expect(offRepoReport.blockingReasons).toEqual([
+      "reportFanoutCandidate.sourceArtifacts[] must stay inside repoRoot after resolving symlinks: references/initiatives/structured-agent-fanout-autopilot.md",
+    ]);
+    expect(offRepoReport.sideEffects.workersDispatched).toBe(false);
+    expect(offRepoReport.sideEffects.worktreesCreated).toBe(false);
+    expect(offRepoReport.sideEffects.runsCreated).toBe(false);
+    expect(offRepoReport.trustedStateChanges).toBe(false);
   });
 });
 

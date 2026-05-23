@@ -46,6 +46,7 @@ import {
   buildSequentialContinuationLoop,
   buildSequentialContinuationNextArtifactReport,
   buildSequentialContinuationPostAcceptStatusUpdate,
+  buildSequentialContinuationReportFanoutPreflightReport,
   buildSequentialContinuationRunAcceptExecutionReport,
   buildSequentialContinuationRunAcceptPreflightReport,
   buildSequentialContinuationRunTaskExecutionReport,
@@ -1076,6 +1077,11 @@ export async function main(argv: string[]): Promise<number> {
       artifactPath,
       artifact,
     });
+    const reportFanoutPreflight = await buildSequentialContinuationReportFanoutPreflightReport({
+      repoRoot,
+      artifactPath,
+      artifact,
+    });
     const runTaskPreflight = await buildSequentialContinuationRunTaskPreflightReport({
       repoRoot,
       artifactPath,
@@ -1091,12 +1097,14 @@ export async function main(argv: string[]): Promise<number> {
       artifact,
       ...(violations.length > 0 ? { violations } : {}),
       ...(nextArtifactLinkage.status === "absent" ? {} : { nextArtifactLinkage }),
+      ...(reportFanoutPreflight.status === "absent" ? {} : { reportFanoutPreflight }),
       ...(runTaskPreflight.status === "absent" ? {} : { runTaskPreflight }),
       ...(runAcceptPreflight.status === "absent" ? {} : { runAcceptPreflight }),
     });
     console.log(JSON.stringify(report, null, 2));
     return report.status === "accepted" &&
       report.nextArtifactLinkage?.status !== "blocked" &&
+      report.reportFanoutPreflight?.status !== "blocked" &&
       report.runTaskPreflight?.status !== "blocked" &&
       report.runAcceptPreflight?.status !== "blocked"
       ? 0

@@ -110,6 +110,38 @@ export interface SequentialContinuationNextStep {
   value: string;
 }
 
+export type SequentialContinuationReportFanoutRole = "report" | "spec" | "reviewer" | "evaluator";
+export type SequentialContinuationReportFanoutExecutionMode = "report_only" | "preflight_only";
+
+export interface SequentialContinuationReportFanoutExpectedSideEffects {
+  runTaskCalled: false;
+  batchesExecuteCalled: false;
+  workersDispatched: false;
+  worktreesCreated: false;
+  runsCreated: false;
+  lifecycleMutated: false;
+  mergePerformed: false;
+  cleanupPerformed: false;
+  commitPerformed: false;
+  pushPerformed: false;
+  successorExecuted: false;
+  daemonWatchStarted: false;
+  remoteAdapterCalled: false;
+  dashboardUpdated: false;
+  connectorExpansionPerformed: false;
+  hiddenMemoryWritten: false;
+  workerOwnedOrchestrationStarted: false;
+}
+
+export interface SequentialContinuationReportFanoutCandidate {
+  requestedRoles: SequentialContinuationReportFanoutRole[];
+  sourceArtifacts: string[];
+  expectedReportPaths: string[];
+  synthesisRequired: true;
+  executionMode: SequentialContinuationReportFanoutExecutionMode;
+  expectedSideEffects: SequentialContinuationReportFanoutExpectedSideEffects;
+}
+
 export interface SequentialContinuationRunTaskCandidate {
   taskSpecPath: string;
   requiredRuntime: string;
@@ -234,6 +266,7 @@ export interface SequentialContinuationArtifact {
   nextStep: SequentialContinuationNextStep;
   nextArtifactPath?: string | null;
   nextArtifactExpectedSliceId?: string | null;
+  reportFanoutCandidate?: SequentialContinuationReportFanoutCandidate | null;
   runTaskCandidate?: SequentialContinuationRunTaskCandidate | null;
   runTaskExecution?: SequentialContinuationRunTaskExecution | null;
   runAcceptCandidate?: SequentialContinuationRunAcceptCandidate | null;
@@ -302,6 +335,25 @@ export interface SequentialContinuationRunTaskPreflightReport {
     commitPerformed: false;
     pushPerformed: false;
   };
+}
+
+export interface SequentialContinuationReportFanoutPreflightReport {
+  artifactPath: string;
+  repoRoot: string;
+  status: "absent" | "accepted" | "blocked";
+  requestedRoles: string[];
+  sourceArtifacts: string[];
+  normalizedSourceArtifacts: string[];
+  resolvedSourceArtifacts: string[];
+  expectedReportPaths: string[];
+  normalizedExpectedReportPaths: string[];
+  resolvedExpectedReportPaths: string[];
+  synthesisRequired: true | null;
+  executionMode: string | null;
+  blockingReasons: string[];
+  trustedStateChanges: false;
+  pushPerformed: false;
+  sideEffects: SequentialContinuationReportFanoutExpectedSideEffects;
 }
 
 export interface SequentialContinuationRunAcceptPreflightReport {
@@ -549,6 +601,7 @@ export interface SequentialContinuationReport {
   exactNextSamanthaCommand: string | null;
   blockedReportText: string | null;
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
+  reportFanoutPreflight?: SequentialContinuationReportFanoutPreflightReport;
   runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
   runAcceptPreflight?: SequentialContinuationRunAcceptPreflightReport;
   trustedStateChanges: false;
@@ -714,6 +767,10 @@ const STATUS_EVIDENCE_RESULT_SET = new Set<SequentialContinuationStatusEvidenceR
 const STATUS_UPDATE_OUTCOME_SET = new Set<SequentialContinuationStatusUpdateOutcome>(
   SEQUENTIAL_CONTINUATION_STATUS_UPDATE_OUTCOMES,
 );
+const REPORT_FANOUT_ROLE_VALUES = ["report", "spec", "reviewer", "evaluator"] as const;
+const REPORT_FANOUT_ROLE_SET = new Set<string>(REPORT_FANOUT_ROLE_VALUES);
+const REPORT_FANOUT_EXECUTION_MODE_VALUES = ["report_only", "preflight_only"] as const;
+const REPORT_FANOUT_EXECUTION_MODE_SET = new Set<string>(REPORT_FANOUT_EXECUTION_MODE_VALUES);
 const WRITE_CAPABLE_ACTION_TYPES = new Set<SequentialContinuationActionType>(["run_task", "batch_plan"]);
 const SINGLE_STEP_EXECUTABLE_ACTION_TYPE = "readiness_check";
 const TOP_LEVEL_FIELDS = new Set([
@@ -729,6 +786,7 @@ const TOP_LEVEL_FIELDS = new Set([
   "nextStep",
   "nextArtifactPath",
   "nextArtifactExpectedSliceId",
+  "reportFanoutCandidate",
   "runTaskCandidate",
   "runTaskExecution",
   "runAcceptCandidate",
@@ -758,6 +816,36 @@ const AUTONOMY_ENVELOPE_FIELDS = new Set([
 const STOP_CONDITION_FIELDS = new Set(["id", "active", "evidence"]);
 const EVIDENCE_REFERENCE_FIELDS = new Set(["path", "summary", "kind", "result"]);
 const NEXT_STEP_FIELDS = new Set(["kind", "value"]);
+const REPORT_FANOUT_CANDIDATE_FIELDS = new Set([
+  "requestedRoles",
+  "sourceArtifacts",
+  "expectedReportPaths",
+  "synthesisRequired",
+  "executionMode",
+  "expectedSideEffects",
+]);
+const REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES = [
+  "runTaskCalled",
+  "batchesExecuteCalled",
+  "workersDispatched",
+  "worktreesCreated",
+  "runsCreated",
+  "lifecycleMutated",
+  "mergePerformed",
+  "cleanupPerformed",
+  "commitPerformed",
+  "pushPerformed",
+  "successorExecuted",
+  "daemonWatchStarted",
+  "remoteAdapterCalled",
+  "dashboardUpdated",
+  "connectorExpansionPerformed",
+  "hiddenMemoryWritten",
+  "workerOwnedOrchestrationStarted",
+] as const;
+const REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS = new Set<string>(
+  REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES,
+);
 const RUN_TASK_CANDIDATE_FIELDS = new Set([
   "taskSpecPath",
   "requiredRuntime",
@@ -966,6 +1054,7 @@ export function validateSequentialContinuationArtifact(input: unknown): string[]
   violations.push(...validateEvidenceReferences(input.evidenceReferences));
   violations.push(...validateNextStep(input.nextStep));
   violations.push(...validateNextArtifactFields(input));
+  violations.push(...validateReportFanoutCandidateFields(input));
   violations.push(...validateRunTaskCandidateFields(input));
   violations.push(...validateRunTaskExecutionFields(input));
   violations.push(...validateRunAcceptCandidateFields(input));
@@ -979,6 +1068,7 @@ export function buildSequentialContinuationReport(input: {
   artifact: unknown;
   violations?: string[];
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
+  reportFanoutPreflight?: SequentialContinuationReportFanoutPreflightReport;
   runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
   runAcceptPreflight?: SequentialContinuationRunAcceptPreflightReport;
 }): SequentialContinuationReport {
@@ -1004,6 +1094,7 @@ export function buildSequentialContinuationReport(input: {
       activeStopConditions,
       nextStep,
       nextArtifactLinkage: input.nextArtifactLinkage,
+      reportFanoutPreflight: input.reportFanoutPreflight,
       runTaskPreflight: input.runTaskPreflight,
       runAcceptPreflight: input.runAcceptPreflight,
     }),
@@ -1011,6 +1102,7 @@ export function buildSequentialContinuationReport(input: {
     exactNextSamanthaCommand: nextStep.kind === "samantha_command" ? nextStep.value : null,
     blockedReportText: nextStep.kind === "blocked_report" ? nextStep.value : null,
     ...(input.nextArtifactLinkage ? { nextArtifactLinkage: input.nextArtifactLinkage } : {}),
+    ...(input.reportFanoutPreflight ? { reportFanoutPreflight: input.reportFanoutPreflight } : {}),
     ...(input.runTaskPreflight ? { runTaskPreflight: input.runTaskPreflight } : {}),
     ...(input.runAcceptPreflight ? { runAcceptPreflight: input.runAcceptPreflight } : {}),
     trustedStateChanges: false,
@@ -1207,6 +1299,85 @@ export async function buildSequentialContinuationNextArtifactReport(input: {
     inspectedArtifactPaths: nextInspectedArtifactPaths,
     inspectedSliceIds: nextInspectedSliceIds,
     blockingReasons,
+  });
+}
+
+export async function buildSequentialContinuationReportFanoutPreflightReport(input: {
+  repoRoot?: string;
+  artifactPath: string;
+  artifact: unknown;
+}): Promise<SequentialContinuationReportFanoutPreflightReport> {
+  const repoRoot = resolve(input.repoRoot ?? ".");
+  const artifactPath = normalizePathForReport(input.artifactPath, repoRoot);
+  const currentArtifactViolations = validateSequentialContinuationArtifact(input.artifact);
+  if (currentArtifactViolations.length > 0) {
+    return buildReportFanoutPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      blockingReasons: [
+        "current artifact must validate before reportFanoutCandidate is inspected",
+        ...currentArtifactViolations,
+      ],
+    });
+  }
+
+  if (!isRecord(input.artifact) || !hasOwn(input.artifact, "reportFanoutCandidate") || input.artifact.reportFanoutCandidate === null) {
+    return buildReportFanoutPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "absent",
+      blockingReasons: [],
+    });
+  }
+
+  const artifact = input.artifact as unknown as SequentialContinuationArtifact;
+  const candidate = artifact.reportFanoutCandidate as SequentialContinuationReportFanoutCandidate;
+  const pathReasons: string[] = [];
+  const normalizedSourceArtifacts = candidate.sourceArtifacts.flatMap((path) => {
+    const normalized = normalizeReportFanoutLocalPath(path, "reportFanoutCandidate.sourceArtifacts[]", pathReasons);
+    return normalized ? [normalized] : [];
+  });
+  const normalizedExpectedReportPaths = candidate.expectedReportPaths.flatMap((path) => {
+    const normalized = normalizeReportFanoutLocalPath(path, "reportFanoutCandidate.expectedReportPaths[]", pathReasons);
+    return normalized ? [normalized] : [];
+  });
+  if (pathReasons.length > 0) {
+    return buildReportFanoutPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      requestedRoles: candidate.requestedRoles,
+      sourceArtifacts: candidate.sourceArtifacts,
+      normalizedSourceArtifacts,
+      expectedReportPaths: candidate.expectedReportPaths,
+      normalizedExpectedReportPaths,
+      synthesisRequired: candidate.synthesisRequired,
+      executionMode: candidate.executionMode,
+      blockingReasons: pathReasons,
+    });
+  }
+
+  const sourceArtifactEvidence = await validateReportFanoutSourceArtifacts({
+    repoRoot,
+    normalizedSourceArtifacts,
+  });
+  const resolvedExpectedReportPaths = normalizedExpectedReportPaths.map((path) => resolve(repoRoot, path));
+
+  return buildReportFanoutPreflightReport({
+    artifactPath,
+    repoRoot,
+    status: sourceArtifactEvidence.blockingReasons.length === 0 ? "accepted" : "blocked",
+    requestedRoles: candidate.requestedRoles,
+    sourceArtifacts: candidate.sourceArtifacts,
+    normalizedSourceArtifacts,
+    resolvedSourceArtifacts: sourceArtifactEvidence.resolvedSourceArtifacts,
+    expectedReportPaths: candidate.expectedReportPaths,
+    normalizedExpectedReportPaths,
+    resolvedExpectedReportPaths,
+    synthesisRequired: candidate.synthesisRequired,
+    executionMode: candidate.executionMode,
+    blockingReasons: sourceArtifactEvidence.blockingReasons,
   });
 }
 
@@ -2821,6 +2992,76 @@ function validateNextArtifactFields(value: Record<string, unknown>): string[] {
   return violations;
 }
 
+function validateReportFanoutCandidateFields(value: Record<string, unknown>): string[] {
+  if (!hasOwn(value, "reportFanoutCandidate") || value.reportFanoutCandidate === null) {
+    return [];
+  }
+  if (Array.isArray(value.reportFanoutCandidate)) {
+    return ["reportFanoutCandidate must be a single object or null when present"];
+  }
+  if (!isRecord(value.reportFanoutCandidate)) {
+    return ["reportFanoutCandidate must be an object or null when present"];
+  }
+
+  const candidate = value.reportFanoutCandidate;
+  const violations: string[] = [];
+  violations.push(
+    ...validateAllowedFields(
+      candidate,
+      REPORT_FANOUT_CANDIDATE_FIELDS,
+      (key) => `unknown reportFanoutCandidate field: ${key}`,
+    ),
+  );
+
+  if (!hasOnlyNonEmptyStrings(candidate.requestedRoles, { allowEmpty: false })) {
+    violations.push("reportFanoutCandidate.requestedRoles must be a non-empty string array");
+  } else {
+    for (const role of candidate.requestedRoles) {
+      if (!REPORT_FANOUT_ROLE_SET.has(role)) {
+        violations.push(`reportFanoutCandidate.requestedRoles contains unknown role: ${role}`);
+      }
+    }
+  }
+
+  for (const field of ["sourceArtifacts", "expectedReportPaths"] as const) {
+    if (!hasOnlyNonEmptyStrings(candidate[field], { allowEmpty: false })) {
+      violations.push(`reportFanoutCandidate.${field} must be a non-empty string array`);
+    } else {
+      for (const path of candidate[field]) {
+        normalizeReportFanoutLocalPath(path, `reportFanoutCandidate.${field}[]`, violations);
+      }
+    }
+  }
+
+  if (candidate.synthesisRequired !== true) {
+    violations.push("reportFanoutCandidate.synthesisRequired must be true");
+  }
+  if (!isNonEmptyString(candidate.executionMode) || !REPORT_FANOUT_EXECUTION_MODE_SET.has(candidate.executionMode)) {
+    violations.push(`reportFanoutCandidate.executionMode must be report_only or preflight_only: ${String(candidate.executionMode)}`);
+  }
+
+  if (!isRecord(candidate.expectedSideEffects)) {
+    violations.push("reportFanoutCandidate.expectedSideEffects must be an object");
+  } else {
+    violations.push(
+      ...validateAllowedFields(
+        candidate.expectedSideEffects,
+        REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS,
+        (key) => `unknown reportFanoutCandidate.expectedSideEffects field: ${key}`,
+      ),
+    );
+    for (const field of REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES) {
+      if (typeof candidate.expectedSideEffects[field] !== "boolean") {
+        violations.push(`reportFanoutCandidate.expectedSideEffects.${field} must be a boolean`);
+      } else if (candidate.expectedSideEffects[field] !== false) {
+        violations.push(`reportFanoutCandidate.expectedSideEffects.${field} must be false`);
+      }
+    }
+  }
+
+  return violations;
+}
+
 function validateRunTaskCandidateFields(value: Record<string, unknown>): string[] {
   if (!hasOwn(value, "runTaskCandidate") || value.runTaskCandidate === null) {
     return [];
@@ -3060,6 +3301,43 @@ function normalizeNextArtifactPath(value: unknown, violations: string[]): string
   return violations.length === beforeCount ? normalized : null;
 }
 
+function normalizeReportFanoutLocalPath(value: unknown, fieldName: string, violations: string[]): string | null {
+  if (!isNonEmptyString(value)) {
+    violations.push(`${fieldName} must be a non-empty string`);
+    return null;
+  }
+
+  const beforeCount = violations.length;
+  const trimmed = value.trim();
+  const candidate = trimmed.replaceAll("\\", "/");
+  const rawSegments = candidate.split("/");
+  if (trimmed !== value || candidate !== trimmed || candidate.includes(":") || /\s/.test(candidate)) {
+    violations.push(`${fieldName} must be a normalized repo-relative local path: ${value}`);
+  }
+  if (NEXT_ARTIFACT_COMMAND_PREFIX_PATTERN.test(trimmed)) {
+    violations.push(`${fieldName} must not be a command string: ${value}`);
+  }
+  if (NEXT_ARTIFACT_URL_PATTERN.test(candidate) || /^file:/i.test(candidate)) {
+    violations.push(`${fieldName} must not be a URL: ${value}`);
+  }
+  if (candidate.startsWith("~") || NEXT_ARTIFACT_ENV_PATTERN.test(candidate)) {
+    violations.push(`${fieldName} must not use environment expansion: ${value}`);
+  }
+  if (NEXT_ARTIFACT_GLOB_PATTERN.test(candidate)) {
+    violations.push(`${fieldName} must not be glob-like: ${value}`);
+  }
+  if (isAbsolute(value) || candidate.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || rawSegments.includes("..")) {
+    violations.push(`${fieldName} must be repo-relative and stay inside repoRoot: ${value}`);
+  }
+
+  const normalized = posix.normalize(candidate);
+  if (normalized === "." || normalized.startsWith("../") || normalized === ".." || normalized !== candidate) {
+    violations.push(`${fieldName} must be normalized and stay inside repoRoot: ${value}`);
+  }
+
+  return violations.length === beforeCount ? normalized : null;
+}
+
 function buildNextArtifactReport(input: {
   previousArtifactPath: string;
   repoRoot: string;
@@ -3122,6 +3400,96 @@ async function readNextArtifactFile(path: string): Promise<{ artifact: unknown; 
       violations: [`nextArtifactPath could not be read: ${err instanceof Error ? err.message : String(err)}`],
     };
   }
+}
+
+function buildReportFanoutPreflightReport(input: {
+  artifactPath: string;
+  repoRoot: string;
+  status: SequentialContinuationReportFanoutPreflightReport["status"];
+  requestedRoles?: string[];
+  sourceArtifacts?: string[];
+  normalizedSourceArtifacts?: string[];
+  resolvedSourceArtifacts?: string[];
+  expectedReportPaths?: string[];
+  normalizedExpectedReportPaths?: string[];
+  resolvedExpectedReportPaths?: string[];
+  synthesisRequired?: true | null;
+  executionMode?: string | null;
+  blockingReasons: string[];
+}): SequentialContinuationReportFanoutPreflightReport {
+  return {
+    artifactPath: input.artifactPath,
+    repoRoot: input.repoRoot,
+    status: input.status,
+    requestedRoles: input.requestedRoles ?? [],
+    sourceArtifacts: input.sourceArtifacts ?? [],
+    normalizedSourceArtifacts: input.normalizedSourceArtifacts ?? [],
+    resolvedSourceArtifacts: input.resolvedSourceArtifacts ?? [],
+    expectedReportPaths: input.expectedReportPaths ?? [],
+    normalizedExpectedReportPaths: input.normalizedExpectedReportPaths ?? [],
+    resolvedExpectedReportPaths: input.resolvedExpectedReportPaths ?? [],
+    synthesisRequired: input.synthesisRequired ?? null,
+    executionMode: input.executionMode ?? null,
+    blockingReasons: input.blockingReasons,
+    trustedStateChanges: false,
+    pushPerformed: false,
+    sideEffects: reportFanoutPreflightSideEffects(),
+  };
+}
+
+async function validateReportFanoutSourceArtifacts(input: {
+  repoRoot: string;
+  normalizedSourceArtifacts: string[];
+}): Promise<{ resolvedSourceArtifacts: string[]; blockingReasons: string[] }> {
+  const resolvedSourceArtifacts: string[] = [];
+  const blockingReasons: string[] = [];
+  const repoRealPath = await realpath(input.repoRoot);
+
+  for (const normalizedSourceArtifact of input.normalizedSourceArtifacts) {
+    const resolvedSourceArtifact = resolve(input.repoRoot, normalizedSourceArtifact);
+    const resolvedRepoRelativePath = relative(input.repoRoot, resolvedSourceArtifact).replaceAll("\\", "/");
+    if (
+      resolvedRepoRelativePath === "" ||
+      resolvedRepoRelativePath.startsWith("../") ||
+      resolvedRepoRelativePath === ".." ||
+      isAbsolute(resolvedRepoRelativePath)
+    ) {
+      blockingReasons.push(`reportFanoutCandidate.sourceArtifacts[] must stay inside repoRoot: ${normalizedSourceArtifact}`);
+      continue;
+    }
+
+    try {
+      const sourceStat = await stat(resolvedSourceArtifact);
+      if (!sourceStat.isFile()) {
+        blockingReasons.push(`reportFanoutCandidate.sourceArtifacts[] must point to a file: ${resolvedSourceArtifact}`);
+        continue;
+      }
+      const sourceRealPath = await realpath(resolvedSourceArtifact);
+      const realRepoRelativePath = relative(repoRealPath, sourceRealPath).replaceAll("\\", "/");
+      if (
+        realRepoRelativePath === "" ||
+        realRepoRelativePath.startsWith("../") ||
+        realRepoRelativePath === ".." ||
+        isAbsolute(realRepoRelativePath)
+      ) {
+        blockingReasons.push(
+          `reportFanoutCandidate.sourceArtifacts[] must stay inside repoRoot after resolving symlinks: ${normalizedSourceArtifact}`,
+        );
+        continue;
+      }
+      resolvedSourceArtifacts.push(resolvedSourceArtifact);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        blockingReasons.push(`reportFanoutCandidate.sourceArtifacts[] file not found: ${resolvedSourceArtifact}`);
+        continue;
+      }
+      blockingReasons.push(
+        `reportFanoutCandidate.sourceArtifacts[] could not be read: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  return { resolvedSourceArtifacts, blockingReasons };
 }
 
 function buildRunTaskPreflightReport(input: {
@@ -4033,13 +4401,21 @@ function validateForbiddenFieldNames(value: unknown, path = ""): string[] {
   const violations: string[] = [];
   for (const [key, nestedValue] of Object.entries(value)) {
     const fieldPath = path ? `${path}.${key}` : key;
-    if (isForbiddenFieldName(key)) {
+    if (isForbiddenFieldName(key) && !isAllowedReportFanoutFalseSideEffect(fieldPath, nestedValue)) {
       violations.push(`${fieldPath} field is not allowed in a sequential continuation artifact`);
     }
     violations.push(...validateForbiddenFieldNames(nestedValue, fieldPath));
   }
 
   return violations;
+}
+
+function isAllowedReportFanoutFalseSideEffect(fieldPath: string, value: unknown): boolean {
+  const prefix = "reportFanoutCandidate.expectedSideEffects.";
+  if (!fieldPath.startsWith(prefix) || value !== false) {
+    return false;
+  }
+  return REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS.has(fieldPath.slice(prefix.length));
 }
 
 function validateForbiddenLifecycleWording(value: unknown, path = ""): string[] {
@@ -4349,6 +4725,28 @@ function singleStepSideEffects(): SequentialContinuationSingleStepReport["sideEf
     runsCreated: false,
     worktreesCreated: false,
     pushPerformed: false,
+  };
+}
+
+function reportFanoutPreflightSideEffects(): SequentialContinuationReportFanoutPreflightReport["sideEffects"] {
+  return {
+    runTaskCalled: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    worktreesCreated: false,
+    runsCreated: false,
+    lifecycleMutated: false,
+    mergePerformed: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    successorExecuted: false,
+    daemonWatchStarted: false,
+    remoteAdapterCalled: false,
+    dashboardUpdated: false,
+    connectorExpansionPerformed: false,
+    hiddenMemoryWritten: false,
+    workerOwnedOrchestrationStarted: false,
   };
 }
 
@@ -5253,6 +5651,7 @@ function buildReportBlockingReasons(input: {
   activeStopConditions: SequentialContinuationReport["activeStopConditions"];
   nextStep: { kind: string | null; value: string | null };
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
+  reportFanoutPreflight?: SequentialContinuationReportFanoutPreflightReport;
   runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
   runAcceptPreflight?: SequentialContinuationRunAcceptPreflightReport;
 }): string[] {
@@ -5272,6 +5671,11 @@ function buildReportBlockingReasons(input: {
   if (input.nextArtifactLinkage?.status === "blocked") {
     for (const reason of input.nextArtifactLinkage.blockingReasons) {
       pushUnique(reasons, `nextArtifactPath: ${reason}`);
+    }
+  }
+  if (input.reportFanoutPreflight?.status === "blocked") {
+    for (const reason of input.reportFanoutPreflight.blockingReasons) {
+      pushUnique(reasons, `reportFanoutCandidate: ${reason}`);
     }
   }
   if (input.runTaskPreflight?.status === "blocked") {

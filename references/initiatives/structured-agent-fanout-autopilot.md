@@ -1,6 +1,6 @@
 # Initiative: Structured Agent Fanout Autopilot
 
-Status: proposed
+Status: S1 completed; S2 ready/proposed
 Source: Samantha worker task `structured-agent-fanout-autopilot-docs`.
 Last updated: 2026-05-23
 
@@ -143,8 +143,8 @@ Stop before continuing when any of these appear:
 | Slice | Status | Objective | Verification |
 | --- | --- | --- | --- |
 | S0 | completed | Create this initiative brief and the design contract playbook. | Markdown files exist, required contract terms are present, and scoped diff check passes. |
-| S1 | proposed | Implement report-only validation and visibility for closed `reportFanoutCandidate` objects. No fanout dispatch. | Focused validator/CLI tests prove accepted and blocked candidates, false side effects, and no runs/worktrees/lifecycle mutation. |
-| S2 | proposed | Dogfood S1 against one accepted and one blocked report/spec/reviewer/evaluator fanout candidate. | Operation report cites CLI output, accepted/blocked reasons, and false writer/batch/push side effects. |
+| S1 | completed | Implement report-only validation and visibility for closed `reportFanoutCandidate` objects. No fanout dispatch. | Current-head recovery adds closed candidate validation, source-artifact preflight, `continuation:show` visibility, and focused accepted/blocked false-side-effect tests. |
+| S2 | ready | Dogfood S1 against one accepted and one blocked report/spec/reviewer/evaluator fanout candidate. | Operation report cites CLI output, accepted/blocked reasons, and false writer/batch/push side effects. |
 | S3 | proposed | Add deterministic synthesis/status evidence for report fanout outputs. No writer or batch execution. | Tests prove advice cannot update status without cited synthesis evidence and conflicting advice blocks instead of averaging. |
 | S4 | proposed | Add report-only `batchPlanCandidate` validation that reuses Phase 5.5 `BatchPlanDraft` and Phase 5 `BatchSpec` gates. No batch execution. | Tests prove accepted/blocked batch candidates and rejection of any parallel batch authority. |
 | S5 | proposed | Dogfood S4 against existing Phase 5.5/Phase 5 fixtures and decide whether guarded batch execution coordination is justified. | Report cites existing batch gate evidence and recommends stop or next reviewed implementation slice. |
