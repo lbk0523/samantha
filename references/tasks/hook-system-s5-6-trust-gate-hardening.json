@@ -1,0 +1,50 @@
+{
+  "id": "hook-system-s5-6-trust-gate-hardening",
+  "title": "Harden trust-gate hook timeout and mutation baselines",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-log.ts",
+    "src/core/run-show.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement the P2 hook-system hardening from the S1-S5/S5.5 review. Keep changes limited to src/core/hooks.ts and tests/hooks.test.ts. Do not add worker-dispatch integration, run-log integration, CLI integration, MCP, plugin, daemon/watch behavior, remote behavior, repository hook artifacts, task templates, policy changes, lifecycle records, or documentation edits. Preserve existing advisory runner fail-open behavior and existing trust-gate result semantics.\n\nGoal 1: make trust-gate eventTimeoutMs a real per-event wall-clock budget for the trust-gate runner. The event budget must include pre-command mutation detection, hook command execution, post-command mutation detection, and short-circuit handling. Before each expensive trust-gate operation, compute remaining event budget. If no budget remains, final result must block. If mutation detection cannot complete inside the remaining event budget, final result must block with evidence. Do not expand the hook policy schema. The existing runner input optional eventTimeoutMs is the only public timeout control for the event.\n\nGoal 2: prevent trust-gate hooks from running on a dirty baseline where Samantha cannot prove what the hook changed. For trust-gate execution only, if the pre-command repo mutation snapshot is ok but contains any created, modified, or deleted repository paths before the hook command starts, do not execute the hook command. Return final block evidence that makes the pre-existing dirty baseline clear, keeps per-hook decision none, and includes the pre-existing paths in repoMutations. This closes the case where a hook could modify an already-modified file without changing its git status kind. Advisory hooks must continue to run and remain fail-open; do not block advisory execution because the repo is dirty.\n\nGoal 3: keep trust-gate mutation detection conservative and visible. Existing excluded paths such as .git, node_modules, worktrees, and runs may remain excluded for performance, but do not claim stronger coverage in code. If you add evidence fields, keep them small and serializable. Prefer reusing existing HookRepoMutationEvidence fields unless a tiny additive field is necessary. If you change a public type, update tests accordingly.\n\nRequired tests:\n- trust-gate blocks before executing the hook when the repo already has an untracked file; evidence includes the created path and marker command did not run.\n- trust-gate blocks before executing the hook when the repo already has a modified tracked file; evidence includes the modified path and marker command did not run.\n- advisory hook still runs on a dirty repo and returns fail-open evidence rather than blocking.\n- trust-gate eventTimeoutMs includes pre-command mutation detection: with an exhausted or too-small budget, the hook command must not run and the final decision must block.\n- trust-gate eventTimeoutMs includes post-command mutation detection: if the hook command consumes the available event budget, final decision must block instead of allowing without post-command mutation evidence.\n- existing tests for advisory fail-open, trust-gate allow/block, timeout/SIGKILL bounded completion, non-zero/invalid schema block, mutation block, short-circuit, and run evidence compatibility still pass.\n\nImplementation guidance: keep the implementation simple and local. It is acceptable to introduce small private helper functions for remaining budget, effective mutation detection timeout, and dirty-baseline evidence. Avoid broad abstractions, retries, parallel execution, or new extension-platform behavior.",
+  "expectedCommitSubject": "feat: harden trust-gate hook runner",
+  "status": "pending"
+}
