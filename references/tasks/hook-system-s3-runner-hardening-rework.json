@@ -1,0 +1,49 @@
+{
+  "id": "hook-system-s3-runner-hardening-rework",
+  "title": "Rework advisory hook runner hardening with bounded mutation detection",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-log.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement the pre-S4 hook runner hardening slice from references/initiatives/samantha-hook-system.md. This is a rework because the previous candidate used whole-repository SHA-256 filesystem snapshots around every hook, which is too expensive and must not be reproduced. Keep changes limited to src/core/hooks.ts and tests/hooks.test.ts. Do not add trust-gate execution, worker-dispatch integration, run-log integration, CLI integration, MCP, plugin, daemon, remote behavior, or repository hook artifacts. First, make hook process timeout completion bounded: on timeout send SIGTERM, allow a short grace period, and if the process has not closed then send SIGKILL; a hook command that ignores SIGTERM must still return timed_out advisory evidence instead of hanging. Add a focused test with a command that ignores SIGTERM. Second, add repo mutation detection around advisory hook command execution, but keep it performance-bounded. Do not recursively hash the repository tree and do not scan .git, node_modules, worktrees, runs, or ignored dependency/cache trees. Prefer a git working-tree status snapshot before and after the hook command, with a small bounded internal timeout, and record created/modified/deleted paths whose status changed. If the temporary test repo is not a git repository, either initialize it in tests that need mutation detection or use a tiny local fallback that cannot affect real repo performance. Mutation detection must remain fail-open evidence only: do not throw, block, or change advisory decisions because a hook writes files or because mutation detection itself cannot run. Add a focused test with a hook command that writes a repo file and prove mutation evidence is recorded without changing the hook decision. Third, add HookResult status/decision consistency validation: passed may only use allow or none; blocked may only use block; advisory_failed, timed_out, and schema_invalid may only use none. Add tests proving invalid combinations are rejected as schema_invalid advisory evidence. Keep stdout raw retention behavior as-is for this slice except where necessary for timeout hardening. Do not broaden HookResult authority or persistence.",
+  "expectedCommitSubject": "feat: harden advisory hook runner",
+  "status": "pending"
+}
