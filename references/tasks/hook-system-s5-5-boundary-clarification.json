@@ -1,0 +1,42 @@
+{
+  "id": "hook-system-s5-5-boundary-clarification",
+  "title": "Clarify hook system V1 boundary after S1-S5 review",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/samantha-hook-system.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Implement the S5.5 boundary clarification slice from the S1-S5 hook-system review. Modify only references/initiatives/samantha-hook-system.md. Do not modify src/**, tests/**, references/tasks/**, hook artifacts, task templates, agent profiles, run logs, lifecycle files, package metadata, or lockfiles. Do not add worker-dispatch integration, run-log integration, CLI integration, MCP, plugin, daemon/watch behavior, remote behavior, or any code behavior.\n\nGoal: update the hook-system initiative document so it accurately describes the current S1-S5 implementation boundary. The current document overstates V1 enforcement by implying hook commands can only read injected or explicitly permitted files. Current code executes hook commands from repo root, filters injected stdin context, caps context/stdout, bounds hook process completion, records mutation evidence, and separates advisory fail-open from trust-gate fail-closed decisions. It does not implement an OS-level read sandbox or strict file-read allowlist.\n\nRequired edits:\n1. Make clear that V1 hooks are reviewed repo artifact commands, not an untrusted plugin sandbox.\n2. Separate the context injection boundary from the file read boundary.\n3. Remove or qualify any claim that Samantha technically prevents hook commands from reading repository files in V1. Move that stronger read sandbox/allowlist guarantee to future capability language.\n4. Preserve the write prohibition as a product rule, but state that current enforcement is mutation evidence and trust-gate fail-closed behavior, with stronger mutation hardening as a pre-dispatch/dogfood prerequisite if needed.\n5. State that hook commands run from the repository root cwd for predictable relative paths.\n6. State that current V1 guarantees are bounded context, timeout/SIGTERM/SIGKILL completion, stdout cap, status/decision validation, mixed fail behavior, mutation evidence, and run evidence.\n7. Keep MCP, read sandbox, remote/plugin, and daemon behavior as separate future capabilities.\n8. Keep the document concise and internally consistent with NORTH_STAR.md, ARCHITECTURE.md, and ROADMAP.md authority boundaries.\n\nVerification must pass: bun test tests/hooks.test.ts and bun run typecheck. The task is complete only if the document no longer promises a stronger read sandbox than the code provides.",
+  "expectedCommitSubject": "docs: clarify hook system boundary",
+  "status": "pending"
+}
