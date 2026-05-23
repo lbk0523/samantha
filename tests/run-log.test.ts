@@ -6,6 +6,7 @@ import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import {
   buildWorkerRunLog,
   writeWorkerRunLog,
+  type WorkerRunHookEvidence,
   type WorkerRunTrajectoryEntry,
 } from "../src/core/run-log";
 import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
@@ -155,6 +156,110 @@ function expectTiming(entry: WorkerRunTrajectoryEntry | undefined): void {
   expect(entry?.durationMs).toBeGreaterThanOrEqual(0);
 }
 
+const hookEvidence: WorkerRunHookEvidence = {
+  policy: {
+    path: "references/hooks/hook-policy.json",
+    digest: "sha256:policy-digest",
+  },
+  definitions: [
+    {
+      hookId: "task-scope-gate",
+      path: "references/hooks/hooks/task-scope-gate.json",
+      digest: "sha256:scope-gate-digest",
+    },
+    {
+      hookId: "run-advisory",
+      path: "references/hooks/hooks/run-advisory.json",
+      digest: "sha256:run-advisory-digest",
+    },
+  ],
+  events: [
+    {
+      event: "task_spec.preflight",
+      eventVersion: 1,
+      contextKeys: ["task.id", "task.targetFiles"],
+      contextBytes: 128,
+      trustGate: {
+        decision: "block",
+        summary: "Trust gate blocked the task scope.",
+        blockingHookId: "task-scope-gate",
+      },
+      invocations: [
+        {
+          hookId: "task-scope-gate",
+          event: "task_spec.preflight",
+          command: ["bun", "run", "hooks/task-scope-gate.ts"],
+          cwd: "/repo",
+          status: "blocked",
+          decision: "block",
+          summary: "Task scope included a forbidden path.",
+          startedAt: "2026-05-12T10:00:00.000Z",
+          finishedAt: "2026-05-12T10:00:00.012Z",
+          durationMs: 12,
+          exitCode: 0,
+          stdout: '{"status":"blocked","decision":"block","summary":"Task scope included a forbidden path."}',
+          stdoutTruncated: true,
+          stderr: "",
+          stderrTruncated: false,
+          timedOut: false,
+          timeoutMs: 5000,
+          timeoutDetails: null,
+          repoMutations: {
+            detection: "ok",
+            created: [],
+            modified: [],
+            deleted: [],
+            error: null,
+            timeoutMs: 500,
+          },
+          schemaViolations: [],
+          contextKeys: ["task.id", "task.targetFiles"],
+          contextBytes: 128,
+        },
+      ],
+    },
+    {
+      event: "run.completed",
+      eventVersion: 1,
+      contextKeys: ["run.id"],
+      contextBytes: 64,
+      invocations: [
+        {
+          hookId: "run-advisory",
+          event: "run.completed",
+          command: ["bun", "run", "hooks/run-advisory.ts"],
+          cwd: "/repo",
+          status: "advisory_failed",
+          decision: "none",
+          summary: "Advisory hook exited non-zero.",
+          startedAt: "2026-05-12T10:00:01.000Z",
+          finishedAt: "2026-05-12T10:00:01.008Z",
+          durationMs: 8,
+          exitCode: 1,
+          stdout: "advisory stdout evidence",
+          stdoutTruncated: false,
+          stderr: "advisory stderr evidence",
+          stderrTruncated: false,
+          timedOut: false,
+          timeoutMs: 5000,
+          timeoutDetails: null,
+          repoMutations: {
+            detection: "ok",
+            created: [],
+            modified: ["notes.txt"],
+            deleted: [],
+            error: null,
+            timeoutMs: 500,
+          },
+          schemaViolations: [],
+          contextKeys: ["run.id"],
+          contextBytes: 64,
+        },
+      ],
+    },
+  ],
+};
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -217,6 +322,32 @@ describe("worker run logs", () => {
     expectTiming(log.trajectory?.[8]);
   });
 
+  test("omits hook evidence for legacy callers", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-run-log-"));
+    tmpRoots.push(root);
+
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution,
+    });
+    const written = await writeWorkerRunLog(root, {
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution,
+    });
+    const parsed = JSON.parse(await readFile(written.path, "utf8"));
+
+    expect(Object.hasOwn(log, "hookEvidence")).toBe(false);
+    expect(Object.hasOwn(parsed, "hookEvidence")).toBe(false);
+  });
+
   test("writes pretty JSON under the run log directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-run-log-"));
     tmpRoots.push(root);
@@ -239,6 +370,38 @@ describe("worker run logs", () => {
     expect(parsed.result.pass).toBe(true);
     expect(parsed.result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(parsed.result.preparation.codex.prompt).toBe("prompt");
+  });
+
+  test("writes provided hook evidence without changing worker result authority", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-run-log-"));
+    tmpRoots.push(root);
+
+    const log = buildWorkerRunLog({
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution,
+      hookEvidence,
+    });
+    const written = await writeWorkerRunLog(root, {
+      task,
+      agent,
+      repoRoot: "/repo",
+      startedAt: "2026-05-12T10:00:00.000Z",
+      finishedAt: "2026-05-12T10:01:00.000Z",
+      execution,
+      hookEvidence,
+    });
+    const parsed = JSON.parse(await readFile(written.path, "utf8"));
+
+    expect(log.hookEvidence).toEqual(hookEvidence);
+    expect(parsed.hookEvidence).toEqual(hookEvidence);
+    expect(parsed.hookEvidence.events[0].trustGate.decision).toBe("block");
+    expect(parsed.hookEvidence.events[1].invocations[0].status).toBe("advisory_failed");
+    expect(parsed.hookEvidence.events[0].invocations[0].stdoutTruncated).toBe(true);
+    expect(parsed.result.pass).toBe(true);
   });
 
   test("records parsed advisory verification evidence in run logs", () => {

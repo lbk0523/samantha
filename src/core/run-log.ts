@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { OperationTiming } from "./command-runner";
 import type { AgentProfile, TaskSpec } from "./contracts";
+import type { HookEvent, HookRunEvidence, TrustGateFinalResult } from "./hooks";
 import type { WorkerDispatchExecution } from "./worker-dispatch";
 import { sanitizeTaskId } from "./worktree";
 
@@ -13,6 +14,31 @@ export interface WorkerRunLogInput {
   startedAt: string;
   finishedAt: string;
   execution: WorkerDispatchExecution;
+  hookEvidence?: WorkerRunHookEvidence;
+}
+
+export interface WorkerRunHookFileDigest {
+  path: string;
+  digest: string;
+}
+
+export interface WorkerRunHookDefinitionDigest extends WorkerRunHookFileDigest {
+  hookId: string;
+}
+
+export interface WorkerRunHookEventEvidence {
+  event: HookEvent;
+  eventVersion: number;
+  contextKeys: string[];
+  contextBytes: number;
+  trustGate?: TrustGateFinalResult;
+  invocations: HookRunEvidence[];
+}
+
+export interface WorkerRunHookEvidence {
+  policy: WorkerRunHookFileDigest;
+  definitions: WorkerRunHookDefinitionDigest[];
+  events: WorkerRunHookEventEvidence[];
 }
 
 export type WorkerRunTrajectoryEvent =
@@ -58,6 +84,7 @@ export interface WorkerRunLog {
   };
   trajectory?: WorkerRunTrajectoryEntry[];
   result: WorkerDispatchExecution;
+  hookEvidence?: WorkerRunHookEvidence;
 }
 
 export interface WorkerRunLogWrite {
@@ -331,6 +358,7 @@ export function buildWorkerRunLog(input: WorkerRunLogInput): WorkerRunLog {
     },
     trajectory: buildWorkerRunTrajectory(input),
     result: input.execution,
+    ...(input.hookEvidence ? { hookEvidence: input.hookEvidence } : {}),
   };
 }
 
