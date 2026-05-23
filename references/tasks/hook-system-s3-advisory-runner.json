@@ -1,0 +1,49 @@
+{
+  "id": "hook-system-s3-advisory-runner",
+  "title": "Implement advisory hook runner foundation",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-log.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement the S3 advisory hook runner foundation from references/initiatives/samantha-hook-system.md. Keep changes limited to src/core/hooks.ts and tests/hooks.test.ts. Build on the existing hook schema/policy loader. Add execution support for advisory hooks only: select hooks for a known event, pass bounded structured context to the hook process, run argv-style commands from the repository root, enforce hook timeout, cap stdout/stderr according to the hook stdout policy, parse structured HookResult JSON from stdout, and return evidence objects with command, cwd, status, decision, summary, timing, exit code, capped output, and schema/timeout failure details. Advisory hooks must fail open: command failure, timeout, invalid JSON, invalid HookResult schema, or a hook decision of block must be recorded as advisory evidence and must not throw or block. Trust-gate hook execution is out of scope and should not be added. Do not integrate hooks into worker-dispatch, run-log writing, CLI, task specs, agent profiles, MCP, plugins, daemon/watch behavior, remote services, or repository hook artifacts. The runner must be read-only with respect to repository files: it may execute the configured command but Samantha core should not write hook output anywhere in this slice. Tests should cover selecting only advisory hooks for an event, context delivery, stdout capping, invalid result fail-open behavior, timeout fail-open behavior, command non-zero fail-open behavior, and refusal to execute trust-gate hooks through the advisory runner.",
+  "expectedCommitSubject": "feat: add advisory hook runner foundation",
+  "status": "pending"
+}
