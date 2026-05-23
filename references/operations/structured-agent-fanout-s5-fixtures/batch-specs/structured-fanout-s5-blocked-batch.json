@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "batchId": "structured-fanout-s5-blocked-batch",
+  "repoRoot": ".",
+  "baseCommit": "4f1b87966e45d8fabd72e3ba87c0c4a14ac50c56",
+  "status": "planned",
+  "serialOnlyRules": [
+    {
+      "id": "contracts",
+      "glob": "src/core/contracts.ts",
+      "reason": "contract changes can grant or restrict authority"
+    },
+    {
+      "id": "policy",
+      "glob": "src/core/policy.ts",
+      "reason": "policy changes control dispatch authority"
+    },
+    {
+      "id": "package-metadata",
+      "glob": "package.json",
+      "reason": "package metadata changes affect all tasks"
+    },
+    {
+      "id": "lockfile",
+      "glob": "bun.lock",
+      "reason": "lockfile changes are shared integration state"
+    },
+    {
+      "id": "task-templates",
+      "glob": "references/task-templates/**",
+      "reason": "templates define future worker authority"
+    },
+    {
+      "id": "agent-profiles",
+      "glob": "references/agent-profiles/**",
+      "reason": "agent profiles define worker authority"
+    },
+    {
+      "id": "doctrine-agents",
+      "glob": "AGENTS.md",
+      "reason": "repository instructions define authority boundaries"
+    },
+    {
+      "id": "doctrine-north-star",
+      "glob": "NORTH_STAR.md",
+      "reason": "product identity defines authority boundaries"
+    },
+    {
+      "id": "doctrine-architecture",
+      "glob": "ARCHITECTURE.md",
+      "reason": "architecture defines authority boundaries"
+    },
+    {
+      "id": "doctrine-roadmap",
+      "glob": "ROADMAP.md",
+      "reason": "roadmap changes phase authority"
+    },
+    {
+      "id": "doctrine-work-rules",
+      "glob": "WORK-RULES.md",
+      "reason": "work rules define execution discipline"
+    }
+  ],
+  "tasks": [
+    {
+      "taskId": "structured-fanout-s5-task-a",
+      "taskSpecPath": "references/operations/structured-agent-fanout-s5-fixtures/tasks/structured-fanout-s5-task-a.json",
+      "targetAgent": "codex-worker",
+      "declaredTargetFiles": [
+        "references/operations/structured-agent-fanout-s5-fixtures/output/structured-fanout-s5-different-output.md"
+      ],
+      "declaredForbiddenChanges": [
+        "runs/**",
+        "worktrees/**"
+      ],
+      "expectedVerifyCommands": [
+        "test -f references/operations/structured-agent-fanout-s5-fixtures/tasks/structured-fanout-s5-task-a.json"
+      ],
+      "writeSetClassification": "parallel_eligible",
+      "classificationReasons": [],
+      "dispatchGroup": "group-1",
+      "status": "planned"
+    }
+  ],
+  "dependencies": [],
+  "integrationQueue": [
+    {
+      "order": 1,
+      "taskId": "structured-fanout-s5-task-a",
+      "requiresAccepted": [],
+      "focusedVerifyCommands": [
+        "test -f references/operations/structured-agent-fanout-s5-fixtures/tasks/structured-fanout-s5-task-a.json"
+      ],
+      "status": "pending"
+    }
+  ],
+  "verification": {
+    "preflightChecks": [
+      "validate batch identity and baseCommit",
+      "validate task references against TaskSpec",
+      "validate dependency DAG",
+      "validate disjoint write sets",
+      "validate serial-only classifications",
+      "validate integration queue"
+    ],
+    "afterEachAcceptedMerge": [
+      "test -f references/operations/structured-agent-fanout-s5-fixtures/tasks/structured-fanout-s5-task-a.json"
+    ],
+    "afterFinalAcceptedMerge": [
+      "test -f references/operations/structured-agent-fanout-s5-fixtures/batch-specs/structured-fanout-s5-blocked-batch.json"
+    ]
+  },
+  "lifecyclePolicy": {
+    "staleBase": "block_and_replan",
+    "rebase": "explicit_samantha_owned_rebase_only",
+    "partialFailure": "block_dependents_allow_independent_candidates",
+    "cleanup": "explicit_per_worker_lifecycle_after_resolution"
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "structured-agent-fanout-s5-batch-plan-review-blocked",
+  "initiativePath": "references/initiatives/structured-agent-fanout-autopilot.md",
+  "createdAt": "2026-05-23T09:00:00.000Z",
+  "updatedAt": "2026-05-23T09:00:00.000Z",
+  "currentSlice": {
+    "id": "S5-batch-plan-review-blocked",
+    "status": "ready",
+    "actionType": "batch_plan",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S4 reached completed status with run evidence and revision 705cd6e3761a1449c600ba42a2b304e8d2dbab15."
+    ],
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+      "references/operations/structured-agent-fanout-s5-dogfood-report.md",
+      "references/operations/structured-agent-fanout-s5-fixtures/tasks/structured-fanout-s5-task-a.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/batch-specs/structured-fanout-s5-ready-batch.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/batch-specs/structured-fanout-s5-blocked-batch.json"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s5-run-task.json",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json --repo-root=.",
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json --repo-root=.",
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=.",
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json --repo-root=."
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S5 has a decision-complete dogfood scope."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S5 records visibility evidence only; execution coordination stays outside this artifact."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S5 cites S4 run evidence and revision 705cd6e3761a1449c600ba42a2b304e8d2dbab15."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "The fixture baseCommit is the current worker HEAD before S5 edits."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "Worker result is reported separately by the harness."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "Target files are limited to S5 operation artifacts and the initiative update."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No S5 verification rework cycle is spent before dogfood verification."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S5 uses continuation show and BatchSpec preflight only."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S5 records accepted or blocked status before closure."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "kind": "run_log",
+      "path": "runs/2026-05-23T08-19-27-690Z-structured-agent-fanout-s4-batch-plan-candidate-preflight.json",
+      "summary": "S4 batchPlanCandidate preflight run evidence passed.",
+      "result": "completed"
+    },
+    {
+      "kind": "continuation_report",
+      "path": "705cd6e3761a1449c600ba42a2b304e8d2dbab15",
+      "summary": "Accepted S4 revision evidence.",
+      "result": "completed"
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "stop"
+  },
+  "nextArtifactPath": null,
+  "nextArtifactExpectedSliceId": null,
+  "batchPlanCandidate": {
+    "gate": "batch_plan_review",
+    "draftId": "structured-agent-fanout-s5-missing-plan",
+    "draftsDir": "references/batch-plans",
+    "executionMode": "preflight_only",
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "batchPlanPrepareCalled": false,
+      "taskSpecsWritten": false,
+      "batchSpecsWritten": false,
+      "batchesExecuteCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "runsCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "successorExecuted": false,
+      "daemonWatchStarted": false,
+      "remoteAdapterCalled": false,
+      "dashboardUpdated": false,
+      "connectorExpansionPerformed": false,
+      "hiddenMemoryWritten": false,
+      "workerOwnedOrchestrationStarted": false
+    }
+  }
+}

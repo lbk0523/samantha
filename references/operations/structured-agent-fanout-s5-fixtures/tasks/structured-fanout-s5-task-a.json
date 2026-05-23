@@ -1,0 +1,21 @@
+{
+  "id": "structured-fanout-s5-task-a",
+  "title": "Structured fanout S5 fixture task",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/operations/structured-agent-fanout-s5-fixtures/output/structured-fanout-s5-output.md"
+  ],
+  "forbiddenChanges": [
+    "runs/**",
+    "worktrees/**"
+  ],
+  "verifyCommands": [
+    "test -f references/operations/structured-agent-fanout-s5-fixtures/tasks/structured-fanout-s5-task-a.json"
+  ],
+  "instructions": "Fixture writer task for Phase 5 preflight visibility only.",
+  "expectedCommitSubject": "docs: record structured fanout s5 fixture output",
+  "status": "pending"
+}
