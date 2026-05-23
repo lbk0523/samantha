@@ -218,6 +218,37 @@ Samantha-authored recommended prompt에서 슬롯을 쓰는 경우 `Context:`, `
 `Scope:`, `Output:`, `Stop:` 순서를 보존한다. 상세 guide에서 사용하는 alias는
 `sam b:`, `sam p:`, `sam c:`, `sam r:`, `sam re:`, `sam i:`, `sam l:`이다.
 
+### Post-Command Handoff
+
+`sam c:` 완료 후 handoff는 runtime continuation이나 자동 실행 계약이 아니라 운영
+guidance다. Command final response는 아래 shape을 사용해 현재 slice의 신뢰 가능한
+상태와 다음 intent를 분리한다.
+
+- `Outcome`: pass, rework, blocked, accepted, 또는 no-next-action 판단.
+- `Trusted evidence`: task spec, run/report, `HARNESS_RESULT`, verification,
+  changed-file scope, lifecycle/commit 상태 중 신뢰할 수 있는 증거.
+- `Current slice`: 방금 완료, 실패, 보류, 또는 폐기된 slice.
+- `Next-slice state`: `next slice ready`, `needs plan`, `needs brainstorm`,
+  `recovery`, `closure decision`, `no next action`, `adjacent initiative needed`
+  중 하나.
+- `Recommended next prompt`: 다음 intent가 필요할 때만 하나의 copy-paste-ready
+  fenced `text` 블럭.
+
+추천 prompt는 항상 하나의 fenced `text` 블럭이어야 한다. 슬롯을 쓰는 경우 기존
+slot order(`Context:`, `Ask:`, `Scope:`, `Output:`, `Stop:`)를 유지한다.
+`no next action`일 때는 work를 지어내지 말고, 왜 다음 action을 추천하지 않는지
+명시한다.
+
+| Next-slice state | 추천 intent | 기준 |
+| --- | --- | --- |
+| `next slice ready` | `sam c:` | 다음 slice가 ready executable next slice이고 target files, verification, stop condition이 충분히 결정되어 있다. |
+| `needs plan` | `sam p:` | execution boundary가 불완전하다. target files, artifact family, verification, stop condition, lifecycle boundary 중 하나가 아직 계획으로 정리되지 않았다. |
+| `needs brainstorm` | `sam b:` | product direction, authority decision, artifact lifecycle, validation boundary 같은 판단이 먼저 필요하다. |
+| `recovery` | `sam re:` | failed, blocked, untrusted, verify failed, scope failed, stale, 또는 missing `HARNESS_RESULT` 상태다. |
+| `closure decision` | `sam p:` | 질문이 구현이 아니라 completion evidence가 initiative completion rule을 만족하는지 판단하는 것이다. |
+| `no next action` | 없음 | completion rule satisfied 상태이고 의미 있는 cohesive slice가 남아 있지 않다. `No next action recommended`와 이유를 쓴다. |
+| `adjacent initiative needed` | 별도 `sam b:` 또는 `sam p:` | 현재 initiative 밖의 adjacent authority 또는 product surface가 발견되었다. 새 initiative boundary로 분리한다. |
+
 `sam b:`는 방향이 아직 executable하지 않을 때 쓴다. Brainstorm 결과는 accepted
 decisions, rejected alternatives, remaining architecture/product questions,
 recommended next prompt를 분리해서 끝낸다. 방향은 잡혔지만 실행 경계가 아직 불완전하면

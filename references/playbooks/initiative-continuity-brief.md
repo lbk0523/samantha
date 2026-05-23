@@ -121,10 +121,99 @@ current next slice, not the full historical chat context.
 At the end of each slice, update the brief with:
 
 - completed slice status;
+- verification evidence;
 - changed accepted decisions;
-- verification result;
 - newly discovered blockers;
-- the next `ready` slice and its prompt.
+- the next `ready` slice and its prompt when one exists;
+- or a clear `no-current-next-slice`, closure decision, or recovery-needed
+  state.
+
+Completed slice prompts become historical handoff prompts. Do not reuse a
+historical handoff prompt as the current prompt after its slice is completed,
+failed, dropped, or superseded.
+
+The `Current Next Slice` section must name exactly one current slice when one is
+ready. If no slice is ready, it must say why: `no-current-next-slice`, closure
+decision, recovery-needed, or adjacent initiative needed.
+
+The `End-of-Session Update Rule` must require each completed slice to record:
+
+- final status;
+- trusted verification evidence or the reason verification is unavailable;
+- new blockers or authority questions;
+- next-slice state;
+- the current prompt when a next slice exists.
+
+This brief does not replace task specs, run logs, lifecycle records, or
+deterministic verification, and it grants no worker, merge, cleanup, commit,
+push, or lifecycle authority.
+
+## Branch-Specific Handoff Examples
+
+Use one copy-paste-ready fenced prompt when recommending a next prompt. Preserve
+the slot order when slots are present.
+
+Next slice ready:
+
+```text
+sam c: execute the next ready slice from <initiative-slug>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
+
+Execution boundary incomplete:
+
+```text
+sam p: plan the next slice boundary for <initiative-slug>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
+
+Product or authority decision needed:
+
+```text
+sam b: decide the product or authority boundary for <initiative-slug>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
+
+Failed or untrusted completion:
+
+```text
+sam re: recover the failed or untrusted slice in <initiative-slug>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
+
+Completion rule satisfied:
+
+```text
+No next action recommended: the completion rule is satisfied and the brief has
+no-current-next-slice.
+```
+
+Adjacent initiative needed:
+
+```text
+sam b: define a separate initiative boundary for <adjacent-surface>
+Context:
+Ask:
+Scope:
+Output:
+Stop:
+```
 
 ## Markdown Checks
 

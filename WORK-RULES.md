@@ -313,6 +313,52 @@ and the next highest-value Samantha handoff. For self-build writer
 implementation inside this repo, `sam c:` must preserve the SDK-backed
 self-build authority gate.
 
+### Post-Command Handoff Branch Contract
+
+After command work, treat the next prompt as operating guidance, not runtime
+automation or automatic continuation. The final response must separate current
+completion evidence from the next boundary:
+
+- `Outcome`: what happened in the current command slice.
+- `Trusted evidence`: task spec, run/report, `HARNESS_RESULT`, deterministic
+  verification, changed-file scope, lifecycle state, and commit/push state when
+  applicable.
+- `Current slice`: the slice just completed, failed, blocked, or retired.
+- `Next-slice state`: one of `next slice ready`, `needs plan`, `needs
+  brainstorm`, `recovery`, `closure decision`, `no next action`, or `adjacent
+  initiative needed`.
+- `Recommended next prompt`: one copy-paste-ready fenced `text` block only when
+  a next prompt is warranted.
+
+Use this branch table when choosing the handoff:
+
+| Next-slice state | Recommended intent | Evidence expectation |
+| --- | --- | --- |
+| `next slice ready` | `sam c:` | Ready executable next slice with clear target files or artifact family, verification, lifecycle boundary, and stop condition. |
+| `needs plan` | `sam p:` | execution boundary incomplete: scope, target files, verification, stop condition, or lifecycle handling still needs planning. |
+| `needs brainstorm` | `sam b:` | Product or authority decision needed before planning or execution can be honest. |
+| `recovery` | `sam re:` | failed or untrusted completion, blocked run, stale base, verify failed, scope failed, missing `HARNESS_RESULT`, or incomplete lifecycle evidence. |
+| `closure decision` | `sam p:` | The question is whether completion evidence satisfies the initiative completion rule, not how to implement another slice. |
+| `no next action` | none | Completion rule satisfied and no meaningful cohesive slice remains. Say `No next action recommended` and state the reason. |
+| `adjacent initiative needed` | separate `sam b:` or `sam p:` | Adjacent authority or product surface belongs outside the current initiative boundary. |
+
+Stop before recommending another `sam c:` when any of these are true:
+
+- product judgment is still needed;
+- authority expansion is being considered;
+- target files or artifact families are unclear;
+- verification is unclear or unavailable;
+- dirty or stale repo risk could invalidate the handoff;
+- current completion failed or is untrusted;
+- lifecycle ambiguity remains;
+- push, secrets, credentials, or external access is required;
+- the next work belongs to a new initiative boundary.
+
+Any recommended prompt must remain one copy-paste-ready fenced `text` block.
+When slots are present, preserve the existing slot order: `Context:`, `Ask:`,
+`Scope:`, `Output:`, `Stop:`. No-next-action outcomes must state the reason
+instead of inventing work.
+
 Samantha's current systemized handoff surfaces are its own intents, task specs,
 run evidence, reports, and reviewable repo artifacts.
 
@@ -330,6 +376,8 @@ Before the final response on Samantha self-build work, explicitly check:
   - completed now
   - recommended Samantha handoff
   - blocked on BK decision
+  - recovery needed
+  - no next action recommended
 - the next action uses the right abstraction level before recommending
   execution:
   - for product capability, architecture, roadmap, or CEO workflow work, default
@@ -346,6 +394,12 @@ follow-up intent can preserve the right boundary without BK taking over small
 engineering steps. Use "blocked on BK decision" only when BK's product judgment,
 credentials, external authority, or explicit review is required before work can
 continue.
+
+For post-command work, use the Post-Command Handoff final response shape:
+`Outcome`, `Trusted evidence`, `Current slice`, `Next-slice state`, and
+`Recommended next prompt`. Recommend `sam re:` instead of `sam c:` for failed
+or untrusted command completion, and recommend no next action only when the
+completion rule is satisfied or there is no coherent remaining slice.
 
 Before proposing any direct BK action, first check whether Codex can either do it
 now or fold it into the next Samantha handoff. Direct BK actions are allowed
