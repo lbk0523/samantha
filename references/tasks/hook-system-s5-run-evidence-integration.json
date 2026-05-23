@@ -1,0 +1,52 @@
+{
+  "id": "hook-system-s5-run-evidence-integration",
+  "title": "Add optional hook evidence to run logs and run-show readers",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/run-log.ts",
+    "src/core/run-show.ts",
+    "tests/run-log.test.ts",
+    "tests/run-show.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/hooks.ts",
+    "src/core/policy.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/run-log.test.ts",
+    "bun test tests/run-show.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement S5 from references/initiatives/samantha-hook-system.md: run evidence integration only. Add an optional additive hook evidence section to worker run logs and readers, preserving backward compatibility for all existing run logs that do not contain hook evidence. Do not execute hooks, load hook policy during run-task, integrate with worker-dispatch, add CLI command behavior, add MCP/plugin/daemon/remote behavior, create repository hook artifacts, or change lifecycle/merge authority.\n\nRequired behavior 1: define a stable Samantha-native hook evidence section on WorkerRunLogInput and WorkerRunLog. It must be optional and additive. It should be able to record hook policy path/digest, hook definition paths/digests, event name/version, injected context keys/size, command cwd, timeout/duration, exit status, parsed result status, allow/block decision for trust gates, advisory summary, capped raw stdout evidence, schema violations, timeout details, and repo mutation evidence by reusing the serializable S3/S4 hook evidence shape where practical. Keep the shape small and explicit; do not introduce generic extension-platform fields.\n\nRequired behavior 2: buildWorkerRunLog and writeWorkerRunLog must preserve provided hook evidence exactly enough for audit use, while omitting the section when it is not provided. Existing callers that do not know about hooks must continue to typecheck and produce the same run log shape except for existing trajectory behavior.\n\nRequired behavior 3: add run-show reader support for hook evidence. showRun should continue returning summary, log, and lifecycle as before, and may add an optional or computed hook summary field. The summary must make it easy to see event count, hook invocation count, trust-gate final decisions, advisory failures, timeouts, schema-invalid results, repo mutation evidence, and total hook runtime cost without replacing the raw hook evidence stored in the log. Because src/cli.ts already prints showRun JSON, do not edit src/cli.ts for this slice unless a test proves it is strictly necessary.\n\nRequired behavior 4: backward compatibility tests. Add focused tests proving legacy run logs without hook evidence still build/read/show successfully and do not gain empty noise fields. Add tests proving synthetic hook evidence is written/read through run logs and summarized by showRun. Tests should assert the authority-sensitive parts: trust-gate allow/block decisions remain visible, advisory failures remain evidence only, raw stdout stays capped evidence instead of becoming a decision source, and total duration/cost is summarized.\n\nKeep changes surgical. Do not change schemaVersion, HARNESS_RESULT parsing, scope checks, deterministic verification output, lifecycle records, merge gates, run acceptance, worker dispatch, task specs, agent profiles, or hook execution semantics. Stop and report blocked if S5 appears to require actual hook invocation integration.",
+  "expectedCommitSubject": "feat: add hook run evidence integration",
+  "status": "pending"
+}
