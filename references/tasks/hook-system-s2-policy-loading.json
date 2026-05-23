@@ -1,0 +1,49 @@
+{
+  "id": "hook-system-s2-policy-loading",
+  "title": "Implement hook system policy loading foundation",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-log.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement the first executable foundation from references/initiatives/samantha-hook-system.md without executing hooks and without changing run logs or CLI behavior. Add a new core module src/core/hooks.ts plus focused tests in tests/hooks.test.ts. Keep this slice limited to Samantha-native hook schema constants, closed event/mode/status validation, hook policy validation, and loading hook policy plus referenced hook definition JSON files from a repository root. The loader must be read-only: it must not create, edit, delete, or write repository files. Missing hook policy should produce a disabled/no-hooks result rather than breaking existing Samantha flows. Validate that trust-gate events use fail-closed behavior, advisory events use fail-open behavior unless explicitly valid, command declarations are argv-style string arrays, context keys are explicit strings, stdout caps and timeout values are bounded, hook ids are stable repo-local ids, referenced hooks exist, hook events are known closed-schema names, and disabled hooks carry reasons. Do not add hook execution, context injection into worker prompts, run-log hook evidence, CLI commands, MCP support, plugin support, daemon/watch behavior, remote services, or repository hook artifacts in references/hooks/**. Tests should cover valid loading, absent policy behavior, invalid schema rejection, missing referenced hook rejection, trust/advisory failure behavior validation, and read-only policy loading using temporary directories.",
+  "expectedCommitSubject": "feat: add hook policy loading foundation",
+  "status": "pending"
+}
