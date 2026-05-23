@@ -1,0 +1,57 @@
+{
+  "id": "structured-agent-fanout-s2-dogfood-report-fanout-candidate",
+  "title": "Dogfood S1 reportFanoutCandidate visibility",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/structured-agent-fanout-autopilot.md",
+    "references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+    "references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+    "references/operations/structured-agent-fanout-s2-dogfood-report.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/structured-agent-fanout-s2-run-task.json",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+    "test -f references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+    "test -f references/operations/structured-agent-fanout-s2-dogfood-report.md",
+    "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-accepted-candidate.json --repo-root=/Users/byung/Documents/samantha",
+    "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-blocked-candidate.json --repo-root=/Users/byung/Documents/samantha > /tmp/structured-agent-fanout-s2-blocked-show.txt 2>&1; then exit 1; else grep -F \"\\\"status\\\": \\\"blocked\\\"\" /tmp/structured-agent-fanout-s2-blocked-show.txt; fi'",
+    "grep -F 'accepted reportFanoutPreflight.status: accepted' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+    "grep -F 'blocked reportFanoutPreflight.status: blocked' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+    "grep -F 'side effects false: runTaskCalled=false, batchesExecuteCalled=false, workersDispatched=false, worktreesCreated=false, runsCreated=false, lifecycleMutated=false, mergePerformed=false, cleanupPerformed=false, commitPerformed=false, pushPerformed=false, successorExecuted=false' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+    "grep -F 'S2 decision: S1 dogfood passed' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+    "grep -F 'Next continuation state: S3 ready' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+    "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s2-accepted-candidate.json references/operations/structured-agent-fanout-s2-blocked-candidate.json references/operations/structured-agent-fanout-s2-dogfood-report.md"
+  ],
+  "instructions": "Perform only S2 for references/initiatives/structured-agent-fanout-autopilot.md. Dogfood the accepted S1 reportFanoutCandidate validation/report-only visibility against one accepted and one blocked report/spec/reviewer/evaluator candidate. Do not change source code, tests, playbooks, task specs, task templates, agent profiles, batch artifacts, run logs, worktrees, package metadata, lockfiles, policy, doctrine, or the S2 dispatch continuation artifact.\n\nCreate references/operations/structured-agent-fanout-s2-accepted-candidate.json as a structured continuation artifact with currentSlice.id S2-accepted, actionType report_only, status ready, dependencyStatus met, pushAllowed false, all stop conditions inactive, evidence citing the accepted S1 run log runs/2026-05-23T07-15-58-998Z-structured-agent-fanout-s1-current-head-recovery.json and accepted commit d857d2a. Include a closed reportFanoutCandidate with requestedRoles [\"report\", \"spec\", \"reviewer\", \"evaluator\"], existing sourceArtifacts references/initiatives/structured-agent-fanout-autopilot.md and references/playbooks/structured-agent-fanout-autopilot.md, local expectedReportPaths under references/operations/structured-agent-fanout-s2-*.md, synthesisRequired true, executionMode report_only, and every expectedSideEffects flag false.\n\nCreate references/operations/structured-agent-fanout-s2-blocked-candidate.json with the same structured shape and role set, but make reportFanoutCandidate.sourceArtifacts include one syntactically valid missing repo-relative file such as references/operations/structured-agent-fanout-s2-missing-source.md so the current artifact validates and reportFanoutPreflight deterministically blocks without side effects. Do not use off-repo paths, command strings, URLs, traversal, globs, or hidden state.\n\nRun these commands from the repo root and record their material output in references/operations/structured-agent-fanout-s2-dogfood-report.md: `bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-accepted-candidate.json --repo-root=/Users/byung/Documents/samantha`; `bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-blocked-candidate.json --repo-root=/Users/byung/Documents/samantha`. The blocked command is expected to exit non-zero; treat non-zero blocked output as successful dogfood evidence only when the JSON/report shows reportFanoutPreflight.status blocked and false side effects.\n\nThe dogfood report must cite the exact commands, the accepted status, the blocked status, at least one blocked reason, and this exact line: `side effects false: runTaskCalled=false, batchesExecuteCalled=false, workersDispatched=false, worktreesCreated=false, runsCreated=false, lifecycleMutated=false, mergePerformed=false, cleanupPerformed=false, commitPerformed=false, pushPerformed=false, successorExecuted=false`. It must also include exact lines `accepted reportFanoutPreflight.status: accepted`, `blocked reportFanoutPreflight.status: blocked`, `S2 decision: S1 dogfood passed`, and `Next continuation state: S3 ready` unless the evidence contradicts those claims. If evidence contradicts them, stop with HARNESS_RESULT blocked and explain the boundary.\n\nUpdate references/initiatives/structured-agent-fanout-autopilot.md only to mark S2 completed with the dogfood report path and S3 ready/proposed. Do not implement S3, S4, S5, reportFanoutExecution, batchPlanCandidate, batchPlanExecution, actual fanout dispatch, worker-owned orchestration, natural-language-only dispatch, writerCap changes, push automation, daemon/watch behavior, dashboards, remote adapters, connector expansion, hidden memory, or any Phase 5.5/Phase 5 bypass. Run all verify commands after the dogfood report is written. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: dogfood report fanout candidate visibility",
+  "status": "pending"
+}
