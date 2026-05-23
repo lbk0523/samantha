@@ -152,6 +152,24 @@ console.log(JSON.stringify({
   ];
 }
 
+function delayedTrustGateMarkerCommand(markerPath: string, delayMs: number): string[] {
+  return [
+    "bun",
+    "--eval",
+    `
+await new Promise((resolve) => setTimeout(resolve, ${delayMs}));
+await Bun.write(${JSON.stringify(markerPath)}, "executed\\n");
+console.log(JSON.stringify({
+  hookId: "preflight-gate",
+  event: "task_spec.preflight",
+  status: "passed",
+  decision: "allow",
+  summary: "trust gate delayed marker executed"
+}));
+`,
+  ];
+}
+
 function trustGateMutationCommand(): string[] {
   return [
     "bun",
@@ -224,6 +242,23 @@ async function pathExists(path: string): Promise<boolean> {
 
 async function initGitRepo(repoRoot: string): Promise<void> {
   await execFileAsync("git", ["init"], { cwd: repoRoot });
+}
+
+async function commitRepo(repoRoot: string): Promise<void> {
+  await execFileAsync("git", ["add", "."], { cwd: repoRoot });
+  await execFileAsync(
+    "git",
+    [
+      "-c",
+      "user.name=Samantha Test",
+      "-c",
+      "user.email=samantha@example.invalid",
+      "commit",
+      "-m",
+      "test baseline",
+    ],
+    { cwd: repoRoot },
+  );
 }
 
 afterEach(async () => {
@@ -659,6 +694,37 @@ describe("Samantha advisory hook runner", () => {
     });
   });
 
+  test("runs advisory hooks on a dirty repo and records fail-open mutation evidence", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy());
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "review-task-spec.json"),
+      hook({ command: mutatingHookCommand() }),
+    );
+    await commitRepo(repoRoot);
+    await writeFile(join(repoRoot, "pre-existing-dirty-file.txt"), "dirty before advisory hook\n", "utf8");
+
+    const evidence = await runAdvisoryHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.drafted",
+      runId: "run-advisory-dirty-baseline",
+      context: {},
+    });
+
+    expect(evidence[0]).toMatchObject({
+      status: "passed",
+      decision: "allow",
+      repoMutations: {
+        detection: "ok",
+        created: ["hook-output.txt"],
+        modified: [],
+        deleted: [],
+      },
+    });
+  });
+
   test("records non-zero command exits as fail-open advisory evidence", async () => {
     const repoRoot = await makeTempRoot();
     await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy());
@@ -875,6 +941,7 @@ describe("Samantha trust-gate hook runner", () => {
     await initGitRepo(repoRoot);
     await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
     await writeJson(join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"), trustHook());
+    await commitRepo(repoRoot);
 
     const result = await runTrustGateHooks({
       repoRoot,
@@ -925,6 +992,7 @@ describe("Samantha trust-gate hook runner", () => {
         }),
       }),
     );
+    await commitRepo(repoRoot);
 
     await expect(
       runTrustGateHooks({
@@ -972,6 +1040,7 @@ describe("Samantha trust-gate hook runner", () => {
         }),
       }),
     );
+    await commitRepo(repoRoot);
 
     await expect(
       runTrustGateHooks({
@@ -1009,6 +1078,7 @@ describe("Samantha trust-gate hook runner", () => {
         }),
       }),
     );
+    await commitRepo(repoRoot);
 
     await expect(
       runTrustGateHooks({
@@ -1043,17 +1113,18 @@ describe("Samantha trust-gate hook runner", () => {
         timeoutMs: 500,
       }),
     );
+    await commitRepo(repoRoot);
 
-    await expect(
-      runTrustGateHooks({
-        repoRoot,
-        loadedPolicy: await loadHookPolicy({ repoRoot }),
-        event: "task_spec.preflight",
-        runId: "run-trust-timeout",
-        context: {},
-        eventTimeoutMs: 100,
-      }),
-    ).resolves.toMatchObject({
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-timeout",
+      context: {},
+      eventTimeoutMs: 100,
+    });
+
+    expect(result).toMatchObject({
       final: {
         decision: "block",
         blockingHookId: "preflight-gate",
@@ -1063,11 +1134,14 @@ describe("Samantha trust-gate hook runner", () => {
           status: "timed_out",
           decision: "none",
           timedOut: true,
-          timeoutMs: 100,
-          timeoutDetails: "command exceeded timeoutMs=100",
         },
       ],
     });
+    expect(result.evidence[0].timeoutMs).toBeGreaterThan(0);
+    expect(result.evidence[0].timeoutMs).toBeLessThanOrEqual(100);
+    expect(result.evidence[0].timeoutDetails).toBe(
+      `command exceeded timeoutMs=${result.evidence[0].timeoutMs}`,
+    );
   });
 
   test("blocks timeout hooks that ignore SIGTERM with bounded completion", async () => {
@@ -1081,6 +1155,7 @@ describe("Samantha trust-gate hook runner", () => {
         timeoutMs: 100,
       }),
     );
+    await commitRepo(repoRoot);
 
     const result = await runTrustGateHooks({
       repoRoot,
@@ -1155,6 +1230,7 @@ describe("Samantha trust-gate hook runner", () => {
         join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
         trustHook({ command: testCase.command }),
       );
+      await commitRepo(repoRoot);
 
       const result = await runTrustGateHooks({
         repoRoot,
@@ -1226,6 +1302,7 @@ describe("Samantha trust-gate hook runner", () => {
       join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
       trustHook({ command: trustGateMutationCommand() }),
     );
+    await commitRepo(repoRoot);
 
     await expect(
       runTrustGateHooks({
@@ -1251,6 +1328,172 @@ describe("Samantha trust-gate hook runner", () => {
         },
       ],
     });
+  });
+
+  test("blocks before executing the hook when the repo already has an untracked file", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerRoot = await makeTempRoot();
+    const markerPath = join(markerRoot, "dirty-baseline-hook-ran.txt");
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({ command: trustGateMarkerCommand(markerPath) }),
+    );
+    await commitRepo(repoRoot);
+    await writeFile(join(repoRoot, "pre-existing-untracked.txt"), "dirty before trust gate\n", "utf8");
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-dirty-created-baseline",
+      context: {},
+    });
+
+    expect(result).toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "advisory_failed",
+          decision: "none",
+          exitCode: null,
+          stdout: "",
+          stderr: "",
+          repoMutations: {
+            detection: "ok",
+            created: ["pre-existing-untracked.txt"],
+            modified: [],
+            deleted: [],
+          },
+        },
+      ],
+    });
+    expect(result.evidence[0].summary).toContain("pre-existing repository mutations");
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("blocks before executing the hook when the repo already has a modified tracked file", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerRoot = await makeTempRoot();
+    const markerPath = join(markerRoot, "modified-baseline-hook-ran.txt");
+    await initGitRepo(repoRoot);
+    await writeFile(join(repoRoot, "tracked.txt"), "clean baseline\n", "utf8");
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({ command: trustGateMarkerCommand(markerPath) }),
+    );
+    await commitRepo(repoRoot);
+    await writeFile(join(repoRoot, "tracked.txt"), "dirty before trust gate\n", "utf8");
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-dirty-modified-baseline",
+      context: {},
+    });
+
+    expect(result).toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "advisory_failed",
+          decision: "none",
+          exitCode: null,
+          stdout: "",
+          stderr: "",
+          repoMutations: {
+            detection: "ok",
+            created: [],
+            modified: ["tracked.txt"],
+            deleted: [],
+          },
+        },
+      ],
+    });
+    expect(result.evidence[0].summary).toContain("pre-existing repository mutations");
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("blocks before executing the hook when pre-command mutation detection exhausts the event budget", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerRoot = await makeTempRoot();
+    const markerPath = join(markerRoot, "pre-budget-hook-ran.txt");
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({ command: trustGateMarkerCommand(markerPath) }),
+    );
+    await commitRepo(repoRoot);
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-pre-budget",
+      context: {},
+      eventTimeoutMs: 1,
+    });
+
+    expect(result.final).toMatchObject({
+      decision: "block",
+      blockingHookId: "preflight-gate",
+    });
+    expect(result.evidence[0]).toMatchObject({
+      status: "advisory_failed",
+      decision: "none",
+      exitCode: null,
+      stdout: "",
+    });
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("blocks when the hook command consumes the event budget before post-command mutation detection", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerRoot = await makeTempRoot();
+    const markerPath = join(markerRoot, "post-budget-hook-ran.txt");
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({
+        command: delayedTrustGateMarkerCommand(markerPath, 35),
+        timeoutMs: 500,
+      }),
+    );
+    await commitRepo(repoRoot);
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-post-budget",
+      context: {},
+      eventTimeoutMs: 60,
+    });
+
+    expect(result.final).toMatchObject({
+      decision: "block",
+      blockingHookId: "preflight-gate",
+    });
+    expect(result.evidence[0]).toMatchObject({
+      hookId: "preflight-gate",
+      status: "passed",
+      decision: "allow",
+      repoMutations: {
+        detection: "timed_out",
+      },
+    });
+    await expect(pathExists(markerPath)).resolves.toBe(true);
   });
 
   test("blocks before executing the hook when pre-command mutation detection reports not_git", async () => {
@@ -1303,6 +1546,7 @@ describe("Samantha trust-gate hook runner", () => {
       join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
       trustHook({ command: trustGateRemoveGitCommand() }),
     );
+    await commitRepo(repoRoot);
 
     await expect(
       runTrustGateHooks({
@@ -1357,6 +1601,7 @@ describe("Samantha trust-gate hook runner", () => {
         }),
       }),
     );
+    await commitRepo(repoRoot);
 
     const result = await runTrustGateHooks({
       repoRoot,
@@ -1396,6 +1641,7 @@ describe("Samantha trust-gate hook runner", () => {
       join(repoRoot, HOOK_DEFINITION_DIR, "review-task-spec.json"),
       hook({ command: trustGateMarkerCommand(markerPath) }),
     );
+    await commitRepo(repoRoot);
 
     await expect(
       runTrustGateHooks({
