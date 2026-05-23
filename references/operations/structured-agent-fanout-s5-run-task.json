@@ -120,7 +120,7 @@
     {
       "id": "forbidden_capability_required",
       "active": false,
-      "evidence": "S5 remains report-only and keeps batch, worker, state-change, push, and hidden-memory side effects false."
+      "evidence": "S5 is a report-only evidence check with all side effects expected false."
     },
     {
       "id": "ambiguous_evidence_update",
