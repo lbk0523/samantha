@@ -19,6 +19,7 @@ import {
   isHookResultStatus,
   loadHookPolicy,
   runAdvisoryHooks,
+  runTrustGateHooks,
   validateHookDefinition,
   validateHookPolicy,
 } from "../src/core/hooks";
@@ -120,6 +121,82 @@ console.log(JSON.stringify({
 }));
 `,
   ];
+}
+
+function trustGateResultCommand(overrides: Record<string, unknown> = {}): string[] {
+  return hookResultCommand({
+    hookId: "preflight-gate",
+    event: "task_spec.preflight",
+    status: "passed",
+    decision: "allow",
+    summary: "trust gate allowed",
+    ...overrides,
+  });
+}
+
+function trustGateMarkerCommand(markerPath: string, overrides: Record<string, unknown> = {}): string[] {
+  return [
+    "bun",
+    "--eval",
+    `
+await Bun.write(${JSON.stringify(markerPath)}, "executed\\n");
+console.log(JSON.stringify({
+  hookId: "preflight-gate",
+  event: "task_spec.preflight",
+  status: "passed",
+  decision: "allow",
+  summary: "trust gate marker executed",
+  ...${JSON.stringify(overrides)}
+}));
+`,
+  ];
+}
+
+function trustGateMutationCommand(): string[] {
+  return [
+    "bun",
+    "--eval",
+    `
+await Bun.write("hook-output.txt", "mutated by trust gate\\n");
+console.log(JSON.stringify({
+  hookId: "preflight-gate",
+  event: "task_spec.preflight",
+  status: "passed",
+  decision: "allow",
+  summary: "wrote trust-gate evidence"
+}));
+`,
+  ];
+}
+
+function trustGateRemoveGitCommand(): string[] {
+  return [
+    "bun",
+    "--eval",
+    `
+import { rm } from "node:fs/promises";
+await rm(".git", { recursive: true, force: true });
+console.log(JSON.stringify({
+  hookId: "preflight-gate",
+  event: "task_spec.preflight",
+  status: "passed",
+  decision: "allow",
+  summary: "removed git metadata"
+}));
+`,
+  ];
+}
+
+function trustHook(overrides: Partial<HookDefinition> = {}): HookDefinition {
+  return hook({
+    id: "preflight-gate",
+    purpose: "Gate task spec preflight before worker dispatch.",
+    mode: "trust_gate",
+    events: ["task_spec.preflight"],
+    command: trustGateResultCommand(),
+    contextKeys: [],
+    ...overrides,
+  });
 }
 
 async function makeTempRoot(): Promise<string> {
@@ -723,5 +800,670 @@ describe("Samantha advisory hook runner", () => {
         context: {},
       }),
     ).resolves.toEqual([]);
+  });
+});
+
+describe("Samantha trust-gate hook runner", () => {
+  test("allows with empty evidence when policy is missing or disabled", async () => {
+    const missingPolicyRoot = await makeTempRoot();
+    await expect(
+      runTrustGateHooks({
+        repoRoot: missingPolicyRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot: missingPolicyRoot }),
+        event: "task_spec.preflight",
+        runId: "run-missing-policy",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+      evidence: [],
+    });
+
+    const disabledPolicyRoot = await makeTempRoot();
+    await writeJson(
+      join(disabledPolicyRoot, HOOK_POLICY_PATH),
+      policy({
+        enabled: false,
+        hooks: ["preflight-gate"],
+      }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot: disabledPolicyRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot: disabledPolicyRoot }),
+        event: "task_spec.preflight",
+        runId: "run-disabled-policy",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+      evidence: [],
+    });
+  });
+
+  test("allows with empty evidence when no matching trust-gate hook exists", async () => {
+    const repoRoot = await makeTempRoot();
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy());
+    await writeJson(join(repoRoot, HOOK_DEFINITION_DIR, "review-task-spec.json"), hook());
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-no-matching-trust-hook",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+      evidence: [],
+    });
+  });
+
+  test("allows only when a trust-gate hook explicitly passes with allow and no repo mutation", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"), trustHook());
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-allow",
+      context: {},
+    });
+
+    expect(result).toMatchObject({
+      final: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+      evidence: [
+        {
+          hookId: "preflight-gate",
+          event: "task_spec.preflight",
+          status: "passed",
+          decision: "allow",
+          summary: "trust gate allowed",
+          repoMutations: {
+            detection: "ok",
+            created: [],
+            modified: [],
+            deleted: [],
+            error: null,
+          },
+        },
+      ],
+    });
+  });
+
+  test("allows worker.pre_dispatch when a matching trust-gate hook passes with allow", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["pre-dispatch-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "pre-dispatch-gate.json"),
+      trustHook({
+        id: "pre-dispatch-gate",
+        purpose: "Gate worker dispatch.",
+        events: ["worker.pre_dispatch"],
+        command: trustGateResultCommand({
+          hookId: "pre-dispatch-gate",
+          event: "worker.pre_dispatch",
+          summary: "worker dispatch allowed",
+        }),
+      }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "worker.pre_dispatch",
+        runId: "run-worker-pre-dispatch-allow",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+      evidence: [
+        {
+          hookId: "pre-dispatch-gate",
+          event: "worker.pre_dispatch",
+          status: "passed",
+          decision: "allow",
+          summary: "worker dispatch allowed",
+          repoMutations: {
+            detection: "ok",
+            created: [],
+            modified: [],
+            deleted: [],
+            error: null,
+          },
+        },
+      ],
+    });
+  });
+
+  test("blocks when a trust-gate hook returns blocked with block", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({
+        command: trustGateResultCommand({
+          status: "blocked",
+          decision: "block",
+          summary: "task spec is not dispatchable",
+        }),
+      }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-trust-block",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "blocked",
+          decision: "block",
+          summary: "task spec is not dispatchable",
+        },
+      ],
+    });
+  });
+
+  test("blocks when a passed trust-gate hook does not explicitly allow", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({
+        command: trustGateResultCommand({
+          decision: "none",
+          summary: "no explicit allow",
+        }),
+      }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-trust-no-allow",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "passed",
+          decision: "none",
+        },
+      ],
+    });
+  });
+
+  test("blocks on hook timeout and reports the effective event-budget timeout", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({
+        command: timeoutCommand(),
+        timeoutMs: 500,
+      }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-trust-timeout",
+        context: {},
+        eventTimeoutMs: 100,
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "timed_out",
+          decision: "none",
+          timedOut: true,
+          timeoutMs: 100,
+          timeoutDetails: "command exceeded timeoutMs=100",
+        },
+      ],
+    });
+  });
+
+  test("blocks timeout hooks that ignore SIGTERM with bounded completion", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({
+        command: ignoreSigtermCommand(),
+        timeoutMs: 100,
+      }),
+    );
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-timeout-ignores-sigterm",
+      context: {},
+    });
+
+    expect(result).toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "timed_out",
+          decision: "none",
+          timedOut: true,
+          timeoutMs: 100,
+        },
+      ],
+    });
+    expect(result.evidence[0].durationMs).toBeLessThan(1_000);
+  });
+
+  test("blocks on non-zero exits, invalid JSON, and invalid HookResult schemas", async () => {
+    const cases = [
+      {
+        name: "non-zero",
+        command: nonZeroCommand(),
+        expectedEvidence: {
+          status: "advisory_failed",
+          decision: "none",
+          summary: "Hook command exited with code 7.",
+          exitCode: 7,
+        },
+        expectedViolation: null,
+      },
+      {
+        name: "invalid-json",
+        command: invalidJsonCommand(),
+        expectedEvidence: {
+          status: "schema_invalid",
+          decision: "none",
+          summary: "Hook result schema invalid.",
+          exitCode: 0,
+        },
+        expectedViolation: "hook stdout must be valid HookResult JSON",
+      },
+      {
+        name: "invalid-schema",
+        command: trustGateResultCommand({
+          hookId: "wrong-hook",
+          summary: "wrong hook id",
+        }),
+        expectedEvidence: {
+          status: "schema_invalid",
+          decision: "none",
+          summary: "Hook result schema invalid.",
+          exitCode: 0,
+        },
+        expectedViolation: "hook result hookId must be preflight-gate",
+      },
+    ];
+
+    for (const testCase of cases) {
+      const repoRoot = await makeTempRoot();
+      await initGitRepo(repoRoot);
+      await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+      await writeJson(
+        join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+        trustHook({ command: testCase.command }),
+      );
+
+      const result = await runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: `run-trust-${testCase.name}`,
+        context: {},
+      });
+
+      expect(result).toMatchObject({
+        final: {
+          decision: "block",
+          blockingHookId: "preflight-gate",
+        },
+        evidence: [testCase.expectedEvidence],
+      });
+      if (testCase.expectedViolation) {
+        expect(result.evidence[0].schemaViolations[0]).toContain(testCase.expectedViolation);
+      }
+    }
+  });
+
+  test("blocks context size overflow before executing the hook command", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerPath = join(repoRoot, "should-not-run.txt");
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({
+        command: trustGateMarkerCommand(markerPath),
+        contextKeys: ["task.large"],
+      }),
+    );
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-context-too-large",
+      context: {
+        "task.large": "x".repeat(20_000),
+      },
+    });
+
+    expect(result).toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "schema_invalid",
+          decision: "none",
+          summary: "Hook context exceeded 16384 bytes.",
+          repoMutations: {
+            detection: "skipped",
+          },
+        },
+      ],
+    });
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("blocks when a trust-gate hook mutates repository files", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({ command: trustGateMutationCommand() }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-trust-mutation",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "passed",
+          decision: "allow",
+          repoMutations: {
+            detection: "ok",
+            created: ["hook-output.txt"],
+          },
+        },
+      ],
+    });
+  });
+
+  test("blocks before executing the hook when pre-command mutation detection reports not_git", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerPath = join(repoRoot, "pre-command-not-git-hook-ran.txt");
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({ command: trustGateMarkerCommand(markerPath) }),
+    );
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-pre-not-git",
+      context: {},
+    });
+
+    expect(result).toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          hookId: "preflight-gate",
+          event: "task_spec.preflight",
+          status: "advisory_failed",
+          decision: "none",
+          exitCode: null,
+          stdout: "",
+          stderr: "",
+          timedOut: false,
+          repoMutations: {
+            detection: "not_git",
+          },
+        },
+      ],
+    });
+    expect(result.evidence[0].summary).toContain("pre-command repo mutation detection was not_git");
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("blocks when post-command mutation detection reports not_git", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({ command: trustGateRemoveGitCommand() }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-trust-post-not-git",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [
+        {
+          status: "passed",
+          decision: "allow",
+          summary: "removed git metadata",
+          repoMutations: {
+            detection: "not_git",
+          },
+        },
+      ],
+    });
+  });
+
+  test("runs matching trust-gate hooks in policy order and short-circuits after the first block", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerPath = join(repoRoot, "second-hook-ran.txt");
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["first-gate", "second-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "first-gate.json"),
+      trustHook({
+        id: "first-gate",
+        command: trustGateResultCommand({
+          hookId: "first-gate",
+          status: "blocked",
+          decision: "block",
+          summary: "first gate blocked",
+        }),
+      }),
+    );
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "second-gate.json"),
+      trustHook({
+        id: "second-gate",
+        command: trustGateMarkerCommand(markerPath, {
+          hookId: "second-gate",
+          summary: "second gate executed",
+        }),
+      }),
+    );
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-short-circuit",
+      context: {},
+    });
+
+    expect(result).toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "first-gate",
+      },
+      evidence: [
+        {
+          hookId: "first-gate",
+          status: "blocked",
+          decision: "block",
+        },
+      ],
+    });
+    expect(result.evidence).toHaveLength(1);
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("does not execute advisory hooks or non-trust events through the trust-gate runner", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerPath = join(repoRoot, "advisory-hook-ran.txt");
+    await initGitRepo(repoRoot);
+    await writeJson(
+      join(repoRoot, HOOK_POLICY_PATH),
+      policy({ hooks: ["preflight-gate", "review-task-spec"] }),
+    );
+    await writeJson(join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"), trustHook());
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "review-task-spec.json"),
+      hook({ command: trustGateMarkerCommand(markerPath) }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-trust-skips-advisory",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+      evidence: [
+        {
+          hookId: "preflight-gate",
+          status: "passed",
+          decision: "allow",
+        },
+      ],
+    });
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.drafted",
+        runId: "run-trust-rejects-advisory-event",
+        context: {},
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: null,
+      },
+      evidence: [],
+    });
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("blocks without executing hooks when the trust-gate event budget is already exhausted", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerPath = join(repoRoot, "budget-exhausted-hook-ran.txt");
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy({ hooks: ["preflight-gate"] }));
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
+      trustHook({ command: trustGateMarkerCommand(markerPath) }),
+    );
+
+    await expect(
+      runTrustGateHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.preflight",
+        runId: "run-trust-budget-exhausted",
+        context: {},
+        eventTimeoutMs: 0,
+      }),
+    ).resolves.toMatchObject({
+      final: {
+        decision: "block",
+        blockingHookId: "preflight-gate",
+      },
+      evidence: [],
+    });
+    await expect(pathExists(markerPath)).resolves.toBe(false);
   });
 });

@@ -47,6 +47,7 @@ export const MAX_HOOK_CONTEXT_BYTES = 16_384;
 export const HOOK_EVENT_VERSION = 1;
 
 const HOOK_TIMEOUT_TERMINATE_GRACE_MS = 100;
+const DEFAULT_TRUST_GATE_EVENT_TIMEOUT_MS = DEFAULT_HOOK_TIMEOUT_MS;
 const REPO_MUTATION_STATUS_TIMEOUT_MS = 500;
 const REPO_MUTATION_STATUS_KILL_GRACE_MS = 50;
 const REPO_MUTATION_STATUS_OUTPUT_BYTES = 64 * 1024;
@@ -130,6 +131,21 @@ export interface RunAdvisoryHooksInput {
   event: HookEvent;
   runId: string;
   context: Record<string, unknown>;
+}
+
+export interface RunTrustGateHooksInput extends RunAdvisoryHooksInput {
+  eventTimeoutMs?: number;
+}
+
+export interface TrustGateFinalResult {
+  decision: "allow" | "block";
+  summary: string;
+  blockingHookId: string | null;
+}
+
+export interface TrustGateHookRunResult {
+  final: TrustGateFinalResult;
+  evidence: HookRunEvidence[];
 }
 
 export interface HookRunEvidence {
@@ -303,10 +319,132 @@ export async function runAdvisoryHooks(input: RunAdvisoryHooksInput): Promise<Ho
   const evidence: HookRunEvidence[] = [];
 
   for (const hook of hooks) {
-    evidence.push(await runAdvisoryHook({ ...input, repoRoot, hook }));
+    evidence.push(
+      await runHook({
+        ...input,
+        repoRoot,
+        hook,
+        timeoutMs: hook.timeoutMs,
+        blockOnPreMutationDetectionFailure: false,
+      }),
+    );
   }
 
   return evidence;
+}
+
+export async function runTrustGateHooks(input: RunTrustGateHooksInput): Promise<TrustGateHookRunResult> {
+  if (!TRUST_GATE_EVENTS.has(input.event)) {
+    return trustGateFinalBlock(
+      `Trust-gate runner only accepts task_spec.preflight or worker.pre_dispatch events; received ${input.event}.`,
+      null,
+      [],
+    );
+  }
+
+  if (input.loadedPolicy.status !== "enabled") {
+    return trustGateFinalAllow("Hook policy disabled or missing; no trust-gate hooks executed.", []);
+  }
+
+  const hooks = input.loadedPolicy.hooks.filter(
+    (hook) => hook.mode === "trust_gate" && hook.events.includes(input.event),
+  );
+  if (hooks.length === 0) {
+    return trustGateFinalAllow(`No matching trust-gate hooks for ${input.event}.`, []);
+  }
+
+  const repoRoot = await realpath(resolve(input.repoRoot));
+  const eventTimeoutMs = normalizeTrustGateEventTimeout(input.eventTimeoutMs);
+  const eventStartedAtMs = performance.now();
+  const evidence: HookRunEvidence[] = [];
+
+  for (const hook of hooks) {
+    const remainingEventBudgetMs = remainingTrustGateEventBudget(eventTimeoutMs, eventStartedAtMs);
+    if (remainingEventBudgetMs <= 0) {
+      return trustGateFinalBlock(
+        `Trust-gate event budget exhausted before hook ${hook.id} could run.`,
+        hook.id,
+        evidence,
+      );
+    }
+
+    const hookEvidence = await runHook({
+      ...input,
+      repoRoot,
+      hook,
+      timeoutMs: Math.min(hook.timeoutMs, remainingEventBudgetMs),
+      blockOnPreMutationDetectionFailure: true,
+    });
+    evidence.push(hookEvidence);
+
+    const blockSummary = trustGateBlockSummary(hookEvidence);
+    if (blockSummary) {
+      return trustGateFinalBlock(blockSummary, hook.id, evidence);
+    }
+  }
+
+  return trustGateFinalAllow(`Trust-gate hooks allowed ${hooks.length} hook(s).`, evidence);
+}
+
+function trustGateFinalAllow(summary: string, evidence: HookRunEvidence[]): TrustGateHookRunResult {
+  return {
+    final: {
+      decision: "allow",
+      summary,
+      blockingHookId: null,
+    },
+    evidence,
+  };
+}
+
+function trustGateFinalBlock(
+  summary: string,
+  blockingHookId: string | null,
+  evidence: HookRunEvidence[],
+): TrustGateHookRunResult {
+  return {
+    final: {
+      decision: "block",
+      summary,
+      blockingHookId,
+    },
+    evidence,
+  };
+}
+
+function normalizeTrustGateEventTimeout(timeoutMs: number | undefined): number {
+  if (timeoutMs === undefined) {
+    return DEFAULT_TRUST_GATE_EVENT_TIMEOUT_MS;
+  }
+  if (!Number.isFinite(timeoutMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(timeoutMs));
+}
+
+function remainingTrustGateEventBudget(eventTimeoutMs: number, eventStartedAtMs: number): number {
+  return Math.max(0, Math.ceil(eventTimeoutMs - (performance.now() - eventStartedAtMs)));
+}
+
+function trustGateBlockSummary(evidence: HookRunEvidence): string | null {
+  if (evidence.status !== "passed") {
+    return `Trust-gate hook ${evidence.hookId} blocked: ${evidence.summary}`;
+  }
+  if (evidence.decision !== "allow") {
+    return `Trust-gate hook ${evidence.hookId} did not explicitly allow the event.`;
+  }
+  if (evidence.repoMutations.detection !== "ok") {
+    const error = evidence.repoMutations.error ? `: ${evidence.repoMutations.error}` : "";
+    return `Trust-gate hook ${evidence.hookId} could not verify repo mutations (${evidence.repoMutations.detection})${error}.`;
+  }
+  if (
+    evidence.repoMutations.created.length > 0 ||
+    evidence.repoMutations.modified.length > 0 ||
+    evidence.repoMutations.deleted.length > 0
+  ) {
+    return `Trust-gate hook ${evidence.hookId} mutated repository files.`;
+  }
+  return null;
 }
 
 export function validateHookPolicy(input: unknown): string[] {
@@ -381,8 +519,15 @@ export function isHookDecision(value: unknown): value is HookDecision {
   return typeof value === "string" && HOOK_DECISION_SET.has(value as HookDecision);
 }
 
-async function runAdvisoryHook(
-  input: Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & { repoRoot: string; hook: HookDefinition },
+type RunHookInput = Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & {
+  repoRoot: string;
+  hook: HookDefinition;
+  timeoutMs: number;
+  blockOnPreMutationDetectionFailure: boolean;
+};
+
+async function runHook(
+  input: RunHookInput,
 ): Promise<HookRunEvidence> {
   const hookInput = buildHookProcessInput(input);
   if (hookInput.contextBytes > MAX_HOOK_CONTEXT_BYTES) {
@@ -390,11 +535,15 @@ async function runAdvisoryHook(
   }
 
   const beforeMutations = await readRepoMutationSnapshot(input.repoRoot);
+  if (input.blockOnPreMutationDetectionFailure && beforeMutations.detection !== "ok") {
+    return preMutationDetectionFailureEvidence(input, hookInput, beforeMutations);
+  }
+
   const processResult = await runHookProcess({
     command: input.hook.command,
     cwd: input.repoRoot,
     stdin: hookInput.stdin,
-    timeoutMs: input.hook.timeoutMs,
+    timeoutMs: input.timeoutMs,
     stdoutPolicy: input.hook.stdout,
   });
   const repoMutations = await detectRepoMutations(input.repoRoot, beforeMutations);
@@ -404,8 +553,8 @@ async function runAdvisoryHook(
       ...baseEvidence(input, hookInput, processResult, repoMutations),
       status: "timed_out",
       decision: "none",
-      summary: `Hook timed out after ${input.hook.timeoutMs}ms.`,
-      timeoutDetails: `command exceeded timeoutMs=${input.hook.timeoutMs}`,
+      summary: `Hook timed out after ${input.timeoutMs}ms.`,
+      timeoutDetails: `command exceeded timeoutMs=${input.timeoutMs}`,
       schemaViolations: [],
     };
   }
@@ -516,7 +665,7 @@ function buildHookProcessInput(input: {
 }
 
 function contextTooLargeEvidence(
-  input: Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & { repoRoot: string; hook: HookDefinition },
+  input: RunHookInput,
   hookInput: { contextKeys: string[]; contextBytes: number },
 ): HookRunEvidence {
   const startedAt = new Date().toISOString();
@@ -537,7 +686,7 @@ function contextTooLargeEvidence(
     stderr: "",
     stderrTruncated: false,
     timedOut: false,
-    timeoutMs: input.hook.timeoutMs,
+    timeoutMs: input.timeoutMs,
     timeoutDetails: null,
     repoMutations: skippedRepoMutationEvidence(),
     schemaViolations: [`hook context must be at most ${MAX_HOOK_CONTEXT_BYTES} bytes`],
@@ -546,8 +695,41 @@ function contextTooLargeEvidence(
   };
 }
 
+function preMutationDetectionFailureEvidence(
+  input: RunHookInput,
+  hookInput: { contextKeys: string[]; contextBytes: number },
+  snapshot: Exclude<RepoMutationSnapshot, { detection: "ok" }>,
+): HookRunEvidence {
+  const startedAt = new Date().toISOString();
+  const error = snapshot.error ? `: ${snapshot.error}` : "";
+  return {
+    hookId: input.hook.id,
+    event: input.event,
+    command: input.hook.command,
+    cwd: input.repoRoot,
+    status: "advisory_failed",
+    decision: "none",
+    summary: `Hook command not executed because pre-command repo mutation detection was ${snapshot.detection}${error}.`,
+    startedAt,
+    finishedAt: startedAt,
+    durationMs: 0,
+    exitCode: null,
+    stdout: "",
+    stdoutTruncated: false,
+    stderr: "",
+    stderrTruncated: false,
+    timedOut: false,
+    timeoutMs: input.timeoutMs,
+    timeoutDetails: null,
+    repoMutations: repoMutationEvidenceFromSnapshot(snapshot),
+    schemaViolations: [],
+    contextKeys: hookInput.contextKeys,
+    contextBytes: hookInput.contextBytes,
+  };
+}
+
 function baseEvidence(
-  input: Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & { repoRoot: string; hook: HookDefinition },
+  input: RunHookInput,
   hookInput: { contextKeys: string[]; contextBytes: number },
   processResult: HookProcessResult,
   repoMutations: HookRepoMutationEvidence,
@@ -566,7 +748,7 @@ function baseEvidence(
     stderr: processResult.stderr,
     stderrTruncated: processResult.stderrTruncated,
     timedOut: processResult.timedOut,
-    timeoutMs: input.hook.timeoutMs,
+    timeoutMs: input.timeoutMs,
     repoMutations,
     contextKeys: hookInput.contextKeys,
     contextBytes: hookInput.contextBytes,
