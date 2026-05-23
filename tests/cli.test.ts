@@ -12,6 +12,7 @@ import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationArtifact,
+  SequentialContinuationBatchPlanCandidate,
   SequentialContinuationReportFanoutCandidate,
   SequentialContinuationRunAcceptCandidate,
   SequentialContinuationRunAcceptExecution,
@@ -270,6 +271,50 @@ function cliReportFanoutCandidate(
     expectedSideEffects: cliReportFanoutExpectedSideEffects(),
     ...overrides,
   };
+}
+
+function cliBatchPlanExpectedSideEffects() {
+  return {
+    runTaskCalled: false,
+    batchPlanPrepareCalled: false,
+    taskSpecsWritten: false,
+    batchSpecsWritten: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    worktreesCreated: false,
+    runsCreated: false,
+    lifecycleMutated: false,
+    mergePerformed: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    successorExecuted: false,
+    daemonWatchStarted: false,
+    remoteAdapterCalled: false,
+    dashboardUpdated: false,
+    connectorExpansionPerformed: false,
+    hiddenMemoryWritten: false,
+    workerOwnedOrchestrationStarted: false,
+  } as const;
+}
+
+function cliBatchPlanCandidate(
+  overrides: Partial<SequentialContinuationBatchPlanCandidate> = {},
+): SequentialContinuationBatchPlanCandidate {
+  const candidate = {
+    gate: "batch_plan_review",
+    draftId: "cli-continuation-plan",
+    draftsDir: "references/batch-plans",
+    executionMode: "preflight_only",
+    expectedSideEffects: cliBatchPlanExpectedSideEffects(),
+    ...overrides,
+  } as Record<string, unknown>;
+  for (const key of Object.keys(candidate)) {
+    if (candidate[key] === undefined) {
+      delete candidate[key];
+    }
+  }
+  return candidate as unknown as SequentialContinuationBatchPlanCandidate;
 }
 
 type CliReportFanoutSynthesisEvidence = NonNullable<
@@ -1422,6 +1467,124 @@ describe("samantha cli", () => {
       expect(await pathExists(join(root, "runs"))).toBe(false);
       expect(await pathExists(join(root, "worktrees"))).toBe(false);
     }
+  });
+
+  test("continuation show exposes accepted batchPlanCandidate review without execution artifacts", async () => {
+    const { draftsDir, root } = await writeCliBatchPlanStoreFixture([
+      cliBatchPlanDraft({ draftId: "cli-continuation-plan" }),
+    ]);
+    const artifactPath = join(root, "references", "operations", "structured-agent-fanout-s4.json");
+    const artifact = cliSequentialContinuationArtifact({
+      artifactId: "structured-agent-fanout-s4",
+      initiativePath: "references/initiatives/structured-agent-fanout-autopilot.md",
+      currentSlice: {
+        id: "S4",
+        status: "ready",
+        actionType: "batch_plan",
+        dependencyStatus: "met",
+        prerequisites: ["S3 completed"],
+        targetFiles: ["src/core/sequential-ceo-autopilot.ts"],
+        forbiddenChanges: ["runs/**", "worktrees/**"],
+        verifyCommands: ["bun test tests/cli.test.ts"],
+      },
+      batchPlanCandidate: cliBatchPlanCandidate(),
+    });
+    const artifactText = `${JSON.stringify(artifact, null, 2)}\n`;
+    await mkdir(join(root, "references", "operations"), { recursive: true });
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(report.batchPlanPreflight).toMatchObject({
+      status: "accepted",
+      gate: "batch_plan_review",
+      draftId: "cli-continuation-plan",
+      draftsDir: "references/batch-plans",
+      normalizedDraftsDir: "references/batch-plans",
+      review: {
+        prepareEligible: true,
+        trustedForDispatch: false,
+        pushPerformed: false,
+        violations: [],
+      },
+      blockingReasons: [],
+      trustedStateChanges: false,
+      trustedForDispatch: false,
+      pushPerformed: false,
+      sideEffects: cliBatchPlanExpectedSideEffects(),
+    });
+    expect(report.batchPlanPreflight.review.draftPath).toBe(join(draftsDir, "cli-continuation-plan.json"));
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "references", "tasks"))).toBe(false);
+    expect(await pathExists(join(root, "references", "batch-specs"))).toBe(false);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("continuation show returns non-zero for blocked batchPlanCandidate preflight", async () => {
+    const { batchPath, root } = await writeCliBatchStoreFixture({
+      targetFiles: ["tests/different-target.test.ts"],
+    });
+    const artifactPath = join(root, "references", "operations", "structured-agent-fanout-s4.json");
+    const artifact = cliSequentialContinuationArtifact({
+      artifactId: "structured-agent-fanout-s4",
+      initiativePath: "references/initiatives/structured-agent-fanout-autopilot.md",
+      currentSlice: {
+        id: "S4",
+        status: "ready",
+        actionType: "batch_plan",
+        dependencyStatus: "met",
+        prerequisites: ["S3 completed"],
+        targetFiles: ["src/core/sequential-ceo-autopilot.ts"],
+        forbiddenChanges: ["runs/**", "worktrees/**"],
+        verifyCommands: ["bun test tests/cli.test.ts"],
+      },
+      batchPlanCandidate: cliBatchPlanCandidate({
+        gate: "batch_spec_preflight",
+        draftId: undefined,
+        draftsDir: undefined,
+        batchSpecPath: "references/batch-specs/cli-preflight.json",
+      }),
+    });
+    const artifactText = `${JSON.stringify(artifact, null, 2)}\n`;
+    await mkdir(join(root, "references", "operations"), { recursive: true });
+    await writeFile(artifactPath, artifactText, "utf8");
+
+    const result = await runCliCapturingStdout([
+      "continuation:show",
+      `--artifact=${artifactPath}`,
+      `--repo-root=${root}`,
+    ]);
+    const report = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(report.status).toBe("accepted");
+    expect(report.batchPlanPreflight).toMatchObject({
+      status: "blocked",
+      gate: "batch_spec_preflight",
+      batchSpecPath: "references/batch-specs/cli-preflight.json",
+      normalizedBatchSpecPath: "references/batch-specs/cli-preflight.json",
+      resolvedBatchSpecPath: batchPath,
+      batchPreflight: {
+        mayDispatch: false,
+      },
+      trustedStateChanges: false,
+      trustedForDispatch: false,
+      pushPerformed: false,
+    });
+    expect(report.blockingReasons).toContain(
+      "batchPlanCandidate: tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: task-a",
+    );
+    expect(report.batchPlanPreflight.sideEffects.batchesExecuteCalled).toBe(false);
+    expect(await readFile(artifactPath, "utf8")).toBe(artifactText);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
   });
 
   test("continuation show exposes accepted runs:accept preflight without mutating inputs", async () => {

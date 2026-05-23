@@ -44,6 +44,7 @@ import { reviewStoredBatchPlanDraft, type BatchPlanReviewInput } from "./core/ba
 import { buildReadinessReport, type BuildReadinessReportInput, type ReadinessReport } from "./core/readiness";
 import {
   buildSequentialContinuationLoop,
+  buildSequentialContinuationBatchPlanPreflightReport,
   buildSequentialContinuationNextArtifactReport,
   buildSequentialContinuationPostAcceptStatusUpdate,
   buildSequentialContinuationReportFanoutPreflightReport,
@@ -1082,6 +1083,11 @@ export async function main(argv: string[]): Promise<number> {
       artifactPath,
       artifact,
     });
+    const batchPlanPreflight = await buildSequentialContinuationBatchPlanPreflightReport({
+      repoRoot,
+      artifactPath,
+      artifact,
+    });
     const runTaskPreflight = await buildSequentialContinuationRunTaskPreflightReport({
       repoRoot,
       artifactPath,
@@ -1098,6 +1104,7 @@ export async function main(argv: string[]): Promise<number> {
       ...(violations.length > 0 ? { violations } : {}),
       ...(nextArtifactLinkage.status === "absent" ? {} : { nextArtifactLinkage }),
       ...(reportFanoutPreflight.status === "absent" ? {} : { reportFanoutPreflight }),
+      ...(batchPlanPreflight.status === "absent" ? {} : { batchPlanPreflight }),
       ...(runTaskPreflight.status === "absent" ? {} : { runTaskPreflight }),
       ...(runAcceptPreflight.status === "absent" ? {} : { runAcceptPreflight }),
     });
@@ -1105,6 +1112,7 @@ export async function main(argv: string[]): Promise<number> {
     return report.status === "accepted" &&
       report.nextArtifactLinkage?.status !== "blocked" &&
       report.reportFanoutPreflight?.status !== "blocked" &&
+      report.batchPlanPreflight?.status !== "blocked" &&
       report.runTaskPreflight?.status !== "blocked" &&
       report.runAcceptPreflight?.status !== "blocked"
       ? 0

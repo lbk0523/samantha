@@ -2,11 +2,16 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { BatchPlanDraft } from "../src/core/batch-plan-draft";
+import { writeBatchPlanDraft } from "../src/core/batch-plan-draft-store";
+import type { BatchSpec } from "../src/core/batch-spec";
+import { DEFAULT_SERIAL_ONLY_RULES } from "../src/core/batch-spec";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
 import type {
   SequentialContinuationActionType,
   SequentialContinuationArtifact,
+  SequentialContinuationBatchPlanCandidate,
   SequentialContinuationReportFanoutCandidate,
   SequentialContinuationRunAcceptCandidate,
   SequentialContinuationRunAcceptExecution,
@@ -18,6 +23,7 @@ import {
   SEQUENTIAL_CONTINUATION_STOP_CONDITION_IDS,
   SEQUENTIAL_CONTINUATION_SLICE_STATUSES,
   buildSequentialContinuationLoop,
+  buildSequentialContinuationBatchPlanPreflightReport,
   buildSequentialContinuationNextArtifactReport,
   buildSequentialContinuationPostAcceptStatusUpdate,
   buildSequentialContinuationReportFanoutPreflightReport,
@@ -171,6 +177,188 @@ function reportFanoutCandidate(
     executionMode: "preflight_only",
     expectedSideEffects: reportFanoutExpectedSideEffects(),
     ...overrides,
+  };
+}
+
+function batchPlanExpectedSideEffects() {
+  return {
+    runTaskCalled: false,
+    batchPlanPrepareCalled: false,
+    taskSpecsWritten: false,
+    batchSpecsWritten: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    worktreesCreated: false,
+    runsCreated: false,
+    lifecycleMutated: false,
+    mergePerformed: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    successorExecuted: false,
+    daemonWatchStarted: false,
+    remoteAdapterCalled: false,
+    dashboardUpdated: false,
+    connectorExpansionPerformed: false,
+    hiddenMemoryWritten: false,
+    workerOwnedOrchestrationStarted: false,
+  } as const;
+}
+
+function batchPlanCandidate(
+  overrides: Partial<SequentialContinuationBatchPlanCandidate> = {},
+): SequentialContinuationBatchPlanCandidate {
+  const candidate = {
+    gate: "batch_plan_review",
+    draftId: "structured-fanout-ready-plan",
+    draftsDir: "references/batch-plans",
+    executionMode: "preflight_only",
+    expectedSideEffects: batchPlanExpectedSideEffects(),
+    ...overrides,
+  } as Record<string, unknown>;
+  for (const key of Object.keys(candidate)) {
+    if (candidate[key] === undefined) {
+      delete candidate[key];
+    }
+  }
+  return candidate as unknown as SequentialContinuationBatchPlanCandidate;
+}
+
+function batchPlanDraftTask(
+  overrides: Partial<BatchPlanDraft["proposedTasks"][number]> = {},
+): BatchPlanDraft["proposedTasks"][number] {
+  return {
+    id: "structured-fanout-batch-task",
+    title: "Add structured fanout batch visibility",
+    summary: "Add report-only batch plan candidate visibility.",
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "lifecycle-sensitive",
+    targetFileHints: ["src/core/sequential-ceo-autopilot.ts"],
+    forbiddenChangeHints: ["runs/**", "worktrees/**"],
+    verifyCommandHints: ["bun test tests/sequential-ceo-autopilot.test.ts"],
+    independentlyVerifiableRationale: "Focused continuation tests verify report-only visibility.",
+    ...overrides,
+  };
+}
+
+function batchPlanDraft(overrides: Partial<BatchPlanDraft> = {}): BatchPlanDraft {
+  return {
+    schemaVersion: 1,
+    draftId: "structured-fanout-ready-plan",
+    createdAt: "2026-05-23T00:00:00.000Z",
+    sourceGoal: "Review an existing BatchPlanDraft from a continuation artifact.",
+    classification: "routine_writer_batch",
+    repoInspection: {
+      inspectedPaths: ["src/core/sequential-ceo-autopilot.ts", "src/core/batch-plan-review.ts"],
+      currentStateSummary: "BatchPlanDraft review already exists; continuation visibility is missing.",
+      candidateWriteSurfaces: ["src/core/sequential-ceo-autopilot.ts"],
+      authorityBoundarySurfaces: ["src/core/batch-plan-operator.ts", "src/core/batch-execution.ts"],
+      assumptions: ["Continuation visibility is report-only and never prepares or dispatches a batch."],
+    },
+    proposedTasks: [batchPlanDraftTask()],
+    dependencyHints: [],
+    parallelizationHints: [
+      {
+        taskIds: ["structured-fanout-batch-task"],
+        rationale: "Single focused task with deterministic verification.",
+      },
+    ],
+    structuredPlaceholders: [],
+    autonomyEnvelope: {
+      localCommitAllowed: true,
+      pushAllowed: false,
+      maxReworkCycles: 1,
+    },
+    promotionReadiness: {
+      status: "ready",
+      reasons: ["The draft is ready for routine writer batch preparation."],
+    },
+    report: {
+      summary: "Draft review can determine prepare eligibility without preparing anything.",
+      nextAction: "Run batch-plans:prepare only after review.",
+    },
+    ...overrides,
+  };
+}
+
+function batchTask(
+  taskId: string,
+  overrides: Partial<BatchSpec["tasks"][number]> = {},
+): BatchSpec["tasks"][number] {
+  return {
+    taskId,
+    taskSpecPath: `references/tasks/${taskId}.json`,
+    targetAgent: "codex-worker",
+    declaredTargetFiles: [`tests/${taskId}.test.ts`],
+    declaredForbiddenChanges: ["runs/**"],
+    expectedVerifyCommands: [`bun test ${taskId}`],
+    writeSetClassification: "parallel_eligible",
+    classificationReasons: [],
+    dispatchGroup: "group-1",
+    status: "planned",
+    ...overrides,
+  };
+}
+
+function batchTaskSpec(batchTask: BatchSpec["tasks"][number], overrides: Partial<TaskSpec> = {}): TaskSpec {
+  return {
+    id: batchTask.taskId,
+    title: `Task ${batchTask.taskId}`,
+    taskFamily: "core-module",
+    workMode: "tdd-first",
+    riskClass: "lifecycle-sensitive",
+    targetAgent: batchTask.targetAgent,
+    targetFiles: batchTask.declaredTargetFiles,
+    forbiddenChanges: batchTask.declaredForbiddenChanges,
+    verifyCommands: batchTask.expectedVerifyCommands,
+    instructions: "Make the requested focused change.",
+    status: "pending",
+    ...overrides,
+  };
+}
+
+function batchSpecFixture(input: {
+  root: string;
+  baseCommit: string;
+  tasks: BatchSpec["tasks"];
+  overrides?: Partial<BatchSpec>;
+}): BatchSpec {
+  return {
+    schemaVersion: 1,
+    batchId: "structured-fanout-batch",
+    repoRoot: input.root,
+    baseCommit: input.baseCommit,
+    status: "planned",
+    serialOnlyRules: DEFAULT_SERIAL_ONLY_RULES,
+    tasks: input.tasks,
+    dependencies: [],
+    integrationQueue: input.tasks.map((task, index) => ({
+      order: index + 1,
+      taskId: task.taskId,
+      requiresAccepted: [],
+      focusedVerifyCommands: task.expectedVerifyCommands,
+      status: "pending",
+    })),
+    verification: {
+      preflightChecks: [
+        "validate batch identity and baseCommit",
+        "validate task references against TaskSpec",
+        "validate dependency DAG",
+        "validate disjoint write sets",
+        "validate serial-only classifications",
+        "validate integration queue",
+      ],
+      afterEachAcceptedMerge: ["run focused verify commands for the accepted queue item"],
+      afterFinalAcceptedMerge: ["bun run typecheck", "bun test"],
+    },
+    lifecyclePolicy: {
+      staleBase: "block_and_replan",
+      rebase: "explicit_samantha_owned_rebase_only",
+      partialFailure: "block_dependents_allow_independent_candidates",
+      cleanup: "explicit_per_worker_lifecycle_after_resolution",
+    },
+    ...input.overrides,
   };
 }
 
@@ -710,6 +898,117 @@ async function writeReportFanoutPreflightFixture(overrides: {
   return { root, artifactPath, sourceArtifactPath, continuation };
 }
 
+async function writeBatchPlanCandidateDraftFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  candidate?: Partial<SequentialContinuationBatchPlanCandidate>;
+  draft?: Partial<BatchPlanDraft>;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  draftsDir: string;
+  continuation: SequentialContinuationArtifact;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-batch-plan-candidate-draft-"));
+  tmpRoots.push(root);
+  const draftsDir = join(root, "references", "batch-plans");
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  await writeBatchPlanDraft({
+    draftsDir,
+    draft: batchPlanDraft({ ...overrides.draft }),
+  });
+  const artifactPath = join(root, "references", "operations", "structured-agent-fanout-s4.json");
+  const continuation = artifact({
+    artifactId: "structured-agent-fanout-s4",
+    initiativePath: "references/initiatives/structured-agent-fanout-autopilot.md",
+    currentSlice: {
+      id: "S4",
+      status: "ready",
+      actionType: "batch_plan",
+      dependencyStatus: "met",
+      prerequisites: ["S3 completed"],
+      targetFiles: ["src/core/sequential-ceo-autopilot.ts"],
+      forbiddenChanges: ["runs/**", "worktrees/**"],
+      verifyCommands: ["bun test tests/sequential-ceo-autopilot.test.ts"],
+    },
+    batchPlanCandidate: batchPlanCandidate({
+      draftId: overrides.draft?.draftId ?? "structured-fanout-ready-plan",
+      draftsDir: "references/batch-plans",
+      ...overrides.candidate,
+    }),
+    ...overrides.artifact,
+  });
+  await writeFile(artifactPath, `${JSON.stringify(continuation, null, 2)}\n`, "utf8");
+  return { root, artifactPath, draftsDir, continuation };
+}
+
+async function writeBatchPlanCandidateBatchSpecFixture(overrides: {
+  artifact?: Partial<SequentialContinuationArtifact>;
+  candidate?: Partial<SequentialContinuationBatchPlanCandidate>;
+  taskSpec?: Partial<TaskSpec>;
+  batch?: Partial<BatchSpec>;
+} = {}): Promise<{
+  root: string;
+  artifactPath: string;
+  batchSpecPath: string;
+  batchesDir: string;
+  continuation: SequentialContinuationArtifact;
+  spec: BatchSpec;
+}> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-batch-plan-candidate-batch-"));
+  tmpRoots.push(root);
+  await git(["init"], root);
+  await git(["config", "user.email", "samantha@example.local"], root);
+  await git(["config", "user.name", "Samantha Test"], root);
+  await mkdir(join(root, "references", "tasks"), { recursive: true });
+  await mkdir(join(root, "references", "operations"), { recursive: true });
+  const batchesDir = join(root, "references", "batch-specs");
+  await mkdir(batchesDir, { recursive: true });
+  const task = batchTask("structured-fanout-task");
+  await writeFile(join(root, ".fixture"), "base\n", "utf8");
+  await writeFile(
+    join(root, task.taskSpecPath),
+    `${JSON.stringify(batchTaskSpec(task, overrides.taskSpec), null, 2)}\n`,
+    "utf8",
+  );
+  await git(["add", ".fixture", task.taskSpecPath], root);
+  await git(["commit", "-m", "chore: initial batch candidate fixture"], root);
+  const baseCommit = await gitHead(root);
+  const spec = batchSpecFixture({
+    root,
+    baseCommit,
+    tasks: [task],
+    overrides: overrides.batch,
+  });
+  const batchSpecPath = join(batchesDir, "structured-fanout-batch.json");
+  await writeFile(batchSpecPath, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
+  const artifactPath = join(root, "references", "operations", "structured-agent-fanout-s4.json");
+  const continuation = artifact({
+    artifactId: "structured-agent-fanout-s4",
+    initiativePath: "references/initiatives/structured-agent-fanout-autopilot.md",
+    currentSlice: {
+      id: "S4",
+      status: "ready",
+      actionType: "batch_plan",
+      dependencyStatus: "met",
+      prerequisites: ["S3 completed"],
+      targetFiles: ["src/core/sequential-ceo-autopilot.ts"],
+      forbiddenChanges: ["runs/**", "worktrees/**"],
+      verifyCommands: ["bun test tests/sequential-ceo-autopilot.test.ts"],
+    },
+    batchPlanCandidate: batchPlanCandidate({
+      gate: "batch_spec_preflight",
+      draftId: undefined,
+      draftsDir: undefined,
+      batchSpecPath: "references/batch-specs/structured-fanout-batch.json",
+      executionMode: "preflight_only",
+      ...overrides.candidate,
+    }),
+    ...overrides.artifact,
+  });
+  await writeFile(artifactPath, `${JSON.stringify(continuation, null, 2)}\n`, "utf8");
+  return { root, artifactPath, batchSpecPath, batchesDir, continuation, spec };
+}
+
 async function writeNextArtifactFixture(
   overrides: {
     predecessor?: Partial<SequentialContinuationArtifact>;
@@ -919,6 +1218,79 @@ describe("Sequential CEO Autopilot continuation artifact validation", () => {
         },
       }),
     ).toContain("unknown reportFanoutCandidate field: command");
+  });
+
+  test("accepts optional batchPlanCandidate as null or closed report-only object", () => {
+    expect(validateSequentialContinuationArtifact(artifact({ batchPlanCandidate: null }))).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact(
+        artifact({
+          currentSlice: {
+            ...artifact().currentSlice,
+            actionType: "batch_plan",
+          },
+          batchPlanCandidate: batchPlanCandidate(),
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        currentSlice: {
+          ...artifact().currentSlice,
+          actionType: "batch_plan",
+        },
+        batchPlanCandidate: [batchPlanCandidate()],
+      }),
+    ).toContain("batchPlanCandidate must be a single object or null when present");
+    expect(
+      validateSequentialContinuationArtifact({
+        ...artifact(),
+        currentSlice: {
+          ...artifact().currentSlice,
+          actionType: "batch_plan",
+        },
+        batchPlanCandidate: {
+          ...batchPlanCandidate(),
+          command: "bun run samantha batches:execute",
+        },
+      }),
+    ).toContain("unknown batchPlanCandidate field: command");
+  });
+
+  test("rejects unsafe batchPlanCandidate values and execution authority", () => {
+    const invalidSideEffects = {
+      ...batchPlanExpectedSideEffects(),
+      batchesExecuteCalled: true,
+      pushPerformed: true,
+    } as unknown as SequentialContinuationBatchPlanCandidate["expectedSideEffects"];
+    const cases: Array<{ candidate: Partial<SequentialContinuationBatchPlanCandidate>; reason: string }> = [
+      { candidate: { gate: "batch_execute" as "batch_plan_review" }, reason: "batchPlanCandidate.gate must be batch_plan_review or batch_spec_preflight: batch_execute" },
+      { candidate: { executionMode: "execute" as "report_only" }, reason: "batchPlanCandidate.executionMode must be report_only or preflight_only: execute" },
+      { candidate: { expectedSideEffects: invalidSideEffects }, reason: "batchPlanCandidate.expectedSideEffects.batchesExecuteCalled must be false" },
+      { candidate: { expectedSideEffects: invalidSideEffects }, reason: "batchPlanCandidate.expectedSideEffects.pushPerformed must be false" },
+      { candidate: { batchSpecPath: "bun run samantha batches:execute" }, reason: "batchPlanCandidate.batchSpecPath must not be a command string: bun run samantha batches:execute" },
+      { candidate: { batchSpecPath: "https://example.com/batch.json" }, reason: "batchPlanCandidate.batchSpecPath must not be a URL: https://example.com/batch.json" },
+      { candidate: { draftsDir: "/tmp/batch-plans" }, reason: "batchPlanCandidate.draftsDir must be repo-relative and stay inside repoRoot: /tmp/batch-plans" },
+      { candidate: { batchesDir: "../batch-specs" }, reason: "batchPlanCandidate.batchesDir must be repo-relative and stay inside repoRoot: ../batch-specs" },
+      { candidate: { batchSpecPath: "$ROOT/batch.json" }, reason: "batchPlanCandidate.batchSpecPath must not use environment expansion: $ROOT/batch.json" },
+      { candidate: { batchesDir: "references/**/batch-specs" }, reason: "batchPlanCandidate.batchesDir must not be glob-like: references/**/batch-specs" },
+      { candidate: { draftId: "batch-plans:prepare" }, reason: "batchPlanCandidate.draftId must not be a command string: batch-plans:prepare" },
+    ];
+
+    for (const { candidate, reason } of cases) {
+      expect(
+        validateSequentialContinuationArtifact(
+          artifact({
+            currentSlice: {
+              ...artifact().currentSlice,
+              actionType: "batch_plan",
+            },
+            batchPlanCandidate: batchPlanCandidate(candidate),
+          }),
+        ),
+      ).toContain(reason);
+    }
   });
 
   test("rejects unsafe reportFanoutCandidate values in the closed schema", () => {
@@ -1775,6 +2147,183 @@ describe("Sequential CEO Autopilot reportFanoutCandidate preflight report", () =
     expect(offRepoReport.sideEffects.worktreesCreated).toBe(false);
     expect(offRepoReport.sideEffects.runsCreated).toBe(false);
     expect(offRepoReport.trustedStateChanges).toBe(false);
+  });
+});
+
+describe("Sequential CEO Autopilot batchPlanCandidate preflight report", () => {
+  test("accepts a prepare-eligible BatchPlanDraft review without prepare or dispatch side effects", async () => {
+    const { root, artifactPath, draftsDir, continuation } = await writeBatchPlanCandidateDraftFixture();
+
+    const report = await buildSequentialContinuationBatchPlanPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("accepted");
+    expect(report.gate).toBe("batch_plan_review");
+    expect(report.draftId).toBe("structured-fanout-ready-plan");
+    expect(report.draftsDir).toBe("references/batch-plans");
+    expect(report.normalizedDraftsDir).toBe("references/batch-plans");
+    expect(report.review).toMatchObject({
+      reviewed: true,
+      draftId: "structured-fanout-ready-plan",
+      draftPath: join(draftsDir, "structured-fanout-ready-plan.json"),
+      prepareEligible: true,
+      trustedForDispatch: false,
+      pushPerformed: false,
+      violations: [],
+    });
+    expect(report.blockingReasons).toEqual([]);
+    expect(report.trustedForDispatch).toBe(false);
+    expect(report.trustedStateChanges).toBe(false);
+    expect(report.pushPerformed).toBe(false);
+    expect(report.sideEffects).toEqual(batchPlanExpectedSideEffects());
+    expect(await pathExists(join(root, "references", "tasks"))).toBe(false);
+    expect(await pathExists(join(root, "references", "batch-specs"))).toBe(false);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("blocks BatchPlanDraft review when the existing review gate is not prepare-eligible", async () => {
+    const { root, artifactPath, continuation } = await writeBatchPlanCandidateDraftFixture({
+      draft: {
+        draftId: "blocked-structured-fanout-plan",
+        classification: "architecture",
+        proposedTasks: [],
+        parallelizationHints: [],
+        promotionReadiness: {
+          status: "blocked",
+          reasons: ["Architecture work must stay in CEO planning mode."],
+        },
+      },
+    });
+
+    const report = await buildSequentialContinuationBatchPlanPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.review?.prepareEligible).toBe(false);
+    expect(report.blockingReasons).toContain("classification must be routine_writer_batch to promote");
+    expect(report.trustedForDispatch).toBe(false);
+    expect(report.sideEffects.batchPlanPrepareCalled).toBe(false);
+    expect(report.sideEffects.batchesExecuteCalled).toBe(false);
+  });
+
+  test("accepts a BatchSpec preflight by repo-local path without dispatching", async () => {
+    const { root, artifactPath, batchSpecPath, continuation } =
+      await writeBatchPlanCandidateBatchSpecFixture();
+
+    const report = await buildSequentialContinuationBatchPlanPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("accepted");
+    expect(report.gate).toBe("batch_spec_preflight");
+    expect(report.batchSpecPath).toBe("references/batch-specs/structured-fanout-batch.json");
+    expect(report.normalizedBatchSpecPath).toBe("references/batch-specs/structured-fanout-batch.json");
+    expect(report.resolvedBatchSpecPath).toBe(batchSpecPath);
+    expect(report.batchSpecSummary).toEqual({
+      batchId: "structured-fanout-batch",
+      status: "planned",
+      taskCount: 1,
+    });
+    expect(report.batchPreflight?.mayDispatch).toBe(true);
+    expect(report.blockingReasons).toEqual([]);
+    expect(report.trustedForDispatch).toBe(false);
+    expect(report.sideEffects.batchesExecuteCalled).toBe(false);
+    expect(await pathExists(join(root, "runs"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
+  });
+
+  test("blocks BatchSpec preflight by id when the existing gate rejects dispatch", async () => {
+    const { root, artifactPath, batchesDir, continuation } =
+      await writeBatchPlanCandidateBatchSpecFixture({
+        taskSpec: {
+          targetFiles: ["tests/different-target.test.ts"],
+        },
+        candidate: {
+          batchSpecPath: undefined,
+          batchId: "structured-fanout-batch",
+          batchesDir: "references/batch-specs",
+        },
+      });
+
+    const report = await buildSequentialContinuationBatchPlanPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.batchId).toBe("structured-fanout-batch");
+    expect(report.batchesDir).toBe("references/batch-specs");
+    expect(report.normalizedBatchesDir).toBe("references/batch-specs");
+    expect(report.resolvedBatchSpecPath).toBe(join(batchesDir, "structured-fanout-batch.json"));
+    expect(report.batchPreflight?.mayDispatch).toBe(false);
+    expect(report.blockingReasons).toContain(
+      "tasks[].declaredTargetFiles must match referenced TaskSpec targetFiles: structured-fanout-task",
+    );
+    expect(report.trustedForDispatch).toBe(false);
+    expect(report.sideEffects.workersDispatched).toBe(false);
+  });
+
+  test("blocks invalid predecessor artifacts before inspecting absent, null, or malformed candidates", async () => {
+    const invalidAutonomyEnvelope = {
+      ...artifact().autonomyEnvelope,
+      pushAllowed: true as false,
+    };
+    const cases: Array<{ name: string; continuation: SequentialContinuationArtifact | Record<string, unknown> }> = [
+      {
+        name: "absent",
+        continuation: artifact({ autonomyEnvelope: invalidAutonomyEnvelope }),
+      },
+      {
+        name: "null",
+        continuation: artifact({ autonomyEnvelope: invalidAutonomyEnvelope, batchPlanCandidate: null }),
+      },
+      {
+        name: "malformed",
+        continuation: {
+          ...artifact({ autonomyEnvelope: invalidAutonomyEnvelope }),
+          batchPlanCandidate: "batch-plans:prepare",
+        },
+      },
+    ];
+
+    for (const { name, continuation } of cases) {
+      const report = await buildSequentialContinuationBatchPlanPreflightReport({
+        repoRoot: ".",
+        artifactPath: `references/operations/batch-plan-${name}.json`,
+        artifact: continuation,
+      });
+
+      expect(report.status).toBe("blocked");
+      expect(report.blockingReasons).toContain(
+        "current artifact must validate before batchPlanCandidate is inspected",
+      );
+      expect(report.blockingReasons).toContain("autonomyEnvelope.pushAllowed must be false");
+      expect(report.trustedForDispatch).toBe(false);
+    }
+  });
+
+  test("omits absent or null candidates for valid artifacts", async () => {
+    for (const continuation of [artifact(), artifact({ batchPlanCandidate: null })]) {
+      const report = await buildSequentialContinuationBatchPlanPreflightReport({
+        repoRoot: ".",
+        artifactPath: "references/operations/structured-agent-fanout-s4.json",
+        artifact: continuation,
+      });
+
+      expect(report.status).toBe("absent");
+      expect(report.blockingReasons).toEqual([]);
+      expect(report.trustedForDispatch).toBe(false);
+    }
   });
 });
 

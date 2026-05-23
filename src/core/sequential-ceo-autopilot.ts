@@ -12,6 +12,9 @@ import { git, gitRaw } from "./git";
 import { actionableCommitForRunLog } from "./run-commit";
 import type { RunAcceptResult } from "./run-accept";
 import type { WorkerRunLog, WorkerRunTrajectoryEntry } from "./run-log";
+import { reviewStoredBatchPlanDraft, type BatchPlanReviewReport } from "./batch-plan-review";
+import { preflightBatchSpec, type BatchPreflightResult, type BatchSpec } from "./batch-spec";
+import { readBatchSpecRecordById } from "./batch-spec-store";
 
 export const SEQUENTIAL_CONTINUATION_ACTION_TYPES = [
   "manual_decision",
@@ -112,9 +115,34 @@ export interface SequentialContinuationNextStep {
 
 export type SequentialContinuationReportFanoutRole = "report" | "spec" | "reviewer" | "evaluator";
 export type SequentialContinuationReportFanoutExecutionMode = "report_only" | "preflight_only";
+export type SequentialContinuationBatchPlanCandidateGate = "batch_plan_review" | "batch_spec_preflight";
+export type SequentialContinuationBatchPlanExecutionMode = "report_only" | "preflight_only";
 
 export interface SequentialContinuationReportFanoutExpectedSideEffects {
   runTaskCalled: false;
+  batchesExecuteCalled: false;
+  workersDispatched: false;
+  worktreesCreated: false;
+  runsCreated: false;
+  lifecycleMutated: false;
+  mergePerformed: false;
+  cleanupPerformed: false;
+  commitPerformed: false;
+  pushPerformed: false;
+  successorExecuted: false;
+  daemonWatchStarted: false;
+  remoteAdapterCalled: false;
+  dashboardUpdated: false;
+  connectorExpansionPerformed: false;
+  hiddenMemoryWritten: false;
+  workerOwnedOrchestrationStarted: false;
+}
+
+export interface SequentialContinuationBatchPlanExpectedSideEffects {
+  runTaskCalled: false;
+  batchPlanPrepareCalled: false;
+  taskSpecsWritten: false;
+  batchSpecsWritten: false;
   batchesExecuteCalled: false;
   workersDispatched: false;
   worktreesCreated: false;
@@ -140,6 +168,17 @@ export interface SequentialContinuationReportFanoutCandidate {
   synthesisRequired: true;
   executionMode: SequentialContinuationReportFanoutExecutionMode;
   expectedSideEffects: SequentialContinuationReportFanoutExpectedSideEffects;
+}
+
+export interface SequentialContinuationBatchPlanCandidate {
+  gate: SequentialContinuationBatchPlanCandidateGate;
+  draftId?: string;
+  draftsDir?: string;
+  batchSpecPath?: string;
+  batchId?: string;
+  batchesDir?: string;
+  executionMode: SequentialContinuationBatchPlanExecutionMode;
+  expectedSideEffects: SequentialContinuationBatchPlanExpectedSideEffects;
 }
 
 export type SequentialContinuationReportFanoutSynthesisStatus = "accepted" | "blocked";
@@ -279,6 +318,7 @@ export interface SequentialContinuationArtifact {
   nextArtifactPath?: string | null;
   nextArtifactExpectedSliceId?: string | null;
   reportFanoutCandidate?: SequentialContinuationReportFanoutCandidate | null;
+  batchPlanCandidate?: SequentialContinuationBatchPlanCandidate | null;
   runTaskCandidate?: SequentialContinuationRunTaskCandidate | null;
   runTaskExecution?: SequentialContinuationRunTaskExecution | null;
   runAcceptCandidate?: SequentialContinuationRunAcceptCandidate | null;
@@ -366,6 +406,37 @@ export interface SequentialContinuationReportFanoutPreflightReport {
   trustedStateChanges: false;
   pushPerformed: false;
   sideEffects: SequentialContinuationReportFanoutExpectedSideEffects;
+}
+
+export interface SequentialContinuationBatchPlanPreflightReport {
+  artifactPath: string;
+  repoRoot: string;
+  status: "absent" | "accepted" | "blocked";
+  gate: string | null;
+  draftId: string | null;
+  draftsDir: string | null;
+  normalizedDraftsDir: string | null;
+  resolvedDraftsDir: string | null;
+  batchSpecPath: string | null;
+  normalizedBatchSpecPath: string | null;
+  resolvedBatchSpecPath: string | null;
+  batchId: string | null;
+  batchesDir: string | null;
+  normalizedBatchesDir: string | null;
+  resolvedBatchesDir: string | null;
+  executionMode: string | null;
+  review: BatchPlanReviewReport | null;
+  batchSpecSummary: {
+    batchId: string;
+    status: string;
+    taskCount: number;
+  } | null;
+  batchPreflight: BatchPreflightResult | null;
+  blockingReasons: string[];
+  trustedStateChanges: false;
+  pushPerformed: false;
+  trustedForDispatch: false;
+  sideEffects: SequentialContinuationBatchPlanExpectedSideEffects;
 }
 
 export interface SequentialContinuationRunAcceptPreflightReport {
@@ -614,6 +685,7 @@ export interface SequentialContinuationReport {
   blockedReportText: string | null;
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
   reportFanoutPreflight?: SequentialContinuationReportFanoutPreflightReport;
+  batchPlanPreflight?: SequentialContinuationBatchPlanPreflightReport;
   runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
   runAcceptPreflight?: SequentialContinuationRunAcceptPreflightReport;
   trustedStateChanges: false;
@@ -786,6 +858,10 @@ const REPORT_FANOUT_EXECUTION_MODE_VALUES = ["report_only", "preflight_only"] as
 const REPORT_FANOUT_EXECUTION_MODE_SET = new Set<string>(REPORT_FANOUT_EXECUTION_MODE_VALUES);
 const REPORT_FANOUT_SYNTHESIS_STATUS_VALUES = ["accepted", "blocked"] as const;
 const REPORT_FANOUT_SYNTHESIS_STATUS_SET = new Set<string>(REPORT_FANOUT_SYNTHESIS_STATUS_VALUES);
+const BATCH_PLAN_CANDIDATE_GATE_VALUES = ["batch_plan_review", "batch_spec_preflight"] as const;
+const BATCH_PLAN_CANDIDATE_GATE_SET = new Set<string>(BATCH_PLAN_CANDIDATE_GATE_VALUES);
+const BATCH_PLAN_EXECUTION_MODE_VALUES = ["report_only", "preflight_only"] as const;
+const BATCH_PLAN_EXECUTION_MODE_SET = new Set<string>(BATCH_PLAN_EXECUTION_MODE_VALUES);
 const WRITE_CAPABLE_ACTION_TYPES = new Set<SequentialContinuationActionType>(["run_task", "batch_plan"]);
 const SINGLE_STEP_EXECUTABLE_ACTION_TYPE = "readiness_check";
 const TOP_LEVEL_FIELDS = new Set([
@@ -802,6 +878,7 @@ const TOP_LEVEL_FIELDS = new Set([
   "nextArtifactPath",
   "nextArtifactExpectedSliceId",
   "reportFanoutCandidate",
+  "batchPlanCandidate",
   "runTaskCandidate",
   "runTaskExecution",
   "runAcceptCandidate",
@@ -860,6 +937,41 @@ const REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES = [
 ] as const;
 const REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS = new Set<string>(
   REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES,
+);
+const BATCH_PLAN_CANDIDATE_FIELDS = new Set([
+  "gate",
+  "draftId",
+  "draftsDir",
+  "batchSpecPath",
+  "batchId",
+  "batchesDir",
+  "executionMode",
+  "expectedSideEffects",
+]);
+const BATCH_PLAN_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES = [
+  "runTaskCalled",
+  "batchPlanPrepareCalled",
+  "taskSpecsWritten",
+  "batchSpecsWritten",
+  "batchesExecuteCalled",
+  "workersDispatched",
+  "worktreesCreated",
+  "runsCreated",
+  "lifecycleMutated",
+  "mergePerformed",
+  "cleanupPerformed",
+  "commitPerformed",
+  "pushPerformed",
+  "successorExecuted",
+  "daemonWatchStarted",
+  "remoteAdapterCalled",
+  "dashboardUpdated",
+  "connectorExpansionPerformed",
+  "hiddenMemoryWritten",
+  "workerOwnedOrchestrationStarted",
+] as const;
+const BATCH_PLAN_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS = new Set<string>(
+  BATCH_PLAN_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES,
 );
 const RUN_TASK_CANDIDATE_FIELDS = new Set([
   "taskSpecPath",
@@ -1011,6 +1123,7 @@ const REPORT_FANOUT_SYNTHESIS_FIELDS = new Set([
 const DEPENDENCY_STATUSES = new Set(["met", "blocked"]);
 const NEXT_STEP_KINDS = new Set(["samantha_command", "blocked_report"]);
 const NEXT_ARTIFACT_COMMAND_PREFIX_PATTERN = /^(?:sam\s+c:|sam\s+p:|sam\s+command:|bun\s+|npm\s+|pnpm\s+|yarn\s+|git\s+)/i;
+const BATCH_PLAN_COMMAND_PREFIX_PATTERN = /^(?:sam\s+c:|sam\s+p:|sam\s+command:|bun\s+|npm\s+|pnpm\s+|yarn\s+|git\s+|batch-plans:[a-z-]+\b|batches:[a-z-]+\b)/i;
 const RUN_ACCEPT_PATH_COMMAND_PREFIX_PATTERN = /^(?:sam\s+c:|sam\s+p:|sam\s+command:|bun\s+|npm\s+|pnpm\s+|yarn\s+|git\s+|runs:accept\b|merge:check\b|worktree:cleanup\b|run-task\b)/i;
 const NEXT_ARTIFACT_URL_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//;
 const NEXT_ARTIFACT_GLOB_PATTERN = /[*?[\]{}]/;
@@ -1080,6 +1193,7 @@ export function validateSequentialContinuationArtifact(input: unknown): string[]
   violations.push(...validateNextStep(input.nextStep));
   violations.push(...validateNextArtifactFields(input));
   violations.push(...validateReportFanoutCandidateFields(input));
+  violations.push(...validateBatchPlanCandidateFields(input));
   violations.push(...validateRunTaskCandidateFields(input));
   violations.push(...validateRunTaskExecutionFields(input));
   violations.push(...validateRunAcceptCandidateFields(input));
@@ -1094,6 +1208,7 @@ export function buildSequentialContinuationReport(input: {
   violations?: string[];
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
   reportFanoutPreflight?: SequentialContinuationReportFanoutPreflightReport;
+  batchPlanPreflight?: SequentialContinuationBatchPlanPreflightReport;
   runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
   runAcceptPreflight?: SequentialContinuationRunAcceptPreflightReport;
 }): SequentialContinuationReport {
@@ -1120,6 +1235,7 @@ export function buildSequentialContinuationReport(input: {
       nextStep,
       nextArtifactLinkage: input.nextArtifactLinkage,
       reportFanoutPreflight: input.reportFanoutPreflight,
+      batchPlanPreflight: input.batchPlanPreflight,
       runTaskPreflight: input.runTaskPreflight,
       runAcceptPreflight: input.runAcceptPreflight,
     }),
@@ -1128,6 +1244,7 @@ export function buildSequentialContinuationReport(input: {
     blockedReportText: nextStep.kind === "blocked_report" ? nextStep.value : null,
     ...(input.nextArtifactLinkage ? { nextArtifactLinkage: input.nextArtifactLinkage } : {}),
     ...(input.reportFanoutPreflight ? { reportFanoutPreflight: input.reportFanoutPreflight } : {}),
+    ...(input.batchPlanPreflight ? { batchPlanPreflight: input.batchPlanPreflight } : {}),
     ...(input.runTaskPreflight ? { runTaskPreflight: input.runTaskPreflight } : {}),
     ...(input.runAcceptPreflight ? { runAcceptPreflight: input.runAcceptPreflight } : {}),
     trustedStateChanges: false,
@@ -1403,6 +1520,53 @@ export async function buildSequentialContinuationReportFanoutPreflightReport(inp
     synthesisRequired: candidate.synthesisRequired,
     executionMode: candidate.executionMode,
     blockingReasons: sourceArtifactEvidence.blockingReasons,
+  });
+}
+
+export async function buildSequentialContinuationBatchPlanPreflightReport(input: {
+  repoRoot?: string;
+  artifactPath: string;
+  artifact: unknown;
+}): Promise<SequentialContinuationBatchPlanPreflightReport> {
+  const repoRoot = resolve(input.repoRoot ?? ".");
+  const artifactPath = normalizePathForReport(input.artifactPath, repoRoot);
+  const currentArtifactViolations = validateSequentialContinuationArtifact(input.artifact);
+  if (currentArtifactViolations.length > 0) {
+    return buildBatchPlanPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "blocked",
+      blockingReasons: [
+        "current artifact must validate before batchPlanCandidate is inspected",
+        ...currentArtifactViolations,
+      ],
+    });
+  }
+
+  if (!isRecord(input.artifact) || !hasOwn(input.artifact, "batchPlanCandidate") || input.artifact.batchPlanCandidate === null) {
+    return buildBatchPlanPreflightReport({
+      artifactPath,
+      repoRoot,
+      status: "absent",
+      blockingReasons: [],
+    });
+  }
+
+  const artifact = input.artifact as unknown as SequentialContinuationArtifact;
+  const candidate = artifact.batchPlanCandidate as SequentialContinuationBatchPlanCandidate;
+
+  if (candidate.gate === "batch_plan_review") {
+    return buildBatchPlanDraftReviewPreflightReport({
+      repoRoot,
+      artifactPath,
+      candidate,
+    });
+  }
+
+  return buildBatchSpecCandidatePreflightReport({
+    repoRoot,
+    artifactPath,
+    candidate,
   });
 }
 
@@ -3197,6 +3361,155 @@ function validateReportFanoutCandidateFields(value: Record<string, unknown>): st
   return violations;
 }
 
+function validateBatchPlanCandidateFields(value: Record<string, unknown>): string[] {
+  if (!hasOwn(value, "batchPlanCandidate") || value.batchPlanCandidate === null) {
+    return [];
+  }
+  if (Array.isArray(value.batchPlanCandidate)) {
+    return ["batchPlanCandidate must be a single object or null when present"];
+  }
+  if (!isRecord(value.batchPlanCandidate)) {
+    return ["batchPlanCandidate must be an object or null when present"];
+  }
+
+  const candidate = value.batchPlanCandidate;
+  const violations: string[] = [];
+  violations.push(
+    ...validateAllowedFields(
+      candidate,
+      BATCH_PLAN_CANDIDATE_FIELDS,
+      (key) => `unknown batchPlanCandidate field: ${key}`,
+    ),
+  );
+
+  if (!isNonEmptyString(candidate.gate) || !BATCH_PLAN_CANDIDATE_GATE_SET.has(candidate.gate)) {
+    violations.push(
+      `batchPlanCandidate.gate must be batch_plan_review or batch_spec_preflight: ${String(candidate.gate)}`,
+    );
+  }
+  if (
+    !isNonEmptyString(candidate.executionMode) ||
+    !BATCH_PLAN_EXECUTION_MODE_SET.has(candidate.executionMode)
+  ) {
+    violations.push(
+      `batchPlanCandidate.executionMode must be report_only or preflight_only: ${String(candidate.executionMode)}`,
+    );
+  }
+
+  validateOptionalBatchPlanCandidateId(candidate, "draftId", violations);
+  validateOptionalBatchPlanCandidateId(candidate, "batchId", violations);
+  validateOptionalBatchPlanCandidatePath(candidate, "draftsDir", violations, { requireJson: false });
+  validateOptionalBatchPlanCandidatePath(candidate, "batchesDir", violations, { requireJson: false });
+  validateOptionalBatchPlanCandidatePath(candidate, "batchSpecPath", violations, { requireJson: true });
+  violations.push(...validateBatchPlanCandidateGateShape(candidate));
+
+  if (!isRecord(candidate.expectedSideEffects)) {
+    violations.push("batchPlanCandidate.expectedSideEffects must be an object");
+  } else {
+    violations.push(
+      ...validateAllowedFields(
+        candidate.expectedSideEffects,
+        BATCH_PLAN_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS,
+        (key) => `unknown batchPlanCandidate.expectedSideEffects field: ${key}`,
+      ),
+    );
+    for (const field of BATCH_PLAN_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELD_NAMES) {
+      if (typeof candidate.expectedSideEffects[field] !== "boolean") {
+        violations.push(`batchPlanCandidate.expectedSideEffects.${field} must be a boolean`);
+      } else if (candidate.expectedSideEffects[field] !== false) {
+        violations.push(`batchPlanCandidate.expectedSideEffects.${field} must be false`);
+      }
+    }
+  }
+
+  return violations;
+}
+
+function validateBatchPlanCandidateGateShape(candidate: Record<string, unknown>): string[] {
+  if (candidate.gate === "batch_plan_review") {
+    const violations: string[] = [];
+    if (!isNonEmptyString(candidate.draftId)) {
+      violations.push("batchPlanCandidate.draftId is required for batch_plan_review");
+    }
+    for (const field of ["batchSpecPath", "batchId", "batchesDir"] as const) {
+      if (hasOwn(candidate, field)) {
+        violations.push(`batchPlanCandidate.${field} is not allowed for batch_plan_review`);
+      }
+    }
+    return violations;
+  }
+
+  if (candidate.gate === "batch_spec_preflight") {
+    const hasBatchSpecPath = hasOwn(candidate, "batchSpecPath");
+    const hasBatchId = hasOwn(candidate, "batchId");
+    const violations: string[] = [];
+    if (hasOwn(candidate, "draftId")) {
+      violations.push("batchPlanCandidate.draftId is not allowed for batch_spec_preflight");
+    }
+    if (hasOwn(candidate, "draftsDir")) {
+      violations.push("batchPlanCandidate.draftsDir is not allowed for batch_spec_preflight");
+    }
+    if (hasBatchSpecPath && hasBatchId) {
+      violations.push("batchPlanCandidate must provide either batchSpecPath or batchId, not both");
+    }
+    if (!hasBatchSpecPath && !hasBatchId) {
+      violations.push("batchPlanCandidate.batchSpecPath or batchId is required for batch_spec_preflight");
+    }
+    if (hasBatchSpecPath && hasOwn(candidate, "batchesDir")) {
+      violations.push("batchPlanCandidate.batchesDir requires batchId");
+    }
+    return violations;
+  }
+
+  return [];
+}
+
+function validateOptionalBatchPlanCandidateId(
+  candidate: Record<string, unknown>,
+  field: "draftId" | "batchId",
+  violations: string[],
+): void {
+  if (!hasOwn(candidate, field)) {
+    return;
+  }
+  const value = candidate[field];
+  if (!isNonEmptyString(value)) {
+    violations.push(`batchPlanCandidate.${field} must be a non-empty string when present`);
+    return;
+  }
+  const trimmed = value.trim();
+  if (BATCH_PLAN_COMMAND_PREFIX_PATTERN.test(trimmed)) {
+    violations.push(`batchPlanCandidate.${field} must not be a command string: ${value}`);
+  }
+  if (NEXT_ARTIFACT_URL_PATTERN.test(trimmed) || /^file:/i.test(trimmed)) {
+    violations.push(`batchPlanCandidate.${field} must not be a URL: ${value}`);
+  }
+  if (trimmed.startsWith("~") || NEXT_ARTIFACT_ENV_PATTERN.test(trimmed)) {
+    violations.push(`batchPlanCandidate.${field} must not use environment expansion: ${value}`);
+  }
+  if (NEXT_ARTIFACT_GLOB_PATTERN.test(trimmed)) {
+    violations.push(`batchPlanCandidate.${field} must not be glob-like: ${value}`);
+  }
+  if (trimmed !== value || /[\\/\s:]/.test(trimmed) || trimmed.includes("..")) {
+    violations.push(`batchPlanCandidate.${field} must be a normalized local id: ${value}`);
+  }
+}
+
+function validateOptionalBatchPlanCandidatePath(
+  candidate: Record<string, unknown>,
+  field: "draftsDir" | "batchesDir" | "batchSpecPath",
+  violations: string[],
+  options: { requireJson: boolean },
+): void {
+  if (!hasOwn(candidate, field)) {
+    return;
+  }
+  const normalized = normalizeBatchPlanCandidateLocalPath(candidate[field], `batchPlanCandidate.${field}`, violations);
+  if (normalized && options.requireJson && !normalized.endsWith(".json")) {
+    violations.push(`batchPlanCandidate.${field} must end with .json: ${String(candidate[field])}`);
+  }
+}
+
 function validateRunTaskCandidateFields(value: Record<string, unknown>): string[] {
   if (!hasOwn(value, "runTaskCandidate") || value.runTaskCandidate === null) {
     return [];
@@ -3473,6 +3786,43 @@ function normalizeReportFanoutLocalPath(value: unknown, fieldName: string, viola
   return violations.length === beforeCount ? normalized : null;
 }
 
+function normalizeBatchPlanCandidateLocalPath(value: unknown, fieldName: string, violations: string[]): string | null {
+  if (!isNonEmptyString(value)) {
+    violations.push(`${fieldName} must be a non-empty string`);
+    return null;
+  }
+
+  const beforeCount = violations.length;
+  const trimmed = value.trim();
+  const candidate = trimmed.replaceAll("\\", "/");
+  const rawSegments = candidate.split("/");
+  if (trimmed !== value || candidate !== trimmed || candidate.includes(":") || /\s/.test(candidate)) {
+    violations.push(`${fieldName} must be a normalized repo-relative local path: ${value}`);
+  }
+  if (BATCH_PLAN_COMMAND_PREFIX_PATTERN.test(trimmed)) {
+    violations.push(`${fieldName} must not be a command string: ${value}`);
+  }
+  if (NEXT_ARTIFACT_URL_PATTERN.test(candidate) || /^file:/i.test(candidate)) {
+    violations.push(`${fieldName} must not be a URL: ${value}`);
+  }
+  if (candidate.startsWith("~") || NEXT_ARTIFACT_ENV_PATTERN.test(candidate)) {
+    violations.push(`${fieldName} must not use environment expansion: ${value}`);
+  }
+  if (NEXT_ARTIFACT_GLOB_PATTERN.test(candidate)) {
+    violations.push(`${fieldName} must not be glob-like: ${value}`);
+  }
+  if (isAbsolute(value) || candidate.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || rawSegments.includes("..")) {
+    violations.push(`${fieldName} must be repo-relative and stay inside repoRoot: ${value}`);
+  }
+
+  const normalized = posix.normalize(candidate);
+  if (normalized === "." || normalized.startsWith("../") || normalized === ".." || normalized !== candidate) {
+    violations.push(`${fieldName} must be normalized and stay inside repoRoot: ${value}`);
+  }
+
+  return violations.length === beforeCount ? normalized : null;
+}
+
 function buildNextArtifactReport(input: {
   previousArtifactPath: string;
   repoRoot: string;
@@ -3625,6 +3975,469 @@ async function validateReportFanoutSourceArtifacts(input: {
   }
 
   return { resolvedSourceArtifacts, blockingReasons };
+}
+
+function buildBatchPlanPreflightReport(input: {
+  artifactPath: string;
+  repoRoot: string;
+  status: SequentialContinuationBatchPlanPreflightReport["status"];
+  gate?: string | null;
+  draftId?: string | null;
+  draftsDir?: string | null;
+  normalizedDraftsDir?: string | null;
+  resolvedDraftsDir?: string | null;
+  batchSpecPath?: string | null;
+  normalizedBatchSpecPath?: string | null;
+  resolvedBatchSpecPath?: string | null;
+  batchId?: string | null;
+  batchesDir?: string | null;
+  normalizedBatchesDir?: string | null;
+  resolvedBatchesDir?: string | null;
+  executionMode?: string | null;
+  review?: BatchPlanReviewReport | null;
+  batchSpecSummary?: SequentialContinuationBatchPlanPreflightReport["batchSpecSummary"];
+  batchPreflight?: BatchPreflightResult | null;
+  blockingReasons: string[];
+}): SequentialContinuationBatchPlanPreflightReport {
+  return {
+    artifactPath: input.artifactPath,
+    repoRoot: input.repoRoot,
+    status: input.status,
+    gate: input.gate ?? null,
+    draftId: input.draftId ?? null,
+    draftsDir: input.draftsDir ?? null,
+    normalizedDraftsDir: input.normalizedDraftsDir ?? null,
+    resolvedDraftsDir: input.resolvedDraftsDir ?? null,
+    batchSpecPath: input.batchSpecPath ?? null,
+    normalizedBatchSpecPath: input.normalizedBatchSpecPath ?? null,
+    resolvedBatchSpecPath: input.resolvedBatchSpecPath ?? null,
+    batchId: input.batchId ?? null,
+    batchesDir: input.batchesDir ?? null,
+    normalizedBatchesDir: input.normalizedBatchesDir ?? null,
+    resolvedBatchesDir: input.resolvedBatchesDir ?? null,
+    executionMode: input.executionMode ?? null,
+    review: input.review ?? null,
+    batchSpecSummary: input.batchSpecSummary ?? null,
+    batchPreflight: input.batchPreflight ?? null,
+    blockingReasons: input.blockingReasons,
+    trustedStateChanges: false,
+    pushPerformed: false,
+    trustedForDispatch: false,
+    sideEffects: batchPlanPreflightSideEffects(),
+  };
+}
+
+async function buildBatchPlanDraftReviewPreflightReport(input: {
+  repoRoot: string;
+  artifactPath: string;
+  candidate: SequentialContinuationBatchPlanCandidate;
+}): Promise<SequentialContinuationBatchPlanPreflightReport> {
+  const draftId = input.candidate.draftId ?? null;
+  const draftsDir = input.candidate.draftsDir ?? "references/batch-plans";
+  const pathReasons: string[] = [];
+  const normalizedDraftsDir = normalizeBatchPlanCandidateLocalPath(
+    draftsDir,
+    "batchPlanCandidate.draftsDir",
+    pathReasons,
+  );
+  if (!normalizedDraftsDir || pathReasons.length > 0 || draftId === null) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      draftId,
+      draftsDir,
+      normalizedDraftsDir,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: draftId === null ? ["batchPlanCandidate.draftId is required for batch_plan_review"] : pathReasons,
+    });
+  }
+
+  const resolvedDraftsDir = resolve(input.repoRoot, normalizedDraftsDir);
+  const repoRelative = relative(input.repoRoot, resolvedDraftsDir).replaceAll("\\", "/");
+  if (repoRelative === "" || repoRelative.startsWith("../") || repoRelative === ".." || isAbsolute(repoRelative)) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      draftId,
+      draftsDir,
+      normalizedDraftsDir,
+      resolvedDraftsDir,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: [`batchPlanCandidate.draftsDir must stay inside repoRoot: ${draftsDir}`],
+    });
+  }
+
+  try {
+    const review = await reviewStoredBatchPlanDraft({ draftsDir: resolvedDraftsDir, draftId });
+    const blockingReasons = review.prepareEligible
+      ? []
+      : review.violations.length > 0
+        ? [...review.violations]
+        : ["BatchPlanDraft review is not prepareEligible"];
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: blockingReasons.length === 0 ? "accepted" : "blocked",
+      gate: input.candidate.gate,
+      draftId,
+      draftsDir,
+      normalizedDraftsDir,
+      resolvedDraftsDir,
+      executionMode: input.candidate.executionMode,
+      review,
+      blockingReasons,
+    });
+  } catch (err) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      draftId,
+      draftsDir,
+      normalizedDraftsDir,
+      resolvedDraftsDir,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: [err instanceof Error ? err.message : String(err)],
+    });
+  }
+}
+
+async function buildBatchSpecCandidatePreflightReport(input: {
+  repoRoot: string;
+  artifactPath: string;
+  candidate: SequentialContinuationBatchPlanCandidate;
+}): Promise<SequentialContinuationBatchPlanPreflightReport> {
+  if (input.candidate.batchSpecPath) {
+    return buildBatchSpecPathPreflightReport(input);
+  }
+  return buildBatchSpecIdPreflightReport(input);
+}
+
+async function buildBatchSpecPathPreflightReport(input: {
+  repoRoot: string;
+  artifactPath: string;
+  candidate: SequentialContinuationBatchPlanCandidate;
+}): Promise<SequentialContinuationBatchPlanPreflightReport> {
+  const pathReasons: string[] = [];
+  const normalizedBatchSpecPath = normalizeBatchPlanCandidateLocalPath(
+    input.candidate.batchSpecPath,
+    "batchPlanCandidate.batchSpecPath",
+    pathReasons,
+  );
+  if (normalizedBatchSpecPath && !normalizedBatchSpecPath.endsWith(".json")) {
+    pathReasons.push(`batchPlanCandidate.batchSpecPath must end with .json: ${String(input.candidate.batchSpecPath)}`);
+  }
+  if (!normalizedBatchSpecPath || pathReasons.length > 0) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      batchSpecPath: input.candidate.batchSpecPath ?? null,
+      normalizedBatchSpecPath,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: pathReasons,
+    });
+  }
+
+  const resolvedBatchSpecPath = resolve(input.repoRoot, normalizedBatchSpecPath);
+  const readResult = await readBatchSpecCandidateFile({
+    repoRoot: input.repoRoot,
+    normalizedBatchSpecPath,
+    resolvedBatchSpecPath,
+  });
+  if (readResult.blockingReasons.length > 0 || !readResult.spec) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      batchSpecPath: input.candidate.batchSpecPath ?? null,
+      normalizedBatchSpecPath,
+      resolvedBatchSpecPath,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: readResult.blockingReasons,
+    });
+  }
+
+  return buildBatchSpecPreflightReport({
+    repoRoot: input.repoRoot,
+    artifactPath: input.artifactPath,
+    candidate: input.candidate,
+    normalizedBatchSpecPath,
+    resolvedBatchSpecPath,
+    spec: readResult.spec,
+  });
+}
+
+async function buildBatchSpecIdPreflightReport(input: {
+  repoRoot: string;
+  artifactPath: string;
+  candidate: SequentialContinuationBatchPlanCandidate;
+}): Promise<SequentialContinuationBatchPlanPreflightReport> {
+  const batchId = input.candidate.batchId ?? null;
+  const batchesDir = input.candidate.batchesDir ?? "references/batch-specs";
+  const pathReasons: string[] = [];
+  const normalizedBatchesDir = normalizeBatchPlanCandidateLocalPath(
+    batchesDir,
+    "batchPlanCandidate.batchesDir",
+    pathReasons,
+  );
+  if (!normalizedBatchesDir || pathReasons.length > 0 || batchId === null) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      batchId,
+      batchesDir,
+      normalizedBatchesDir,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: batchId === null ? ["batchPlanCandidate.batchId is required for batch_spec_preflight"] : pathReasons,
+    });
+  }
+
+  const resolvedBatchesDir = resolve(input.repoRoot, normalizedBatchesDir);
+  const repoRelative = relative(input.repoRoot, resolvedBatchesDir).replaceAll("\\", "/");
+  if (repoRelative === "" || repoRelative.startsWith("../") || repoRelative === ".." || isAbsolute(repoRelative)) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      batchId,
+      batchesDir,
+      normalizedBatchesDir,
+      resolvedBatchesDir,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: [`batchPlanCandidate.batchesDir must stay inside repoRoot: ${batchesDir}`],
+    });
+  }
+
+  try {
+    const record = await readBatchSpecRecordById({ batchesDir: resolvedBatchesDir, batchId });
+    const realPathReasons = await validateResolvedBatchSpecPath({
+      repoRoot: input.repoRoot,
+      normalizedBatchSpecPath: normalizePathForReport(record.path, input.repoRoot),
+      resolvedBatchSpecPath: record.path,
+    });
+    if (realPathReasons.length > 0) {
+      return buildBatchPlanPreflightReport({
+        artifactPath: input.artifactPath,
+        repoRoot: input.repoRoot,
+        status: "blocked",
+        gate: input.candidate.gate,
+        batchId,
+        batchesDir,
+        normalizedBatchesDir,
+        resolvedBatchesDir,
+        resolvedBatchSpecPath: record.path,
+        executionMode: input.candidate.executionMode,
+        blockingReasons: realPathReasons,
+      });
+    }
+    return buildBatchSpecPreflightReport({
+      repoRoot: input.repoRoot,
+      artifactPath: input.artifactPath,
+      candidate: input.candidate,
+      batchId,
+      batchesDir,
+      normalizedBatchesDir,
+      resolvedBatchesDir,
+      normalizedBatchSpecPath: normalizePathForReport(record.path, input.repoRoot),
+      resolvedBatchSpecPath: record.path,
+      spec: record.spec,
+    });
+  } catch (err) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      batchId,
+      batchesDir,
+      normalizedBatchesDir,
+      resolvedBatchesDir,
+      executionMode: input.candidate.executionMode,
+      blockingReasons: [err instanceof Error ? err.message : String(err)],
+    });
+  }
+}
+
+async function buildBatchSpecPreflightReport(input: {
+  repoRoot: string;
+  artifactPath: string;
+  candidate: SequentialContinuationBatchPlanCandidate;
+  batchId?: string | null;
+  batchesDir?: string | null;
+  normalizedBatchesDir?: string | null;
+  resolvedBatchesDir?: string | null;
+  normalizedBatchSpecPath: string;
+  resolvedBatchSpecPath: string;
+  spec: BatchSpec;
+}): Promise<SequentialContinuationBatchPlanPreflightReport> {
+  const repoRootReason = validateBatchSpecRepoRoot(input.spec, input.repoRoot);
+  if (repoRootReason.length > 0) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      batchSpecPath: input.candidate.batchSpecPath ?? null,
+      normalizedBatchSpecPath: input.normalizedBatchSpecPath,
+      resolvedBatchSpecPath: input.resolvedBatchSpecPath,
+      batchId: input.batchId ?? input.candidate.batchId ?? null,
+      batchesDir: input.batchesDir ?? input.candidate.batchesDir ?? null,
+      normalizedBatchesDir: input.normalizedBatchesDir ?? null,
+      resolvedBatchesDir: input.resolvedBatchesDir ?? null,
+      executionMode: input.candidate.executionMode,
+      batchSpecSummary: batchSpecSummaryForReport(input.spec),
+      blockingReasons: repoRootReason,
+    });
+  }
+
+  try {
+    const batchPreflight = await preflightBatchSpec(input.spec);
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: batchPreflight.mayDispatch ? "accepted" : "blocked",
+      gate: input.candidate.gate,
+      batchSpecPath: input.candidate.batchSpecPath ?? null,
+      normalizedBatchSpecPath: input.normalizedBatchSpecPath,
+      resolvedBatchSpecPath: input.resolvedBatchSpecPath,
+      batchId: input.batchId ?? input.candidate.batchId ?? null,
+      batchesDir: input.batchesDir ?? input.candidate.batchesDir ?? null,
+      normalizedBatchesDir: input.normalizedBatchesDir ?? null,
+      resolvedBatchesDir: input.resolvedBatchesDir ?? null,
+      executionMode: input.candidate.executionMode,
+      batchSpecSummary: batchSpecSummaryForReport(input.spec),
+      batchPreflight,
+      blockingReasons: batchPreflight.mayDispatch ? [] : [...batchPreflight.violations],
+    });
+  } catch (err) {
+    return buildBatchPlanPreflightReport({
+      artifactPath: input.artifactPath,
+      repoRoot: input.repoRoot,
+      status: "blocked",
+      gate: input.candidate.gate,
+      batchSpecPath: input.candidate.batchSpecPath ?? null,
+      normalizedBatchSpecPath: input.normalizedBatchSpecPath,
+      resolvedBatchSpecPath: input.resolvedBatchSpecPath,
+      batchId: input.batchId ?? input.candidate.batchId ?? null,
+      batchesDir: input.batchesDir ?? input.candidate.batchesDir ?? null,
+      normalizedBatchesDir: input.normalizedBatchesDir ?? null,
+      resolvedBatchesDir: input.resolvedBatchesDir ?? null,
+      executionMode: input.candidate.executionMode,
+      batchSpecSummary: batchSpecSummaryForReport(input.spec),
+      blockingReasons: [err instanceof Error ? err.message : String(err)],
+    });
+  }
+}
+
+async function readBatchSpecCandidateFile(input: {
+  repoRoot: string;
+  normalizedBatchSpecPath: string;
+  resolvedBatchSpecPath: string;
+}): Promise<{ spec: BatchSpec | null; blockingReasons: string[] }> {
+  const realPathReasons = await validateResolvedBatchSpecPath(input);
+  if (realPathReasons.length > 0) {
+    return { spec: null, blockingReasons: realPathReasons };
+  }
+
+  try {
+    return {
+      spec: JSON.parse(await readFile(input.resolvedBatchSpecPath, "utf8")) as BatchSpec,
+      blockingReasons: [],
+    };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return {
+        spec: null,
+        blockingReasons: [`batchPlanCandidate.batchSpecPath file not found: ${input.resolvedBatchSpecPath}`],
+      };
+    }
+    if (err instanceof SyntaxError) {
+      return {
+        spec: null,
+        blockingReasons: [`batchPlanCandidate.batchSpecPath JSON could not be parsed: ${err.message}`],
+      };
+    }
+    return {
+      spec: null,
+      blockingReasons: [`batchPlanCandidate.batchSpecPath could not be read: ${err instanceof Error ? err.message : String(err)}`],
+    };
+  }
+}
+
+async function validateResolvedBatchSpecPath(input: {
+  repoRoot: string;
+  normalizedBatchSpecPath: string;
+  resolvedBatchSpecPath: string;
+}): Promise<string[]> {
+  const resolvedRepoRelativePath = relative(input.repoRoot, input.resolvedBatchSpecPath).replaceAll("\\", "/");
+  if (
+    resolvedRepoRelativePath === "" ||
+    resolvedRepoRelativePath.startsWith("../") ||
+    resolvedRepoRelativePath === ".." ||
+    isAbsolute(resolvedRepoRelativePath)
+  ) {
+    return [`batchPlanCandidate.batchSpecPath must stay inside repoRoot: ${input.normalizedBatchSpecPath}`];
+  }
+
+  try {
+    const pathStat = await stat(input.resolvedBatchSpecPath);
+    if (!pathStat.isFile()) {
+      return [`batchPlanCandidate.batchSpecPath must point to a JSON file: ${input.resolvedBatchSpecPath}`];
+    }
+    const [repoRealPath, batchSpecRealPath] = await Promise.all([
+      realpath(input.repoRoot),
+      realpath(input.resolvedBatchSpecPath),
+    ]);
+    const realRepoRelativePath = relative(repoRealPath, batchSpecRealPath).replaceAll("\\", "/");
+    if (
+      realRepoRelativePath === "" ||
+      realRepoRelativePath.startsWith("../") ||
+      realRepoRelativePath === ".." ||
+      isAbsolute(realRepoRelativePath)
+    ) {
+      return [
+        `batchPlanCandidate.batchSpecPath must stay inside repoRoot after resolving symlinks: ${input.normalizedBatchSpecPath}`,
+      ];
+    }
+    return [];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return [`batchPlanCandidate.batchSpecPath file not found: ${input.resolvedBatchSpecPath}`];
+    }
+    return [`batchPlanCandidate.batchSpecPath could not be read: ${err instanceof Error ? err.message : String(err)}`];
+  }
+}
+
+function validateBatchSpecRepoRoot(spec: BatchSpec, repoRoot: string): string[] {
+  if (!isRecord(spec) || !isNonEmptyString(spec.repoRoot)) {
+    return [];
+  }
+  if (resolve(spec.repoRoot) !== repoRoot) {
+    return [`BatchSpec.repoRoot must match continuation repoRoot: ${spec.repoRoot}`];
+  }
+  return [];
+}
+
+function batchSpecSummaryForReport(spec: BatchSpec): SequentialContinuationBatchPlanPreflightReport["batchSpecSummary"] {
+  if (!isRecord(spec)) {
+    return null;
+  }
+  return {
+    batchId: typeof spec.batchId === "string" ? spec.batchId : "",
+    status: typeof spec.status === "string" ? spec.status : "",
+    taskCount: Array.isArray(spec.tasks) ? spec.tasks.length : 0,
+  };
 }
 
 function buildRunTaskPreflightReport(input: {
@@ -4536,7 +5349,7 @@ function validateForbiddenFieldNames(value: unknown, path = ""): string[] {
   const violations: string[] = [];
   for (const [key, nestedValue] of Object.entries(value)) {
     const fieldPath = path ? `${path}.${key}` : key;
-    if (isForbiddenFieldName(key) && !isAllowedReportFanoutFalseSideEffect(fieldPath, nestedValue)) {
+    if (isForbiddenFieldName(key) && !isAllowedContinuationFalseSideEffect(fieldPath, nestedValue)) {
       violations.push(`${fieldPath} field is not allowed in a sequential continuation artifact`);
     }
     violations.push(...validateForbiddenFieldNames(nestedValue, fieldPath));
@@ -4545,17 +5358,28 @@ function validateForbiddenFieldNames(value: unknown, path = ""): string[] {
   return violations;
 }
 
-function isAllowedReportFanoutFalseSideEffect(fieldPath: string, value: unknown): boolean {
+function isAllowedContinuationFalseSideEffect(fieldPath: string, value: unknown): boolean {
   if (value !== false) {
     return false;
   }
-  for (const prefix of [
-    "reportFanoutCandidate.expectedSideEffects.",
-    "reportFanoutSynthesis.expectedSideEffects.",
-  ]) {
+  const allowedPrefixes: Array<{ prefix: string; fields: Set<string> }> = [
+    {
+      prefix: "reportFanoutCandidate.expectedSideEffects.",
+      fields: REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS,
+    },
+    {
+      prefix: "reportFanoutSynthesis.expectedSideEffects.",
+      fields: REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS,
+    },
+    {
+      prefix: "batchPlanCandidate.expectedSideEffects.",
+      fields: BATCH_PLAN_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS,
+    },
+  ];
+  for (const { prefix, fields } of allowedPrefixes) {
     if (
       fieldPath.startsWith(prefix) &&
-      REPORT_FANOUT_CANDIDATE_EXPECTED_SIDE_EFFECT_FIELDS.has(fieldPath.slice(prefix.length))
+      fields.has(fieldPath.slice(prefix.length))
     ) {
       return true;
     }
@@ -4929,6 +5753,31 @@ function singleStepSideEffects(): SequentialContinuationSingleStepReport["sideEf
 function reportFanoutPreflightSideEffects(): SequentialContinuationReportFanoutPreflightReport["sideEffects"] {
   return {
     runTaskCalled: false,
+    batchesExecuteCalled: false,
+    workersDispatched: false,
+    worktreesCreated: false,
+    runsCreated: false,
+    lifecycleMutated: false,
+    mergePerformed: false,
+    cleanupPerformed: false,
+    commitPerformed: false,
+    pushPerformed: false,
+    successorExecuted: false,
+    daemonWatchStarted: false,
+    remoteAdapterCalled: false,
+    dashboardUpdated: false,
+    connectorExpansionPerformed: false,
+    hiddenMemoryWritten: false,
+    workerOwnedOrchestrationStarted: false,
+  };
+}
+
+function batchPlanPreflightSideEffects(): SequentialContinuationBatchPlanPreflightReport["sideEffects"] {
+  return {
+    runTaskCalled: false,
+    batchPlanPrepareCalled: false,
+    taskSpecsWritten: false,
+    batchSpecsWritten: false,
     batchesExecuteCalled: false,
     workersDispatched: false,
     worktreesCreated: false,
@@ -5850,6 +6699,7 @@ function buildReportBlockingReasons(input: {
   nextStep: { kind: string | null; value: string | null };
   nextArtifactLinkage?: SequentialContinuationNextArtifactReport;
   reportFanoutPreflight?: SequentialContinuationReportFanoutPreflightReport;
+  batchPlanPreflight?: SequentialContinuationBatchPlanPreflightReport;
   runTaskPreflight?: SequentialContinuationRunTaskPreflightReport;
   runAcceptPreflight?: SequentialContinuationRunAcceptPreflightReport;
 }): string[] {
@@ -5874,6 +6724,11 @@ function buildReportBlockingReasons(input: {
   if (input.reportFanoutPreflight?.status === "blocked") {
     for (const reason of input.reportFanoutPreflight.blockingReasons) {
       pushUnique(reasons, `reportFanoutCandidate: ${reason}`);
+    }
+  }
+  if (input.batchPlanPreflight?.status === "blocked") {
+    for (const reason of input.batchPlanPreflight.blockingReasons) {
+      pushUnique(reasons, `batchPlanCandidate: ${reason}`);
     }
   }
   if (input.runTaskPreflight?.status === "blocked") {
