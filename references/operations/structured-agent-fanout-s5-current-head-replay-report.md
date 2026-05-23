@@ -12,9 +12,13 @@ current-head replay status: blocked stale-base as expected
 
 trusted evidence path: runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json
 
-The replay exits non-zero at current `HEAD` because the fixture BatchSpec pins
-`baseCommit` `4f1b87966e45d8fabd72e3ba87c0c4a14ac50c56`, while current
-`HEAD` is `4120768e5acdeac95713a821bf9dd249cbff32d9`.
+The recorded replay is a point-in-time current-base check; later repository bases may also block when they differ from the pinned BatchSpec base.
+
+The replay exits non-zero when the repository base differs from the fixture
+BatchSpec's pinned baseCommit 4f1b87966e45d8fabd72e3ba87c0c4a14ac50c56.
+The trusted S5 accepted evidence remains the accepted worker run log, and
+later repository bases that differ from the pinned BatchSpec baseCommit are
+expected to block stale-base with all side effects false.
 
 The stale-base blocking reason is `repoRoot HEAD must match baseCommit before dispatch`.
 
