@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "structured-agent-fanout-s1-run-task",
+  "initiativePath": "references/initiatives/structured-agent-fanout-autopilot.md",
+  "createdAt": "2026-05-23T05:30:00.000Z",
+  "updatedAt": "2026-05-23T05:30:00.000Z",
+  "currentSlice": {
+    "id": "S1",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S0 design artifacts recorded in c6851d6"
+    ],
+    "targetFiles": [
+      "src/core/sequential-ceo-autopilot.ts",
+      "src/cli.ts",
+      "tests/sequential-ceo-autopilot.test.ts",
+      "references/initiatives/structured-agent-fanout-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "WORK-RULES.md",
+      "src/core/policy.ts",
+      "src/core/contracts.ts",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/**",
+      "references/tasks/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "bun test tests/sequential-ceo-autopilot.test.ts",
+      "bun test tests/cli.test.ts",
+      "bun run typecheck"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "S1 scope accepted by BK prompt."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S1 implements report-only validation/visibility only."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "TaskSpec and explicit handoff fields are present."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "Repo was clean before planning artifact creation."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "No worker run has occurred for S1 yet."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "S1 has not run yet."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed-evidence rework cycle has been spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S1 stays within the reviewed report-only validation boundary."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "Status will update only from run/accept evidence."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "path": "references/initiatives/structured-agent-fanout-autopilot.md",
+      "summary": "Defines S1 as reportFanoutCandidate validation/report-only visibility."
+    },
+    {
+      "path": "references/tasks/structured-agent-fanout-s1-report-fanout-candidate.json",
+      "summary": "S1 TaskSpec for SDK-backed worker execution."
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "bun run samantha continuation:run-task-once --artifact=references/operations/structured-agent-fanout-s1-run-task.json --repo-root=/Users/byung/Documents/samantha"
+  },
+  "nextArtifactPath": null,
+  "nextArtifactExpectedSliceId": null,
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s1-report-fanout-candidate.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "src/core/sequential-ceo-autopilot.ts",
+      "src/cli.ts",
+      "tests/sequential-ceo-autopilot.test.ts",
+      "references/initiatives/structured-agent-fanout-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "WORK-RULES.md",
+      "src/core/policy.ts",
+      "src/core/contracts.ts",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/**",
+      "references/tasks/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "bun test tests/sequential-ceo-autopilot.test.ts",
+      "bun test tests/cli.test.ts",
+      "bun run typecheck"
+    ],
+    "evidence": {
+      "taskSpecCommit": "fcc73034308dc9e6bf02c6222cb3e50d886da274",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "references/tasks/structured-agent-fanout-s1-report-fanout-candidate.json"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  },
+  "runTaskExecution": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s1-report-fanout-candidate.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_task",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "src/core/sequential-ceo-autopilot.ts",
+      "src/cli.ts",
+      "tests/sequential-ceo-autopilot.test.ts",
+      "references/initiatives/structured-agent-fanout-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "AGENTS.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "WORK-RULES.md",
+      "src/core/policy.ts",
+      "src/core/contracts.ts",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/**",
+      "references/tasks/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "bun test tests/sequential-ceo-autopilot.test.ts",
+      "bun test tests/cli.test.ts",
+      "bun run typecheck"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runTaskCalled": true,
+      "workersDispatched": true,
+      "worktreesCreated": true,
+      "runsCreated": true,
+      "deterministicVerification": true,
+      "batchesExecuteCalled": false,
+      "acceptPerformed": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
