@@ -1,0 +1,49 @@
+{
+  "id": "hook-system-s4-trust-gate-runner",
+  "title": "Implement trust-gate hook runner core",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-log.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement S4 from references/initiatives/samantha-hook-system.md: trust-gate hook runner core only. Keep changes limited to src/core/hooks.ts and tests/hooks.test.ts. Do not modify references/initiatives/samantha-hook-system.md. Do not add worker-dispatch integration, run-log integration, CLI integration, MCP, plugins, daemon/watch behavior, remote behavior, repository hook artifacts, task templates, policies, lifecycle records, or commits from the worker. Build on the existing hook policy loader, advisory runner, bounded hook process execution, HookResult schema validation, and repo mutation evidence. Add a trust-gate runner API, for example runTrustGateHooks(input), with input shaped like runAdvisoryHooks plus an optional eventTimeoutMs or equivalent runner-only total event budget. The runner must accept only task_spec.preflight and worker.pre_dispatch; non-trust events must be rejected or returned as blocked evidence without executing hooks, whichever is simplest and deterministic. If loadedPolicy is disabled/missing or no matching trust_gate hooks exist, the final gate result must allow with empty evidence. The trust-gate runner must execute only matching trust_gate hooks and must never execute advisory hooks.\n\nTrust-gate behavior is fail-closed. The final gate result should be a separate object from per-hook evidence, with a final decision allow or block, a clear summary, and evidence showing which hook caused a block. Preserve HookResult status/decision consistency validation: timed_out, schema_invalid, and advisory_failed evidence should keep decision none; blocked evidence should keep decision block; passed evidence may keep decision allow or none at the generic schema level. For the final trust-gate decision, allow only when every executed trust hook returns parsed status passed with decision allow, repo mutation detection is ok with no created/modified/deleted paths, and no timeout/non-zero/schema/context/mutation detection/event-budget problem occurred. Treat passed + none as a final trust-gate block because it is not an explicit allow. Treat blocked + block as final block. Treat command timeout, SIGTERM-ignoring timeout, non-zero exit, invalid JSON, invalid HookResult schema, context size overflow, detected repo mutation, and mutation detection status failed/timed_out/not_git as final block. Use the existing bounded SIGTERM then SIGKILL process behavior for per-hook execution.\n\nLimit execution cost. Trust hooks must run serially, must short-circuit at the first block/failure, must not retry, must not run in parallel, and must not add dynamic dispatch. Add a total per-event budget without changing hook policy schema. If eventTimeoutMs is supplied, use the remaining event budget as an upper bound for each hook execution, for example effectiveTimeoutMs = min(hook.timeoutMs, remaining event budget), and report the effective timeout in evidence. If the total event budget is exhausted before another hook can run, return a final block with clear evidence and do not execute further hooks. Use a conservative internal default when eventTimeoutMs is absent.\n\nAdd focused tests in tests/hooks.test.ts proving: disabled/missing policy allows with empty evidence; no matching trust_gate hook allows with empty evidence; passed + allow allows; blocked + block blocks; passed + none blocks; timeout blocks; SIGTERM-ignoring timeout blocks with bounded completion; non-zero exit blocks; invalid JSON and invalid HookResult schema block; context size overflow blocks; repo file mutation blocks; mutation detection failure/timed_out/not_git path blocks if reachable through a deterministic test; multiple trust hooks run serially and short-circuit after the first block; advisory hooks are not executed by the trust-gate runner. Existing advisory runner behavior and tests must keep passing.",
+  "expectedCommitSubject": "feat: add trust-gate hook runner",
+  "status": "pending"
+}
