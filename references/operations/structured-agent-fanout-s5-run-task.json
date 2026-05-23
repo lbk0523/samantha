@@ -120,7 +120,7 @@
     {
       "id": "forbidden_capability_required",
       "active": false,
-      "evidence": "S5 forbids BatchPlan prepare, batch execution, dispatch, lifecycle mutation, push, and hidden memory."
+      "evidence": "S5 remains report-only and keeps batch, worker, state-change, push, and hidden-memory side effects false."
     },
     {
       "id": "ambiguous_evidence_update",
