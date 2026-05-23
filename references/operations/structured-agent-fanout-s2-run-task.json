@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "structured-agent-fanout-s2-run-task",
+  "initiativePath": "references/initiatives/structured-agent-fanout-autopilot.md",
+  "createdAt": "2026-05-23T08:00:00.000Z",
+  "updatedAt": "2026-05-23T08:00:00.000Z",
+  "currentSlice": {
+    "id": "S2",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S1 reportFanoutCandidate validation/report-only visibility has current-base evidence d857d2a"
+    ],
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+      "references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+      "references/operations/structured-agent-fanout-s2-dogfood-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s2-run-task.json",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+      "test -f references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+      "test -f references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-accepted-candidate.json --repo-root=/Users/byung/Documents/samantha",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-blocked-candidate.json --repo-root=/Users/byung/Documents/samantha > /tmp/structured-agent-fanout-s2-blocked-show.txt 2>&1; then exit 1; else grep -F \"\\\"status\\\": \\\"blocked\\\"\" /tmp/structured-agent-fanout-s2-blocked-show.txt; fi'",
+      "grep -F 'accepted reportFanoutPreflight.status: accepted' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'blocked reportFanoutPreflight.status: blocked' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'side effects false: runTaskCalled=false, batchesExecuteCalled=false, workersDispatched=false, worktreesCreated=false, runsCreated=false, lifecycleMutated=false, mergePerformed=false, cleanupPerformed=false, commitPerformed=false, pushPerformed=false, successorExecuted=false' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'S2 decision: S1 dogfood passed' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'Next continuation state: S3 ready' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s2-accepted-candidate.json references/operations/structured-agent-fanout-s2-blocked-candidate.json references/operations/structured-agent-fanout-s2-dogfood-report.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "BK requested continuation from S2 through the reviewed roadmap."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "S2 is report-only dogfood of reviewed S1 visibility; it does not add execution authority."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "S2 TaskSpec and continuation handoff name concrete target files, forbidden changes, and verification commands."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "S2 will use the current clean TaskSpec base."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "No S2 worker run has occurred yet; HARNESS_RESULT is required before acceptance."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "No S2 scope check has occurred yet."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No S2 failed evidence cycle has been spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "S2 stays inside reviewed report-only visibility."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "S2 status will be trusted only after run evidence and accept evidence."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "path": "runs/2026-05-23T07-15-58-998Z-structured-agent-fanout-s1-current-head-recovery.json",
+      "summary": "Accepted current-base S1 run log with HARNESS_RESULT pass."
+    },
+    {
+      "path": "references/tasks/structured-agent-fanout-s2-dogfood-report-fanout-candidate.json",
+      "summary": "S2 dogfood TaskSpec evidence."
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "bun run samantha continuation:run-task-once --artifact=references/operations/structured-agent-fanout-s2-run-task.json --repo-root=/Users/byung/Documents/samantha"
+  },
+  "nextArtifactPath": null,
+  "nextArtifactExpectedSliceId": null,
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s2-dogfood-report-fanout-candidate.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+      "references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+      "references/operations/structured-agent-fanout-s2-dogfood-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s2-run-task.json",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+      "test -f references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+      "test -f references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-accepted-candidate.json --repo-root=/Users/byung/Documents/samantha",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-blocked-candidate.json --repo-root=/Users/byung/Documents/samantha > /tmp/structured-agent-fanout-s2-blocked-show.txt 2>&1; then exit 1; else grep -F \"\\\"status\\\": \\\"blocked\\\"\" /tmp/structured-agent-fanout-s2-blocked-show.txt; fi'",
+      "grep -F 'accepted reportFanoutPreflight.status: accepted' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'blocked reportFanoutPreflight.status: blocked' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'side effects false: runTaskCalled=false, batchesExecuteCalled=false, workersDispatched=false, worktreesCreated=false, runsCreated=false, lifecycleMutated=false, mergePerformed=false, cleanupPerformed=false, commitPerformed=false, pushPerformed=false, successorExecuted=false' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'S2 decision: S1 dogfood passed' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'Next continuation state: S3 ready' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s2-accepted-candidate.json references/operations/structured-agent-fanout-s2-blocked-candidate.json references/operations/structured-agent-fanout-s2-dogfood-report.md"
+    ],
+    "evidence": {
+      "taskSpecCommit": "0fd86a11105886311c4c618b4a947380b1f9b5dd",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "references/tasks/structured-agent-fanout-s2-dogfood-report-fanout-candidate.json"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  },
+  "runTaskExecution": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s2-dogfood-report-fanout-candidate.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_task",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+      "references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+      "references/operations/structured-agent-fanout-s2-dogfood-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/tasks/**",
+      "references/task-templates/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s2-run-task.json",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/structured-agent-fanout-s2-accepted-candidate.json",
+      "test -f references/operations/structured-agent-fanout-s2-blocked-candidate.json",
+      "test -f references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-accepted-candidate.json --repo-root=/Users/byung/Documents/samantha",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s2-blocked-candidate.json --repo-root=/Users/byung/Documents/samantha > /tmp/structured-agent-fanout-s2-blocked-show.txt 2>&1; then exit 1; else grep -F \"\\\"status\\\": \\\"blocked\\\"\" /tmp/structured-agent-fanout-s2-blocked-show.txt; fi'",
+      "grep -F 'accepted reportFanoutPreflight.status: accepted' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'blocked reportFanoutPreflight.status: blocked' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'side effects false: runTaskCalled=false, batchesExecuteCalled=false, workersDispatched=false, worktreesCreated=false, runsCreated=false, lifecycleMutated=false, mergePerformed=false, cleanupPerformed=false, commitPerformed=false, pushPerformed=false, successorExecuted=false' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'S2 decision: S1 dogfood passed' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "grep -F 'Next continuation state: S3 ready' references/operations/structured-agent-fanout-s2-dogfood-report.md",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s2-accepted-candidate.json references/operations/structured-agent-fanout-s2-blocked-candidate.json references/operations/structured-agent-fanout-s2-dogfood-report.md"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runTaskCalled": true,
+      "workersDispatched": true,
+      "worktreesCreated": true,
+      "runsCreated": true,
+      "deterministicVerification": true,
+      "batchesExecuteCalled": false,
+      "acceptPerformed": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
