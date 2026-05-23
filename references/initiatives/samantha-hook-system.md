@@ -1,6 +1,6 @@
 # Initiative: Samantha Hook System
 
-Status: planned
+Status: S1-S5 runner/log support implemented; runtime dispatch integration planned
 Source: Samantha hook-system planning discussion, 2026-05-23
 Last updated: 2026-05-23
 
@@ -17,6 +17,7 @@ a task spec and does not authorize implementation by itself.
 ## Product Principles
 
 - Hooks are repository artifacts, not hidden memory or local machine state.
+- V1 hooks are reviewed repo artifact commands, not an untrusted plugin sandbox.
 - Hooks extend Samantha's loop; they do not replace Samantha's loop.
 - Trust gates fail closed. Advisory helpers fail open and record evidence.
 - Hook output is evidence or guidance, not authority by itself.
@@ -33,10 +34,14 @@ a task spec and does not authorize implementation by itself.
 - Failure behavior is mixed:
   - trust-gate hooks fail closed;
   - advisory hooks fail open and record their failure in run evidence.
-- Context injection is allowed, with explicit size and source boundaries.
-- Hooks must not write repo, source, task, profile, policy, or docs files.
-- If hook output needs persistence, Samantha core records it in run evidence
-  instead of letting hooks write files.
+- Context injection is allowed, with explicit size and source boundaries. This
+  controls what Samantha sends to hooks; it is not a repository file-read
+  sandbox.
+- Hooks must not write repo, source, task, profile, policy, or docs files. V1
+  enforces this as mutation evidence and trust-gate fail-closed behavior, not as
+  a complete pre-execution write sandbox.
+- If hook output needs persistence, Samantha core owns recording it in run
+  evidence instead of letting hooks write files.
 - Raw stdout is retained during the initial one-week dogfood period, then
   reconsidered with run evidence.
 - MCP is a separate future capability after the hook system proves its local
@@ -50,7 +55,8 @@ a task spec and does not authorize implementation by itself.
   policy, doctrine, lifecycle, or promotion authority.
 - No hook authority to mutate repository files, task specs, agent profiles,
   policy files, docs, source files, run logs, or lifecycle records.
-- No general plugin marketplace or MCP server integration in the first version.
+- No OS-level read sandbox, strict repository file-read allowlist, general
+  plugin marketplace, or MCP server integration in the first version.
 - No hidden learning, automatic promotion, or automatic policy rewrite.
 - No replacement of task specs, `HARNESS_RESULT`, scope checks, deterministic
   verification, run logs, or Samantha-owned commits.
@@ -95,20 +101,24 @@ event name, event version, and a bounded context object.
 
 ## Event Permissions
 
-| Event | First-version permission | Failure behavior |
+| Event | First-version injected boundary | Failure behavior |
 | --- | --- | --- |
-| `request.classified` | Read injected context, emit advisory result | Fail open |
-| `task_spec.drafted` | Read injected context, emit advisory result | Fail open |
-| `task_spec.preflight` | Read injected context, emit allow/block result | Fail closed |
-| `worker.pre_dispatch` | Read injected context, emit allow/block result | Fail closed |
-| `worker.completed` | Read injected context, emit advisory result | Fail open |
-| `verification.completed` | Read injected context, emit advisory result | Fail open |
-| `run.completed` | Read injected context, emit advisory result | Fail open |
+| `request.classified` | Receive bounded injected context, emit advisory result | Fail open |
+| `task_spec.drafted` | Receive bounded injected context, emit advisory result | Fail open |
+| `task_spec.preflight` | Receive bounded injected context, emit allow/block result | Fail closed |
+| `worker.pre_dispatch` | Receive bounded injected context, emit allow/block result | Fail closed |
+| `worker.completed` | Receive bounded injected context, emit advisory result | Fail open |
+| `verification.completed` | Receive bounded injected context, emit advisory result | Fail open |
+| `run.completed` | Receive bounded injected context, emit advisory result | Fail open |
 
-Hooks may read only the files Samantha explicitly injects or explicitly permits
-for the event. Hooks must not write repository files. File writes outside the
-repository are also out of scope for the first version except process-local
-temporary files created by the hook command and discarded by the command itself.
+These entries describe injected context and authority-bearing output only. V1
+hook commands execute as reviewed repository commands from the repository root
+cwd. Samantha does not technically prevent those commands from opening other
+repository files in V1.
+
+Hooks must not write repository files. File writes outside the repository are
+also out of scope for the first version except process-local temporary files
+created by the hook command and discarded by the command itself.
 
 ## Context Injection Boundary
 
@@ -118,13 +128,48 @@ without scraping repository state. The boundary is:
 - Samantha selects the context fields.
 - Samantha caps the serialized context size.
 - Samantha records which context keys were provided.
-- Hooks receive context as structured input plus a repo-root cwd.
+- Hooks receive context as structured stdin input while the command runs from
+  the repository root cwd for predictable relative paths.
 - Hooks may not request additional authority from inside the run.
 - Hooks may not persist injected context except by returning structured output
   that Samantha chooses to include in run evidence.
 
 Sensitive fields, credentials, connector data, hidden memory, and arbitrary
 transcripts are not valid context sources for the first version.
+
+## File Read Boundary
+
+V1 separates context injection from file reads. Samantha chooses and caps the
+structured context sent to hooks, but hook commands run as local subprocesses
+from the repository root and are not enclosed in an OS-level read sandbox or
+strict file-read allowlist.
+
+The MVP relies on reviewable hook artifacts, narrow hook definitions, bounded
+injected context, stdout caps, status and decision validation, timeout-bounded
+completion, mutation evidence, and run evidence. A technical read sandbox or
+repository file-read allowlist is a future capability if dogfood evidence shows
+it is needed.
+
+## Current S1-S5 Guarantees
+
+The current S1-S5 implementation guarantees runner APIs and optional run-log
+support, not automatic hook dispatch during Samantha runtime flows:
+
+- bounded injected context for hook runner calls;
+- hook commands run from the repository root cwd when invoked through the hook
+  runner;
+- timeout-bounded completion with SIGTERM/SIGKILL escalation;
+- capped stdout;
+- parsed status and decision validation;
+- mixed failure behavior: trust gates fail closed, advisory hooks fail open
+  with evidence;
+- repository mutation evidence, with trust-gate mutation evidence treated as
+  fail closed;
+- optional run-log shape and readers for hook evidence when supplied.
+
+S1-S5 did not integrate hook execution into `run-task`, worker dispatch, CLI, or
+lifecycle flows. Hook evidence can be recorded by Samantha core once runtime
+integration supplies hook results.
 
 ## Repo Artifact Structure
 
@@ -196,19 +241,22 @@ stdout evidence during dogfood, not in authority-bearing fields.
 
 ## Run Evidence Model
 
-Samantha core records hook evidence alongside the existing run evidence:
+S1-S5 provides optional run-log shape and readers for hook evidence when
+supplied. Once runtime dispatch integration supplies hook results, Samantha core
+can record hook evidence alongside the existing run evidence:
 
 - hook policy path and digest;
 - hook definition paths and digests;
 - event name and event version;
 - injected context key list and serialized size;
 - command cwd;
-- timeout and duration;
+- timeout, duration, and SIGTERM/SIGKILL completion evidence when needed;
 - exit status;
 - parsed result status;
 - allow/block decision for trust gates;
 - advisory summary for advisory hooks;
 - capped raw stdout during the one-week dogfood;
+- repository mutation evidence;
 - schema violation and timeout details when present.
 
 Hook evidence enriches the run log. It must not replace `HARNESS_RESULT`,
@@ -221,7 +269,8 @@ records, or Samantha-owned commit/report evidence.
 | --- | --- | --- | --- |
 | Hook policy reference location | Keep hook authority visible and reviewable. | Hook config changes become repo changes with normal review and scope gates. | Use `references/hooks/hook-policy.json` as the first policy location. |
 | Command cwd | Make relative paths predictable and avoid per-hook path ambiguity. | Hooks that need another cwd must pass explicit paths instead of changing cwd. | Run hook commands from the repository root. |
-| File read scope | Prevent hooks from becoming unbounded repository crawlers. | Some useful hooks will need context fields added by Samantha instead of reading directly. | Permit only injected context plus event-specific allowlisted repo paths. |
+| File read boundary | Keep context injection narrow without claiming process-level read enforcement. | V1 reviewed hook commands run from repo root and may technically read repository files. | Treat strict file-read allowlists or OS-level read sandboxing as a future capability if dogfood evidence justifies it. |
+| Mutation boundary | Preserve the no-write product rule. | V1 records mutation evidence and trust-gate mutations fail closed; stronger hardening may be needed before broader dogfood or pre-dispatch reliance. | Keep hooks non-writing, and add pre-dispatch or dogfood hardening only as a separate implementation slice. |
 | Timeout and default failure behavior | Bound latency while preserving trust gates. | Slow trust gates block; slow advisory hooks produce evidence but do not block. | Default to a small timeout, fail closed for trust gates, and fail open for advisory hooks. |
 | Raw stdout cap | Preserve dogfood evidence without letting logs balloon. | Long outputs are truncated, so hooks must use structured summaries for important findings. | Keep capped raw stdout for one week; start with a conservative cap such as 16 KiB per hook result. |
 | Context injection size cap | Keep prompts and subprocess input bounded. | Hooks may need narrower context rather than full run state. | Cap serialized context per hook; start conservatively and record actual sizes during dogfood. |
