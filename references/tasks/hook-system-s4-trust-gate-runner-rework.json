@@ -1,0 +1,49 @@
+{
+  "id": "hook-system-s4-trust-gate-runner-rework",
+  "title": "Rework trust-gate hook runner pre-execution fail-closed safety",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-log.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Rework S4 from references/initiatives/samantha-hook-system.md. The previous candidate commit 2c94d23471263a9cecbade58f4f884b501c3b7d3 passed tests but must not be accepted as-is because the trust-gate runner still executes a hook command when the pre-command repo mutation snapshot reports not_git, failed, or timed_out. That is not fail-closed enough for a write-prohibited trust gate: if Samantha cannot verify repository mutations before running a trust-gate hook, the hook command must not execute. You may use git cherry-pick --no-commit 2c94d23471263a9cecbade58f4f884b501c3b7d3 as a starting point, then make the rework below. Do not commit from the worker; Samantha will commit after gates pass.\n\nKeep the intended S4 feature: trust-gate hook runner core only. Keep changes limited to src/core/hooks.ts and tests/hooks.test.ts. Do not modify references/initiatives/samantha-hook-system.md. Do not add worker-dispatch integration, run-log integration, CLI integration, MCP, plugin, daemon/watch behavior, remote behavior, repository hook artifacts, task templates, policies, lifecycle records, or worker commits. Preserve existing advisory runner fail-open behavior.\n\nRequired rework 1: pre-execution mutation detection must fail closed. For trust-gate execution only, read the repo mutation snapshot before executing the hook. If that pre-command snapshot is not ok, return final block without executing the hook command. The evidence must make it clear which hook was blocked, must include repoMutations.detection as not_git, failed, or timed_out, and must keep per-hook evidence decision none. Do not let this change advisory behavior: advisory hooks may still run and record mutation detection failures as fail-open evidence.\n\nRequired rework 2: keep post-execution mutation detection fail closed. If the hook command runs and the post-command mutation snapshot reports failed, timed_out, or not_git, final trust gate must block. If the hook command creates, modifies, or deletes repo files, final trust gate must block. This must remain evidence only in advisory runner.\n\nRequired rework 3: cover both trust-gate events. Add a focused worker.pre_dispatch trust-gate test proving a matching trust_gate hook can allow that event. Keep task_spec.preflight coverage.\n\nRequired rework 4: preserve the rest of S4 behavior. Disabled/missing policy and no matching trust_gate hook allow with empty evidence. The runner executes only matching trust_gate hooks and never advisory hooks. Trust hooks run serially, short-circuit on first block/failure, use existing bounded SIGTERM then SIGKILL process handling, and obey per-hook timeout plus total event budget without schema changes. Final allow requires every executed hook to return parsed status passed with decision allow and clean mutation evidence. passed + none must final-block. blocked + block must final-block. Timeout, SIGTERM-ignoring timeout, non-zero exit, invalid JSON, invalid HookResult schema, context size overflow, detected repo mutation, pre-mutation detection failure, post-mutation detection failure, and exhausted event budget must final-block.\n\nAdd or update focused tests proving: pre-command not_git mutation detection blocks without executing the hook command; worker.pre_dispatch passed + allow allows; existing S4 tests still prove allow, block, passed + none block, timeout block, SIGTERM-ignoring timeout block, non-zero block, invalid JSON/schema block, context size block, repo mutation block, short-circuit, advisory hooks skipped by trust runner, and existing advisory tests pass.",
+  "expectedCommitSubject": "feat: add trust-gate hook runner",
+  "status": "pending"
+}
