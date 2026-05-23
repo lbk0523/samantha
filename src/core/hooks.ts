@@ -1,5 +1,7 @@
-import { readFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 
 export const HOOK_SCHEMA_VERSION = 1;
 export const HOOK_POLICY_PATH = "references/hooks/hook-policy.json";
@@ -34,10 +36,15 @@ export type HookResultStatus = (typeof HOOK_RESULT_STATUSES)[number];
 export const HOOK_STDOUT_MODES = ["none", "capped"] as const;
 export type HookStdoutMode = (typeof HOOK_STDOUT_MODES)[number];
 
+export const HOOK_DECISIONS = ["allow", "block", "none"] as const;
+export type HookDecision = (typeof HOOK_DECISIONS)[number];
+
 export const MIN_HOOK_TIMEOUT_MS = 100;
 export const DEFAULT_HOOK_TIMEOUT_MS = 5_000;
 export const MAX_HOOK_TIMEOUT_MS = 60_000;
 export const MAX_HOOK_STDOUT_BYTES = 16_384;
+export const MAX_HOOK_CONTEXT_BYTES = 16_384;
+export const HOOK_EVENT_VERSION = 1;
 
 export interface HookStdoutPolicy {
   mode: HookStdoutMode;
@@ -90,13 +97,71 @@ export interface LoadedHookPolicy {
   eventDefaults: Record<HookEvent, HookEventDefault>;
 }
 
+export interface HookResult {
+  hookId: string;
+  event: HookEvent;
+  status: HookResultStatus;
+  decision: HookDecision;
+  summary: string;
+  structuredFindings?: unknown;
+  stdoutExcerpt?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
+}
+
+export interface RunAdvisoryHooksInput {
+  repoRoot: string;
+  loadedPolicy: LoadedHookPolicy;
+  event: HookEvent;
+  runId: string;
+  context: Record<string, unknown>;
+}
+
+export interface HookRunEvidence {
+  hookId: string;
+  event: HookEvent;
+  command: string[];
+  cwd: string;
+  status: HookResultStatus;
+  decision: HookDecision;
+  summary: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  exitCode: number | null;
+  stdout: string;
+  stdoutTruncated: boolean;
+  stderr: string;
+  stderrTruncated: boolean;
+  timedOut: boolean;
+  timeoutMs: number;
+  timeoutDetails: string | null;
+  schemaViolations: string[];
+  contextKeys: string[];
+  contextBytes: number;
+}
+
 const HOOK_EVENT_SET = new Set<HookEvent>(HOOK_EVENTS);
 const HOOK_MODE_SET = new Set<HookMode>(HOOK_MODES);
 const HOOK_FAILURE_BEHAVIOR_SET = new Set<HookFailureBehavior>(HOOK_FAILURE_BEHAVIORS);
 const HOOK_RESULT_STATUS_SET = new Set<HookResultStatus>(HOOK_RESULT_STATUSES);
 const HOOK_STDOUT_MODE_SET = new Set<HookStdoutMode>(HOOK_STDOUT_MODES);
+const HOOK_DECISION_SET = new Set<HookDecision>(HOOK_DECISIONS);
 
 const TRUST_GATE_EVENTS = new Set<HookEvent>(["task_spec.preflight", "worker.pre_dispatch"]);
+const HOOK_RESULT_FIELDS = new Set([
+  "hookId",
+  "event",
+  "status",
+  "decision",
+  "summary",
+  "structuredFindings",
+  "stdoutExcerpt",
+  "startedAt",
+  "finishedAt",
+  "durationMs",
+]);
 const HOOK_POLICY_FIELDS = new Set(["schemaVersion", "enabled", "hooks", "eventDefaults", "disabledHooks"]);
 const HOOK_EVENT_DEFAULT_FIELDS = new Set(["mode", "failureBehavior", "timeoutMs"]);
 const DISABLED_HOOK_FIELDS = new Set(["id", "reason"]);
@@ -211,6 +276,24 @@ export async function loadHookPolicy(input: HookPolicyLoadInput): Promise<Loaded
   };
 }
 
+export async function runAdvisoryHooks(input: RunAdvisoryHooksInput): Promise<HookRunEvidence[]> {
+  if (input.loadedPolicy.status !== "enabled") {
+    return [];
+  }
+
+  const repoRoot = await realpath(resolve(input.repoRoot));
+  const hooks = input.loadedPolicy.hooks.filter(
+    (hook) => hook.mode === "advisory" && hook.events.includes(input.event),
+  );
+  const evidence: HookRunEvidence[] = [];
+
+  for (const hook of hooks) {
+    evidence.push(await runAdvisoryHook({ ...input, repoRoot, hook }));
+  }
+
+  return evidence;
+}
+
 export function validateHookPolicy(input: unknown): string[] {
   if (!isRecord(input)) {
     return ["hook policy must be an object"];
@@ -279,6 +362,70 @@ export function isHookFailureBehavior(value: unknown): value is HookFailureBehav
   return typeof value === "string" && HOOK_FAILURE_BEHAVIOR_SET.has(value as HookFailureBehavior);
 }
 
+export function isHookDecision(value: unknown): value is HookDecision {
+  return typeof value === "string" && HOOK_DECISION_SET.has(value as HookDecision);
+}
+
+async function runAdvisoryHook(
+  input: Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & { repoRoot: string; hook: HookDefinition },
+): Promise<HookRunEvidence> {
+  const hookInput = buildHookProcessInput(input);
+  if (hookInput.contextBytes > MAX_HOOK_CONTEXT_BYTES) {
+    return contextTooLargeEvidence(input, hookInput);
+  }
+
+  const processResult = await runHookProcess({
+    command: input.hook.command,
+    cwd: input.repoRoot,
+    stdin: hookInput.stdin,
+    timeoutMs: input.hook.timeoutMs,
+    stdoutPolicy: input.hook.stdout,
+  });
+
+  if (processResult.timedOut) {
+    return {
+      ...baseEvidence(input, hookInput, processResult),
+      status: "timed_out",
+      decision: "none",
+      summary: `Hook timed out after ${input.hook.timeoutMs}ms.`,
+      timeoutDetails: `command exceeded timeoutMs=${input.hook.timeoutMs}`,
+      schemaViolations: [],
+    };
+  }
+
+  if (processResult.exitCode !== 0) {
+    return {
+      ...baseEvidence(input, hookInput, processResult),
+      status: "advisory_failed",
+      decision: "none",
+      summary: `Hook command exited with code ${processResult.exitCode ?? "unknown"}.`,
+      timeoutDetails: null,
+      schemaViolations: [],
+    };
+  }
+
+  const parsed = parseHookResult(processResult.stdoutForParsing, input.hook, input.event);
+  if (parsed.status === "invalid") {
+    return {
+      ...baseEvidence(input, hookInput, processResult),
+      status: "schema_invalid",
+      decision: "none",
+      summary: "Hook result schema invalid.",
+      timeoutDetails: null,
+      schemaViolations: parsed.violations,
+    };
+  }
+
+  return {
+    ...baseEvidence(input, hookInput, processResult),
+    status: parsed.result.status,
+    decision: parsed.result.decision,
+    summary: parsed.result.summary,
+    timeoutDetails: null,
+    schemaViolations: [],
+  };
+}
+
 async function readHookDefinition(definitionDir: string, hookId: string): Promise<HookDefinition> {
   const path = join(definitionDir, `${hookId}.json`);
   const definitionJson = await readRequiredJson(path, `referenced hook definition missing: ${hookId}`);
@@ -318,6 +465,291 @@ async function readRequiredJson(path: string, missingMessage: string): Promise<u
     }
     throw err;
   }
+}
+
+function buildHookProcessInput(input: {
+  repoRoot: string;
+  hook: HookDefinition;
+  event: HookEvent;
+  runId: string;
+  context: Record<string, unknown>;
+}): { stdin: string; contextKeys: string[]; contextBytes: number } {
+  const context: Record<string, unknown> = {};
+  for (const key of input.hook.contextKeys) {
+    if (Object.prototype.hasOwnProperty.call(input.context, key)) {
+      context[key] = input.context[key];
+    }
+  }
+
+  const payload = {
+    schemaVersion: HOOK_SCHEMA_VERSION,
+    eventVersion: HOOK_EVENT_VERSION,
+    runId: input.runId,
+    repoRoot: input.repoRoot,
+    hookId: input.hook.id,
+    event: input.event,
+    context,
+  };
+  const stdin = `${JSON.stringify(payload)}\n`;
+  return {
+    stdin,
+    contextKeys: Object.keys(context),
+    contextBytes: Buffer.byteLength(stdin, "utf8"),
+  };
+}
+
+function contextTooLargeEvidence(
+  input: Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & { repoRoot: string; hook: HookDefinition },
+  hookInput: { contextKeys: string[]; contextBytes: number },
+): HookRunEvidence {
+  const startedAt = new Date().toISOString();
+  return {
+    hookId: input.hook.id,
+    event: input.event,
+    command: input.hook.command,
+    cwd: input.repoRoot,
+    status: "schema_invalid",
+    decision: "none",
+    summary: `Hook context exceeded ${MAX_HOOK_CONTEXT_BYTES} bytes.`,
+    startedAt,
+    finishedAt: startedAt,
+    durationMs: 0,
+    exitCode: null,
+    stdout: "",
+    stdoutTruncated: false,
+    stderr: "",
+    stderrTruncated: false,
+    timedOut: false,
+    timeoutMs: input.hook.timeoutMs,
+    timeoutDetails: null,
+    schemaViolations: [`hook context must be at most ${MAX_HOOK_CONTEXT_BYTES} bytes`],
+    contextKeys: hookInput.contextKeys,
+    contextBytes: hookInput.contextBytes,
+  };
+}
+
+function baseEvidence(
+  input: Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & { repoRoot: string; hook: HookDefinition },
+  hookInput: { contextKeys: string[]; contextBytes: number },
+  processResult: HookProcessResult,
+): Omit<HookRunEvidence, "status" | "decision" | "summary" | "timeoutDetails" | "schemaViolations"> {
+  return {
+    hookId: input.hook.id,
+    event: input.event,
+    command: input.hook.command,
+    cwd: input.repoRoot,
+    startedAt: processResult.startedAt,
+    finishedAt: processResult.finishedAt,
+    durationMs: processResult.durationMs,
+    exitCode: processResult.exitCode,
+    stdout: processResult.stdout,
+    stdoutTruncated: processResult.stdoutTruncated,
+    stderr: processResult.stderr,
+    stderrTruncated: processResult.stderrTruncated,
+    timedOut: processResult.timedOut,
+    timeoutMs: input.hook.timeoutMs,
+    contextKeys: hookInput.contextKeys,
+    contextBytes: hookInput.contextBytes,
+  };
+}
+
+interface HookProcessInput {
+  command: string[];
+  cwd: string;
+  stdin: string;
+  timeoutMs: number;
+  stdoutPolicy: HookStdoutPolicy;
+}
+
+interface HookProcessResult {
+  exitCode: number | null;
+  stdout: string;
+  stdoutForParsing: string;
+  stdoutTruncated: boolean;
+  stderr: string;
+  stderrTruncated: boolean;
+  timedOut: boolean;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+}
+
+async function runHookProcess(input: HookProcessInput): Promise<HookProcessResult> {
+  const startedAt = new Date().toISOString();
+  const startedAtMs = performance.now();
+  const stdoutEvidence = new CappedOutput(outputLimit(input.stdoutPolicy));
+  const stdoutForParsing = new CappedOutput(MAX_HOOK_STDOUT_BYTES);
+  const stderrEvidence = new CappedOutput(outputLimit(input.stdoutPolicy));
+  let timedOut = false;
+
+  return await new Promise((resolveProcess) => {
+    const child = spawn(input.command[0], input.command.slice(1), {
+      cwd: input.cwd,
+      env: hookSubprocessEnv(),
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, input.timeoutMs);
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdoutEvidence.append(chunk);
+      stdoutForParsing.append(chunk);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderrEvidence.append(chunk);
+    });
+    child.stdin.on("error", (err) => {
+      stderrEvidence.append(Buffer.from(err.message));
+    });
+    child.on("error", (err) => {
+      stderrEvidence.append(Buffer.from(err.message));
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      resolveProcess({
+        exitCode: code,
+        stdout: stdoutEvidence.text(),
+        stdoutForParsing: stdoutForParsing.text(),
+        stdoutTruncated: stdoutEvidence.truncated,
+        stderr: stderrEvidence.text(),
+        stderrTruncated: stderrEvidence.truncated,
+        timedOut,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        durationMs: Math.max(0, Math.round(performance.now() - startedAtMs)),
+      });
+    });
+
+    try {
+      child.stdin.end(input.stdin);
+    } catch (err) {
+      stderrEvidence.append(Buffer.from((err as Error).message));
+    }
+  });
+}
+
+class CappedOutput {
+  private chunks: Buffer[] = [];
+  private bytes = 0;
+  truncated = false;
+
+  constructor(private readonly maxBytes: number) {}
+
+  append(chunk: Buffer): void {
+    if (this.maxBytes === 0) {
+      if (chunk.byteLength > 0) {
+        this.truncated = true;
+      }
+      return;
+    }
+
+    const remaining = this.maxBytes - this.bytes;
+    if (remaining <= 0) {
+      this.truncated = true;
+      return;
+    }
+    if (chunk.byteLength > remaining) {
+      this.chunks.push(chunk.subarray(0, remaining));
+      this.bytes += remaining;
+      this.truncated = true;
+      return;
+    }
+    this.chunks.push(chunk);
+    this.bytes += chunk.byteLength;
+  }
+
+  text(): string {
+    return Buffer.concat(this.chunks).toString("utf8");
+  }
+}
+
+function outputLimit(policy: HookStdoutPolicy): number {
+  return policy.mode === "capped" ? policy.maxBytes : 0;
+}
+
+function parseHookResult(
+  stdout: string,
+  hook: HookDefinition,
+  event: HookEvent,
+): { status: "valid"; result: HookResult } | { status: "invalid"; violations: string[] } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout.trim());
+  } catch (err) {
+    return {
+      status: "invalid",
+      violations: [`hook stdout must be valid HookResult JSON: ${(err as Error).message}`],
+    };
+  }
+
+  const violations = validateHookResult(parsed, hook, event);
+  if (violations.length > 0) {
+    return { status: "invalid", violations };
+  }
+
+  return { status: "valid", result: parsed as HookResult };
+}
+
+function validateHookResult(input: unknown, hook: HookDefinition, event: HookEvent): string[] {
+  if (!isRecord(input)) {
+    return ["hook result must be an object"];
+  }
+
+  const violations: string[] = [];
+  violations.push(...validateAllowedFields(input, HOOK_RESULT_FIELDS, (key) => `unknown hook result field: ${key}`));
+  if (input.hookId !== hook.id) {
+    violations.push(`hook result hookId must be ${hook.id}`);
+  }
+  if (input.event !== event) {
+    violations.push(`hook result event must be ${event}`);
+  }
+  if (!isHookResultStatus(input.status)) {
+    violations.push(`hook result status must be ${joinOptions(HOOK_RESULT_STATUSES)}: ${String(input.status)}`);
+  }
+  if (!isHookDecision(input.decision)) {
+    violations.push(`hook result decision must be ${joinOptions(HOOK_DECISIONS)}: ${String(input.decision)}`);
+  }
+  if (!isNonEmptyString(input.summary)) {
+    violations.push("hook result summary must be a non-empty string");
+  }
+  if ("stdoutExcerpt" in input && typeof input.stdoutExcerpt !== "string") {
+    violations.push("hook result stdoutExcerpt must be a string when present");
+  }
+  if ("startedAt" in input && typeof input.startedAt !== "string") {
+    violations.push("hook result startedAt must be a string when present");
+  }
+  if ("finishedAt" in input && typeof input.finishedAt !== "string") {
+    violations.push("hook result finishedAt must be a string when present");
+  }
+  if ("durationMs" in input && !isBoundedInteger(input.durationMs, 0, Number.MAX_SAFE_INTEGER)) {
+    violations.push("hook result durationMs must be a non-negative integer when present");
+  }
+  return violations;
+}
+
+const HOOK_ENV_KEYS = [
+  "PATH",
+  "HOME",
+  "TMPDIR",
+  "TMP",
+  "TEMP",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+] as const;
+
+function hookSubprocessEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of HOOK_ENV_KEYS) {
+    const value = source[key];
+    if (value) {
+      env[key] = value;
+    }
+  }
+  env.PATH ??= "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+  return env;
 }
 
 function mergeHookEventDefaults(
