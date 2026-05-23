@@ -1,0 +1,57 @@
+{
+  "id": "structured-agent-fanout-s5-evidence-boundary-recovery",
+  "title": "Clarify S5 BatchSpec dogfood evidence boundary",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/structured-agent-fanout-autopilot.md",
+    "references/operations/structured-agent-fanout-s5-dogfood-report.md",
+    "references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/structured-agent-fanout-s5-run-task.json",
+    "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+    "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+    "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+    "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+    "references/operations/structured-agent-fanout-s5-fixtures/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+    "grep -F 'S5 BatchSpec dogfood accepted output is worker-run evidence' references/operations/structured-agent-fanout-s5-dogfood-report.md",
+    "grep -F 'current-head replay status: blocked stale-base as expected' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+    "grep -F 'trusted evidence path: runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+    "grep -F 'S5 evidence boundary recovery: completed' references/initiatives/structured-agent-fanout-autopilot.md",
+    "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=. > /tmp/structured-agent-fanout-s5-current-head-replay.txt 2>&1; then exit 1; else grep -F \"repoRoot HEAD must match baseCommit before dispatch\" /tmp/structured-agent-fanout-s5-current-head-replay.txt; fi'",
+    "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+    "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s5-dogfood-report.md references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+  ],
+  "instructions": "Perform only S5 evidence-boundary recovery for references/initiatives/structured-agent-fanout-autopilot.md. Do not change source code, tests, playbooks, task templates, agent profiles, task specs, BatchPlanDraft artifacts, BatchSpec artifacts, S5 candidate artifacts, S5 fixture artifacts, run logs, worktrees, package metadata, lockfiles, policy, doctrine, or CLI behavior.\n\nThe review finding is that references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json no longer replays as accepted from the current main base because its fixture BatchSpec pins baseCommit 4f1b87966e45d8fabd72e3ba87c0c4a14ac50c56, while the accepted S5 commit later advanced the repo. Treat this as a lifecycle/evidence wording gap, not a validator bug. Do not update the pinned baseCommit, do not edit the S5 accepted/blocked candidate artifacts, and do not edit the S5 fixtures.\n\nUpdate references/operations/structured-agent-fanout-s5-dogfood-report.md to state that S5 BatchSpec dogfood accepted output is worker-run evidence captured in the accepted run log, not a promise that the committed preflight artifact remains accepted when replayed from later repository bases. Preserve the S5 decision that guarded batch execution coordination is not justified for implementation in this initiative, and preserve the stop continuation state.\n\nCreate references/operations/structured-agent-fanout-s5-current-head-replay-report.md. It must record the exact replay command `bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=.` and the current-base result. The report must include exact lines `current-head replay status: blocked stale-base as expected` and `trusted evidence path: runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json`. It must cite that the stale-base blocking reason is `repoRoot HEAD must match baseCommit before dispatch` and that all side-effect flags remain false in the replay output.\n\nUpdate references/initiatives/structured-agent-fanout-autopilot.md only to add a short S5 evidence-boundary recovery note. The note must include exact text `S5 evidence boundary recovery: completed`, cite references/operations/structured-agent-fanout-s5-current-head-replay-report.md, and keep the initiative closed with no next implementation slice ready.\n\nDo not implement S6, reportFanoutExecution, batchPlanExecution, batch execution, BatchPlan prepare, TaskSpec writes, BatchSpec writes, worker dispatch, worktree creation, lifecycle mutation, merge, cleanup, commit, push, worker-owned orchestration, natural-language-only dispatch, writerCap changes, push automation, daemon/watch behavior, dashboards, remote adapters, connector expansion, hidden memory, or any Phase 5.5/Phase 5 bypass. Run all verify commands after the report updates. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: clarify s5 batch spec evidence boundary",
+  "status": "pending"
+}
