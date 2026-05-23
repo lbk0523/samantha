@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "structured-agent-fanout-s5-replay-report-wording-run-task",
+  "initiativePath": "references/initiatives/structured-agent-fanout-autopilot.md",
+  "createdAt": "2026-05-23T10:30:00.000Z",
+  "updatedAt": "2026-05-23T10:30:00.000Z",
+  "currentSlice": {
+    "id": "S5-replay-report-wording",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "Post-accept review found point-in-time replay wording that should not age as a current HEAD claim."
+    ],
+    "targetFiles": [
+      "references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s5-run-task.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "grep -F 'The recorded replay is a point-in-time current-base check; later repository bases may also block when they differ from the pinned BatchSpec base.' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'pinned baseCommit 4f1b87966e45d8fabd72e3ba87c0c4a14ac50c56' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'current-head replay status: blocked stale-base as expected' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "sh -c 'if grep -F \"current \\`HEAD\\` is\" references/operations/structured-agent-fanout-s5-current-head-replay-report.md; then exit 1; else exit 0; fi'",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=. > /tmp/structured-agent-fanout-s5-current-head-replay-wording.txt 2>&1; then exit 1; else grep -F \"repoRoot HEAD must match baseCommit before dispatch\" /tmp/structured-agent-fanout-s5-current-head-replay-wording.txt; fi'",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "BK requested review-response completion; this is a bounded evidence wording fix."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "The task keeps executable surfaces unchanged."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "The task names one target file, forbidden paths, and checks."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "The repo starts clean on the current base."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "HARNESS_RESULT is required before lifecycle advancement."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "No scope check has failed for this task."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence cycle is spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "The task is docs-only and requires no new authority."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "Status will use structured evidence only."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "path": "references/tasks/structured-agent-fanout-s5-replay-report-wording.json",
+      "summary": "S5 replay report wording TaskSpec."
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "bun run samantha continuation:run-task-once --artifact=references/operations/structured-agent-fanout-s5-replay-report-wording-run-task.json --repo-root=/Users/byung/Documents/samantha"
+  },
+  "nextArtifactPath": null,
+  "nextArtifactExpectedSliceId": null,
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s5-replay-report-wording.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s5-run-task.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "grep -F 'The recorded replay is a point-in-time current-base check; later repository bases may also block when they differ from the pinned BatchSpec base.' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'pinned baseCommit 4f1b87966e45d8fabd72e3ba87c0c4a14ac50c56' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'current-head replay status: blocked stale-base as expected' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "sh -c 'if grep -F \"current \\`HEAD\\` is\" references/operations/structured-agent-fanout-s5-current-head-replay-report.md; then exit 1; else exit 0; fi'",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=. > /tmp/structured-agent-fanout-s5-current-head-replay-wording.txt 2>&1; then exit 1; else grep -F \"repoRoot HEAD must match baseCommit before dispatch\" /tmp/structured-agent-fanout-s5-current-head-replay-wording.txt; fi'",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "evidence": {
+      "taskSpecCommit": "8dc7423042eaaa061c1e26a3de17f22c62218824",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "references/tasks/structured-agent-fanout-s5-replay-report-wording.json"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  },
+  "runTaskExecution": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s5-replay-report-wording.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_task",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s5-run-task.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "grep -F 'The recorded replay is a point-in-time current-base check; later repository bases may also block when they differ from the pinned BatchSpec base.' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'pinned baseCommit 4f1b87966e45d8fabd72e3ba87c0c4a14ac50c56' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'current-head replay status: blocked stale-base as expected' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "sh -c 'if grep -F \"current \\`HEAD\\` is\" references/operations/structured-agent-fanout-s5-current-head-replay-report.md; then exit 1; else exit 0; fi'",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=. > /tmp/structured-agent-fanout-s5-current-head-replay-wording.txt 2>&1; then exit 1; else grep -F \"repoRoot HEAD must match baseCommit before dispatch\" /tmp/structured-agent-fanout-s5-current-head-replay-wording.txt; fi'",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runTaskCalled": true,
+      "workersDispatched": true,
+      "worktreesCreated": true,
+      "runsCreated": true,
+      "deterministicVerification": true,
+      "batchesExecuteCalled": false,
+      "acceptPerformed": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
