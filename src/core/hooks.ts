@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -45,6 +45,11 @@ export const MAX_HOOK_TIMEOUT_MS = 60_000;
 export const MAX_HOOK_STDOUT_BYTES = 16_384;
 export const MAX_HOOK_CONTEXT_BYTES = 16_384;
 export const HOOK_EVENT_VERSION = 1;
+
+const HOOK_TIMEOUT_TERMINATE_GRACE_MS = 100;
+const REPO_MUTATION_STATUS_TIMEOUT_MS = 500;
+const REPO_MUTATION_STATUS_KILL_GRACE_MS = 50;
+const REPO_MUTATION_STATUS_OUTPUT_BYTES = 64 * 1024;
 
 export interface HookStdoutPolicy {
   mode: HookStdoutMode;
@@ -110,6 +115,15 @@ export interface HookResult {
   durationMs?: number;
 }
 
+export interface HookRepoMutationEvidence {
+  detection: "ok" | "not_git" | "failed" | "timed_out" | "skipped";
+  created: string[];
+  modified: string[];
+  deleted: string[];
+  error: string | null;
+  timeoutMs: number;
+}
+
 export interface RunAdvisoryHooksInput {
   repoRoot: string;
   loadedPolicy: LoadedHookPolicy;
@@ -137,6 +151,7 @@ export interface HookRunEvidence {
   timedOut: boolean;
   timeoutMs: number;
   timeoutDetails: string | null;
+  repoMutations: HookRepoMutationEvidence;
   schemaViolations: string[];
   contextKeys: string[];
   contextBytes: number;
@@ -374,6 +389,7 @@ async function runAdvisoryHook(
     return contextTooLargeEvidence(input, hookInput);
   }
 
+  const beforeMutations = await readRepoMutationSnapshot(input.repoRoot);
   const processResult = await runHookProcess({
     command: input.hook.command,
     cwd: input.repoRoot,
@@ -381,10 +397,11 @@ async function runAdvisoryHook(
     timeoutMs: input.hook.timeoutMs,
     stdoutPolicy: input.hook.stdout,
   });
+  const repoMutations = await detectRepoMutations(input.repoRoot, beforeMutations);
 
   if (processResult.timedOut) {
     return {
-      ...baseEvidence(input, hookInput, processResult),
+      ...baseEvidence(input, hookInput, processResult, repoMutations),
       status: "timed_out",
       decision: "none",
       summary: `Hook timed out after ${input.hook.timeoutMs}ms.`,
@@ -395,7 +412,7 @@ async function runAdvisoryHook(
 
   if (processResult.exitCode !== 0) {
     return {
-      ...baseEvidence(input, hookInput, processResult),
+      ...baseEvidence(input, hookInput, processResult, repoMutations),
       status: "advisory_failed",
       decision: "none",
       summary: `Hook command exited with code ${processResult.exitCode ?? "unknown"}.`,
@@ -407,7 +424,7 @@ async function runAdvisoryHook(
   const parsed = parseHookResult(processResult.stdoutForParsing, input.hook, input.event);
   if (parsed.status === "invalid") {
     return {
-      ...baseEvidence(input, hookInput, processResult),
+      ...baseEvidence(input, hookInput, processResult, repoMutations),
       status: "schema_invalid",
       decision: "none",
       summary: "Hook result schema invalid.",
@@ -417,7 +434,7 @@ async function runAdvisoryHook(
   }
 
   return {
-    ...baseEvidence(input, hookInput, processResult),
+    ...baseEvidence(input, hookInput, processResult, repoMutations),
     status: parsed.result.status,
     decision: parsed.result.decision,
     summary: parsed.result.summary,
@@ -522,6 +539,7 @@ function contextTooLargeEvidence(
     timedOut: false,
     timeoutMs: input.hook.timeoutMs,
     timeoutDetails: null,
+    repoMutations: skippedRepoMutationEvidence(),
     schemaViolations: [`hook context must be at most ${MAX_HOOK_CONTEXT_BYTES} bytes`],
     contextKeys: hookInput.contextKeys,
     contextBytes: hookInput.contextBytes,
@@ -532,6 +550,7 @@ function baseEvidence(
   input: Omit<RunAdvisoryHooksInput, "loadedPolicy" | "repoRoot"> & { repoRoot: string; hook: HookDefinition },
   hookInput: { contextKeys: string[]; contextBytes: number },
   processResult: HookProcessResult,
+  repoMutations: HookRepoMutationEvidence,
 ): Omit<HookRunEvidence, "status" | "decision" | "summary" | "timeoutDetails" | "schemaViolations"> {
   return {
     hookId: input.hook.id,
@@ -548,6 +567,7 @@ function baseEvidence(
     stderrTruncated: processResult.stderrTruncated,
     timedOut: processResult.timedOut,
     timeoutMs: input.hook.timeoutMs,
+    repoMutations,
     contextKeys: hookInput.contextKeys,
     contextBytes: hookInput.contextBytes,
   };
@@ -581,6 +601,8 @@ async function runHookProcess(input: HookProcessInput): Promise<HookProcessResul
   const stdoutForParsing = new CappedOutput(MAX_HOOK_STDOUT_BYTES);
   const stderrEvidence = new CappedOutput(outputLimit(input.stdoutPolicy));
   let timedOut = false;
+  let closed = false;
+  let killAfterGrace: NodeJS.Timeout | null = null;
 
   return await new Promise((resolveProcess) => {
     const child = spawn(input.command[0], input.command.slice(1), {
@@ -591,6 +613,11 @@ async function runHookProcess(input: HookProcessInput): Promise<HookProcessResul
     const timeout = setTimeout(() => {
       timedOut = true;
       child.kill("SIGTERM");
+      killAfterGrace = setTimeout(() => {
+        if (!closed) {
+          child.kill("SIGKILL");
+        }
+      }, HOOK_TIMEOUT_TERMINATE_GRACE_MS);
     }, input.timeoutMs);
 
     child.stdout.on("data", (chunk: Buffer) => {
@@ -607,7 +634,11 @@ async function runHookProcess(input: HookProcessInput): Promise<HookProcessResul
       stderrEvidence.append(Buffer.from(err.message));
     });
     child.on("close", (code) => {
+      closed = true;
       clearTimeout(timeout);
+      if (killAfterGrace) {
+        clearTimeout(killAfterGrace);
+      }
       resolveProcess({
         exitCode: code,
         stdout: stdoutEvidence.text(),
@@ -628,6 +659,234 @@ async function runHookProcess(input: HookProcessInput): Promise<HookProcessResul
       stderrEvidence.append(Buffer.from((err as Error).message));
     }
   });
+}
+
+type RepoMutationKind = "created" | "modified" | "deleted";
+
+type RepoMutationSnapshot =
+  | { detection: "ok"; paths: Map<string, RepoMutationKind>; error: null }
+  | { detection: "not_git" | "failed" | "timed_out"; paths: null; error: string };
+
+async function detectRepoMutations(
+  repoRoot: string,
+  before: RepoMutationSnapshot,
+): Promise<HookRepoMutationEvidence> {
+  if (before.detection !== "ok") {
+    return repoMutationEvidenceFromSnapshot(before);
+  }
+
+  const after = await readRepoMutationSnapshot(repoRoot);
+  if (after.detection !== "ok") {
+    return repoMutationEvidenceFromSnapshot(after);
+  }
+
+  const created: string[] = [];
+  const modified: string[] = [];
+  const deleted: string[] = [];
+  const paths = new Set([...before.paths.keys(), ...after.paths.keys()]);
+
+  for (const path of paths) {
+    const beforeKind = before.paths.get(path);
+    const afterKind = after.paths.get(path);
+    if (beforeKind === afterKind) {
+      continue;
+    }
+    if (afterKind === "created") {
+      created.push(path);
+    } else if (afterKind === "modified") {
+      modified.push(path);
+    } else if (afterKind === "deleted") {
+      deleted.push(path);
+    } else if (beforeKind === "created") {
+      deleted.push(path);
+    } else {
+      modified.push(path);
+    }
+  }
+
+  return {
+    detection: "ok",
+    created: created.sort(),
+    modified: modified.sort(),
+    deleted: deleted.sort(),
+    error: null,
+    timeoutMs: REPO_MUTATION_STATUS_TIMEOUT_MS,
+  };
+}
+
+async function readRepoMutationSnapshot(repoRoot: string): Promise<RepoMutationSnapshot> {
+  const result = await runBoundedProcess({
+    command: "git",
+    args: [
+      "-C",
+      repoRoot,
+      "status",
+      "--porcelain=v1",
+      "-z",
+      "--untracked-files=normal",
+      "--ignore-submodules=all",
+      "--",
+      ".",
+      ":(exclude).git",
+      ":(exclude).git/**",
+      ":(exclude)node_modules",
+      ":(exclude)node_modules/**",
+      ":(exclude)worktrees",
+      ":(exclude)worktrees/**",
+      ":(exclude)runs",
+      ":(exclude)runs/**",
+    ],
+    cwd: repoRoot,
+    timeoutMs: REPO_MUTATION_STATUS_TIMEOUT_MS,
+    killGraceMs: REPO_MUTATION_STATUS_KILL_GRACE_MS,
+  });
+
+  if (result.timedOut) {
+    return {
+      detection: "timed_out",
+      paths: null,
+      error: `git status exceeded ${REPO_MUTATION_STATUS_TIMEOUT_MS}ms`,
+    };
+  }
+  if (result.exitCode !== 0) {
+    const error = result.stderr.trim() || `git status exited with code ${result.exitCode ?? "unknown"}`;
+    return {
+      detection: error.includes("not a git repository") ? "not_git" : "failed",
+      paths: null,
+      error,
+    };
+  }
+
+  return {
+    detection: "ok",
+    paths: parseGitStatusSnapshot(result.stdout),
+    error: null,
+  };
+}
+
+function parseGitStatusSnapshot(output: string): Map<string, RepoMutationKind> {
+  const paths = new Map<string, RepoMutationKind>();
+  const entries = output.split("\0").filter((entry) => entry.length > 0);
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (entry.length < 4) {
+      continue;
+    }
+
+    const status = entry.slice(0, 2);
+    const path = entry.slice(3);
+    if (status === "??") {
+      paths.set(path, "created");
+      continue;
+    }
+    if (status[0] === "R" || status[0] === "C") {
+      paths.set(path, "modified");
+      index += 1;
+      continue;
+    }
+    if (status.includes("D")) {
+      paths.set(path, "deleted");
+      continue;
+    }
+    paths.set(path, "modified");
+  }
+
+  return paths;
+}
+
+function repoMutationEvidenceFromSnapshot(snapshot: Exclude<RepoMutationSnapshot, { detection: "ok" }>): HookRepoMutationEvidence {
+  return {
+    detection: snapshot.detection,
+    created: [],
+    modified: [],
+    deleted: [],
+    error: snapshot.error,
+    timeoutMs: REPO_MUTATION_STATUS_TIMEOUT_MS,
+  };
+}
+
+function skippedRepoMutationEvidence(): HookRepoMutationEvidence {
+  return {
+    detection: "skipped",
+    created: [],
+    modified: [],
+    deleted: [],
+    error: null,
+    timeoutMs: REPO_MUTATION_STATUS_TIMEOUT_MS,
+  };
+}
+
+interface BoundedProcessInput {
+  command: string;
+  args: string[];
+  cwd: string;
+  timeoutMs: number;
+  killGraceMs: number;
+}
+
+interface BoundedProcessResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+
+async function runBoundedProcess(input: BoundedProcessInput): Promise<BoundedProcessResult> {
+  const stdout = new CappedOutput(REPO_MUTATION_STATUS_OUTPUT_BYTES);
+  const stderr = new CappedOutput(REPO_MUTATION_STATUS_OUTPUT_BYTES);
+  let timedOut = false;
+  let closed = false;
+  let killAfterGrace: NodeJS.Timeout | null = null;
+
+  return await new Promise((resolveProcess) => {
+    const child = spawn(input.command, input.args, {
+      cwd: input.cwd,
+      env: hookSubprocessEnv(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      killAfterGrace = terminateAfterGrace(child, input.killGraceMs, () => closed);
+    }, input.timeoutMs);
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout.append(chunk);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr.append(chunk);
+    });
+    child.on("error", (err) => {
+      stderr.append(Buffer.from(err.message));
+    });
+    child.on("close", (code) => {
+      closed = true;
+      clearTimeout(timeout);
+      if (killAfterGrace) {
+        clearTimeout(killAfterGrace);
+      }
+      resolveProcess({
+        exitCode: code,
+        stdout: stdout.text(),
+        stderr: stderr.text(),
+        timedOut,
+      });
+    });
+  });
+}
+
+function terminateAfterGrace(
+  child: ChildProcess,
+  graceMs: number,
+  isClosed: () => boolean,
+): NodeJS.Timeout {
+  child.kill("SIGTERM");
+  return setTimeout(() => {
+    if (!isClosed()) {
+      child.kill("SIGKILL");
+    }
+  }, graceMs);
 }
 
 class CappedOutput {
@@ -711,6 +970,9 @@ function validateHookResult(input: unknown, hook: HookDefinition, event: HookEve
   if (!isHookDecision(input.decision)) {
     violations.push(`hook result decision must be ${joinOptions(HOOK_DECISIONS)}: ${String(input.decision)}`);
   }
+  if (isHookResultStatus(input.status) && isHookDecision(input.decision)) {
+    violations.push(...validateHookResultDecision(input.status, input.decision));
+  }
   if (!isNonEmptyString(input.summary)) {
     violations.push("hook result summary must be a non-empty string");
   }
@@ -727,6 +989,26 @@ function validateHookResult(input: unknown, hook: HookDefinition, event: HookEve
     violations.push("hook result durationMs must be a non-negative integer when present");
   }
   return violations;
+}
+
+function validateHookResultDecision(status: HookResultStatus, decision: HookDecision): string[] {
+  const allowedDecisions = hookResultAllowedDecisions(status);
+  if (allowedDecisions.includes(decision)) {
+    return [];
+  }
+  return [
+    `hook result decision ${decision} is invalid for status ${status}; expected ${allowedDecisions.join(" or ")}`,
+  ];
+}
+
+function hookResultAllowedDecisions(status: HookResultStatus): HookDecision[] {
+  if (status === "passed") {
+    return ["allow", "none"];
+  }
+  if (status === "blocked") {
+    return ["block"];
+  }
+  return ["none"];
 }
 
 const HOOK_ENV_KEYS = [

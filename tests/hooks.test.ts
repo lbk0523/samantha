@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, realpath, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { promisify } from "node:util";
 import {
   DEFAULT_HOOK_EVENT_DEFAULTS,
   HOOK_DEFINITION_DIR,
@@ -22,6 +24,7 @@ import {
 } from "../src/core/hooks";
 
 let tmpRoots: string[] = [];
+const execFileAsync = promisify(execFile);
 
 function policy(overrides: Partial<HookPolicy> = {}): HookPolicy {
   return {
@@ -98,6 +101,27 @@ function timeoutCommand(): string[] {
   return ["bun", "--eval", `await new Promise((resolve) => setTimeout(resolve, 1000));`];
 }
 
+function ignoreSigtermCommand(): string[] {
+  return ["bun", "--eval", `process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);`];
+}
+
+function mutatingHookCommand(): string[] {
+  return [
+    "bun",
+    "--eval",
+    `
+await Bun.write("hook-output.txt", "mutated by advisory hook\\n");
+console.log(JSON.stringify({
+  hookId: "review-task-spec",
+  event: "task_spec.drafted",
+  status: "passed",
+  decision: "allow",
+  summary: "wrote advisory evidence"
+}));
+`,
+  ];
+}
+
 async function makeTempRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "samantha-hooks-"));
   tmpRoots.push(root);
@@ -119,6 +143,10 @@ async function pathExists(path: string): Promise<boolean> {
     }
     throw err;
   }
+}
+
+async function initGitRepo(repoRoot: string): Promise<void> {
+  await execFileAsync("git", ["init"], { cwd: repoRoot });
 }
 
 afterEach(async () => {
@@ -493,6 +521,67 @@ describe("Samantha advisory hook runner", () => {
     });
   });
 
+  test("kills timeout hooks that ignore SIGTERM and still returns timed-out advisory evidence", async () => {
+    const repoRoot = await makeTempRoot();
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy());
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "review-task-spec.json"),
+      hook({
+        command: ignoreSigtermCommand(),
+        timeoutMs: 100,
+      }),
+    );
+
+    const evidence = await runAdvisoryHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.drafted",
+      runId: "run-timeout-ignores-sigterm",
+      context: {},
+    });
+
+    expect(evidence[0]).toMatchObject({
+      status: "timed_out",
+      decision: "none",
+      summary: "Hook timed out after 100ms.",
+      timedOut: true,
+      timeoutMs: 100,
+      timeoutDetails: "command exceeded timeoutMs=100",
+    });
+    expect(evidence[0].durationMs).toBeLessThan(1_000);
+  });
+
+  test("records repo file mutations as fail-open evidence without changing the hook decision", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy());
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "review-task-spec.json"),
+      hook({ command: mutatingHookCommand() }),
+    );
+
+    const evidence = await runAdvisoryHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.drafted",
+      runId: "run-mutating-hook",
+      context: {},
+    });
+
+    expect(evidence[0]).toMatchObject({
+      status: "passed",
+      decision: "allow",
+      summary: "wrote advisory evidence",
+      repoMutations: {
+        detection: "ok",
+        created: ["hook-output.txt"],
+        modified: [],
+        deleted: [],
+        error: null,
+      },
+    });
+  });
+
   test("records non-zero command exits as fail-open advisory evidence", async () => {
     const repoRoot = await makeTempRoot();
     await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy());
@@ -550,6 +639,59 @@ describe("Samantha advisory hook runner", () => {
         summary: "advisory concern only",
       },
     ]);
+  });
+
+  test("rejects HookResult status and decision combinations that would broaden authority", async () => {
+    const invalidResults = [
+      {
+        status: "passed",
+        decision: "block",
+        violation: "hook result decision block is invalid for status passed; expected allow or none",
+      },
+      {
+        status: "blocked",
+        decision: "none",
+        violation: "hook result decision none is invalid for status blocked; expected block",
+      },
+      {
+        status: "timed_out",
+        decision: "allow",
+        violation: "hook result decision allow is invalid for status timed_out; expected none",
+      },
+    ];
+
+    for (const invalidResult of invalidResults) {
+      const repoRoot = await makeTempRoot();
+      await writeJson(join(repoRoot, HOOK_POLICY_PATH), policy());
+      await writeJson(
+        join(repoRoot, HOOK_DEFINITION_DIR, "review-task-spec.json"),
+        hook({
+          command: hookResultCommand({
+            hookId: "review-task-spec",
+            event: "task_spec.drafted",
+            status: invalidResult.status,
+            decision: invalidResult.decision,
+            summary: "invalid authority combination",
+          }),
+        }),
+      );
+
+      const evidence = await runAdvisoryHooks({
+        repoRoot,
+        loadedPolicy: await loadHookPolicy({ repoRoot }),
+        event: "task_spec.drafted",
+        runId: `run-invalid-${invalidResult.status}-${invalidResult.decision}`,
+        context: {},
+      });
+
+      expect(evidence[0]).toMatchObject({
+        status: "schema_invalid",
+        decision: "none",
+        summary: "Hook result schema invalid.",
+        exitCode: 0,
+      });
+      expect(evidence[0].schemaViolations).toContain(invalidResult.violation);
+    }
   });
 
   test("refuses to execute trust-gate hooks through the advisory runner", async () => {
