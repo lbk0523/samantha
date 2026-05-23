@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "structured-agent-fanout-s5-evidence-boundary-recovery-run-task",
+  "initiativePath": "references/initiatives/structured-agent-fanout-autopilot.md",
+  "createdAt": "2026-05-23T10:00:00.000Z",
+  "updatedAt": "2026-05-23T10:00:00.000Z",
+  "currentSlice": {
+    "id": "S5-evidence-boundary-recovery",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "S5 accepted dogfood evidence exists at runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json.",
+      "Current-base replay of the accepted BatchSpec preflight artifact blocks stale-base."
+    ],
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s5-dogfood-report.md",
+      "references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s5-run-task.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'S5 BatchSpec dogfood accepted output is worker-run evidence' references/operations/structured-agent-fanout-s5-dogfood-report.md",
+      "grep -F 'current-head replay status: blocked stale-base as expected' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'trusted evidence path: runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'S5 evidence boundary recovery: completed' references/initiatives/structured-agent-fanout-autopilot.md",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=. > /tmp/structured-agent-fanout-s5-current-head-replay.txt 2>&1; then exit 1; else grep -F \"repoRoot HEAD must match baseCommit before dispatch\" /tmp/structured-agent-fanout-s5-current-head-replay.txt; fi'",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s5-dogfood-report.md references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "BK requested this bounded evidence clarification."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "The task keeps executable surfaces unchanged."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "The task names concrete target files, forbidden paths, and checks."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "The repo starts clean on the current base."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "HARNESS_RESULT is required before lifecycle advancement."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "No scope check has failed for this task."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence cycle is spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "The task is docs-only and requires no new authority."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "Status will use structured evidence only."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "path": "runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json",
+      "summary": "Accepted S5 worker evidence has HARNESS_RESULT pass and result hash b3e83d3cb77af407bc8c3c11d83a8bd08d5fdddb."
+    },
+    {
+      "path": "references/tasks/structured-agent-fanout-s5-evidence-boundary-recovery.json",
+      "summary": "S5 evidence-boundary recovery TaskSpec."
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "bun run samantha continuation:run-task-once --artifact=references/operations/structured-agent-fanout-s5-evidence-boundary-recovery-run-task.json --repo-root=/Users/byung/Documents/samantha"
+  },
+  "nextArtifactPath": null,
+  "nextArtifactExpectedSliceId": null,
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s5-evidence-boundary-recovery.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s5-dogfood-report.md",
+      "references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s5-run-task.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'S5 BatchSpec dogfood accepted output is worker-run evidence' references/operations/structured-agent-fanout-s5-dogfood-report.md",
+      "grep -F 'current-head replay status: blocked stale-base as expected' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'trusted evidence path: runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'S5 evidence boundary recovery: completed' references/initiatives/structured-agent-fanout-autopilot.md",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=. > /tmp/structured-agent-fanout-s5-current-head-replay.txt 2>&1; then exit 1; else grep -F \"repoRoot HEAD must match baseCommit before dispatch\" /tmp/structured-agent-fanout-s5-current-head-replay.txt; fi'",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s5-dogfood-report.md references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "evidence": {
+      "taskSpecCommit": "9d668b22f050377b69b9dac4a6541f35d167bf13",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "references/tasks/structured-agent-fanout-s5-evidence-boundary-recovery.json"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  },
+  "runTaskExecution": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-s5-evidence-boundary-recovery.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_task",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/initiatives/structured-agent-fanout-autopilot.md",
+      "references/operations/structured-agent-fanout-s5-dogfood-report.md",
+      "references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/playbooks/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "references/operations/structured-agent-fanout-s5-run-task.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-plan-review-blocked.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json",
+      "references/operations/structured-agent-fanout-s5-batch-spec-preflight-blocked.json",
+      "references/operations/structured-agent-fanout-s5-fixtures/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "test -f references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'S5 BatchSpec dogfood accepted output is worker-run evidence' references/operations/structured-agent-fanout-s5-dogfood-report.md",
+      "grep -F 'current-head replay status: blocked stale-base as expected' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'trusted evidence path: runs/2026-05-23T08-46-18-659Z-structured-agent-fanout-s5-dogfood-batch-plan-candidate.json' references/operations/structured-agent-fanout-s5-current-head-replay-report.md",
+      "grep -F 'S5 evidence boundary recovery: completed' references/initiatives/structured-agent-fanout-autopilot.md",
+      "sh -c 'if bun run samantha continuation:show --artifact=references/operations/structured-agent-fanout-s5-batch-spec-preflight-accepted.json --repo-root=. > /tmp/structured-agent-fanout-s5-current-head-replay.txt 2>&1; then exit 1; else grep -F \"repoRoot HEAD must match baseCommit before dispatch\" /tmp/structured-agent-fanout-s5-current-head-replay.txt; fi'",
+      "bun run samantha readiness:check --initiative=references/initiatives/structured-agent-fanout-autopilot.md",
+      "git diff --check HEAD -- references/initiatives/structured-agent-fanout-autopilot.md references/operations/structured-agent-fanout-s5-dogfood-report.md references/operations/structured-agent-fanout-s5-current-head-replay-report.md"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runTaskCalled": true,
+      "workersDispatched": true,
+      "worktreesCreated": true,
+      "runsCreated": true,
+      "deterministicVerification": true,
+      "batchesExecuteCalled": false,
+      "acceptPerformed": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
