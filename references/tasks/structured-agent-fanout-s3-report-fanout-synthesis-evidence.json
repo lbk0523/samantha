@@ -1,0 +1,51 @@
+{
+  "id": "structured-agent-fanout-s3-report-fanout-synthesis-evidence",
+  "title": "Add deterministic report fanout synthesis status evidence",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "tests/cli.test.ts",
+    "references/initiatives/structured-agent-fanout-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/cli.ts",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Implement only S3 for references/initiatives/structured-agent-fanout-autopilot.md. Add deterministic synthesis/status evidence for report fanout outputs without adding reportFanoutExecution, dispatching workers, creating worktrees, writing run logs from continuation, mutating lifecycle outside existing status-update behavior, merging, cleanup, committing, pushing, batch planning, batch execution, or worker-owned orchestration.\n\nKeep the implementation in src/core/sequential-ceo-autopilot.ts and focused tests in tests/sequential-ceo-autopilot.test.ts plus CLI coverage in tests/cli.test.ts. Do not change src/cli.ts unless existing CLI behavior cannot expose the new core validation through continuation:update-status; prefer no CLI source change. Do not touch policy, contracts, hooks, task templates, agent profiles, batch artifacts, operation artifacts, package metadata, lockfiles, or doctrine files.\n\nRequired behavior: introduce a closed optional `reportFanoutSynthesis` object on SequentialContinuationStatusEvidenceDocument. This object is status evidence only, not an execution trigger. Use deterministic fields such as `candidateArtifactPath`, `synthesisReportPath`, `inputReportPaths`, `rolesReviewed`, `status`, `conflicts`, and `expectedSideEffects`. Validate it as closed schema: repo-relative local paths only; no command strings, URLs, absolute paths, traversal, environment expansion, globs, missing required arrays, unknown roles outside report/spec/reviewer/evaluator, unknown status outside accepted/blocked, unknown fields, or non-false side effects. Reuse the report fanout false side-effect vocabulary where practical.\n\nTrusted transition rule: when the current continuation artifact has a present reportFanoutCandidate and currentSlice.actionType is report_only, a completed status update must include accepted reportFanoutSynthesis evidence, cite the synthesisReportPath in evidenceReferences as continuation_report or report_review with result passed/clear/completed, have no conflicts, and preserve false side effects. Recommendation-only report evidence, missing synthesis evidence, uncited synthesis output, or conflicted synthesis must not complete the slice. Conflicting advice must block or reject deterministically instead of averaging: a blocked status update with reportFanoutSynthesis.status blocked and non-empty conflicts may update the current slice to blocked with a blocked_report nextStep; a completed update with any conflicts must be rejected.\n\nDo not require reportFanoutSynthesis for ordinary report_only artifacts that do not carry reportFanoutCandidate; preserve existing status update behavior for run_task, readiness_check, manual_decision, run accept, run task, next-artifact linkage, and reportFanoutCandidate preflight. Add tests proving: accepted synthesis completes a report fanout report_only slice; missing synthesis cannot complete a report fanout slice; recommendation-only advice cannot complete it; synthesis output must be cited; conflicts block or reject instead of being averaged; side-effect requests are rejected; CLI continuation:update-status exposes the accepted and rejected paths without creating runs, worktrees, batch artifacts, commits, pushes, or lifecycle side effects beyond the artifact file update already owned by that command.\n\nUpdate references/initiatives/structured-agent-fanout-autopilot.md only to mark S3 completed with focused verification and set exactly one next ready slice: S4 batchPlanCandidate validation/report-only visibility. Do not implement S4 or S5. Run all verify commands after implementation. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add report fanout synthesis evidence",
+  "status": "pending"
+}
