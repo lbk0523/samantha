@@ -1,0 +1,45 @@
+{
+  "id": "structured-agent-fanout-s1-report-fanout-candidate-rework",
+  "title": "Rework S1 reportFanoutCandidate with dependency setup",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/sequential-ceo-autopilot.ts",
+    "src/cli.ts",
+    "tests/sequential-ceo-autopilot.test.ts",
+    "references/initiatives/structured-agent-fanout-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "src/core/policy.ts",
+    "src/core/contracts.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "references/tasks/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/sequential-ceo-autopilot.test.ts",
+    "bun test tests/cli.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Rework S1 for references/initiatives/structured-agent-fanout-autopilot.md. The previous run /Users/byung/Documents/samantha/runs/2026-05-23T05-35-11-415Z-structured-agent-fanout-s1-report-fanout-candidate.json is blocked and untrusted because verification did not complete in the worker worktree before setup installed dependencies. Use it only as diagnostic evidence; do not treat its prose or unverified output as trusted completion.\n\nImplement only closed-schema reportFanoutCandidate validation and report-only visibility. Add the minimal types and validator support to src/core/sequential-ceo-autopilot.ts, wire continuation:show in src/cli.ts to include a reportFanoutCandidate/preflight report when present, and add focused tests in tests/sequential-ceo-autopilot.test.ts plus CLI coverage if needed.\n\nRequired candidate boundary: reportFanoutCandidate is optional and may be absent or null. When present, it must be a single closed object. It is not an execution trigger. It must support only report/spec/reviewer/evaluator advice fanout planning and must preserve false side effects. Use a small explicit schema with deterministic field names such as requestedRoles, sourceArtifacts, expectedReportPaths, synthesisRequired, executionMode, and expectedSideEffects.\n\nValidation/report requirements: validate the current continuation artifact before inspecting reportFanoutCandidate. Reject malformed or open-schema candidates, unknown roles, empty role/source/report lists, prose paths, command strings, URLs, absolute paths, traversal, environment expansion, globs, missing source artifacts, off-repo source artifacts, executionMode values other than report_only/preflight_only, synthesisRequired values other than true, and any side-effect request for worker dispatch, worktree creation, run log creation, lifecycle mutation, merge, cleanup, commit, push, run_task, batches:execute, successor execution, daemon/watch, remote adapter, dashboard, connector expansion, hidden memory, or worker-owned orchestration. Accepted reports must be advice-only: trustedStateChanges false, pushPerformed false, side effects false, no worker dispatch, no worktrees, no runs, no lifecycle changes.\n\nDo not implement reportFanoutExecution, actual report fanout dispatch, synthesis/status evidence, batchPlanCandidate, batchPlanExecution, batch execution, worker-owned orchestration, writerCap changes, push automation, daemon/watch behavior, dashboards, remote adapters, connector expansion, hidden memory, or natural-language-only dispatch. Do not modify task specs or operation artifacts from the worker. Update references/initiatives/structured-agent-fanout-autopilot.md only to mark S1 completed and S2 ready/proposed with implementation evidence language; do not add new roadmap scope. Run all verify commands after implementation. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: Rework S1 reportFanoutCandidate with dependency setup",
+  "status": "pending"
+}
