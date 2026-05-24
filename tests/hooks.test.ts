@@ -26,6 +26,13 @@ import {
 
 let tmpRoots: string[] = [];
 const execFileAsync = promisify(execFile);
+const DOGFOOD_HOOK_ID = "worker-pre-dispatch-context-gate";
+const DOGFOOD_SCRIPT_PATH = "references/hooks/scripts/worker-pre-dispatch-context-gate.ts";
+const DOGFOOD_ARTIFACT_PATHS = [
+  HOOK_POLICY_PATH,
+  join(HOOK_DEFINITION_DIR, `${DOGFOOD_HOOK_ID}.json`),
+  DOGFOOD_SCRIPT_PATH,
+];
 
 function policy(overrides: Partial<HookPolicy> = {}): HookPolicy {
   return {
@@ -245,6 +252,50 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+async function copyRepositoryArtifact(repoRoot: string, relativePath: string): Promise<void> {
+  const destination = join(repoRoot, relativePath);
+  await mkdir(dirname(destination), { recursive: true });
+  await writeFile(destination, await readFile(join(process.cwd(), relativePath), "utf8"), "utf8");
+}
+
+async function installDogfoodHookArtifacts(repoRoot: string): Promise<void> {
+  for (const relativePath of DOGFOOD_ARTIFACT_PATHS) {
+    await copyRepositoryArtifact(repoRoot, relativePath);
+  }
+}
+
+function normalWorkerPreDispatchContext(worktreePath: string): Record<string, unknown> {
+  return {
+    task: {
+      id: "hook-system-s5-8-dogfood-context-gate",
+      title: "Sync hook roadmap and add first worker pre-dispatch dogfood gate",
+      taskFamily: "core-module",
+      workMode: "tdd-first",
+      riskClass: "authority-sensitive",
+      targetAgent: "codex-worker",
+      resultMode: "write",
+      status: "pending",
+      targetFiles: ["references/hooks/hook-policy.json"],
+      forbiddenChanges: ["src/**"],
+      verifyCommands: ["bun test tests/hooks.test.ts"],
+      setupCommands: [],
+      expectedCommitSubject: null,
+    },
+    agent: {
+      id: "codex-worker",
+      role: "writer",
+      writerClass: "writer",
+      worktreePolicy: "per-task",
+      mergePolicy: "samantha-controlled",
+    },
+    dispatch: {
+      worktreePath,
+      allocationExists: false,
+      runtimeKind: "exec-json",
+    },
+  };
+}
+
 async function pathExists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -306,6 +357,35 @@ describe("Samantha hook policy loading", () => {
         },
       },
     });
+  });
+
+  test("loads the real repository worker.pre_dispatch dogfood hook artifacts", async () => {
+    const loadedPolicy = await loadHookPolicy({ repoRoot: process.cwd() });
+
+    expect(loadedPolicy.status).toBe("enabled");
+    expect(loadedPolicy.policy?.hooks).toEqual([DOGFOOD_HOOK_ID]);
+    expect(loadedPolicy.eventDefaults["worker.pre_dispatch"]).toEqual({
+      mode: "trust_gate",
+      failureBehavior: "fail_closed",
+      timeoutMs: 5_000,
+    });
+    expect(loadedPolicy.hooks).toEqual([
+      {
+        schemaVersion: 1,
+        id: DOGFOOD_HOOK_ID,
+        purpose:
+          "Gate worker pre-dispatch context so Samantha dogfood runs prove only bounded task, agent, and dispatch context is injected.",
+        mode: "trust_gate",
+        events: ["worker.pre_dispatch"],
+        command: ["bun", "run", DOGFOOD_SCRIPT_PATH],
+        timeoutMs: 5_000,
+        contextKeys: ["task", "agent", "dispatch"],
+        stdout: {
+          mode: "capped",
+          maxBytes: 4_096,
+        },
+      },
+    ]);
   });
 
   test("returns disabled no-hooks state when policy is absent without creating repository files", async () => {
@@ -1040,6 +1120,107 @@ describe("Samantha trust-gate hook runner", () => {
           },
         },
       ],
+    });
+  });
+
+  test("allows the real worker.pre_dispatch dogfood hook for bounded context without repo mutation", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await installDogfoodHookArtifacts(repoRoot);
+    await commitRepo(repoRoot);
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "worker.pre_dispatch",
+      runId: "run-dogfood-worker-pre-dispatch-allow",
+      context: normalWorkerPreDispatchContext(repoRoot),
+    });
+
+    expect(result.final).toMatchObject({
+      decision: "allow",
+      blockingHookId: null,
+    });
+    expect(result.evidence).toHaveLength(1);
+    expect(result.evidence[0]).toMatchObject({
+      hookId: DOGFOOD_HOOK_ID,
+      event: "worker.pre_dispatch",
+      status: "passed",
+      decision: "allow",
+      summary: "worker.pre_dispatch context allowed",
+      repoMutations: {
+        detection: "ok",
+        created: [],
+        modified: [],
+        deleted: [],
+        error: null,
+      },
+      contextKeys: ["task", "agent", "dispatch"],
+    });
+    expect(JSON.parse(result.evidence[0]!.stdout).structuredFindings).toEqual({ findings: [] });
+    expect((await execFileAsync("git", ["status", "--porcelain"], { cwd: repoRoot })).stdout).toBe("");
+  });
+
+  test("blocks the real worker.pre_dispatch dogfood hook when task.instructions leaks", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await installDogfoodHookArtifacts(repoRoot);
+    await commitRepo(repoRoot);
+    const context = normalWorkerPreDispatchContext(repoRoot);
+    context.task = {
+      ...(context.task as Record<string, unknown>),
+      instructions: "Raw worker prompt text must not be injected into hook context.",
+    };
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "worker.pre_dispatch",
+      runId: "run-dogfood-worker-pre-dispatch-forbidden",
+      context,
+    });
+    const hookResult = JSON.parse(result.evidence[0]!.stdout);
+
+    expect(result.final).toMatchObject({
+      decision: "block",
+      blockingHookId: DOGFOOD_HOOK_ID,
+    });
+    expect(result.evidence[0]).toMatchObject({
+      hookId: DOGFOOD_HOOK_ID,
+      status: "blocked",
+      decision: "block",
+    });
+    expect(hookResult.structuredFindings.findings).toContainEqual({
+      code: "forbidden_raw_context",
+      path: "context.task.instructions",
+      message: "long, raw, secret, or unbounded context is not allowed",
+    });
+  });
+
+  test("blocks the real worker.pre_dispatch dogfood hook when required context is missing", async () => {
+    const repoRoot = await makeTempRoot();
+    await initGitRepo(repoRoot);
+    await installDogfoodHookArtifacts(repoRoot);
+    await commitRepo(repoRoot);
+    const { agent: _agent, ...context } = normalWorkerPreDispatchContext(repoRoot);
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "worker.pre_dispatch",
+      runId: "run-dogfood-worker-pre-dispatch-missing-context",
+      context,
+    });
+    const hookResult = JSON.parse(result.evidence[0]!.stdout);
+
+    expect(result.final).toMatchObject({
+      decision: "block",
+      blockingHookId: DOGFOOD_HOOK_ID,
+    });
+    expect(hookResult.structuredFindings.findings).toContainEqual({
+      code: "missing_required_context",
+      path: "context.agent",
+      message: "required top-level context is missing",
     });
   });
 

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "hooks": [
+    "worker-pre-dispatch-context-gate"
+  ],
+  "eventDefaults": {
+    "worker.pre_dispatch": {
+      "mode": "trust_gate",
+      "failureBehavior": "fail_closed",
+      "timeoutMs": 5000
+    }
+  },
+  "disabledHooks": []
+}

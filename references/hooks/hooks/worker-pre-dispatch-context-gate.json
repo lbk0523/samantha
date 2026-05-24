@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "worker-pre-dispatch-context-gate",
+  "purpose": "Gate worker pre-dispatch context so Samantha dogfood runs prove only bounded task, agent, and dispatch context is injected.",
+  "mode": "trust_gate",
+  "events": [
+    "worker.pre_dispatch"
+  ],
+  "command": [
+    "bun",
+    "run",
+    "references/hooks/scripts/worker-pre-dispatch-context-gate.ts"
+  ],
+  "timeoutMs": 5000,
+  "contextKeys": [
+    "task",
+    "agent",
+    "dispatch"
+  ],
+  "stdout": {
+    "mode": "capped",
+    "maxBytes": 4096
+  }
+}

@@ -21,6 +21,13 @@ import { createCodexSdkWorkerRuntimeAdapter } from "../src/core/worker-runtime-a
 import { runTaskCommand } from "../src/commands/run-task";
 
 let tmpRoots: string[] = [];
+const DOGFOOD_HOOK_ID = "worker-pre-dispatch-context-gate";
+const DOGFOOD_SCRIPT_PATH = "references/hooks/scripts/worker-pre-dispatch-context-gate.ts";
+const DOGFOOD_ARTIFACT_PATHS = [
+  HOOK_POLICY_PATH,
+  join(HOOK_DEFINITION_DIR, `${DOGFOOD_HOOK_ID}.json`),
+  DOGFOOD_SCRIPT_PATH,
+];
 
 const agent: AgentProfile = {
   id: "codex-worker",
@@ -81,9 +88,22 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+async function copyRepositoryArtifact(repo: string, relativePath: string): Promise<void> {
+  const destination = join(repo, relativePath);
+  await mkdir(dirname(destination), { recursive: true });
+  await writeFile(destination, await readFile(join(process.cwd(), relativePath), "utf8"), "utf8");
+}
+
 async function commitRepo(repo: string, subject: string): Promise<void> {
   await git(["add", "."], repo);
   await git(["commit", "-m", subject], repo);
+}
+
+async function addDogfoodWorkerPreDispatchHook(repo: string): Promise<void> {
+  for (const relativePath of DOGFOOD_ARTIFACT_PATHS) {
+    await copyRepositoryArtifact(repo, relativePath);
+  }
+  await commitRepo(repo, "test: add dogfood worker pre-dispatch hook");
 }
 
 function hookPolicy(overrides: Partial<HookPolicy> = {}): HookPolicy {
@@ -789,6 +809,69 @@ describe("worker dispatch", () => {
       "worktreePath",
     ]);
     expect(summary.runtimeKind).toBe("exec-json");
+  });
+
+  test("run-task records top-level hook evidence for the actual dogfood worker.pre_dispatch gate", async () => {
+    const repo = await makeRepo();
+    await addDogfoodWorkerPreDispatchHook(repo);
+    const fakeCodex = await makeFakeCodex([
+      'while [ "$1" != "--cd" ]; do shift; done',
+      "shift",
+      'cd "$1"',
+      "echo changed > README.md",
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"changed readme","commit":""}'`,
+    ]);
+    const taskPath = join(repo, "task.json");
+    const agentPath = join(repo, "agent.json");
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+    await writeFile(agentPath, `${JSON.stringify(agent, null, 2)}\n`, "utf8");
+
+    const result = await runTaskCommand({
+      taskPath,
+      agentPath,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      runsDir: join(repo, "runs"),
+      codexBin: fakeCodex,
+      runtimeKind: "exec-json",
+    });
+    const parsed = JSON.parse(await readFile(result.runLog.path, "utf8"));
+    const hookEvidence = parsed.hookEvidence;
+    const invocation = hookEvidence.events[0].invocations[0];
+
+    expect(result.execution.pass).toBe(true);
+    expect(result.execution.hookEvidence).toEqual(hookEvidence);
+    expect(Object.hasOwn(parsed, "hookEvidence")).toBe(true);
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
+    expect(hookEvidence.definitions).toHaveLength(1);
+    expect(hookEvidence.definitions[0]).toMatchObject({
+      hookId: DOGFOOD_HOOK_ID,
+    });
+    expect(hookEvidence.events[0]).toMatchObject({
+      event: "worker.pre_dispatch",
+      eventVersion: 1,
+      contextKeys: ["agent", "dispatch", "task"],
+      trustGate: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+    });
+    expect(invocation).toMatchObject({
+      hookId: DOGFOOD_HOOK_ID,
+      event: "worker.pre_dispatch",
+      command: ["bun", "run", DOGFOOD_SCRIPT_PATH],
+      cwd: result.execution.preparation.worktreePath,
+      status: "passed",
+      decision: "allow",
+      summary: "worker.pre_dispatch context allowed",
+      repoMutations: {
+        detection: "ok",
+        created: [],
+        modified: [],
+        deleted: [],
+      },
+    });
+    expect(JSON.parse(invocation.stdout).structuredFindings).toEqual({ findings: [] });
   });
 
   test("records present disabled worker.pre_dispatch policy evidence without blocking dispatch", async () => {

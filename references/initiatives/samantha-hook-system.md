@@ -1,8 +1,8 @@
 # Initiative: Samantha Hook System
 
-Status: S1-S5 runner/log support implemented; runtime dispatch integration planned
+Status: S1-S5.7 implemented; worker.pre_dispatch runtime integration complete; first dogfood hook started
 Source: Samantha hook-system planning discussion, 2026-05-23
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## Goal
 
@@ -150,30 +150,47 @@ completion, mutation evidence, and run evidence. A technical read sandbox or
 repository file-read allowlist is a future capability if dogfood evidence shows
 it is needed.
 
-## Current S1-S5 Guarantees
+## Current S1-S5.7 Guarantees
 
-The current S1-S5 implementation guarantees runner APIs and optional run-log
-support, not automatic hook dispatch during Samantha runtime flows:
+The current implementation guarantees the local Samantha-native hook policy,
+runner, evidence, and first runtime insertion point:
 
+- hook policy loading from `references/hooks/hook-policy.json` with referenced
+  definitions under `references/hooks/hooks/`;
+- advisory runner core with fail-open evidence;
+- trust-gate runner core for `task_spec.preflight` and `worker.pre_dispatch`
+  with fail-closed allow/block behavior;
 - bounded injected context for hook runner calls;
-- hook commands run from the repository root cwd when invoked through the hook
-  runner;
+- hook commands run from the actual worker cwd/worktree path used for the event;
 - timeout-bounded completion with SIGTERM/SIGKILL escalation;
 - capped stdout;
 - parsed status and decision validation;
-- mixed failure behavior: trust gates fail closed, advisory hooks fail open
-  with evidence;
 - repository mutation evidence, with trust-gate mutation evidence treated as
   fail closed;
-- optional run-log shape and readers for hook evidence when supplied.
+- optional run-log hook evidence support, including policy and definition
+  digests, event evidence, invocation evidence, context keys, context bytes,
+  stdout/stderr caps, timeout details, schema violations, and repo mutation
+  evidence;
+- `worker.pre_dispatch` runtime integration in `run-task` worker dispatch.
 
-S1-S5 did not integrate hook execution into `run-task`, worker dispatch, CLI, or
-lifecycle flows. Hook evidence can be recorded by Samantha core once runtime
-integration supplies hook results.
+`worker.pre_dispatch` trust-gate hooks are automatically executed by `run-task`
+worker dispatch after `prepareWorkerDispatch` succeeds and after worktree
+allocation and Codex/runtime preparation, but before `setupCommands` and before
+`runtimeAdapter.execute`.
+
+The hook policy is loaded from the actual worker cwd/worktree path, not from a
+separate controller-only path. A missing hook policy preserves existing dispatch
+behavior and omits noisy `hookEvidence`. A present disabled policy, enabled
+policy, or invalid policy produces diagnosable hook evidence where practical;
+invalid present policy fails closed before worker execution.
+
+`task_spec.preflight` runtime integration, advisory runtime hooks, CLI flags,
+MCP, read sandboxing, plugin behavior, daemon/watch behavior, and remote
+behavior remain future capabilities and are not implemented.
 
 ## Repo Artifact Structure
 
-Recommended repository artifact shape:
+Repository artifact shape:
 
 ```text
 references/hooks/
@@ -189,8 +206,8 @@ Intent:
 - Hook artifacts are reviewable repo files and must pass ordinary scope and
   verification gates when changed.
 
-This path is a recommendation for future implementation, not a file created by
-this planning slice.
+This path is now active for local hook policy loading and the first
+`worker.pre_dispatch` dogfood gate.
 
 ## Schema Drafts
 
@@ -288,10 +305,33 @@ records, or Samantha-owned commit/report evidence.
 - Stop before implementation if hook execution requires daemon/watch behavior,
   remote services, connector credentials, or worker-owned orchestration.
 
+## First Dogfood Hook
+
+Dogfood start: 2026-05-24.
+One-week review: 2026-05-31.
+
+The first real hook is
+`worker-pre-dispatch-context-gate` at `worker.pre_dispatch`. Its purpose is to
+prove the worker pre-dispatch context remains bounded to `task`, `agent`, and
+`dispatch`, and to block if forbidden long/raw task context such as
+`task.instructions` appears or if required bounded context is missing.
+
+The gate is a Samantha-owned gate/evidence pipeline artifact. It is not an
+extension platform, an untrusted plugin sandbox, a remote adapter boundary, or a
+way for hooks to own lifecycle, commit, push, task-spec mutation, or worker
+orchestration authority.
+
+Stop conditions for this dogfood hook:
+
+- disable or revert the hook if it blocks valid worker runs;
+- disable or revert the hook if it adds unacceptable latency or log noise;
+- disable or revert the hook if it produces confusing evidence;
+- pause and design a separate slice if it reveals context shape drift that
+  should not be handled inside the dogfood hook.
+
 ## One-Week Dogfood Criteria
 
-The first dogfood period should last one calendar week after the first hook
-system slice is used on real Samantha runs.
+The first dogfood period runs from 2026-05-24 through the 2026-05-31 review.
 
 During dogfood, collect:
 
@@ -333,7 +373,10 @@ Future map only; do not treat these as task specs.
 | S3: Advisory hook runner | Execute one advisory event with context, timeout, and evidence capture. | Unit tests plus one dogfood run evidence check. |
 | S4: Trust-gate hook runner | Add fail-closed allow/block handling for preflight events. | Tests for allow, block, timeout, and invalid schema. |
 | S5: Run evidence integration | Add optional hook evidence to run logs and readers. | Backward compatibility tests and run-show checks. |
-| S6: One-week dogfood review | Review evidence and decide stdout, caps, events, and next constraints. | Report-only review artifact. |
+| S5.6: Trust-gate hardening | Bound trust-gate completion, stdout, and repo mutation behavior. | Tests for timeouts, caps, dirty baselines, and mutation blocks. |
+| S5.7: Worker pre-dispatch runtime integration | Execute `worker.pre_dispatch` during `run-task` worker dispatch from the worker cwd/worktree path. | Run-task tests for missing, disabled, enabled, invalid, allow, and block evidence. |
+| S5.8: First dogfood context gate | Add the first real `worker.pre_dispatch` trust gate under `references/hooks/**`. | Artifact load tests plus synthetic trust-gate tests for allow/block and no repo mutation. |
+| S5.9: One-week dogfood review | Review 2026-05-24 through 2026-05-31 evidence and decide stdout, caps, events, and next constraints. | Report-only review artifact. |
 | Later: MCP capability review | Decide whether MCP belongs behind hook policy. | Separate product and authority review. |
 
 ## Stop Conditions
@@ -346,12 +389,10 @@ verification.
 
 ## Open Decisions
 
-- Exact schema file extension and validator strategy.
-- Exact initial timeout values and total per-event runtime budget.
-- Exact context size cap after estimating current run evidence sizes.
-- Exact raw stdout cap to use during the one-week dogfood.
-- Whether `task_spec.drafted` should exist in the first implementation slice or
-  wait until policy loading and advisory execution are proven.
 - Whether hook policy changes should require a dedicated policy-sensitive task
   family or ordinary docs/config verification.
 - Which run evidence reader surfaces should display hook summaries first.
+- Whether S5.9 dogfood evidence justifies changing stdout caps, timeout caps,
+  context shape, or the first enabled events.
+- Whether and how to implement `task_spec.preflight` runtime integration without
+  expanding worker or lifecycle authority.
