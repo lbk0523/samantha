@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "structured-agent-fanout-playbook-execution-mode-wording-run-task",
+  "initiativePath": "references/initiatives/structured-agent-fanout-autopilot.md",
+  "createdAt": "2026-05-24T10:00:00.000Z",
+  "updatedAt": "2026-05-24T10:00:00.000Z",
+  "currentSlice": {
+    "id": "playbook-execution-mode-wording",
+    "status": "ready",
+    "actionType": "run_task",
+    "dependencyStatus": "met",
+    "prerequisites": [
+      "Review found a playbook wording mismatch with the implemented executionMode validator."
+    ],
+    "targetFiles": [
+      "references/playbooks/structured-agent-fanout-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/initiatives/**",
+      "references/operations/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "grep -F 'Candidate execution modes are limited to `report_only` and `preflight_only`; future execution modes require reviewed code and contract updates.' references/playbooks/structured-agent-fanout-autopilot.md",
+      "sh -c 'if grep -F \"batch_preflight_only\" references/playbooks/structured-agent-fanout-autopilot.md; then exit 1; else exit 0; fi'",
+      "git diff --check HEAD -- references/playbooks/structured-agent-fanout-autopilot.md"
+    ]
+  },
+  "autonomyEnvelope": {
+    "canSelectNextReadySlice": true,
+    "canRunReadinessChecks": true,
+    "canRunReportOnlyActions": true,
+    "canRunExplicitTaskSpecs": true,
+    "canRunRoutineBatchActions": true,
+    "canUpdateContinuationStatus": true,
+    "canLocallyCommitThroughExistingGates": true,
+    "pushAllowed": false,
+    "maxFailedEvidenceReworkCycles": 1
+  },
+  "stopConditionChecklist": [
+    {
+      "id": "decision_required",
+      "active": false,
+      "evidence": "BK requested this bounded review finding fix."
+    },
+    {
+      "id": "authority_boundary_without_review",
+      "active": false,
+      "evidence": "The task changes one playbook wording surface only."
+    },
+    {
+      "id": "scope_or_repo_evidence_missing",
+      "active": false,
+      "evidence": "The task names a concrete target file, forbidden paths, and checks."
+    },
+    {
+      "id": "dirty_or_stale_repo",
+      "active": false,
+      "evidence": "The repo starts clean on the current base."
+    },
+    {
+      "id": "missing_harness_result",
+      "active": false,
+      "evidence": "HARNESS_RESULT is required before lifecycle advancement."
+    },
+    {
+      "id": "scope_check_failed",
+      "active": false,
+      "evidence": "No scope check has failed for this task."
+    },
+    {
+      "id": "verification_rework_spent",
+      "active": false,
+      "evidence": "No failed evidence cycle is spent."
+    },
+    {
+      "id": "forbidden_capability_required",
+      "active": false,
+      "evidence": "The task requires no new authority."
+    },
+    {
+      "id": "ambiguous_evidence_update",
+      "active": false,
+      "evidence": "Status will use structured evidence only."
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "path": "references/tasks/structured-agent-fanout-playbook-execution-mode-wording.json",
+      "summary": "TaskSpec for the structured fanout playbook wording fix."
+    }
+  ],
+  "nextStep": {
+    "kind": "samantha_command",
+    "value": "bun run samantha continuation:run-task-once --artifact=references/operations/structured-agent-fanout-playbook-execution-mode-wording-run-task.json --repo-root=/Users/byung/Documents/samantha"
+  },
+  "nextArtifactPath": null,
+  "nextArtifactExpectedSliceId": null,
+  "runTaskCandidate": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-playbook-execution-mode-wording.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "preflight_only",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/playbooks/structured-agent-fanout-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/initiatives/**",
+      "references/operations/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "grep -F 'Candidate execution modes are limited to `report_only` and `preflight_only`; future execution modes require reviewed code and contract updates.' references/playbooks/structured-agent-fanout-autopilot.md",
+      "sh -c 'if grep -F \"batch_preflight_only\" references/playbooks/structured-agent-fanout-autopilot.md; then exit 1; else exit 0; fi'",
+      "git diff --check HEAD -- references/playbooks/structured-agent-fanout-autopilot.md"
+    ],
+    "evidence": {
+      "taskSpecCommit": "6954e9ab4642b2f5ab652368576a057e632965da",
+      "taskSpecStatus": "committed_clean",
+      "freshnessEvidencePath": "references/tasks/structured-agent-fanout-playbook-execution-mode-wording.json"
+    },
+    "expectedSideEffects": {
+      "runTaskCalled": false,
+      "workersDispatched": false,
+      "worktreesCreated": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false
+    }
+  },
+  "runTaskExecution": {
+    "taskSpecPath": "references/tasks/structured-agent-fanout-playbook-execution-mode-wording.json",
+    "requiredRuntime": "codex-sdk",
+    "executionMode": "single_run_task",
+    "worktreePolicy": "samantha_allocated_isolated",
+    "lifecycleOwner": "samantha",
+    "targetFiles": [
+      "references/playbooks/structured-agent-fanout-autopilot.md"
+    ],
+    "forbiddenChanges": [
+      "src/**",
+      "tests/**",
+      "AGENTS.md",
+      "WORK-RULES.md",
+      "NORTH_STAR.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md",
+      "OPERATING_GUIDE.md",
+      "OPERATING_GUIDE_KR.md",
+      "references/agent-profiles/**",
+      "references/task-templates/**",
+      "references/tasks/**",
+      "references/initiatives/**",
+      "references/operations/**",
+      "references/batch-plans/**",
+      "references/batch-specs/**",
+      "runs/**",
+      "worktrees/**",
+      "package.json",
+      "tsconfig.json",
+      "bun.lock"
+    ],
+    "verifyCommands": [
+      "grep -F 'Candidate execution modes are limited to `report_only` and `preflight_only`; future execution modes require reviewed code and contract updates.' references/playbooks/structured-agent-fanout-autopilot.md",
+      "sh -c 'if grep -F \"batch_preflight_only\" references/playbooks/structured-agent-fanout-autopilot.md; then exit 1; else exit 0; fi'",
+      "git diff --check HEAD -- references/playbooks/structured-agent-fanout-autopilot.md"
+    ],
+    "pushAllowed": false,
+    "expectedSideEffects": {
+      "runTaskCalled": true,
+      "workersDispatched": true,
+      "worktreesCreated": true,
+      "runsCreated": true,
+      "deterministicVerification": true,
+      "batchesExecuteCalled": false,
+      "acceptPerformed": false,
+      "lifecycleMutated": false,
+      "mergePerformed": false,
+      "cleanupPerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "multiStepLoopStarted": false,
+      "successorExecuted": false
+    }
+  }
+}
