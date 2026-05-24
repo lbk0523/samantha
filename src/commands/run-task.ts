@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { AgentProfile, TaskSpec } from "../core/contracts";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "../core/ledger";
-import { writeWorkerRunLog, type WorkerRunLogWrite } from "../core/run-log";
+import { buildWorkerRunId, writeWorkerRunLog, type WorkerRunLogWrite } from "../core/run-log";
 import { executeWorkerDispatch, type WorkerDispatchExecution } from "../core/worker-dispatch";
 import { workerRuntimeAdapterForKind } from "../core/worker-runtime-adapter";
 import type { WorkerRuntimeKind } from "../core/worker-runtime-metadata";
@@ -69,6 +69,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
   const runsDir = resolve(input.runsDir ?? resolve(repoRoot, "runs"));
   const runtimeKind = input.runtimeKind ?? "codex-sdk";
   const startedAt = new Date().toISOString();
+  const runId = buildWorkerRunId({ startedAt, taskId: task.id });
   let execution: WorkerDispatchExecution;
   try {
     execution = await executeWorkerDispatch({
@@ -78,6 +79,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
       worktreesDir: input.worktreesDir,
       codexBin: input.codexBin,
       runtimeKind,
+      hookRunId: runId,
     });
   } catch (err) {
     if (!isDispatchBlock(err)) throw err;
@@ -99,6 +101,7 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
     startedAt,
     finishedAt,
     execution,
+    ...(execution.hookEvidence ? { hookEvidence: execution.hookEvidence } : {}),
   };
   const runLog = await writeWorkerRunLog(runsDir, logInput);
   const runSummary = summarizeWorkerRun({

@@ -375,6 +375,7 @@ describe("worker run logs", () => {
   test("writes provided hook evidence without changing worker result authority", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-run-log-"));
     tmpRoots.push(root);
+    const executionWithTransientHookEvidence = { ...execution, hookEvidence };
 
     const log = buildWorkerRunLog({
       task,
@@ -382,7 +383,7 @@ describe("worker run logs", () => {
       repoRoot: "/repo",
       startedAt: "2026-05-12T10:00:00.000Z",
       finishedAt: "2026-05-12T10:01:00.000Z",
-      execution,
+      execution: executionWithTransientHookEvidence,
       hookEvidence,
     });
     const written = await writeWorkerRunLog(root, {
@@ -391,13 +392,15 @@ describe("worker run logs", () => {
       repoRoot: "/repo",
       startedAt: "2026-05-12T10:00:00.000Z",
       finishedAt: "2026-05-12T10:01:00.000Z",
-      execution,
+      execution: executionWithTransientHookEvidence,
       hookEvidence,
     });
     const parsed = JSON.parse(await readFile(written.path, "utf8"));
 
     expect(log.hookEvidence).toEqual(hookEvidence);
     expect(parsed.hookEvidence).toEqual(hookEvidence);
+    expect(Object.hasOwn(log.result, "hookEvidence")).toBe(false);
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
     expect(parsed.hookEvidence.events[0].trustGate.decision).toBe("block");
     expect(parsed.hookEvidence.events[1].invocations[0].status).toBe("advisory_failed");
     expect(parsed.hookEvidence.events[0].invocations[0].stdoutTruncated).toBe(true);

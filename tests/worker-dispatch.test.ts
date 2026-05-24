@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
+import {
+  HOOK_DEFINITION_DIR,
+  HOOK_POLICY_PATH,
+  type HookDefinition,
+  type HookPolicy,
+} from "../src/core/hooks";
 import {
   commitWorkerChanges,
   executeWorkerDispatch,
@@ -68,6 +74,106 @@ async function makeFakeCodex(lines: string[]): Promise<string> {
   await writeFile(path, ["#!/usr/bin/env bash", ...lines, ""].join("\n"), "utf8");
   await chmod(path, 0o755);
   return path;
+}
+
+async function writeJson(path: string, value: unknown): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function commitRepo(repo: string, subject: string): Promise<void> {
+  await git(["add", "."], repo);
+  await git(["commit", "-m", subject], repo);
+}
+
+function hookPolicy(overrides: Partial<HookPolicy> = {}): HookPolicy {
+  return {
+    schemaVersion: 1,
+    enabled: true,
+    hooks: ["pre-dispatch-gate"],
+    eventDefaults: {},
+    disabledHooks: [],
+    ...overrides,
+  };
+}
+
+function workerPreDispatchResultCommand(overrides: Record<string, unknown> = {}): string[] {
+  return [
+    "bun",
+    "--eval",
+    `console.log(${JSON.stringify(
+      JSON.stringify({
+        hookId: "pre-dispatch-gate",
+        event: "worker.pre_dispatch",
+        status: "passed",
+        decision: "allow",
+        summary: "worker dispatch allowed",
+        ...overrides,
+      }),
+    )});`,
+  ];
+}
+
+function preDispatchHook(overrides: Partial<HookDefinition> = {}): HookDefinition {
+  return {
+    schemaVersion: 1,
+    id: "pre-dispatch-gate",
+    purpose: "Gate worker dispatch before setup or worker execution.",
+    mode: "trust_gate",
+    events: ["worker.pre_dispatch"],
+    command: workerPreDispatchResultCommand(),
+    timeoutMs: 5_000,
+    contextKeys: ["task", "agent", "dispatch"],
+    stdout: {
+      mode: "capped",
+      maxBytes: 16_384,
+    },
+    ...overrides,
+  };
+}
+
+function boundedContextHookCommand(): string[] {
+  return [
+    "bun",
+    "--eval",
+    `
+const input = await new Response(Bun.stdin.stream()).text();
+const payload = JSON.parse(input);
+const keys = Object.keys(payload.context).sort();
+const taskKeys = Object.keys(payload.context.task ?? {}).sort();
+const agentKeys = Object.keys(payload.context.agent ?? {}).sort();
+const dispatchKeys = Object.keys(payload.context.dispatch ?? {}).sort();
+if (keys.some((key) => !["agent", "dispatch", "task"].includes(key))) {
+  throw new Error("unexpected top-level context key");
+}
+if (taskKeys.includes("instructions")) {
+  throw new Error("task instructions leaked into hook context");
+}
+console.log(JSON.stringify({
+  hookId: payload.hookId,
+  event: payload.event,
+  status: "passed",
+  decision: "allow",
+  summary: JSON.stringify({
+    keys,
+    taskKeys,
+    agentKeys,
+    dispatchKeys,
+    runtimeKind: payload.context.dispatch?.runtimeKind
+  })
+}));
+`,
+  ];
+}
+
+async function addWorkerPreDispatchHook(
+  repo: string,
+  hookOverrides: Partial<HookDefinition> = {},
+  policyOverrides: Partial<HookPolicy> = {},
+): Promise<void> {
+  await writeJson(join(repo, HOOK_POLICY_PATH), hookPolicy(policyOverrides));
+  await writeJson(join(repo, HOOK_DEFINITION_DIR, "pre-dispatch-gate.json"), preDispatchHook(hookOverrides));
+  await commitRepo(repo, "test: add worker pre-dispatch hook");
 }
 
 function reviewerAgent(): AgentProfile {
@@ -579,6 +685,7 @@ describe("worker dispatch", () => {
     const parsed = JSON.parse(rawLog);
 
     expect(result.execution.pass).toBe(false);
+    expect(result.execution.hookEvidence).toBeUndefined();
     expect(result.execution.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
     expect(result.execution.commit).toBeUndefined();
     expect(result.execution.evaluation?.verifyResults[0]).toMatchObject({
@@ -587,14 +694,250 @@ describe("worker dispatch", () => {
     });
     expectCommandTiming(result.execution.evaluation?.verifyResults[0]!);
     expect(parsed.result.pass).toBe(false);
+    expect(Object.hasOwn(parsed, "hookEvidence")).toBe(false);
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
     expect(result.execution.preparation.allocation).toBeDefined();
     expect(await gitHead(result.execution.preparation.worktreePath)).toBe(
       result.execution.preparation.allocation!.baseCommit,
     );
   });
 
+  test("runs worker.pre_dispatch allow hooks before setup and records top-level run-log evidence", async () => {
+    const repo = await makeRepo();
+    await addWorkerPreDispatchHook(repo, {
+      command: boundedContextHookCommand(),
+    });
+    const fakeCodex = await makeFakeCodex([
+      'while [ "$1" != "--cd" ]; do shift; done',
+      "shift",
+      'cd "$1"',
+      "echo changed > README.md",
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"changed readme","commit":""}'`,
+    ]);
+    const taskPath = join(repo, "task.json");
+    const agentPath = join(repo, "agent.json");
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+    await writeFile(agentPath, `${JSON.stringify(agent, null, 2)}\n`, "utf8");
+
+    const result = await runTaskCommand({
+      taskPath,
+      agentPath,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      runsDir: join(repo, "runs"),
+      codexBin: fakeCodex,
+      runtimeKind: "exec-json",
+    });
+    const parsed = JSON.parse(await readFile(result.runLog.path, "utf8"));
+    const hookEvidence = parsed.hookEvidence;
+    const invocation = hookEvidence.events[0].invocations[0];
+    const summary = JSON.parse(invocation.summary);
+
+    expect(result.execution.pass).toBe(true);
+    expect(result.execution.setupResults).toHaveLength(1);
+    expect(result.execution.command?.command[0]).toBe(fakeCodex);
+    expect(result.execution.evaluation?.changedFiles).toEqual(["README.md"]);
+    expect(result.execution.commit?.commitHash).toHaveLength(40);
+    expect(result.execution.hookEvidence).toEqual(hookEvidence);
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
+    expect(hookEvidence.policy.path.endsWith(HOOK_POLICY_PATH)).toBe(true);
+    expect(hookEvidence.policy.digest.startsWith("sha256:")).toBe(true);
+    expect(hookEvidence.definitions).toHaveLength(1);
+    expect(hookEvidence.definitions[0]).toMatchObject({
+      hookId: "pre-dispatch-gate",
+    });
+    expect(hookEvidence.definitions[0].path.endsWith("pre-dispatch-gate.json")).toBe(true);
+    expect(hookEvidence.definitions[0].digest.startsWith("sha256:")).toBe(true);
+    expect(hookEvidence.events[0]).toMatchObject({
+      event: "worker.pre_dispatch",
+      eventVersion: 1,
+      trustGate: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+    });
+    expect(invocation).toMatchObject({
+      hookId: "pre-dispatch-gate",
+      event: "worker.pre_dispatch",
+      cwd: result.execution.preparation.worktreePath,
+      status: "passed",
+      decision: "allow",
+    });
+    expect(invocation.contextKeys.sort()).toEqual(["agent", "dispatch", "task"]);
+    expect(summary.keys).toEqual(["agent", "dispatch", "task"]);
+    expect(summary.taskKeys).toEqual([
+      "expectedCommitSubject",
+      "forbiddenChanges",
+      "id",
+      "resultMode",
+      "riskClass",
+      "setupCommands",
+      "status",
+      "targetAgent",
+      "targetFiles",
+      "taskFamily",
+      "title",
+      "verifyCommands",
+      "workMode",
+    ]);
+    expect(summary.agentKeys).toEqual(["id", "mergePolicy", "role", "worktreePolicy", "writerClass"]);
+    expect(summary.dispatchKeys).toEqual([
+      "allocationExists",
+      "baseCommit",
+      "branch",
+      "runtimeKind",
+      "worktreePath",
+    ]);
+    expect(summary.runtimeKind).toBe("exec-json");
+  });
+
+  test("records present disabled worker.pre_dispatch policy evidence without blocking dispatch", async () => {
+    const repo = await makeRepo();
+    await writeJson(
+      join(repo, HOOK_POLICY_PATH),
+      hookPolicy({
+        enabled: false,
+        hooks: ["pre-dispatch-gate"],
+      }),
+    );
+    await commitRepo(repo, "test: add disabled hook policy");
+    const fakeCodex = await makeFakeCodex([
+      'while [ "$1" != "--cd" ]; do shift; done',
+      "shift",
+      'cd "$1"',
+      "echo changed > README.md",
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"changed readme","commit":""}'`,
+    ]);
+    const taskPath = join(repo, "task.json");
+    const agentPath = join(repo, "agent.json");
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+    await writeFile(agentPath, `${JSON.stringify(agent, null, 2)}\n`, "utf8");
+
+    const result = await runTaskCommand({
+      taskPath,
+      agentPath,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      runsDir: join(repo, "runs"),
+      codexBin: fakeCodex,
+      runtimeKind: "exec-json",
+    });
+    const parsed = JSON.parse(await readFile(result.runLog.path, "utf8"));
+
+    expect(result.execution.pass).toBe(true);
+    expect(parsed.hookEvidence.events[0]).toMatchObject({
+      event: "worker.pre_dispatch",
+      eventVersion: 1,
+      trustGate: {
+        decision: "allow",
+        blockingHookId: null,
+      },
+      invocations: [],
+    });
+    expect(parsed.hookEvidence.policy.digest.startsWith("sha256:")).toBe(true);
+    expect(parsed.hookEvidence.definitions).toEqual([]);
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
+  });
+
+  test("blocks worker.pre_dispatch hooks before setup, worker execution, evaluation, or commit", async () => {
+    const repo = await makeRepo();
+    await addWorkerPreDispatchHook(repo, {
+      command: workerPreDispatchResultCommand({
+        status: "blocked",
+        decision: "block",
+        summary: "worker dispatch denied",
+      }),
+    });
+    const fakeCodex = await makeFakeCodex(["echo should-not-run"]);
+    const taskPath = join(repo, "task.json");
+    const agentPath = join(repo, "agent.json");
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+    await writeFile(agentPath, `${JSON.stringify(agent, null, 2)}\n`, "utf8");
+
+    const result = await runTaskCommand({
+      taskPath,
+      agentPath,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      runsDir: join(repo, "runs"),
+      codexBin: fakeCodex,
+      runtimeKind: "exec-json",
+    });
+    const parsed = JSON.parse(await readFile(result.runLog.path, "utf8"));
+
+    expect(result.execution.pass).toBe(false);
+    expect(result.execution.dispatchError).toContain("worker.pre_dispatch hook gate blocked dispatch");
+    expect(result.execution.dispatchError).toContain("worker dispatch denied");
+    expect(result.execution.setupResults).toEqual([]);
+    expect(result.execution.command).toBeUndefined();
+    expect(result.execution.evaluation).toBeUndefined();
+    expect(result.execution.commit).toBeUndefined();
+    expect(parsed.hookEvidence.events[0].trustGate).toMatchObject({
+      decision: "block",
+      blockingHookId: "pre-dispatch-gate",
+    });
+    expect(parsed.hookEvidence.events[0].invocations[0]).toMatchObject({
+      hookId: "pre-dispatch-gate",
+      event: "worker.pre_dispatch",
+      status: "blocked",
+      decision: "block",
+      summary: "worker dispatch denied",
+    });
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
+  });
+
+  test("fails closed on present invalid worker.pre_dispatch hook policy before worker execution", async () => {
+    const repo = await makeRepo();
+    await writeJson(join(repo, HOOK_POLICY_PATH), {
+      ...hookPolicy(),
+      extraAuthority: true,
+    });
+    await commitRepo(repo, "test: add invalid hook policy");
+    const fakeCodex = await makeFakeCodex(["echo should-not-run"]);
+    const taskPath = join(repo, "task.json");
+    const agentPath = join(repo, "agent.json");
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+    await writeFile(agentPath, `${JSON.stringify(agent, null, 2)}\n`, "utf8");
+
+    const result = await runTaskCommand({
+      taskPath,
+      agentPath,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      runsDir: join(repo, "runs"),
+      codexBin: fakeCodex,
+      runtimeKind: "exec-json",
+    });
+    const parsed = JSON.parse(await readFile(result.runLog.path, "utf8"));
+
+    expect(result.execution.pass).toBe(false);
+    expect(result.execution.dispatchError).toContain("worker.pre_dispatch hook gate blocked dispatch");
+    expect(result.execution.dispatchError).toContain("Hook policy invalid");
+    expect(result.execution.setupResults).toEqual([]);
+    expect(result.execution.command).toBeUndefined();
+    expect(result.execution.evaluation).toBeUndefined();
+    expect(result.execution.commit).toBeUndefined();
+    expect(parsed.hookEvidence.policy.path.endsWith(HOOK_POLICY_PATH)).toBe(true);
+    expect(parsed.hookEvidence.policy.digest.startsWith("sha256:")).toBe(true);
+    expect(parsed.hookEvidence.definitions).toEqual([]);
+    expect(parsed.hookEvidence.events[0]).toMatchObject({
+      event: "worker.pre_dispatch",
+      eventVersion: 1,
+      trustGate: {
+        decision: "block",
+        blockingHookId: null,
+      },
+      invocations: [],
+    });
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
+  });
+
   test("records dispatch-blocked tasks before worker start with run-task defaulting to codex-sdk", async () => {
     const repo = await makeRepo();
+    await writeJson(join(repo, HOOK_POLICY_PATH), {
+      ...hookPolicy(),
+      extraAuthority: true,
+    });
     const taskPath = join(repo, "task.json");
     const agentPath = join(repo, "agent.json");
     await writeFile(
@@ -624,6 +967,8 @@ describe("worker dispatch", () => {
 
     expect(result.execution.pass).toBe(false);
     expect(result.execution.dispatchError).toContain("task contains unresolved dispatch placeholders");
+    expect(result.execution.dispatchError).not.toContain("worker.pre_dispatch hook gate");
+    expect(result.execution.hookEvidence).toBeUndefined();
     expect(result.execution.preparation.worktreePath).toBe(repo);
     expect(result.execution.preparation.allocation).toBeUndefined();
     expect(result.execution.preparation.codex.command[0]).toBe("codex-sdk");
@@ -640,6 +985,8 @@ describe("worker dispatch", () => {
       status: "failed",
       note: "dispatch blocked before worker start",
     });
+    expect(Object.hasOwn(parsed, "hookEvidence")).toBe(false);
+    expect(Object.hasOwn(parsed.result, "hookEvidence")).toBe(false);
   });
 
   test("captures command stdout, stderr, and exit code", async () => {

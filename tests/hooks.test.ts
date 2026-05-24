@@ -170,6 +170,23 @@ console.log(JSON.stringify({
   ];
 }
 
+function delayedTrustGateResultCommand(hookId: string, delayMs: number): string[] {
+  return [
+    "bun",
+    "--eval",
+    `
+await new Promise((resolve) => setTimeout(resolve, ${delayMs}));
+console.log(JSON.stringify({
+  hookId: ${JSON.stringify(hookId)},
+  event: "task_spec.preflight",
+  status: "passed",
+  decision: "allow",
+  summary: "trust gate delayed allow"
+}));
+`,
+  ];
+}
+
 function trustGateMutationCommand(): string[] {
   return [
     "bun",
@@ -1457,7 +1474,7 @@ describe("Samantha trust-gate hook runner", () => {
     await expect(pathExists(markerPath)).resolves.toBe(false);
   });
 
-  test("blocks when the hook command consumes the event budget before post-command mutation detection", async () => {
+  test("blocks when a hook command cannot finish within the remaining event budget", async () => {
     const repoRoot = await makeTempRoot();
     const markerRoot = await makeTempRoot();
     const markerPath = join(markerRoot, "post-budget-hook-ran.txt");
@@ -1466,7 +1483,7 @@ describe("Samantha trust-gate hook runner", () => {
     await writeJson(
       join(repoRoot, HOOK_DEFINITION_DIR, "preflight-gate.json"),
       trustHook({
-        command: delayedTrustGateMarkerCommand(markerPath, 35),
+        command: delayedTrustGateMarkerCommand(markerPath, 300),
         timeoutMs: 500,
       }),
     );
@@ -1478,7 +1495,7 @@ describe("Samantha trust-gate hook runner", () => {
       event: "task_spec.preflight",
       runId: "run-trust-post-budget",
       context: {},
-      eventTimeoutMs: 60,
+      eventTimeoutMs: 180,
     });
 
     expect(result.final).toMatchObject({
@@ -1487,13 +1504,64 @@ describe("Samantha trust-gate hook runner", () => {
     });
     expect(result.evidence[0]).toMatchObject({
       hookId: "preflight-gate",
+      status: "timed_out",
+      decision: "none",
+      timedOut: true,
+    });
+    expect(result.evidence[0].timeoutMs).toBeLessThanOrEqual(180);
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  test("bounds later hook commands to the remaining trust-gate event budget", async () => {
+    const repoRoot = await makeTempRoot();
+    const markerRoot = await makeTempRoot();
+    const markerPath = join(markerRoot, "late-hook-side-effect.txt");
+    await initGitRepo(repoRoot);
+    await writeJson(
+      join(repoRoot, HOOK_POLICY_PATH),
+      policy({ hooks: ["slow-preflight-gate", "late-preflight-gate"] }),
+    );
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "slow-preflight-gate.json"),
+      trustHook({
+        id: "slow-preflight-gate",
+        command: delayedTrustGateResultCommand("slow-preflight-gate", 420),
+        timeoutMs: 1_000,
+      }),
+    );
+    await writeJson(
+      join(repoRoot, HOOK_DEFINITION_DIR, "late-preflight-gate.json"),
+      trustHook({
+        id: "late-preflight-gate",
+        command: delayedTrustGateMarkerCommand(markerPath, 300),
+        timeoutMs: 1_000,
+      }),
+    );
+    await commitRepo(repoRoot);
+
+    const result = await runTrustGateHooks({
+      repoRoot,
+      loadedPolicy: await loadHookPolicy({ repoRoot }),
+      event: "task_spec.preflight",
+      runId: "run-trust-late-budget",
+      context: {},
+      eventTimeoutMs: 600,
+    });
+
+    expect(result.final).toMatchObject({
+      decision: "block",
+      blockingHookId: "late-preflight-gate",
+    });
+    expect(result.evidence).toHaveLength(2);
+    expect(result.evidence[0]).toMatchObject({
+      hookId: "slow-preflight-gate",
       status: "passed",
       decision: "allow",
-      repoMutations: {
-        detection: "timed_out",
-      },
     });
-    await expect(pathExists(markerPath)).resolves.toBe(true);
+    expect(result.evidence[1].hookId).toBe("late-preflight-gate");
+    expect(result.evidence[1].timeoutMs).toBeLessThan(1_000);
+    expect(result.evidence[1].status).toBe("timed_out");
+    await expect(pathExists(markerPath)).resolves.toBe(false);
   });
 
   test("blocks before executing the hook when pre-command mutation detection reports not_git", async () => {

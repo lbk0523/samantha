@@ -344,6 +344,7 @@ export async function appendWorkerRunTrajectoryEntry(
 
 export function buildWorkerRunLog(input: WorkerRunLogInput): WorkerRunLog {
   const runId = buildWorkerRunId({ startedAt: input.startedAt, taskId: input.task.id });
+  const { hookEvidence: _transientHookEvidence, ...result } = input.execution;
 
   return {
     schemaVersion: 1,
@@ -357,7 +358,7 @@ export function buildWorkerRunLog(input: WorkerRunLogInput): WorkerRunLog {
       ...(input.worktreesDir ? { worktreesDir: input.worktreesDir } : {}),
     },
     trajectory: buildWorkerRunTrajectory(input),
-    result: input.execution,
+    result,
     ...(input.hookEvidence ? { hookEvidence: input.hookEvidence } : {}),
   };
 }
