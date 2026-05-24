@@ -1,0 +1,43 @@
+{
+  "id": "structured-agent-fanout-playbook-execution-mode-wording",
+  "title": "Align structured fanout playbook execution mode wording",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/structured-agent-fanout-autopilot.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "AGENTS.md",
+    "WORK-RULES.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/operations/**",
+    "references/batch-plans/**",
+    "references/batch-specs/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "grep -F 'Candidate execution modes are limited to `report_only` and `preflight_only`; future execution modes require reviewed code and contract updates.' references/playbooks/structured-agent-fanout-autopilot.md",
+    "sh -c 'if grep -F \"batch_preflight_only\" references/playbooks/structured-agent-fanout-autopilot.md; then exit 1; else exit 0; fi'",
+    "git diff --check HEAD -- references/playbooks/structured-agent-fanout-autopilot.md"
+  ],
+  "instructions": "Fix only the review finding in references/playbooks/structured-agent-fanout-autopilot.md. The playbook currently lists `batch_preflight_only` as if it were a candidate execution mode, while the implemented validator accepts only `report_only` and `preflight_only`. Align the playbook with the implemented contract by removing `batch_preflight_only` and adding the exact sentence `Candidate execution modes are limited to `report_only` and `preflight_only`; future execution modes require reviewed code and contract updates.` Keep the surrounding candidate/execution boundary unchanged: candidates are not execution triggers, and future execution-enabling modes require a separate reviewed slice.\n\nDo not change source code, tests, initiatives, operations artifacts, task specs, task templates, agent profiles, BatchPlanDraft artifacts, BatchSpec artifacts, run logs, worktrees, package metadata, lockfiles, policy, doctrine outside this playbook wording, remote adapters, daemon/watch behavior, dashboards, routine triggers, connector expansion, hidden memory, reportFanoutExecution, batchPlanExecution, batch execution, worker-owned orchestration, writerCap, push automation, or any Phase 5.5/Phase 5 gate behavior. Run all verify commands. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: align structured fanout execution mode wording",
+  "status": "pending"
+}
