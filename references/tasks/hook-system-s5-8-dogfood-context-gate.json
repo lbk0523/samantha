@@ -1,0 +1,48 @@
+{
+  "id": "hook-system-s5-8-dogfood-context-gate",
+  "title": "Sync hook roadmap and add first worker pre-dispatch dogfood gate",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/samantha-hook-system.md",
+    "references/hooks/hook-policy.json",
+    "references/hooks/hooks/worker-pre-dispatch-context-gate.json",
+    "references/hooks/scripts/worker-pre-dispatch-context-gate.ts",
+    "tests/hooks.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/run-log.test.ts",
+    "tests/run-show.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts tests/worker-dispatch.test.ts tests/run-log.test.ts tests/run-show.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement Samantha hook system S5.8/S5.9 as a documentation sync plus first dogfood worker.pre_dispatch trust-gate artifact. Do not modify src/**. Do not add task_spec.preflight runtime integration, advisory runtime hook integration, CLI flags, MCP, plugin behavior, daemon/watch behavior, remote behavior, hidden memory, lifecycle authority, commit authority, or push authority.\n\nDocumentation update required in references/initiatives/samantha-hook-system.md:\n- Update status to reflect S1-S5.7 implemented, worker.pre_dispatch runtime integration complete, and first dogfood hook starting.\n- Update the last-updated date to 2026-05-24.\n- Update current guarantees to the S5.7 reality: hook policy loading, advisory runner core, trust-gate runner core, bounded completion, stdout caps, repo mutation evidence, run-log hook evidence support, and worker.pre_dispatch runtime integration.\n- State that worker.pre_dispatch trust-gate hooks are now automatically executed by run-task worker dispatch after prepareWorkerDispatch succeeds and after worktree allocation/codex preparation, but before setupCommands and before runtimeAdapter.execute.\n- State that the hook policy is loaded from the actual worker cwd/worktree path.\n- State that missing hook policy preserves existing dispatch behavior and omits noisy hookEvidence, while present enabled/disabled/invalid policy produces diagnosable hook evidence where practical.\n- State that task_spec.preflight runtime integration, advisory runtime hooks, CLI flags, MCP, read sandbox, plugin behavior, daemon/watch behavior, and remote behavior remain future capabilities and are not implemented.\n- Add dogfood dates: start 2026-05-24 and one-week review 2026-05-31.\n- Document the first dogfood hook purpose: prove the worker.pre_dispatch context remains bounded to task, agent, and dispatch, and block if forbidden task.instructions or missing required context appears.\n- Document stop conditions: disable or revert the hook if it blocks valid worker runs, adds unacceptable latency/noise, produces confusing evidence, or reveals context shape drift that needs a separate design slice.\n- Keep the framing clear that hooks are Samantha-owned gate/evidence pipeline artifacts, not an extension platform or untrusted plugin sandbox.\n\nAdd the first real hook artifacts under references/hooks/**:\n- references/hooks/hook-policy.json must be a valid Samantha-native policy with schemaVersion 1, enabled true, a single hook id worker-pre-dispatch-context-gate, and worker.pre_dispatch defaulting to trust_gate/fail_closed with a bounded timeout. Do not add advisory hooks.\n- references/hooks/hooks/worker-pre-dispatch-context-gate.json must be a valid hook definition with schemaVersion 1, id worker-pre-dispatch-context-gate, mode trust_gate, event worker.pre_dispatch only, contextKeys exactly task, agent, and dispatch, capped stdout, and a command that runs the script below. The command must not write repo files.\n- references/hooks/scripts/worker-pre-dispatch-context-gate.ts should read the hook payload from stdin, parse JSON deterministically, validate only the bounded worker.pre_dispatch context contract, and write exactly one HookResult JSON object to stdout. It must not write repository files or perform network/remote/plugin behavior.\n- The script must return passed + allow for normal bounded context.\n- The script must return blocked + block if required top-level context is missing, if unknown top-level context keys are present, if task.instructions or other explicitly forbidden long/raw context appears, or if required task/agent/dispatch fields are absent. Keep the summary concise and include structuredFindings. Expected required fields should cover the current S5.7 bounded subset: task id/title/taskFamily/workMode/riskClass/targetAgent/resultMode/status/targetFiles/forbiddenChanges/verifyCommands/setupCommands/expectedCommitSubject; agent id/role/writerClass/worktreePolicy/mergePolicy; dispatch worktreePath/allocationExists/runtimeKind, plus branch/baseCommit when allocationExists is true and those fields are present in the runtime context.\n- Be careful with expectedCommitSubject and resultMode/status: allow null/undefined only if the current bounded context intentionally represents them that way, and align tests with the actual worker-dispatch context.\n\nTests required:\n- tests/hooks.test.ts must prove the real repository hook policy and definition load through loadHookPolicy as valid artifacts.\n- tests/hooks.test.ts must prove the worker.pre_dispatch dogfood hook allows a normal bounded context in a synthetic git repo without mutating repo files.\n- tests/hooks.test.ts must prove forbidden context, such as task.instructions, and missing required context are blocked by the synthetic trust-gate runner.\n- tests/worker-dispatch.test.ts must prove a runTaskCommand fixture using the actual dogfood hook artifacts produces top-level run-log hookEvidence while parsed.result.hookEvidence is absent.\n- Existing hooks, worker-dispatch, run-log, and run-show tests must continue to pass.\n\nVerification commands:\n- bun test tests/hooks.test.ts tests/worker-dispatch.test.ts tests/run-log.test.ts tests/run-show.test.ts\n- bun run typecheck\n- bun test\n\nExpected outcome: a candidate commit that updates only the allowed documentation, hook artifacts, and tests, with HARNESS_RESULT and deterministic verification evidence.",
+  "expectedCommitSubject": "feat: add hook dogfood context gate",
+  "status": "pending"
+}
