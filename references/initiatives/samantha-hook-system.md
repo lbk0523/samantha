@@ -1,6 +1,6 @@
 # Initiative: Samantha Hook System
 
-Status: S1-S5.7 implemented; worker.pre_dispatch runtime integration complete; first dogfood hook started
+Status: S1-S5.7 implemented; worker.pre_dispatch runtime integration complete; first dogfood hook active for normal worker tasks
 Source: Samantha hook-system planning discussion, 2026-05-23
 Last updated: 2026-05-24
 
@@ -315,6 +315,11 @@ The first real hook is
 prove the worker pre-dispatch context remains bounded to `task`, `agent`, and
 `dispatch`, and to block if forbidden long/raw task context such as
 `task.instructions` appears or if required bounded context is missing.
+
+As of 2026-05-24, this first `worker.pre_dispatch` dogfood hook is enabled for
+normal Samantha worker tasks. Actual `run-task` worker dispatches should execute
+the gate and record `hookEvidence`; this activation note does not complete the
+2026-05-31 dogfood review.
 
 The gate is a Samantha-owned gate/evidence pipeline artifact. It is not an
 extension platform, an untrusted plugin sandbox, a remote adapter boundary, or a
