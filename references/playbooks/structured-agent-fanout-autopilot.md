@@ -63,9 +63,7 @@ Authority-bearing surfaces use paired closed objects:
   approves guarded batch preparation or execution coordination through existing
   gates.
 
-Candidate objects are not execution triggers. Values such as `report_only`,
-`preflight_only`, or `batch_preflight_only` must produce reports, not side
-effects.
+Candidate objects are not execution triggers. Candidate execution modes are limited to `report_only` and `preflight_only`; future execution modes require reviewed code and contract updates. Those modes must produce reports, not side effects.
 
 `reportFanoutCandidate` should name the requested roles, source artifacts,
 expected report paths, synthesis requirements, and false side-effect contract.
