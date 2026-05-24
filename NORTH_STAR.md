@@ -1,6 +1,6 @@
 # Samantha North Star
 
-Last updated: 2026-05-16
+Last updated: 2026-05-24
 
 ## North Star
 
@@ -116,6 +116,15 @@ Learning must be explicit and reviewable:
 
 If a lesson matters, it should become an artifact that BK can inspect, edit, and
 reject.
+
+Long term, Samantha should reduce BK's review bottleneck through audited
+artifact promotion rather than hidden memory. The path to more autonomous
+learning is a ladder: draft candidates from evidence, review and prioritize
+them, record shadow promotion decisions, compare those decisions against BK's
+actual choices, and only then grant narrow, reversible promotion authority for
+low-risk advisory artifacts. Higher-risk changes to task templates, agent
+profiles, policy gates, or doctrine require stronger evidence and explicit
+review.
 
 ## Outside The Core Loop
 

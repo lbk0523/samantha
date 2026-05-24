@@ -496,6 +496,26 @@ Nothing becomes durable guidance until it is promoted into a repository
 artifact. Samantha must not learn through hidden memory, vague preference drift,
 automatic policy rewrite, or unreviewed authority changes.
 
+Learning autonomy is earned in explicit levels:
+
+1. Manual review: BK reviews candidates before promotion.
+2. Automatic triage: Samantha drafts candidates and reviews the inbox into a
+   promotion queue, but does not modify promoted artifacts.
+3. Shadow autopromotion: Samantha records what it would promote, with reasons,
+   without changing promoted artifacts. Later BK decisions are used to measure
+   false positives, false negatives, and over-broad proposed guidance.
+4. Limited advisory autopromotion: only low-risk playbook guidance may be
+   promoted automatically, and only after repeated evidence, deterministic
+   review, an audit log, and an obvious rollback path.
+5. High-risk supervised promotion: task templates, agent profiles, policy
+   checks, verification defaults, and doctrine remain explicitly reviewed unless
+   a later architecture slice grants a narrower authority with tests and audit
+   evidence.
+
+Each level must preserve the same artifact boundary: no hidden memory, no
+background authority expansion, no automatic policy rewrite, and no weakening
+of worktree, scope, verification, lifecycle, merge, cleanup, or push gates.
+
 Current files:
 
 - `src/core/lesson-draft.ts`

@@ -1,6 +1,6 @@
 # Samantha Roadmap
 
-Last updated: 2026-05-16
+Last updated: 2026-05-24
 
 ## Purpose
 
@@ -163,6 +163,26 @@ The implemented automatic signal marks playbook candidates for promotion only
 after repeated evidence. Clear high-cost failures require explicit manual
 review or a future deterministic signal before they can become an automatic
 promotion path. A one-off annoyance should stay out of durable artifacts.
+
+Future autonomy ladder:
+
+1. Current baseline: automatic candidate drafting and deterministic inbox review
+   are allowed, while promotion remains explicit.
+2. Prioritized review: Samantha may rank promotion candidates, explain why each
+   candidate should be promoted, rejected, or held for more evidence, and reduce
+   BK review to the highest-signal decisions.
+3. Shadow autopromotion: Samantha records non-mutating promotion decisions and
+   compares them with BK's later choices before any authority expands.
+4. Limited advisory autopromotion: recurring, low-risk playbook guidance may be
+   auto-promoted only with repeated evidence, deterministic review, audit
+   records, and rollback.
+5. Supervised high-risk learning: task templates, agent profiles, policy checks,
+   verification defaults, and doctrine remain review-required until a separate
+   architecture slice proves narrower authority with tests and lifecycle
+   evidence.
+
+This ladder is future direction, not current authority. Phase 2 still forbids
+automatic promotion into durable guidance.
 
 ## Phase 3: Task Templates And Playbooks
 
