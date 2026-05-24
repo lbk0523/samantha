@@ -1,0 +1,53 @@
+{
+  "id": "hook-system-s5-7-worker-pre-dispatch-integration-rework",
+  "title": "Rework worker.pre_dispatch hook integration without weakening event budgets",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/worker-dispatch.ts",
+    "src/commands/run-task.ts",
+    "src/core/run-log.ts",
+    "src/core/hooks.ts",
+    "tests/hooks.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/run-log.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-show.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts tests/worker-dispatch.test.ts tests/run-log.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Rework the previous passing candidate run /Users/byung/Documents/samantha/runs/2026-05-24T04-25-12-540Z-hook-system-s5-7-worker-pre-dispatch-integration.json, commit 58aef3487dead7ff93d601cc8493bcd20818cf09. Do not accept that commit as-is. Implement the same worker.pre_dispatch runtime integration, but fix the review blockers below.\n\nReview blocker 1: the previous candidate weakened S5.6 trust-gate event budget semantics in src/core/hooks.ts. It changed commandTimeoutWithinEventBudget so hook commands may receive more than the remaining event budget. This is not acceptable. Preserve the existing S5.6 rule: before each expensive trust-gate operation, command execution must be bounded by the remaining event budget. Restore commandTimeoutWithinEventBudget to use remainingTrustGateEventBudget(eventBudget), and do not pass a larger per-hook timeout to runHook as a workaround. If integration tests need more budget, adjust test hook policy/default event timeout or test timing, not the trust-gate runner invariant.\n\nAdd a focused regression test in tests/hooks.test.ts if practical: when an earlier trust-gate hook consumes most of eventTimeoutMs, a later hook command must not be able to run past the remaining event budget and perform a delayed side effect. Keep the test deterministic enough for CI; avoid over-tight timing assertions if marker-file evidence is more stable.\n\nReview blocker 2: keep hook evidence additive and outside worker-result authority. It is acceptable for executeWorkerDispatch/runTaskCommand to carry hook evidence internally, but worker run logs should not duplicate hook evidence inside result if that makes hook output look like part of WorkerDispatchExecution authority. Prefer top-level log.hookEvidence as the persistent evidence surface. If you keep a transient execution.hookEvidence field for plumbing, ensure buildWorkerRunLog strips it from result or otherwise prove run logs do not duplicate it under result.hookEvidence. Add or update tests to assert top-level hookEvidence exists for hook runs and parsed.result.hookEvidence is absent.\n\nContinue to satisfy the original integration requirements:\n- Execute worker.pre_dispatch trust-gate hooks after prepareWorkerDispatch succeeds and after worktree allocation/codex preparation, but before setupCommands and before runtimeAdapter.execute.\n- Load hook policy from preparation.worktreePath, the actual worker cwd.\n- If policy is missing, preserve existing behavior and omit empty hookEvidence log noise.\n- If policy is disabled, enabled, invalid, or otherwise present, record diagnosable hook evidence where practical.\n- Trust-gate block must stop setupCommands, worker command, evaluation, and commit; WorkerDispatchExecution.pass must be false; dispatchError must clearly name worker.pre_dispatch hook gate and include the final summary.\n- runTaskCommand must connect hook evidence to writeWorkerRunLog.\n- Hook evidence must include policy path/digest, definition path/digest for loaded definitions, worker.pre_dispatch event/version, trustGate final decision, and invocation evidence.\n- Context must be bounded to top-level keys task, agent, dispatch. Do not include task instructions, raw transcripts, credentials, connector data, hidden memory, or arbitrary file contents.\n- Do not run worker.pre_dispatch hooks for dispatch validation failures before prepareWorkerDispatch succeeds.\n- Do not add task_spec.preflight integration, advisory runtime hooks, CLI flags, MCP, plugin behavior, daemon/watch behavior, remote behavior, lifecycle authority, worker-result authority changes, real references/hooks artifacts, documentation edits, retries, parallel hook execution, dynamic dispatch, or new policy schema fields.\n\nRequired tests from the original slice still apply:\n- no hook policy keeps existing worker dispatch/run-task behavior and omits hookEvidence;\n- passed + allow hook lets setup, worker command, evaluation, and commit continue and records allow evidence;\n- blocked + block hook prevents setup, worker command, evaluation, and commit and records block evidence;\n- invalid present policy fails closed before worker execution with diagnosable dispatchError/evidence;\n- dispatch validation block remains a pre-hook failure with no hookEvidence;\n- existing hooks, run-log, and worker-dispatch tests pass.",
+  "expectedCommitSubject": "feat: integrate worker pre-dispatch hook gate",
+  "status": "pending"
+}
