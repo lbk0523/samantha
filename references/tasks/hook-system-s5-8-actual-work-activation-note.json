@@ -1,0 +1,41 @@
+{
+  "id": "hook-system-s5-8-actual-work-activation-note",
+  "title": "Document actual worker-task activation for the dogfood hook",
+  "taskFamily": "docs-only",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/samantha-hook-system.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "references/hooks/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts tests/worker-dispatch.test.ts",
+    "bun run typecheck"
+  ],
+  "instructions": "Update references/initiatives/samantha-hook-system.md minimally to clarify that the first worker.pre_dispatch dogfood hook is enabled for normal Samantha worker tasks as of 2026-05-24, so actual run-task worker dispatches should execute the gate and record hookEvidence. Do not claim the one-week dogfood review is complete. Do not claim there were no dogfood issues beyond the immediate activation evidence. Preserve the 2026-05-31 review date and existing stop conditions. Do not modify src/**, references/hooks/**, tests, task specs, lifecycle artifacts, run logs, or lesson artifacts.",
+  "expectedCommitSubject": "docs: mark hook dogfood active for worker tasks",
+  "status": "pending"
+}
