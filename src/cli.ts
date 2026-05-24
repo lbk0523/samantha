@@ -6,6 +6,7 @@ import {
   type OrchestrateReportOnlyReviewsInput,
 } from "./commands/orchestrate-reports";
 import { draftLessonFromRunLog } from "./core/lesson-draft";
+import { runDailyLessonReview } from "./core/lesson-daily-review";
 import {
   promoteLessonCandidate,
   recordPlaybookEvidence,
@@ -173,6 +174,12 @@ export interface LessonsDraftCliArgs {
   runLogPath: string;
 }
 
+export interface LessonsDailyReviewCliArgs {
+  command: "lessons:daily-review";
+  repoRoot: string;
+  date?: string;
+}
+
 export interface LessonsReviewCliArgs {
   command: "lessons:review";
   candidatePath: string;
@@ -310,6 +317,7 @@ export type SamanthaCliArgs =
   | ReportsOrchestrateCliArgs
   | ReadinessCheckCliArgs
   | LessonsDraftCliArgs
+  | LessonsDailyReviewCliArgs
   | LessonsReviewCliArgs
   | LessonsReviewInboxCliArgs
   | LessonsPromotionQueueCliArgs
@@ -675,6 +683,19 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
+  if (command === "lessons:daily-review") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const repoRoot = flags.get("repo-root");
+    if (!repoRoot) {
+      throw new Error("usage: bun run samantha lessons:daily-review --repo-root=<repo> [--date=YYYY-MM-DD]");
+    }
+    return {
+      command: "lessons:daily-review",
+      repoRoot,
+      ...(flags.get("date") ? { date: flags.get("date") } : {}),
+    };
+  }
+
   if (command === "lessons:review") {
     if (!first) {
       throw new Error("usage: bun run samantha lessons:review <candidate.md>");
@@ -952,7 +973,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:update-status-after-accept|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:update-status-after-accept|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:daily-review|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -1372,6 +1393,11 @@ export async function main(argv: string[]): Promise<number> {
         2,
       ),
     );
+    return 0;
+  }
+
+  if (args.command === "lessons:daily-review") {
+    console.log(JSON.stringify(await runDailyLessonReview(args), null, 2));
     return 0;
   }
 

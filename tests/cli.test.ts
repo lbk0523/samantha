@@ -2907,6 +2907,24 @@ The fixture is complete when readiness is clear.
       command: "lessons:draft",
       runLogPath: "runs/run-1.json",
     });
+    expect(
+      parseCliArgs([
+        "lessons:daily-review",
+        "--repo-root=/tmp/samantha-repo",
+        "--date=2026-05-23",
+      ]),
+    ).toEqual({
+      command: "lessons:daily-review",
+      repoRoot: "/tmp/samantha-repo",
+      date: "2026-05-23",
+    });
+    expect(parseCliArgs(["lessons:daily-review", "--repo-root=/tmp/samantha-repo"])).toEqual({
+      command: "lessons:daily-review",
+      repoRoot: "/tmp/samantha-repo",
+    });
+    expect(() => parseCliArgs(["lessons:daily-review"])).toThrow(
+      "usage: bun run samantha lessons:daily-review --repo-root=<repo> [--date=YYYY-MM-DD]",
+    );
   });
 
   test("parses lesson review and promotion arguments", () => {
@@ -3077,6 +3095,38 @@ The fixture is complete when readiness is clear.
         },
       ],
     });
+  });
+
+  test("lesson daily review command writes a date-scoped report", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-"));
+    tmpRoots.push(root);
+
+    const result = await runCliCapturingStdout([
+      "lessons:daily-review",
+      `--repo-root=${root}`,
+      "--date=2026-05-23",
+    ]);
+
+    const report = JSON.parse(result.stdout);
+    const reportPath = join(root, "references", "lessons", "daily", "2026-05-23.json");
+    expect(result.exitCode).toBe(0);
+    expect(report).toMatchObject({
+      schemaVersion: 1,
+      targetDate: "2026-05-23",
+      kstWindow: {
+        start: "2026-05-23T00:00:00+09:00",
+        end: "2026-05-24T00:00:00+09:00",
+      },
+      selectedRunCount: 0,
+      draftResults: [],
+      reviewIndexPath: join(root, "references", "lessons", "reviews", "index.json"),
+      summary: {
+        total: 0,
+      },
+      promotionQueue: [],
+      reportPath,
+    });
+    expect(JSON.parse(await readFile(reportPath, "utf8"))).toEqual(report);
   });
 
   test("lesson promotion queue command prints a review queue without promoting", async () => {
