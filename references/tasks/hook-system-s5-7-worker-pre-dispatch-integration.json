@@ -1,0 +1,52 @@
+{
+  "id": "hook-system-s5-7-worker-pre-dispatch-integration",
+  "title": "Integrate worker.pre_dispatch trust-gate hooks into worker dispatch",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/worker-dispatch.ts",
+    "src/commands/run-task.ts",
+    "src/core/run-log.ts",
+    "src/core/hooks.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/run-log.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-show.ts",
+    "src/core/worker-result.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/hooks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/hooks.test.ts tests/worker-dispatch.test.ts tests/run-log.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement the worker.pre_dispatch runtime integration slice from references/initiatives/samantha-hook-system.md. This slice must connect only worker.pre_dispatch trust-gate hooks to the worker-dispatch runtime. Do not add task_spec.preflight integration, advisory runtime hooks, CLI flags, MCP, plugin behavior, daemon/watch behavior, remote behavior, lifecycle authority, worker-result authority changes, real references/hooks artifacts, or documentation edits.\n\nRequired behavior 1: execute worker.pre_dispatch trust-gate hooks before any worker command runs. The hook gate must run after prepareWorkerDispatch has completed dispatch validation, worktree allocation, and codex command preparation, but before setupCommands and before runtimeAdapter.execute. Hook policy must be loaded from preparation.worktreePath, the actual worker cwd. If hook policy is missing, preserve existing behavior and avoid adding empty hookEvidence log noise. If policy is disabled, enabled, invalid, or otherwise present, record diagnosable hook evidence where practical.\n\nRequired behavior 2: trust-gate block must stop worker dispatch. When worker.pre_dispatch final decision is block, do not run setupCommands, runtimeAdapter.execute, evaluateWorkerResult, or commitWorkerChanges. Return WorkerDispatchExecution.pass false. Set dispatchError to clearly say worker.pre_dispatch hook gate blocked dispatch and include the final summary. Keep this distinguishable from the existing dispatch validation block path.\n\nRequired behavior 3: connect hook evidence to actual run-task logs. runTaskCommand must pass execution hook evidence to writeWorkerRunLog. Hook evidence must include policy path/digest, hook definition path/digest for loaded definitions, the worker.pre_dispatch event, eventVersion, trustGate final decision, and hook invocation evidence. Hook evidence must remain additive evidence only and must not replace HARNESS_RESULT, changed-file scope checks, deterministic verification output, lifecycle records, or Samantha-owned commit/report evidence.\n\nRequired behavior 4: keep worker.pre_dispatch context bounded. Inject only these top-level context keys when requested by a hook: task, agent, dispatch. The task context must include id, title, taskFamily, workMode, riskClass, targetAgent, resultMode/status, targetFiles, forbiddenChanges, verifyCommands, setupCommands, and expectedCommitSubject. The agent context must include id, role, writerClass, worktreePolicy, and mergePolicy. The dispatch context must include worktreePath, whether allocation exists, branch/baseCommit when present, and runtimeKind. Do not include long task instructions, raw transcripts, credentials, connector data, hidden memory, or arbitrary file contents.\n\nRequired behavior 5: keep authority and performance boundaries clear. Do not run worker.pre_dispatch hooks for dispatch validation failures that happen before prepareWorkerDispatch succeeds. Do not add retries, parallel hook execution, dynamic dispatch, or new policy schema fields. Reuse the existing trust-gate runner's timeout, bounded completion, context cap, stdout cap, mutation evidence, and fail-closed behavior.\n\nRequired tests:\n- With no hook policy, existing worker dispatch/run-task behavior remains unchanged and the run log omits hookEvidence.\n- A worker.pre_dispatch trust-gate hook returning passed + allow lets setup, worker command, evaluation, and commit continue, and run log hookEvidence records the allow decision and invocation evidence.\n- A worker.pre_dispatch trust-gate hook returning blocked + block prevents setup, worker command, evaluation, and commit; execution.pass is false; dispatchError names worker.pre_dispatch hook gate; run log hookEvidence records the block decision and invocation evidence.\n- An invalid present hook policy fails closed before worker execution with diagnosable dispatchError and, where practical, hook evidence showing the gate blocked before invocation.\n- An existing dispatch validation block remains a pre-hook failure: hooks are not loaded/executed and hookEvidence is absent.\n- Existing hooks, run-log, and worker-dispatch tests still pass.\n\nImplementation guidance: prefer small private helpers in worker-dispatch.ts for building bounded context, computing sha256 file digests, and converting trust-gate results into WorkerRunHookEvidence. Only edit src/core/run-log.ts, src/core/hooks.ts, or tests/run-log.test.ts if the current types force a small compatibility change; otherwise leave them untouched.",
+  "expectedCommitSubject": "feat: integrate worker pre-dispatch hook gate",
+  "status": "pending"
+}
