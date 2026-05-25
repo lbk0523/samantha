@@ -3,6 +3,7 @@ set -eu
 set -o pipefail
 
 REPO_ROOT="/Users/byung/Documents/samantha"
+BUN_BIN="${BUN_BIN:-/opt/homebrew/bin/bun}"
 LOCK_DIR="${TMPDIR:-/tmp}/samantha-daily-lesson-review.lock"
 LOG_DIR="${HOME}/Library/Logs/samantha/daily-lessons"
 LOG_FILE="${LOG_DIR}/daily-review.log"
@@ -29,6 +30,11 @@ if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
 fi
 trap cleanup EXIT INT TERM
 
+if [[ ! -x "${BUN_BIN}" ]]; then
+  printf '%s\n' "Bun binary is not executable at ${BUN_BIN}; set BUN_BIN to an absolute executable path" >&2
+  exit 1
+fi
+
 printf '%s\n' "Starting daily lesson review"
-bun run samantha lessons:daily-review --repo-root="${REPO_ROOT}"
+"${BUN_BIN}" run samantha lessons:daily-review --repo-root="${REPO_ROOT}"
 printf '%s\n' "Finished daily lesson review"

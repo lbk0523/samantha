@@ -22,11 +22,19 @@ describe("daily lesson LaunchAgent MVP files", () => {
     expect(wrapper).toContain("trap cleanup EXIT INT TERM");
     expect(wrapper).toContain('LOG_DIR="${HOME}/Library/Logs/samantha/daily-lessons"');
     expect(wrapper).toContain('exec >>\"${LOG_FILE}\" 2>&1');
-    expect(wrapper).toContain("bun run samantha lessons:daily-review --repo-root=\"${REPO_ROOT}\"");
+    expect(wrapper).toContain('BUN_BIN="${BUN_BIN:-/opt/homebrew/bin/bun}"');
+    expect(wrapper).toContain('if [[ ! -x "${BUN_BIN}" ]]');
+    expect(wrapper).toContain(
+      "Bun binary is not executable at ${BUN_BIN}; set BUN_BIN to an absolute executable path",
+    );
+    expect(wrapper).toContain("\"${BUN_BIN}\" run samantha lessons:daily-review --repo-root=\"${REPO_ROOT}\"");
     expect(wrapper.indexOf("git status --short")).toBeLessThan(
-      wrapper.indexOf("bun run samantha lessons:daily-review"),
+      wrapper.indexOf("\"${BUN_BIN}\" run samantha lessons:daily-review"),
     );
     expect(wrapper.indexOf("git status --short")).toBeLessThan(wrapper.indexOf('mkdir "${LOCK_DIR}"'));
+    expect(wrapper.indexOf('if [[ ! -x "${BUN_BIN}" ]]')).toBeLessThan(
+      wrapper.indexOf("\"${BUN_BIN}\" run samantha lessons:daily-review"),
+    );
   });
 
   test("plist template schedules the wrapper at 03:00 without RunAtLoad", async () => {
