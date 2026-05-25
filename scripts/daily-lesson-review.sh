@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -eu
+set -o pipefail
+
+REPO_ROOT="/Users/byung/Documents/samantha"
+LOCK_DIR="${TMPDIR:-/tmp}/samantha-daily-lesson-review.lock"
+LOG_DIR="${HOME}/Library/Logs/samantha/daily-lessons"
+LOG_FILE="${LOG_DIR}/daily-review.log"
+
+mkdir -p "${LOG_DIR}"
+exec >>"${LOG_FILE}" 2>&1
+
+cd "${REPO_ROOT}"
+
+dirty_status="$(git status --short)"
+if [[ -n "${dirty_status}" ]]; then
+  printf '%s\n' "Samantha repo is dirty; refusing daily lesson review" >&2
+  printf '%s\n' "${dirty_status}" >&2
+  exit 1
+fi
+
+cleanup() {
+  rmdir "${LOCK_DIR}" 2>/dev/null || true
+}
+
+if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
+  printf '%s\n' "Daily lesson review is already running" >&2
+  exit 1
+fi
+trap cleanup EXIT INT TERM
+
+printf '%s\n' "Starting daily lesson review"
+bun run samantha lessons:daily-review --repo-root="${REPO_ROOT}"
+printf '%s\n' "Finished daily lesson review"
