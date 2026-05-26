@@ -23,6 +23,60 @@ export const DEFAULT_SAFETY_POLICY: SafetyPolicy = {
 
 const KNOWN_AGENT_ROLES: AgentRole[] = ["writer", "reviewer", "evaluator", "spec", "researcher"];
 
+function validateWriterVerifyCommands(verifyCommands: string[]): string[] {
+  const violations: string[] = [];
+  let reportedEmptyCommand = false;
+
+  for (const command of verifyCommands) {
+    const trimmed = command.trim();
+    if (trimmed.length === 0) {
+      if (!reportedEmptyCommand) {
+        violations.push("writer verifyCommands must not include empty or whitespace-only commands");
+        reportedEmptyCommand = true;
+      }
+      continue;
+    }
+
+    if (isNoopOrSimpleOutputCommand(trimmed)) {
+      violations.push(`writer verifyCommands must not use no-op/simple output commands: ${trimmed}`);
+    }
+    if (isLongRunningVerifyCommand(trimmed)) {
+      violations.push(
+        `writer verifyCommands must not use long-running/watch/dev/server commands: ${trimmed}`,
+      );
+    }
+  }
+
+  return violations;
+}
+
+function isNoopOrSimpleOutputCommand(command: string): boolean {
+  const normalized = command.toLowerCase().replace(/\s+/g, " ");
+
+  return (
+    /^(true|false|pwd|ls)(\s|$)/.test(normalized) ||
+    /^git\s+status(\s|$)/.test(normalized) ||
+    /^echo(\s|$)/.test(normalized)
+  );
+}
+
+function isLongRunningVerifyCommand(command: string): boolean {
+  const normalized = command.toLowerCase().replace(/\s+/g, " ");
+
+  return (
+    /^sleep(\s|$)/.test(normalized) ||
+    (/^tail(\s|$)/.test(normalized) && /\s-[^\s]*f[^\s]*(\s|$)/.test(normalized)) ||
+    /^watch(\s|$)/.test(normalized) ||
+    /(^|\s)--watch(=|\s|$)/.test(normalized) ||
+    /^npm\s+run\s+dev(\s|$)/.test(normalized) ||
+    /^bun\s+run\s+dev(\s|$)/.test(normalized) ||
+    /^pnpm\s+(run\s+)?dev(\s|$)/.test(normalized) ||
+    /^yarn\s+(run\s+)?dev(\s|$)/.test(normalized) ||
+    /^vite\s+dev(\s|$)/.test(normalized) ||
+    /^next\s+dev(\s|$)/.test(normalized)
+  );
+}
+
 export function validateWriterCap(
   agents: AgentProfile[],
   policy: SafetyPolicy = DEFAULT_SAFETY_POLICY,
@@ -128,6 +182,7 @@ export function validateDispatch(
     if (policy.requiredVerifyCommandsForWriters && task.verifyCommands.length === 0) {
       violations.push("writer tasks must declare verifyCommands");
     }
+    violations.push(...validateWriterVerifyCommands(task.verifyCommands));
   }
 
   if (agent.writerClass === "non-writer") {

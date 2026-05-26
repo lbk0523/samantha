@@ -148,6 +148,61 @@ describe("dispatch policy", () => {
     expect(result.violations).toContain("writer tasks must declare verifyCommands");
   });
 
+  test("blocks writer tasks with no-op verify commands", () => {
+    const result = validateDispatch({ ...validTask, verifyCommands: ["true"] }, worker);
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      "writer verifyCommands must not use no-op/simple output commands: true",
+    );
+  });
+
+  test("blocks writer tasks with long-running watch or dev verify commands", () => {
+    const commands = [
+      "sleep 1",
+      "tail -f logs/app.log",
+      "npm run dev",
+      "bun --watch tests/policy.test.ts",
+      "bun test --watch",
+      "vite dev",
+      "next dev",
+    ];
+
+    for (const command of commands) {
+      const result = validateDispatch({ ...validTask, verifyCommands: [command] }, worker);
+
+      expect(result.mayDispatch).toBe(false);
+      expect(result.violations).toContain(
+        `writer verifyCommands must not use long-running/watch/dev/server commands: ${command}`,
+      );
+    }
+  });
+
+  test("blocks writer tasks with whitespace-only verify commands", () => {
+    const result = validateDispatch({ ...validTask, verifyCommands: ["  \n\t"] }, worker);
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      "writer verifyCommands must not include empty or whitespace-only commands",
+    );
+  });
+
+  test("allows focused writer verify commands", () => {
+    const commands = [
+      "bun test tests/policy.test.ts",
+      "bun run typecheck",
+      "bun test",
+      "git diff --check HEAD -- '*.md' 'references/**/*.md'",
+    ];
+
+    for (const command of commands) {
+      const result = validateDispatch({ ...validTask, verifyCommands: [command] }, worker);
+
+      expect(result.mayDispatch).toBe(true);
+      expect(result.violations).toEqual([]);
+    }
+  });
+
   test("blocks allowNoop tasks without a non-empty rationale", () => {
     const missing = validateDispatch({ ...validTask, allowNoop: true }, worker);
     const blank = validateDispatch(
@@ -260,6 +315,26 @@ describe("dispatch policy", () => {
 
     expect(result.mayDispatch).toBe(false);
     expect(result.violations).toContain("non-writer report tasks must not declare verifyCommands");
+  });
+
+  test("keeps non-writer report task verify rules unchanged", () => {
+    const result = validateDispatch(
+      {
+        ...validTask,
+        taskFamily: "report-review",
+        workMode: "diagnosis-first",
+        riskClass: "routine",
+        targetAgent: "codex-reviewer",
+        resultMode: "report",
+        targetFiles: [],
+        forbiddenChanges: ["**/*"],
+        verifyCommands: ["true"],
+      },
+      reviewer,
+    );
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toEqual(["non-writer report tasks must not declare verifyCommands"]);
   });
 
   test("blocks profiles that can use orchestration-conflicting skills", () => {
