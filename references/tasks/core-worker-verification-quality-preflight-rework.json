@@ -1,0 +1,52 @@
+{
+  "id": "core-worker-verification-quality-preflight-rework",
+  "title": "Rework writer verify command quality preflight",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/policy.ts",
+    "tests/policy.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/policy.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only the S4 verification quality preflight rework found by source-of-truth review. Keep the change limited to deterministic dispatch policy checks in src/core/policy.ts and focused policy tests in tests/policy.test.ts. Do not add LLM semantic verification.\n\nRequired behavior:\n- Preserve the existing S4 behavior that blocks empty or whitespace-only writer verifyCommands.\n- Preserve the existing S4 behavior that blocks direct no-op/simple output commands such as true, false, pwd, ls, git status, and echo-only commands.\n- Preserve the existing S4 behavior that blocks direct long-running, watch, server, or dev commands such as sleep, tail -f, npm run dev, bun run dev, pnpm dev, yarn dev, bun --watch, bun test --watch, vite dev, next dev, and watch mode variants.\n- Close the shell-wrapper escape found in review: writer verifyCommands such as bash -lc true, sh -c \"echo ok\", zsh -lc \"sleep 999\", or equivalent simple shell-wrapped no-op/watch/dev commands must be dispatch blocked. Keep this deterministic and small; do not build a general shell parser.\n- Add minimum relationship checks from the source report: writer tasks with workMode \"tdd-first\" or taskFamily \"core-module\" must include at least one test or typecheck command.\n- Add minimum relationship checks from the source report: writer tasks with riskClass \"lifecycle-sensitive\" must include at least one broad verification command, such as bun test or bun run typecheck. Prefer exact, deterministic command classification over semantic inference.\n- Keep normal focused commands accepted, including bun test tests/policy.test.ts, bun run typecheck, bun test, and git diff --check HEAD -- '*.md' 'references/**/*.md' when the task does not require test/typecheck or lifecycle-sensitive broad verification.\n- Preserve existing writer/non-writer, allowNoop, targetFiles, forbiddenChanges, and verifyCommands-required policy behavior.\n\nRequired tests:\n- Writer task with verifyCommands [\"bash -lc true\"] is blocked.\n- Writer task with shell-wrapped simple output or long-running/dev/watch verify command is blocked.\n- Writer task with taskFamily \"core-module\" or workMode \"tdd-first\" and only git diff --check is blocked for missing test/typecheck verification.\n- Writer task with riskClass \"lifecycle-sensitive\" and only a focused test command is blocked for missing broad verification.\n- Normal focused commands remain accepted where the relationship rules allow them.\n- Lifecycle-sensitive tasks are accepted when they include broad verification.\n- Non-writer report task rules remain unchanged.\n\nDo not change CLI surface, command-runner timeout behavior, setup timeout behavior, worker runtime timeout behavior, worker dispatch flow, worker result evaluation, contracts, task templates, agent profiles, documentation, run logs, lifecycle records, worktrees, dashboard, daemon/watch behavior, remote adapter behavior, multi-project orchestration, writerCap, hidden memory, or LLM semantic verification. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: tighten verify command quality preflight",
+  "status": "pending"
+}
