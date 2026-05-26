@@ -1,0 +1,57 @@
+{
+  "id": "core-worker-s4-residual-policy-hardening",
+  "title": "Harden residual verify quality policy",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/policy.ts",
+    "tests/policy.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "src/core/worker-runtime-adapter.ts",
+    "src/core/batch-execution.ts",
+    "tests/worker-result.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/batch-execution.test.ts",
+    "tests/cli.test.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/policy.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only the S4 residual deterministic verification-quality policy hardening found by source-of-truth review. Keep all code changes inside src/core/policy.ts and all test changes inside tests/policy.test.ts. Do not change setup timeout, worker runtime timeout, verify timeout, test discovery hygiene, CLI behavior, task templates, docs, lifecycle artifacts, dashboards, daemon/watch behavior, remote adapters, writerCap, hidden memory, or LLM semantic verification.\n\nPolicy direction:\n- Prefer a repo-specific allowed verification family over broad shell parsing or an ever-growing deny-list.\n- Treat real repository verification as exact broad commands such as bun test and bun run typecheck, or focused test commands such as bun test tests/<name>.test.ts that are related to the task target files.\n- Keep docs-only/minimal-change writer tasks allowed to use git diff --check when they do not trigger core-module, tdd-first, or lifecycle-sensitive verification requirements.\n- Do not count grep, test -f, test -e, test -s, echo, pwd, ls, git status, true, false, sleep, watch/dev/server commands, or their simple shell-wrapped equivalents as satisfying verification quality.\n- Shell wrappers must not become a bypass. Block or unwrap deterministically enough to reject simple no-op/watch/dev wrappers including bash -lc true, /bin/bash -lc true, bash -l -c true, env bash -lc true, sh -lc \"echo ok\", and zsh -lc \"sleep 999\". Keep this small; do not build a general shell parser.\n- Writer tasks with taskFamily core-module or workMode tdd-first must include a real test runner or typecheck command from the allowed repository verification family.\n- Focused test commands used to satisfy core-module or tdd-first verification must be related to targetFiles. For this repository, src/core/<name>.ts should be satisfied by bun test tests/<name>.test.ts, while broad bun test or bun run typecheck may satisfy shared or broad verification. Do not accept bun test tests/unrelated.test.ts for targetFiles such as src/core/worker-result.ts.\n- Writer tasks with riskClass lifecycle-sensitive must include broad verification. Focused tests alone must not satisfy lifecycle-sensitive broad verification.\n- Preserve existing writer/non-writer, allowNoop/noopRationale, targetFiles, forbiddenChanges, verifyCommands-required, and bundled profile policy behavior.\n\nRequired tests:\n- A docs-only/minimal-change writer task with verifyCommands [\"/bin/bash -lc true\"] is blocked.\n- A docs-only/minimal-change writer task with verifyCommands [\"env bash -lc true\"] is blocked.\n- A docs-only/minimal-change writer task with verifyCommands [\"bash -l -c true\"] is blocked.\n- A writer task with shell-wrapped simple output or long-running/dev/watch verify commands such as sh -lc \"echo ok\" and zsh -lc \"sleep 999\" is blocked.\n- A core-module or tdd-first writer task with only grep, test -f, git diff --check, or unrelated focused bun test verification is blocked.\n- A core-module writer task targeting src/core/worker-result.ts with verifyCommands [\"bun test tests/unrelated.test.ts\"] is blocked.\n- A core-module writer task targeting src/core/policy.ts with verifyCommands [\"bun test tests/policy.test.ts\"] remains accepted.\n- A routine core-module or tdd-first writer task with broad bun test or bun run typecheck remains accepted.\n- A lifecycle-sensitive writer task with only a focused bun test remains blocked, while one with bun test or bun run typecheck remains accepted.\n- A docs-only/minimal-change writer task with git diff --check remains accepted when it does not trigger core-module, tdd-first, or lifecycle-sensitive requirements.\n- Non-writer report task rules remain unchanged.\n\nEnd with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: harden residual verify policy",
+  "status": "pending"
+}
