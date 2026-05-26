@@ -1,0 +1,52 @@
+{
+  "id": "core-worker-verification-quality-preflight-rework-2",
+  "title": "Fix verify quality relationship classification",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/policy.ts",
+    "tests/policy.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/policy.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only the follow-up rework for S4 verification quality preflight. Start from current main, not from the rejected candidate. The rejected run log is /Users/byung/Documents/samantha/runs/2026-05-26T13-16-42-823Z-core-worker-verification-quality-preflight-rework.json and rejected candidate commit a0f13251084844822cf0f0cfc977ff28e3d1d513 may be used only as diagnostic evidence.\n\nProblem to fix:\n- The rejected candidate incorrectly allowed core-module + tdd-first + lifecycle-sensitive writer tasks to dispatch with verifyCommands such as grep -q policy src/core/policy.ts or test -f src/core/policy.ts.\n- grep -q and shell builtin test/file-existence commands may be useful for docs-only or simple file-presence checks, but they must not satisfy the source report's test/typecheck relationship requirement for core-module or tdd-first writer tasks.\n- grep -q and shell builtin test/file-existence commands must not satisfy lifecycle-sensitive broad verification.\n\nRequired behavior:\n- Preserve existing S4 behavior that blocks empty or whitespace-only writer verifyCommands.\n- Preserve existing S4 behavior that blocks direct no-op/simple output commands such as true, false, pwd, ls, git status, and echo-only commands.\n- Preserve existing S4 behavior that blocks direct long-running, watch, server, or dev commands such as sleep, tail -f, npm run dev, bun run dev, pnpm dev, yarn dev, bun --watch, bun test --watch, vite dev, next dev, and watch mode variants.\n- Close shell-wrapper escapes for no-op/watch/dev commands, including bash -lc true, sh -c \"echo ok\", zsh -lc \"sleep 999\", and equivalent simple shell-wrapped no-op/watch/dev commands. Keep this deterministic and small; do not build a general shell parser.\n- Writer tasks with workMode \"tdd-first\" or taskFamily \"core-module\" must include at least one real test runner or typecheck command. Treat bun test, bun test <path>, and bun run typecheck as valid for this repository. Do not count grep -q, git diff --check, test -f, test -e, test -s, echo, pwd, ls, or git status as satisfying this relationship.\n- Writer tasks with riskClass \"lifecycle-sensitive\" must include broad verification. Treat only broad commands such as bun test and bun run typecheck as broad for this repository. Do not count focused test commands such as bun test tests/policy.test.ts, grep -q, git diff --check, test -f, test -e, or test -s as broad verification.\n- Keep normal focused commands accepted where relationship rules allow them, including bun test tests/policy.test.ts for routine core/tdd writer tasks and git diff --check HEAD -- '*.md' 'references/**/*.md' for docs-only/minimal-change tasks that do not trigger the test/typecheck relationship rule.\n- Keep lifecycle-sensitive tasks accepted when they include broad verification such as bun test or bun run typecheck.\n- Preserve existing writer/non-writer, allowNoop, targetFiles, forbiddenChanges, and verifyCommands-required policy behavior.\n\nRequired tests:\n- Writer task with verifyCommands [\"bash -lc true\"] is blocked for no-op shell wrapper behavior.\n- Writer task with shell-wrapped simple output or long-running/dev/watch verify command is blocked.\n- core-module writer task with only grep -q is blocked for missing test/typecheck verification.\n- tdd-first writer task with only test -f or git diff --check is blocked for missing test/typecheck verification.\n- lifecycle-sensitive writer task with only grep -q or test -f is blocked for missing broad verification.\n- lifecycle-sensitive writer task with only focused bun test tests/policy.test.ts is blocked for missing broad verification.\n- routine core-module/tdd-first writer task with focused bun test tests/policy.test.ts is accepted.\n- lifecycle-sensitive writer task with bun test or bun run typecheck is accepted.\n- docs-only/minimal-change writer task using git diff --check remains accepted when it does not trigger the core-module/tdd-first relationship rule.\n- Non-writer report task rules remain unchanged.\n\nDo not change CLI surface, command-runner timeout behavior, setup timeout behavior, worker runtime timeout behavior, worker dispatch flow, worker result evaluation, contracts, task templates, agent profiles, documentation, run logs, lifecycle records, worktrees, dashboard, daemon/watch behavior, remote adapter behavior, multi-project orchestration, writerCap, hidden memory, or LLM semantic verification. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: enforce verify quality relationships",
+  "status": "pending"
+}
