@@ -148,6 +148,33 @@ describe("dispatch policy", () => {
     expect(result.violations).toContain("writer tasks must declare verifyCommands");
   });
 
+  test("blocks allowNoop tasks without a non-empty rationale", () => {
+    const missing = validateDispatch({ ...validTask, allowNoop: true }, worker);
+    const blank = validateDispatch(
+      { ...validTask, allowNoop: true, noopRationale: "  \n\t" },
+      worker,
+    );
+
+    expect(missing.mayDispatch).toBe(false);
+    expect(missing.violations).toContain("allowNoop tasks must declare noopRationale");
+    expect(blank.mayDispatch).toBe(false);
+    expect(blank.violations).toContain("allowNoop tasks must declare noopRationale");
+  });
+
+  test("allows explicit writer no-op tasks with a rationale", () => {
+    const result = validateDispatch(
+      {
+        ...validTask,
+        allowNoop: true,
+        noopRationale: "The requested change may already be present.",
+      },
+      worker,
+    );
+
+    expect(result.mayDispatch).toBe(true);
+    expect(result.violations).toEqual([]);
+  });
+
   test("allows non-writer report-only tasks without target files", () => {
     const result = validateDispatch(
       {

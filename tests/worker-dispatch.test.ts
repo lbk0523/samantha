@@ -366,6 +366,53 @@ describe("worker dispatch", () => {
     );
   });
 
+  test("fails writer pass results that produce no changed files", async () => {
+    const repo = await makeRepo();
+    const fakeCodex = await makeFakeCodex([
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"no changes","commit":""}'`,
+    ]);
+
+    const result = await executeWorkerDispatch({
+      task: { ...task, verifyCommands: ["test -f README.md"] },
+      agent,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      codexBin: fakeCodex,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.evaluation?.pass).toBe(false);
+    expect(result.evaluation?.changedFiles).toEqual([]);
+    expect(result.evaluation?.verifyResults[0]?.exitCode).toBe(0);
+    expect(result.commit).toBeUndefined();
+  });
+
+  test("allows explicit writer no-op pass results without committing", async () => {
+    const repo = await makeRepo();
+    const fakeCodex = await makeFakeCodex([
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"already satisfied","commit":""}'`,
+    ]);
+
+    const result = await executeWorkerDispatch({
+      task: {
+        ...task,
+        verifyCommands: ["test -f README.md"],
+        allowNoop: true,
+        noopRationale: "The requested state was already present.",
+      },
+      agent,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      codexBin: fakeCodex,
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.evaluation?.pass).toBe(true);
+    expect(result.evaluation?.changedFiles).toEqual([]);
+    expect(result.evaluation?.verifyResults[0]?.exitCode).toBe(0);
+    expect(result.commit).toBeUndefined();
+  });
+
   test("runs report-only reviewer tasks without committing", async () => {
     const repo = await makeRepo();
     await writeFile(join(repo, "dirty-before-review.txt"), "pre-existing change\n", "utf8");

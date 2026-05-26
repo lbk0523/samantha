@@ -58,6 +58,8 @@ export interface TaskSpec {
   verifyCommands: string[];
   instructions: string;
   resultMode?: TaskResultMode;
+  allowNoop?: boolean;
+  noopRationale?: string;
   expectedCommitSubject?: string;
   status: TaskStatus;
 }

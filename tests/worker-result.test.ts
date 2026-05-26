@@ -90,6 +90,42 @@ describe("evaluateWorkerResult", () => {
     expect(result.changedFiles).toEqual(["allowed.txt"]);
   });
 
+  test("fails writer write pass results with no changed files unless no-op is allowed", async () => {
+    const { root, baseCommit } = await makeRepo();
+
+    const result = await evaluateWorkerResult({
+      task,
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.changedFiles).toEqual([]);
+    expect(result.scopeViolations).toEqual([]);
+    expect(result.verifyResults[0]?.exitCode).toBe(0);
+  });
+
+  test("allows explicit writer no-op pass results with a rationale", async () => {
+    const { root, baseCommit } = await makeRepo();
+
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        allowNoop: true,
+        noopRationale: "The requested invariant was already present.",
+      },
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"already done","commit":""}',
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.changedFiles).toEqual([]);
+    expect(result.scopeViolations).toEqual([]);
+    expect(result.verifyResults[0]?.exitCode).toBe(0);
+  });
+
   test("can ignore baseline changes for report-only evaluation", async () => {
     const { root, baseCommit } = await makeRepo();
     await writeFile(join(root, "allowed.txt"), "changed before report\n", "utf8");

@@ -111,6 +111,13 @@ export function validateDispatch(
     violations.push("report tasks must use non-writer agents");
   }
 
+  if (task.allowNoop === true) {
+    const noopRationale = (task as { noopRationale?: unknown }).noopRationale;
+    if (typeof noopRationale !== "string" || noopRationale.trim().length === 0) {
+      violations.push("allowNoop tasks must declare noopRationale");
+    }
+  }
+
   if (agent.writerClass === "writer" && task.resultMode !== "report") {
     if (policy.requiredTargetFilesForWriters && task.targetFiles.length === 0) {
       violations.push("writer tasks must declare targetFiles");

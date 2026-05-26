@@ -116,6 +116,14 @@ function findScopeViolations(task: TaskSpec, changedFiles: string[]): ScopeViola
   return violations;
 }
 
+function hasExplicitNoopAllowance(task: TaskSpec): boolean {
+  return (
+    task.allowNoop === true &&
+    typeof task.noopRationale === "string" &&
+    task.noopRationale.trim().length > 0
+  );
+}
+
 async function collectChangedFilesAfterBaseline(input: {
   baseCommit: string;
   cwd: string;
@@ -183,9 +191,17 @@ export async function evaluateWorkerResult(input: {
     ? finishOperationTiming(verificationTimingStart)
     : undefined;
   const verifyPassed = verifyResults.every((result) => result.exitCode === 0);
+  const writeTaskNoopAllowed =
+    input.task.resultMode === "report" ||
+    changedFiles.length > 0 ||
+    hasExplicitNoopAllowance(input.task);
 
   return {
-    pass: harness?.status === "pass" && scopeViolations.length === 0 && verifyPassed,
+    pass:
+      harness?.status === "pass" &&
+      scopeViolations.length === 0 &&
+      verifyPassed &&
+      writeTaskNoopAllowed,
     harness,
     parseError,
     changedFiles,

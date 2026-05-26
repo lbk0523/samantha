@@ -170,6 +170,12 @@ function buildWorkerPreDispatchContext(input: {
       forbiddenChanges: input.task.forbiddenChanges,
       verifyCommands: input.task.verifyCommands,
       setupCommands: input.task.setupCommands ?? [],
+      ...(input.task.allowNoop === undefined
+        ? {}
+        : { allowNoop: input.task.allowNoop }),
+      ...(input.task.noopRationale === undefined
+        ? {}
+        : { noopRationale: input.task.noopRationale }),
       expectedCommitSubject: input.task.expectedCommitSubject ?? null,
     },
     agent: {
