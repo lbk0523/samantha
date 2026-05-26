@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TaskSpec } from "../src/core/contracts";
@@ -262,12 +262,50 @@ describe("evaluateWorkerResult", () => {
     });
   });
 
-  test("runs every verify command and fails when any command fails", async () => {
+  test("runs verify commands in declaration order", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");
+
+    const orderedTask = {
+      ...task,
+      targetFiles: ["allowed.txt", "verify-order.txt"],
+      verifyCommands: [
+        "sleep 0.2; printf 'first\\n' > verify-order.txt",
+        "test \"$(cat verify-order.txt 2>/dev/null)\" = \"first\" && printf 'second\\n' >> verify-order.txt",
+        "test \"$(cat verify-order.txt 2>/dev/null)\" = $'first\\nsecond' && printf 'third\\n' >> verify-order.txt",
+      ],
+    };
+
+    const result = await evaluateWorkerResult({
+      task: orderedTask,
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+    });
+
+    expect(result.pass).toBe(true);
+    expect(result.verifyResults.map((item) => item.command)).toEqual(orderedTask.verifyCommands);
+    expect(result.verifyResults.map((item) => item.exitCode)).toEqual([0, 0, 0]);
+    expect(await readFile(join(root, "verify-order.txt"), "utf8")).toBe(
+      "first\nsecond\nthird\n",
+    );
+    for (const verifyResult of result.verifyResults) expectTiming(verifyResult);
+    expectTiming(result.verificationTiming!);
+  });
+
+  test("stops verify commands after the first failure", async () => {
     const { root, baseCommit } = await makeRepo();
     await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");
 
     const result = await evaluateWorkerResult({
-      task: { ...task, verifyCommands: ["test -f allowed.txt", "test -f missing.txt"] },
+      task: {
+        ...task,
+        verifyCommands: [
+          "test -f allowed.txt",
+          "test -f missing.txt",
+          "printf 'should not run\\n' > should-not-run.txt",
+        ],
+      },
       cwd: root,
       baseCommit,
       output: 'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
@@ -280,6 +318,7 @@ describe("evaluateWorkerResult", () => {
     ]);
     expect(result.verifyResults[0]?.exitCode).toBe(0);
     expect(result.verifyResults[1]?.exitCode).not.toBe(0);
+    expect(result.changedFiles).toEqual(["allowed.txt"]);
     for (const verifyResult of result.verifyResults) expectTiming(verifyResult);
     expectTiming(result.verificationTiming!);
   });

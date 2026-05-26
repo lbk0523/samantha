@@ -98,6 +98,18 @@ async function runVerifyCommand(command: string, cwd: string): Promise<VerifyCom
   return { command, exitCode, stdout, stderr, ...finishOperationTiming(timing) };
 }
 
+async function runVerifyCommands(commands: string[], cwd: string): Promise<VerifyCommandResult[]> {
+  const results: VerifyCommandResult[] = [];
+
+  for (const command of commands) {
+    const result = await runVerifyCommand(command, cwd);
+    results.push(result);
+    if (result.exitCode !== 0) break;
+  }
+
+  return results;
+}
+
 function findScopeViolations(task: TaskSpec, changedFiles: string[]): ScopeViolation[] {
   const violations: ScopeViolation[] = [];
 
@@ -179,9 +191,7 @@ export async function evaluateWorkerResult(input: {
     input.task.verifyCommands.length > 0;
   const verificationTimingStart = shouldRunVerify ? startOperationTiming() : undefined;
   const verifyResults = shouldRunVerify
-    ? await Promise.all(
-        input.task.verifyCommands.map((command) => runVerifyCommand(command, input.cwd)),
-      )
+    ? await runVerifyCommands(input.task.verifyCommands, input.cwd)
     : [];
   const changedFiles =
     verifyResults.length > 0 ? await collectChangedFilesAfterBaseline(input) : initialChangedFiles;
