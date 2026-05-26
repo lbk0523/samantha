@@ -1,0 +1,47 @@
+{
+  "id": "core-worker-sequential-verification",
+  "title": "Run verifyCommands sequentially",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/worker-dispatch.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/worker-result.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only Slice 2 of Core worker execution trust hardening: make evaluateWorkerResult run task.verifyCommands sequentially by default and stop after the first failing verify command.\n\nRequired behavior:\n- Replace the current parallel verify command execution with serial execution in declaration order.\n- Stop running further verify commands after the first non-zero exit code.\n- Preserve VerifyCommandResult timing fields for every executed command.\n- Preserve existing HARNESS_RESULT parsing, changed-file collection, scope checks, no-op writer pass gate behavior from Slice 1, worker verify evidence parsing, and report-only behavior.\n- Do not add parallelSafeVerifyCommands, timeout behavior, CLI surface, daemon/watch behavior, dashboard behavior, remote adapter behavior, multi-project orchestration, writerCap changes, hidden memory, LLM semantic verification, task templates, agent profile edits, run lifecycle changes, or documentation edits.\n\nRequired tests:\n- Prove verifyCommands execute in declaration order.\n- Prove evaluation stops at the first failing verify command and does not execute later commands.\n- Update existing worker-result tests that previously expected every verify command to run after failure.\n- Keep existing pass/fail semantics and timing assertions for executed verify commands.\n\nImplementation guidance: keep the change local to worker-result evaluation. Prefer a small helper such as runVerifyCommands if it makes the serial behavior easier to test and read. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: run verify commands sequentially",
+  "status": "pending"
+}
