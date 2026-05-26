@@ -1,0 +1,48 @@
+{
+  "id": "core-worker-verify-timeout",
+  "title": "Add verify command timeout evidence",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/contracts.ts",
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/command-runner.ts",
+    "src/core/policy.ts",
+    "src/core/worker-dispatch.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/worker-result.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only Slice 3 of Core worker execution trust hardening: add timeout handling and evidence for evaluateWorkerResult verify commands. Do not add setup command timeout or worker runtime timeout in this slice.\n\nRequired behavior:\n- Add an optional TaskSpec verifyTimeoutMs?: number field.\n- Apply a bounded timeout to each harness-run verify command. Use a conservative default when verifyTimeoutMs is absent.\n- When a verify command times out, terminate the process, return a VerifyCommandResult with non-zero exitCode, timedOut: true, timeoutMs, and timeoutDetails evidence, and make evaluation pass false.\n- Preserve Slice 2 sequential behavior: after a timeout result, do not execute later verify commands.\n- Preserve VerifyCommandResult stdout, stderr, command, timing fields, changed-file collection, scope checks, no-op writer pass gate behavior, report-only behavior, and worker verify evidence parsing.\n- Do not add setup command timeout, worker runtime timeout, command-runner timeout, CLI surface, daemon/watch behavior, dashboard behavior, remote adapter behavior, multi-project orchestration, writerCap changes, hidden memory, LLM semantic verification, task templates, agent profile edits, run lifecycle changes, or documentation edits.\n\nRequired tests:\n- A verify command that exceeds verifyTimeoutMs records timedOut true, timeoutMs, timeoutDetails, non-zero exitCode, and makes evaluation fail.\n- A timed-out verify command stops later verify commands from running.\n- Normal verify commands still pass with timedOut false or omitted false-compatible evidence and timing fields intact.\n- Existing sequential verification, scope, no-op, report-only, and advisory worker verification tests still pass.\n\nImplementation guidance: keep the timeout implementation local to worker-result verification. Prefer a small private default constant and helper rather than broad command runner changes. Use a short timeout in tests to keep the suite fast and deterministic. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: add verify command timeout evidence",
+  "status": "pending"
+}
