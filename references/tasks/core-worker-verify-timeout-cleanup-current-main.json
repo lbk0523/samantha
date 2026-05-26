@@ -1,0 +1,51 @@
+{
+  "id": "core-worker-verify-timeout-cleanup-current-main",
+  "title": "Rerun verify timeout cleanup on current main",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/hooks.ts",
+    "src/core/policy.ts",
+    "src/core/worker-dispatch.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/worker-result.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Rerun the Slice 3 verify timeout cleanup work on current main after the earlier accept-ready recovery candidate 2106cdf56877d0d67794649fa3fe9497f0589e5c became stale. The existing recovery task id cannot be rerun because its worktree remains at the stale candidate. Treat previous worker diffs as untrusted evidence only; implement the smallest correct change in this fresh current-main worktree.\n\nRequired behavior:\n- Keep verifyTimeoutMs as the only timeout field in scope. Do not add setup timeout, worker runtime timeout, or command-runner timeout behavior.\n- When a verify command exceeds verifyTimeoutMs, terminate it with SIGTERM first, then use a short bounded grace period before forcing cleanup if the process has not exited.\n- Ensure evaluateWorkerResult returns after timeout plus bounded cleanup grace rather than waiting for the original long-running command duration, including when the command ignores SIGTERM.\n- Preserve timeout evidence: timedOut: true, timeoutMs, non-zero exitCode, timeoutDetails, timing fields, stdout, and stderr where available.\n- Preserve sequential verification behavior: after a timed-out verify command, do not execute later verify commands.\n- Preserve normal verify command behavior, changed-file collection, scope checks, no-op writer pass gate behavior, report-only behavior, and advisory worker verification evidence parsing.\n- Keep implementation local to src/core/worker-result.ts unless the focused test proves a tiny local helper is needed. You may reference the bounded SIGTERM then SIGKILL pattern in src/core/hooks.ts, but do not edit hooks.ts or create a shared abstraction in this task.\n- Do not add CLI surface, daemon/watch behavior, dashboard behavior, remote adapter behavior, multi-project orchestration, writerCap changes, hidden memory, LLM semantic verification, task templates, agent profile edits, run lifecycle changes, documentation edits, setup timeout, worker runtime timeout, command-runner timeout, or package/config changes.\n\nRequired tests:\n- Add or preserve a focused test proving a SIGTERM-ignoring verify command times out with evidence and returns within a bounded cleanup window rather than waiting for the full command duration.\n- Keep the existing test proving a timed-out verify command makes evaluation pass false.\n- Keep the existing test proving timeout stops later verify commands from running.\n- Keep normal verify command timing assertions intact.\n\nVerification expectation:\n- The setup command installs dependencies before the worker starts.\n- The worker should run bun test tests/worker-result.test.ts, bun run typecheck, and bun test before reporting pass.\n- End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: clean up timed-out verify commands",
+  "status": "pending"
+}
