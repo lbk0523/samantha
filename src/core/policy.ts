@@ -47,7 +47,10 @@ function validateWriterVerifyCommands(task: TaskSpec): string[] {
     }
   }
 
-  if (requiresTestOrTypecheckVerification(task) && !task.verifyCommands.some(isTestOrTypecheckCommand)) {
+  if (
+    requiresTestOrTypecheckVerification(task) &&
+    !task.verifyCommands.some((command) => isRealRepoVerificationCommand(command, task))
+  ) {
     violations.push(
       "core-module or tdd-first writer tasks must include a real test runner or typecheck verify command",
     );
@@ -91,10 +94,10 @@ function requiresTestOrTypecheckVerification(task: TaskSpec): boolean {
   return task.taskFamily === "core-module" || task.workMode === "tdd-first";
 }
 
-function isTestOrTypecheckCommand(command: string): boolean {
+function isRealRepoVerificationCommand(command: string, task: TaskSpec): boolean {
   const normalized = normalizeVerifyCommand(command);
 
-  return /^bun\s+test(\s|$)/.test(normalized) || normalized === "bun run typecheck";
+  return isBroadVerificationCommand(command) || isRelatedFocusedTestCommand(normalized, task.targetFiles);
 }
 
 function isBroadVerificationCommand(command: string): boolean {
@@ -103,13 +106,24 @@ function isBroadVerificationCommand(command: string): boolean {
   return normalized === "bun test" || normalized === "bun run typecheck";
 }
 
+function isRelatedFocusedTestCommand(normalizedCommand: string, targetFiles: string[]): boolean {
+  const focusedTest = /^bun\s+test\s+tests\/([a-z0-9-]+)\.test\.ts$/.exec(normalizedCommand);
+  if (!focusedTest) return false;
+
+  const testName = focusedTest[1];
+  return targetFiles.some((targetFile) => {
+    const coreTarget = /^src\/core\/([^/]+)\.ts$/.exec(targetFile.toLowerCase());
+    return coreTarget?.[1] === testName;
+  });
+}
+
 function normalizeVerifyCommand(command: string): string {
   return unwrapSimpleShellCommand(command).toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function unwrapSimpleShellCommand(command: string): string {
   const trimmed = command.trim();
-  const shellWrapped = /^(?:bash|sh|zsh)\s+-(?:c|lc)\s+(.+)$/.exec(trimmed);
+  const shellWrapped = /^(?:env\s+)?(?:\/bin\/)?(?:bash|sh|zsh)\s+(?:-c|-lc|-l\s+-c)\s+(.+)$/.exec(trimmed);
   if (!shellWrapped) return trimmed;
 
   const inner = shellWrapped[1].trim();

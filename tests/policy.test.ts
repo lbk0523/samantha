@@ -158,12 +158,25 @@ describe("dispatch policy", () => {
   });
 
   test("blocks writer tasks with shell-wrapped no-op verify commands", () => {
-    const result = validateDispatch({ ...validTask, verifyCommands: ["bash -lc true"] }, worker);
+    const commands = ["/bin/bash -lc true", "env bash -lc true", "bash -l -c true"];
 
-    expect(result.mayDispatch).toBe(false);
-    expect(result.violations).toContain(
-      "writer verifyCommands must not use no-op/simple output commands: bash -lc true",
-    );
+    for (const command of commands) {
+      const result = validateDispatch(
+        {
+          ...validTask,
+          taskFamily: "docs-only",
+          workMode: "minimal-change",
+          targetFiles: ["README.md"],
+          verifyCommands: [command],
+        },
+        worker,
+      );
+
+      expect(result.mayDispatch).toBe(false);
+      expect(result.violations).toContain(
+        `writer verifyCommands must not use no-op/simple output commands: ${command}`,
+      );
+    }
   });
 
   test("blocks writer tasks with long-running watch or dev verify commands", () => {
@@ -188,7 +201,7 @@ describe("dispatch policy", () => {
   });
 
   test("blocks writer tasks with shell-wrapped simple output or long-running dev verify commands", () => {
-    const commands = ["sh -c \"echo ok\"", "zsh -lc \"sleep 999\"", "bash -lc 'npm run dev'"];
+    const commands = ["sh -lc \"echo ok\"", "zsh -lc \"sleep 999\"", "bash -lc 'npm run dev'"];
 
     for (const command of commands) {
       const result = validateDispatch({ ...validTask, verifyCommands: [command] }, worker);
@@ -234,6 +247,22 @@ describe("dispatch policy", () => {
         "core-module or tdd-first writer tasks must include a real test runner or typecheck verify command",
       );
     }
+  });
+
+  test("blocks core-module writer tasks with unrelated focused test verification", () => {
+    const result = validateDispatch(
+      {
+        ...validTask,
+        targetFiles: ["src/core/worker-result.ts"],
+        verifyCommands: ["bun test tests/unrelated.test.ts"],
+      },
+      worker,
+    );
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      "core-module or tdd-first writer tasks must include a real test runner or typecheck verify command",
+    );
   });
 
   test("blocks lifecycle-sensitive writer tasks without broad verification", () => {
