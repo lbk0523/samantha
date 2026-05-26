@@ -1,0 +1,49 @@
+{
+  "id": "core-worker-verify-timeout-cleanup-rework",
+  "title": "Rework verify timeout cleanup",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/hooks.ts",
+    "src/core/policy.ts",
+    "src/core/worker-dispatch.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/worker-result.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only the Slice 3 verify timeout cleanup rework for evaluateWorkerResult verify commands. The current implementation records timedOut evidence but only sends SIGTERM and can wait until a SIGTERM-ignoring verify command exits naturally.\n\nObserved failure to fix:\n- A verify command like bash -c 'trap \"\" TERM; sleep 2' with verifyTimeoutMs: 50 returned timedOut evidence but completed after roughly 2080ms instead of a bounded timeout cleanup window.\n\nRequired behavior:\n- Keep verifyTimeoutMs as the only timeout field in scope. Do not add setup timeout, worker runtime timeout, or command-runner timeout behavior.\n- When a verify command exceeds verifyTimeoutMs, terminate it with SIGTERM first, then use a short bounded grace period before forcing cleanup if the process has not exited.\n- Ensure evaluateWorkerResult returns after the timeout plus bounded cleanup grace rather than waiting for the original long-running command duration.\n- Preserve timeout evidence: timedOut: true, timeoutMs, non-zero exitCode, timeoutDetails, timing fields, stdout, and stderr where available.\n- Preserve Slice 2 sequential behavior: after a timed-out verify command, do not execute later verify commands.\n- Preserve normal verify command behavior, changed-file collection, scope checks, no-op writer pass gate behavior, report-only behavior, and advisory worker verification evidence parsing.\n- Keep the implementation local to src/core/worker-result.ts unless a focused test proves a smaller local helper is needed. You may reference the bounded SIGTERM then SIGKILL pattern in src/core/hooks.ts, but do not edit hooks.ts or create a shared abstraction in this task.\n- Do not add CLI surface, daemon/watch behavior, dashboard behavior, remote adapter behavior, multi-project orchestration, writerCap changes, hidden memory, LLM semantic verification, task templates, agent profile edits, run lifecycle changes, documentation edits, or package/config changes.\n\nRequired tests:\n- Add a focused test proving a SIGTERM-ignoring verify command times out with evidence and returns within a bounded cleanup window rather than waiting for the full command duration.\n- Keep the existing test proving a timed-out verify command makes evaluation pass false.\n- Keep the existing test proving timeout stops later verify commands from running.\n- Keep normal verify command timing assertions intact.\n\nImplementation guidance: prefer the smallest local process cleanup change that proves bounded completion. Avoid broad process-runner refactors. Use a short, deterministic test command and a generous upper elapsed-time assertion so the test is stable without allowing multi-second hangs. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: clean up timed-out verify commands",
+  "status": "pending"
+}
