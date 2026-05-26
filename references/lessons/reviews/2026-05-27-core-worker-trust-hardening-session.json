@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-27-core-worker-trust-hardening-session.md",
+  "reviewedAt": "2026-05-26T23:30:51.246Z",
+  "runId": "2026-05-27-core-worker-trust-hardening-session",
+  "taskId": "core-worker-trust-hardening-session",
+  "observedOutcome": "original five-slice trust hardening plan completed, while residual hardening needed separate tracking",
+  "suggestedArtifactType": "playbook promotion candidate",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "core-worker-trust-hardening-session",
+    "outcome": "repeated review loops from mixing original plan closure with residual hardening",
+    "count": 3,
+    "threshold": 2,
+    "thresholdMet": true
+  },
+  "recommendedAction": "promote_playbook",
+  "classification": "promotion_candidate",
+  "reason": "playbook candidate is ready for manual promotion"
+}

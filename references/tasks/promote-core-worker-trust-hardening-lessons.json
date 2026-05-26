@@ -1,0 +1,42 @@
+{
+  "id": "promote-core-worker-trust-hardening-lessons",
+  "title": "Promote core worker trust hardening lessons",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "WORK-RULES.md",
+    "references/playbooks/self-build-task-spec-lifecycle.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/lessons/**",
+    "references/operations/**",
+    "references/initiatives/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "git diff --check HEAD -- WORK-RULES.md references/playbooks/self-build-task-spec-lifecycle.md"
+  ],
+  "instructions": "Promote the reviewed core worker trust hardening lesson into the two selected documentation surfaces only. Source evidence is references/lessons/inbox/2026-05-27-core-worker-trust-hardening-session.md and references/lessons/reviews/2026-05-27-core-worker-trust-hardening-session.json. Use those files as read-only evidence; do not modify lesson inbox files, review files, review indexes, run logs, task specs, task templates, code, tests, agent profiles, doctrine boundary files, CLI, package files, worktrees, or runtime/policy implementation.\n\nRequired documentation changes:\n- In WORK-RULES.md, add a concise operating principle for long-running or bounded initiatives: when the accepted slice plan's stated success criteria are met, declare the plan complete; move newly discovered adjacent hardening into a separately named initiative; record intentionally omitted source-report requirements as residual work instead of silently reopening the completed plan.\n- In references/playbooks/self-build-task-spec-lifecycle.md, add a concise accept-review checklist for authority-sensitive or policy-sensitive self-build runs: HARNESS_RESULT, changed-file scope, and passing verification are necessary but not always sufficient; accept review should include a small source-of-truth adversarial matrix for the trust boundary being changed; cleanup debt must be reported separately from functional completion.\n\nKeep the wording surgical. Do not introduce a new playbook, new automation, new policy enforcement, task template changes, hidden memory, dashboard, daemon/watch behavior, remote adapter behavior, multi-project orchestration, writerCap changes, or LLM semantic verification. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: promote trust hardening lessons",
+  "status": "pending"
+}
