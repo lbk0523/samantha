@@ -1,0 +1,50 @@
+{
+  "id": "core-worker-verification-quality-preflight",
+  "title": "Block low-quality writer verify commands",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/policy.ts",
+    "tests/policy.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/policy.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only Slice 4 of Core worker execution trust hardening: add deterministic verification quality preflight for writer verifyCommands in validateDispatch. Do not add LLM-based semantic verification.\n\nRequired behavior:\n- For writer tasks with task.resultMode not equal to report, block verifyCommands that are empty or whitespace-only after trimming.\n- Block writer verifyCommands that are no-op/simple output commands such as true, false, pwd, ls, git status, and echo-only commands.\n- Block writer verifyCommands that are long-running or watch/server/dev commands such as sleep, tail -f, npm run dev, bun --watch, bun test --watch, vite dev, next dev, and watch mode variants.\n- Keep valid focused commands accepted, including bun test tests/policy.test.ts, bun run typecheck, bun test, and git diff --check HEAD -- '*.md' 'references/**/*.md'.\n- Preserve existing writer/non-writer, allowNoop, targetFiles, forbiddenChanges, and verifyCommands-required policy behavior.\n- Do not add new TaskSpec fields, CLI surface, timeout behavior, worker runtime behavior, daemon/watch behavior, dashboard behavior, remote adapter behavior, multi-project orchestration, writerCap changes, hidden memory, LLM semantic verification, task templates, agent profile edits, run lifecycle changes, or documentation edits.\n\nRequired tests:\n- Writer task with verifyCommands [\"true\"] is blocked.\n- Writer task with watch/dev/server/long-running verify commands is blocked.\n- Writer task with whitespace-only verify command is blocked.\n- Normal focused commands remain accepted.\n- Non-writer report task rules remain unchanged.\n\nImplementation guidance: keep the checks simple and deterministic. Prefer small private helper functions and clear violation messages. Do not try to prove semantic relevance between targetFiles and verifyCommands in this slice. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: block low-quality verify commands",
+  "status": "pending"
+}
