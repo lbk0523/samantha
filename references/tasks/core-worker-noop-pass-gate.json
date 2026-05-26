@@ -1,0 +1,51 @@
+{
+  "id": "core-worker-noop-pass-gate",
+  "title": "Block writer no-op false pass results",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/contracts.ts",
+    "src/core/worker-result.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/policy.ts",
+    "tests/worker-result.test.ts",
+    "tests/policy.test.ts",
+    "tests/worker-dispatch.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/worker-result.test.ts",
+    "bun test tests/policy.test.ts",
+    "bun test tests/worker-dispatch.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only the Slice 1 writer no-op pass gate for Core worker execution trust hardening. The goal is to prevent a writer write task from being recorded as a successful pass when the worker reports HARNESS_RESULT pass but produces no changed files.\n\nRequired behavior:\n- Add optional TaskSpec fields allowNoop?: boolean and noopRationale?: string.\n- For a writer agent with task.resultMode not equal to report, if evaluation.changedFiles is empty and task.allowNoop is not true, the worker dispatch result must fail even when HARNESS_RESULT is pass and verifyCommands pass.\n- If task.allowNoop is true, a writer no-op may pass only when noopRationale is a non-empty string. Enforce this as a dispatch policy violation rather than relying on worker judgment.\n- Preserve report-only no-change behavior for non-writer report tasks.\n- Preserve existing changed-file scope checks, verification semantics, timing evidence, worker verify evidence parsing, and Samantha-owned commit behavior.\n- Do not add CLI surface, daemon/watch behavior, dashboard behavior, remote adapter behavior, multi-project orchestration, writerCap changes, hidden memory, LLM semantic verification, task templates, agent profile edits, run lifecycle changes, or documentation edits.\n\nRequired tests:\n- A writer write task with HARNESS_RESULT pass, passing verifyCommands, and zero changed files fails when allowNoop is absent.\n- A writer write task with zero changed files may pass when allowNoop is true and noopRationale is non-empty.\n- validateDispatch blocks allowNoop true when noopRationale is missing or blank.\n- Report-only no-change behavior remains accepted for non-writer report tasks.\n- Existing worker-result, policy, and worker-dispatch behavior remains covered.\n\nImplementation guidance: keep the change surgical. Prefer the smallest local contract and policy additions needed to make no-op acceptance explicit and auditable. Do not broaden evaluateWorkerResult authority beyond what is needed for this gate. Worker commits must still happen only when there are changed files and all deterministic gates pass. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: block writer no-op pass results",
+  "status": "pending"
+}
