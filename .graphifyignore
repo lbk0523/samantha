@@ -8,3 +8,8 @@ graphify-out/
 .samantha-worktrees/
 *.log
 worktrees/
+references/tasks/
+references/batch-specs/
+references/playbooks/
+references/initiatives/
+references/operations/
