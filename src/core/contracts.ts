@@ -56,6 +56,7 @@ export interface TaskSpec {
   forbiddenChanges: string[];
   setupCommands?: string[];
   verifyCommands: string[];
+  verifyTimeoutMs?: number;
   instructions: string;
   resultMode?: TaskResultMode;
   allowNoop?: boolean;

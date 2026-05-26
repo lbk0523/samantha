@@ -69,6 +69,8 @@ describe("evaluateWorkerResult", () => {
     expect(result.changedFiles).toEqual(["allowed.txt"]);
     expect(result.scopeViolations).toEqual([]);
     expect(result.verifyResults[0]?.exitCode).toBe(0);
+    expect(result.verifyResults[0]?.timedOut ?? false).toBe(false);
+    expect(result.verifyResults[0]?.timeoutDetails).toBeUndefined();
     expect(result.workerVerifyEvidence).toBeUndefined();
     expectTiming(result.harnessTiming!);
     expectTiming(result.verificationTiming!);
@@ -321,6 +323,58 @@ describe("evaluateWorkerResult", () => {
     expect(result.changedFiles).toEqual(["allowed.txt"]);
     for (const verifyResult of result.verifyResults) expectTiming(verifyResult);
     expectTiming(result.verificationTiming!);
+  });
+
+  test("fails timed-out verify commands with timeout evidence", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");
+
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        verifyCommands: ["sleep 0.2"],
+        verifyTimeoutMs: 50,
+      },
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.verifyResults).toHaveLength(1);
+    expect(result.verifyResults[0]).toMatchObject({
+      command: "sleep 0.2",
+      exitCode: 124,
+      timedOut: true,
+      timeoutMs: 50,
+      timeoutDetails: {
+        reason: "verify-timeout",
+        signal: "SIGTERM",
+      },
+    });
+    expectTiming(result.verifyResults[0]!);
+    expectTiming(result.verificationTiming!);
+  });
+
+  test("stops verify commands after a timeout", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");
+
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        verifyCommands: ["sleep 0.2", "printf 'should not run\\n' > should-not-run.txt"],
+        verifyTimeoutMs: 50,
+      },
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.verifyResults.map((item) => item.command)).toEqual(["sleep 0.2"]);
+    expect(result.verifyResults[0]?.timedOut).toBe(true);
+    expect(result.changedFiles).toEqual(["allowed.txt"]);
   });
 
   test("fails when HARNESS_RESULT is missing", async () => {

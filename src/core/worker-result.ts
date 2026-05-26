@@ -15,11 +15,23 @@ import {
   type WorkerVerifyEvidenceParseResult,
 } from "./worker-verify-evidence";
 
+const DEFAULT_VERIFY_TIMEOUT_MS = 10 * 60 * 1000;
+const VERIFY_TIMEOUT_EXIT_CODE = 124;
+const VERIFY_TIMEOUT_SIGNAL = "SIGTERM";
+
+export interface VerifyCommandTimeoutDetails {
+  reason: "verify-timeout";
+  signal: typeof VERIFY_TIMEOUT_SIGNAL;
+}
+
 export interface VerifyCommandResult {
   command: string;
   exitCode: number;
   stdout: string;
   stderr: string;
+  timedOut?: boolean;
+  timeoutMs?: number;
+  timeoutDetails?: VerifyCommandTimeoutDetails;
   startedAt?: string;
   finishedAt?: string;
   durationMs?: number;
@@ -81,7 +93,11 @@ async function fileContentHash(cwd: string, file: string): Promise<string | null
   }
 }
 
-async function runVerifyCommand(command: string, cwd: string): Promise<VerifyCommandResult> {
+async function runVerifyCommand(
+  command: string,
+  cwd: string,
+  timeoutMs: number,
+): Promise<VerifyCommandResult> {
   const timing = startOperationTiming();
   const child = Bun.spawn(["bash", "-lc", command], {
     cwd,
@@ -89,20 +105,54 @@ async function runVerifyCommand(command: string, cwd: string): Promise<VerifyCom
     stderr: "pipe",
   });
 
-  const [stdout, stderr, exitCode] = await Promise.all([
+  let timedOut = false;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      child.kill(VERIFY_TIMEOUT_SIGNAL);
+      resolve("timeout");
+    }, timeoutMs);
+  });
+
+  const exitOrTimeout = await Promise.race([child.exited, timeout]);
+  if (timeoutId) clearTimeout(timeoutId);
+  const exitCode =
+    timedOut || exitOrTimeout === "timeout" ? VERIFY_TIMEOUT_EXIT_CODE : exitOrTimeout;
+
+  const [stdout, stderr] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
-    child.exited,
   ]);
 
-  return { command, exitCode, stdout, stderr, ...finishOperationTiming(timing) };
+  return {
+    command,
+    exitCode,
+    stdout,
+    stderr,
+    ...(timedOut
+      ? {
+          timedOut: true,
+          timeoutMs,
+          timeoutDetails: {
+            reason: "verify-timeout" as const,
+            signal: VERIFY_TIMEOUT_SIGNAL,
+          },
+        }
+      : {}),
+    ...finishOperationTiming(timing),
+  };
 }
 
-async function runVerifyCommands(commands: string[], cwd: string): Promise<VerifyCommandResult[]> {
+async function runVerifyCommands(
+  commands: string[],
+  cwd: string,
+  timeoutMs: number,
+): Promise<VerifyCommandResult[]> {
   const results: VerifyCommandResult[] = [];
 
   for (const command of commands) {
-    const result = await runVerifyCommand(command, cwd);
+    const result = await runVerifyCommand(command, cwd, timeoutMs);
     results.push(result);
     if (result.exitCode !== 0) break;
   }
@@ -191,7 +241,11 @@ export async function evaluateWorkerResult(input: {
     input.task.verifyCommands.length > 0;
   const verificationTimingStart = shouldRunVerify ? startOperationTiming() : undefined;
   const verifyResults = shouldRunVerify
-    ? await runVerifyCommands(input.task.verifyCommands, input.cwd)
+    ? await runVerifyCommands(
+        input.task.verifyCommands,
+        input.cwd,
+        input.task.verifyTimeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS,
+      )
     : [];
   const changedFiles =
     verifyResults.length > 0 ? await collectChangedFilesAfterBaseline(input) : initialChangedFiles;
