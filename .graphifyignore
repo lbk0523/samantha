@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.git/
+runs/
+state/
+graphify-out/
+.samantha-worktrees/
+*.log
+worktrees/
