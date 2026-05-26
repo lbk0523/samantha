@@ -75,7 +75,7 @@ state, or replace deterministic verification.
 | Rung | Sufficient when | Required when | Concise example |
 | --- | --- | --- | --- |
 | Docs check | The change is markdown-only guidance, an initiative brief update, or playbook wording that does not grant authority or change behavior. | Every insight-derived artifact change needs at least a docs check. | `git diff --check` plus grep for the new playbook terms after wording-only guidance. |
-| Report-only review | The question is judgment-heavy and advice-only: doctrine fit, authority boundary, product boundary, stale constraint, or artifact placement. | Required before promoting ambiguous guidance that could be mistaken for authority or product direction. | Ask a report-only reviewer whether old dashboard/daemon/remote non-goals are stale evidence or current doctrine. |
+| Report-only review | The question is judgment-heavy and advice-only: doctrine fit, authority boundary, product boundary, stale constraint, or artifact placement. | Required before promoting ambiguous guidance that could be mistaken for authority or product direction. | Ask a report-only reviewer whether old operator-UI/background/remote-control exclusions are stale evidence or current doctrine. |
 | Focused tests | The change touches executable source, CLI behavior, parsers, template/profile behavior, or deterministic transforms. | Required before trusting any executable behavior affected by an insight-derived change. | Add a parser test proving a new artifact marker is recognized without changing unrelated CLI output. |
 | Policy tests | The change affects dispatch, scope, merge, lifecycle, authority, trusted-state accept/reject behavior, or any new trust gate. | Required for any policy or trust-boundary change, even if the behavior seems small. | Add accept/reject cases proving workers cannot mark report-only output as trusted run evidence. |
 | Later run evidence | The question is whether promoted guidance helps or hurts repeated real work after review. | Required before treating a reviewed guidance pattern as proven durable across repeated use. | Compare later Samantha run summaries to see whether the correction-loop guidance reduced stale-constraint drift. |
@@ -110,7 +110,7 @@ survives without private context. Older slice-local constraints may be cited as
 evidence to review, but they do not become global authority unless a current
 canonical artifact separately promotes them.
 
-### Sample Correction Candidate: dashboard/daemon/remote-control proof case
+### Sample Correction Candidate: operator-ui/background/remote-control proof case
 
 This sample is illustrative only. It is not a created candidate artifact and
 does not authorize edits under `references/lessons/**` or any other path.
@@ -118,20 +118,21 @@ does not authorize edits under `references/lessons/**` or any other path.
 - Source type: `session_excerpt`
 - Source reference: BK's explicit correction in the compound-loop hygiene
   source discussion, as summarized in this initiative brief.
-- Excerpt or evidence: BK corrected the stale reading that dashboard,
-  daemon/watch, and remote/control-plane surfaces were legacy prohibitions.
-- Correction signal: Under current v1 doctrine, dashboard, daemon/watch, and
-  remote/control-plane are v1 candidate surfaces, not automatic scope and not
-  automatic rejections.
+- Excerpt or evidence: BK corrected the stale reading that operator UI,
+  background/watch, and remote/control-plane surfaces were legacy prohibitions.
+- Correction signal: Under current v1 doctrine, operator UI, background/watch,
+  and remote/control-plane surfaces require reviewed product slices; they are
+  not automatic scope and not automatic rejections.
 - Classification: `routing-intent`
 - Affected layer: compound-loop hygiene playbook or a future reviewed stale
   constraint drift review artifact.
 - Proposed change: Treat older slice-local non-goal language about
-  dashboard/daemon/remote-control as evidence to review, not global authority.
+  operator-UI/background/remote-control scope as evidence to review, not global
+  authority.
 - Why it matters: Reusing stale non-goal language as a hard rejection would
-  block valid v1 candidate surfaces and distort future planning.
+  block valid adjacent product slices and distort future planning.
 - Promotion risk: Promoting the correction too broadly could be misread as
-  authorization to implement dashboard, daemon/watch, or remote/control-plane
+  authorization to implement operator UI, background/watch, or remote/control-plane
   surfaces without a separate product slice and verification gates.
 - Review question: Should this proof case be promoted into a durable stale
   constraint drift review checklist after BK review?
@@ -169,12 +170,13 @@ lifecycle mutation; no task creation; no automatic monitoring; no automatic
 transcript capture; no trusted state change; no policy, template, source, test,
 runtime, or CLI changes; and no report-only trust gate.
 
-### Proof Case: dashboard/daemon/remote-control
+### Proof Case: operator-ui/background/remote-control
 
-Under current v1 doctrine, dashboard, daemon/watch, and remote/control-plane
-are v1 candidate surfaces. They are not legacy prohibitions, not automatic
-rejections, and not a hard rejection. Older slice-local non-goal language about
-dashboard/daemon/remote-control is evidence to review, not global authority.
+Under current v1 doctrine, operator UI, background/watch, and remote/control-plane
+surfaces require reviewed product slices. They are not legacy prohibitions, not
+automatic rejections, and not a hard rejection. Older slice-local non-goal
+language about operator-UI/background/remote-control scope is evidence to
+review, not global authority.
 
 Example report:
 
@@ -182,9 +184,9 @@ Example report:
 Outcome: confirmed_drift
 Drift category: product_boundary
 Cited evidence:
-- references/initiatives/compound-loop-hygiene.md: states that dashboard, daemon/watch, and remote/control-plane are v1 candidate surfaces, not automatic scope and not automatic rejections.
-- Older slice-local non-goal language in a future plan or task spec: used dashboard/daemon/remote-control as a global rejection instead of review evidence.
-Next action: Advise the plan author to replace the global rejection with planning language that treats dashboard/daemon/remote-control as v1 candidate surfaces requiring a separate reviewed product slice.
+- references/initiatives/compound-loop-hygiene.md: states that operator UI, background/watch, and remote/control-plane surfaces require reviewed product slices and are not automatic scope or automatic rejections.
+- Older slice-local non-goal language in a future plan or task spec: used operator-UI/background/remote-control scope as a global rejection instead of review evidence.
+Next action: Advise the plan author to replace the global rejection with planning language that treats operator-UI/background/remote-control scope as requiring a separate reviewed product slice.
 ```
 
 ## Pruning And Conflict Review
@@ -215,11 +217,11 @@ initiative boundary.
   lifecycle mutation, worker dispatch changes, trusted state changes, or any
   implementation surface outside this initiative.
 
-Dashboard, daemon/watch, and remote/control-plane remain the proof case for
-this boundary. They are v1 candidate surfaces, not legacy prohibitions, not
-automatic rejections, and not implementation scope for this initiative. Older
-slice-local non-goal language about those surfaces is review evidence, not
-global authority.
+Operator UI, background/watch, and remote/control-plane remain the proof case
+for this boundary. They require reviewed product slices, are not legacy
+prohibitions, are not automatic rejections, and are not implementation scope for
+this initiative. Older slice-local non-goal language about those surfaces is
+review evidence, not global authority.
 
 ### Closure Checklist
 
@@ -227,9 +229,9 @@ Use this checklist to distinguish completion evidence from authority expansion:
 
 - Completion evidence: S1 through S6 are completed or explicitly dropped in the
   initiative brief.
-- Completion evidence: the dashboard/daemon/remote-control proof case is
-  classified against current v1 doctrine as candidate surfaces, not automatic
-  scope and not automatic rejections.
+- Completion evidence: the operator-UI/background/remote-control proof case is
+  classified against current doctrine as reviewed adjacent surfaces, not
+  automatic scope and not automatic rejections.
 - Completion evidence: remaining adjacent authority is rejected for this
   initiative or moved into a separate reviewed initiative boundary.
 - Completion evidence: docs-only verification confirms the changed playbook and
@@ -238,7 +240,7 @@ Use this checklist to distinguish completion evidence from authority expansion:
   resolution, automatic promotion, policy/template/profile/source/test/runtime
   or CLI change, lifecycle mutation, worker dispatch change, trusted state
   change, or report-only trust gate. Stop instead of treating these as closure.
-- Authority expansion: treating dashboard, daemon/watch, or
+- Authority expansion: treating operator UI, background/watch, or
   remote/control-plane as implementation scope here. Move that work to a
   separate reviewed product slice if BK chooses to pursue it.
 

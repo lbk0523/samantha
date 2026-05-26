@@ -78,13 +78,13 @@ decomposition, diagnosis, synthesis, or next-action recommendation, but it
 cannot make worker output trusted, bypass worktree isolation, accept a run,
 merge, clean up, push, or rewrite policy.
 
-Samantha v1 evaluates adjacent patterns as candidate surfaces, not inherited
-scope and not automatic rejections. Each candidate needs a reviewed product
-slice with authority, verification, lifecycle, and evidence boundaries before it
-can become product behavior:
+Samantha v1 evaluates adjacent patterns as separate product slices, not
+inherited scope and not automatic rejections. Each slice needs reviewed
+authority, verification, lifecycle, and evidence boundaries before it can
+become product behavior:
 
-- chat or remote-control adapters
-- daemon, watch, dashboard, cron, or routine trigger behavior
+- messaging or remote-control entrypoints
+- background operation, operator UI, cron, or scheduled automation
 - budget governance or multi-project orchestration
 - automatic skill self-rewrite
 - resolver implementation that loads or mutates context
@@ -624,11 +624,11 @@ bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title
 bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
 ```
 
-The CLI currently stays local and explicit. Remote adapters, daemon operation,
-and chat command surfaces are v1 candidate surfaces. They should not be rejected
-solely as v0 non-goals, but they require separate product design and authority,
-verification, lifecycle, and evidence gates before becoming Samantha scope.
-They should not be inherited from historical migration scope.
+The CLI currently stays local and explicit. Remote integration, background
+operation, and messaging command surfaces should not be rejected solely because
+older slices excluded them, but they require separate product design and
+authority, verification, lifecycle, and evidence gates before becoming Samantha
+scope. They should not be inherited from historical migration scope.
 
 ## Responsibility Model
 
@@ -650,8 +650,9 @@ Avoid these shortcuts:
 - allowing worker-created worktrees
 - adopting broad agent frameworks before repeated local evidence proves the
   abstraction is worth its authority and maintenance cost
-- adding remote or chat control without explicit product and authority design
-- building dashboards before run logs and summaries are stable
+- adding remote or messaging control without explicit product and authority
+  design
+- building operator UIs before run logs and summaries are stable
 - letting workers orchestrate subagents or parallel writers
 - adding parallel writer batches before batch gates, ordered integration, and
   post-merge verification exist

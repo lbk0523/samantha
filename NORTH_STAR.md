@@ -131,14 +131,13 @@ review.
 Samantha's core loop is local software work: plan, scope, isolate, run, verify,
 commit, report, and record evidence.
 
-Adjacent surfaces such as chat adapters, daemon operation, dashboards, routine
-triggers, remote/control-plane operation, budget governance, multi-project
-orchestration, and autonomous push/cleanup are outside that loop. In v1 they
-are candidate surfaces, not automatic scope and not automatic rejections. They
-are eligible only as separate reviewed product slices with explicit authority,
-verification, and lifecycle gates. They should not re-enter the product as
-inherited migration scope, and they should not be rejected solely because they
-were v0 non-goals.
+Adjacent product surfaces such as messaging integrations, background operation,
+operator UIs, scheduled automation, remote/control-plane operation, budget
+governance, multi-project orchestration, and autonomous push/cleanup are
+outside that loop. In v1 they are not automatic scope and not automatic
+rejections. They are eligible only as separate reviewed product slices with
+explicit authority, verification, and lifecycle gates. They should not re-enter
+the product as inherited migration scope or stale blanket exclusions.
 
 ## Success Test
 

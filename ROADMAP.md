@@ -36,11 +36,11 @@ Phase 0 is the credible local harness baseline. v1 starts from that baseline and
 prioritizes recovery quality, reviewable learning, task-spec convenience,
 report/review quality, focused verification, and clearer run summaries.
 
-Surfaces such as daemon/watch operation, dashboards, routine triggers, chat or
-remote-control adapters, budget governance, and multi-project orchestration are
-v1 candidate surfaces, not automatic scope. They should not be rejected solely
-as v0 non-goals, but each needs its own reviewed product slice with authority,
-verification, evidence, and lifecycle gates.
+Surfaces such as background operation, operator UIs, scheduled automation,
+messaging or remote-control integrations, budget governance, and multi-project
+orchestration are not automatic scope. They should not be rejected solely
+because older slices excluded them, but each needs its own reviewed product
+slice with authority, verification, evidence, and lifecycle gates.
 
 ## Phase 0: Credible Local Harness
 
@@ -72,12 +72,12 @@ Acceptance evidence:
 - passing writer run logs with Samantha-owned commits
 - failed or out-of-scope run logs rejected without trusted commits
 
-Deferred from the v0 baseline:
+Deferred from the Phase 0 baseline:
 
-- chat adapters
-- daemon operation
-- dashboards
-- routine triggers
+- messaging integrations
+- background/watch operation
+- operator UIs
+- scheduled automation
 - budget governance
 - multi-project orchestration
 - parallel writer execution
@@ -371,19 +371,19 @@ before writer parallelism becomes routine.
 
 ## Deferred Product Surfaces
 
-These are v1 candidate surfaces, not roadmap phases yet:
+These adjacent surfaces are not roadmap phases yet:
 
-- chat or remote adapters
-- daemon/watch operation
-- dashboards
-- routine triggers
+- messaging or remote-control integrations
+- background/watch operation
+- operator UIs
+- scheduled automation
 - budget governance
 - multi-project orchestration
 - autonomous push or cleanup
 
 Each surface needs its own reviewed product slice with authority, verification,
 evidence, and lifecycle gates. None should re-enter as inherited migration
-scope, and none should be rejected solely because it was a v0 non-goal.
+scope, and none should be rejected solely because an older slice excluded it.
 
 ## Roadmap Maintenance
 

@@ -154,7 +154,8 @@ During `Samantha brainstorm`, Samantha may:
 During `Samantha brainstorm`, Samantha must not by default:
 
 - add a new Samantha CLI surface;
-- create daemon, dashboard, adapter, routine trigger, or remote-control scope;
+- grant background operation, operator UI, integration, scheduled automation,
+  or remote-control scope;
 - write production code;
 - create task specs;
 - dispatch workers;

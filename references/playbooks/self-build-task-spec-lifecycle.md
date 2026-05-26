@@ -140,8 +140,8 @@ path. It does not authorize:
 - automatic task spec promotion from `/tmp` into `references/tasks/`;
 - automatic dispatch, automatic commit behavior, or hidden memory;
 - changes to CLI/runtime/policy implementation;
-- daemon/watch services, remote adapters, dashboards, routines, budget
-  governance, or multi-project orchestration.
+- background operation, integration entrypoints, operator UIs, scheduled
+  automation, budget governance, or multi-project orchestration.
 
 Samantha owns orchestration, worktree allocation, verification, commit, and
 report evidence. A task spec lifecycle choice must not increase worker

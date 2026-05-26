@@ -50,7 +50,8 @@ lesson candidate
 
 ## Non-Goals
 
-- No daemon, watch, routine trigger, App Server, or remote adapter.
+- No background/watch operation, scheduled automation, App Server, or
+  integration/control-plane entrypoint.
 - No automatic playbook, policy, task template, or agent profile edits.
 - No worker, runtime, verification, scope, commit, cleanup, or lifecycle
   authority changes.

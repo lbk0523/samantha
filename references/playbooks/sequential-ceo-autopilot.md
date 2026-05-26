@@ -21,8 +21,9 @@ the existing Samantha gates can verify the action.
 
 It must not add or imply:
 
-- Telegram, remote adapters, daemon/watch behavior, dashboards, routine
-  triggers, CEO-office memory, budget governance, or multi-project
+- Telegram-style messaging, integration/control-plane entrypoints, background
+  operation, operator UIs, scheduled automation, CEO-office memory, budget
+  governance, or multi-project
   orchestration;
 - worker-owned orchestration, worker dispatch outside task specs, or
   natural-language-only dispatch;
@@ -181,9 +182,9 @@ active:
 - scope checks fail or changed files exceed the declared target surface;
 - deterministic verification fails and the allowed rework cycle is already
   spent;
-- the next step requires push, secrets, new connectors, remote adapters,
-  daemon/watch behavior, hidden memory, dashboards, routine triggers, or
-  multi-project orchestration;
+- the next step requires push, secrets, new connectors, integration/control-plane
+  entrypoints, background operation, hidden memory, operator UIs, scheduled
+  automation, or multi-project orchestration;
 - the runner cannot update local evidence without inventing facts.
 
 The stop report must name the active stop condition, cite the evidence, and give

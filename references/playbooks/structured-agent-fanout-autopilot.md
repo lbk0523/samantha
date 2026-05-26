@@ -26,9 +26,9 @@ spawn subagents, coordinate fanout, merge report outputs, allocate worktrees,
 dispatch other workers, or decide lifecycle state.
 
 Natural-language-only dispatch, writerCap-only parallelism, push automation,
-daemon/watch behavior, dashboards, remote adapters, connector expansion, hidden
-memory, routines, budget governance, and multi-project orchestration are out of
-scope.
+background operation, operator UIs, integration/control-plane entrypoints,
+connector expansion, hidden memory, scheduled automation, budget governance,
+and multi-project orchestration are out of scope.
 
 ## Structured Continuation Artifacts
 
@@ -125,8 +125,8 @@ allowed, attempted, and evidenced by the current Samantha gate.
 Expected false flags for report-only candidate handling include writer worker
 dispatch, worktree creation, run log creation, lifecycle mutation, merge,
 cleanup, commit, push, `run_task`, `batches:execute`, successor execution,
-daemon/watch, remote adapter, dashboard, connector expansion, hidden-memory
-write, and worker-owned orchestration.
+background/watch operation, integration entrypoints, operator UI, connector
+expansion, hidden-memory write, and worker-owned orchestration.
 
 Batch-related true flags are allowed only when produced by existing Phase 5.5
 or Phase 5 commands. Structured Agent Fanout Autopilot must report those
@@ -167,9 +167,10 @@ Stop before continuing when any condition is active:
 - a batch path bypasses Phase 5.5 `BatchPlanDraft` or Phase 5 `BatchSpec`
   gates;
 - the step requires worker-owned orchestration, natural-language-only
-  dispatch, writerCap-only parallelism, push automation, daemon/watch behavior,
-  dashboards, remote adapters, connector expansion, hidden memory, routines,
-  budget governance, or multi-project orchestration;
+  dispatch, writerCap-only parallelism, push automation, background operation,
+  operator UIs, integration/control-plane entrypoints, connector expansion,
+  hidden memory, scheduled automation, budget governance, or multi-project
+  orchestration;
 - `HARNESS_RESULT`, scope checks, verification output, lifecycle records, or
   cleanup evidence is missing or failed;
 - the runner cannot report the next safe command without inventing facts.

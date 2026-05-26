@@ -17,8 +17,8 @@ Use this playbook when:
 - a report-only reviewer can cite enough local evidence to classify the drift
 - Samantha needs exactly one recommended next action, not automatic execution
 
-Do not use it as a daemon, watcher, routine trigger, dashboard, transcript
-collector, or automatic task creator.
+Do not use it as a background monitor, scheduled automation, operator UI,
+transcript collector, or automatic task creator.
 
 ## Evidence Whitelist
 
@@ -39,8 +39,9 @@ The report must not rely on:
 - hidden memory or unstated model recollection
 - uncited conversation fragments outside the provided task context
 - automatic transcript capture or background monitoring
-- remote adapters, Telegram, daemon/watch services, dashboards, routine
-  triggers, CEO-office memory, budget governance, or multi-project state
+- integration/control-plane entrypoints, Telegram-style messaging, background
+  services, operator UIs, scheduled automation, CEO-office memory, budget
+  governance, or multi-project state
 - assumptions that cannot be tied to a whitelisted evidence item
 
 ## Output Shape
@@ -91,9 +92,9 @@ Stop and return `Outcome: blocked` when:
 
 ## MVP Exclusions
 
-Drift Review Slice A excludes Telegram, remote adapters, daemon/watch services,
-dashboards, CEO-office memory, routines, budget governance, multi-project
-orchestration, schema or summarizer code, CLI commands, resolver behavior,
-automatic transcript capture, automatic task creation, lifecycle mutation,
-policy changes, agent profile changes, run log generation, hidden memory,
-Correction Mining promotion, and broad refactors.
+Drift Review Slice A excludes Telegram-style messaging, integration/control-plane
+entrypoints, background services, operator UIs, CEO-office memory, scheduled
+automation, budget governance, multi-project orchestration, schema or summarizer
+code, CLI commands, resolver behavior, automatic transcript capture, automatic
+task creation, lifecycle mutation, policy changes, agent profile changes, run
+log generation, hidden memory, Correction Mining promotion, and broad refactors.

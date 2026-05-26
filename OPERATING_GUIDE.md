@@ -11,12 +11,12 @@ operating protocol while using Samantha on real Codex work to accumulate run
 evidence, lesson evidence, and task evidence, then improve harness performance
 and convenience from that evidence.
 
-Samantha v1 does not automatically add chat adapters, daemon/watch behavior,
-dashboards, routine triggers, or remote/control-plane operation to operator
-activation. Those surfaces are no longer rejected merely because they were v0
-non-goals. With a separate reviewed product slice and explicit authority,
-verification, and lifecycle design, they may be evaluated as v1 candidate
-surfaces.
+Samantha v1 does not automatically add messaging integrations, background
+operation, operator UIs, scheduled automation, or remote/control-plane operation
+to operator activation. Those surfaces are no longer rejected merely because
+older slices excluded them. With a separate reviewed product slice and explicit
+authority, verification, and lifecycle design, they may be evaluated as
+adjacent product surfaces.
 
 This document is the protocol specification. Cross-repo activation in Codex
 sessions is handled by the global Codex skill at
@@ -50,7 +50,8 @@ only the values listed above.
 After any explicit `Samantha <intent>:` or `sam <alias>:` message, Sticky
 Samantha Session routing is active for that Codex thread. The activation is
 thread-local. It does not become a default for other threads, other projects,
-the whole repo, daemon/watch behavior, routine triggers, or chat adapters.
+the whole repo, background operation, scheduled automation, or messaging
+integrations.
 
 While Sticky Samantha Session is active, prefix-free follow-ups are routed
 through Samantha CEO routing. A prefix-free follow-up does not repeat the
@@ -76,9 +77,10 @@ conversation. A new explicit `Samantha <intent>:` or `sam <alias>:` message is
 required to reactivate Samantha routing.
 
 Sticky Samantha Session is only a routing convenience. It is not hidden memory,
-daemon/watch behavior, a chat adapter, a project-global default, a routine
-trigger, or a bypass around task specs, isolated worktrees, `HARNESS_RESULT`,
-deterministic verification, or Samantha-owned commit/report gates.
+background operation, a messaging interface, a project-global default, an
+automatic routine, or a bypass around task specs, isolated worktrees,
+`HARNESS_RESULT`, deterministic verification, or Samantha-owned commit/report
+gates.
 
 ### Brainstorm Decision Acceptance And Execution Authorization
 
@@ -423,7 +425,7 @@ bun run samantha batches:execute --batch-id=<batch-id> --runtime=codex-sdk
 
 Runtime selection does not authorize BatchSpec runtime policy, report
 orchestration runtime selection, automatic fallback, App Server integration,
-hidden UI state, daemon/watch behavior, dashboards, writerCap changes, or
+hidden UI state, background operation, operator UIs, writerCap changes, or
 runtime-owned verification, scope, commit, lifecycle, cleanup, push, recovery,
 or orchestration authority. Roll back by passing `run-task --runtime=exec-json`
 if SDK failures stop producing diagnosable run-log evidence, `HARNESS_RESULT`
@@ -431,20 +433,19 @@ preservation regresses, SDK metadata loses `runtime.kind`, SDK thread state
 starts driving lifecycle or recovery decisions, SDK package movement violates
 policy, or SDK default use writes outside declared task authority.
 
-## v1 Candidate Surfaces And Hard Gates
+## Adjacent Product Surfaces And Hard Gates
 
 Samantha Operating Protocol v1 does not automatically add these surfaces to the
-current operator activation. They are v1 candidate surfaces, not v0 non-goals.
-Before Samantha accepts any of them as product scope, each needs a separate
-reviewed product slice with explicit authority, verification, and lifecycle
-gates:
+current operator activation. They are not blanket exclusions either. Before
+Samantha accepts any of them as product scope, each needs a separate reviewed
+product slice with explicit authority, verification, and lifecycle gates:
 
 - `bun run samantha ask`
 - slash-command parsing
-- Slack, Telegram, or other chat adapters
-- daemon or watch behavior
-- dashboards
-- routine triggers
+- Slack/Telegram-style messaging integrations
+- background/watch operation
+- operator UIs
+- scheduled automation
 - budget governance
 - remote/control-plane operation
 - multi-project orchestration

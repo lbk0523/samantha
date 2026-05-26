@@ -89,8 +89,8 @@ template asks for the wrong focused check.
 
 Tightening may include clearer worker prompt language, task-template wording, or
 playbook examples. It must not add hidden memory, trusted state changes,
-automatic policy changes, daemon/watch behavior, routine triggers, dashboards,
-or remote adapters.
+automatic policy changes, background operation, scheduled automation, operator
+UIs, or integration/control-plane entrypoints.
 
 Automatic policy or template changes require repeated run evidence, a named
 target artifact, and focused tests for the changed behavior. If the evidence is

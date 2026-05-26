@@ -14,7 +14,7 @@ choice.
 
 This does not authorize BatchSpec runtime policy, report orchestration runtime
 selection, automatic fallback, App Server integration, hidden UI state,
-daemon/watch services, dashboards, natural-language dispatch, writerCap
+background operation, operator UIs, natural-language dispatch, writerCap
 changes, or runtime-owned verification, scope, commit, lifecycle, cleanup,
 push, or recovery authority.
 
@@ -81,7 +81,7 @@ Use explicit `run-task --runtime=exec-json`, or keep the omitted
 - The run would require automatic runtime fallback.
 - The run would require App Server integration.
 - The run would require BatchSpec-owned runtime policy, hidden UI state,
-  writerCap changes, daemon/watch behavior, dashboards, or natural-language
+  writerCap changes, background operation, operator UIs, or natural-language
   dispatch.
 - The run would move verification, scope checks, commits, lifecycle, cleanup,
   push, recovery, or orchestration into the runtime adapter.

@@ -71,6 +71,22 @@ describe("codex dispatch preparation", () => {
     expect(prompt).not.toContain("<hash-or-empty>");
   });
 
+  test("does not carry stale surface bans while preserving hard authority gates", () => {
+    const prompt = buildCodexWorkerPrompt(task, worker);
+
+    expect(prompt).not.toContain("Do not implement Telegram");
+    expect(prompt).not.toContain("daemon/watch services");
+    expect(prompt).not.toContain("dashboards");
+    expect(prompt).not.toContain("routine triggers");
+    expect(prompt).not.toContain("remote adapters");
+
+    expect(prompt).toContain("Do not create hidden memory");
+    expect(prompt).toContain("Workers must not own orchestration");
+    expect(prompt).toContain("No worker output becomes trusted work");
+    expect(prompt).toContain("Do not bypass task specs, isolated worktrees");
+    expect(prompt).toContain("worker merge, push, cleanup, policy, or doctrine authority");
+  });
+
   test("includes setup commands as already-run context", () => {
     const prompt = buildCodexWorkerPrompt({ ...task, setupCommands: ["bun install"] }, worker);
 

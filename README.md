@@ -75,10 +75,10 @@ Use `sam off`, `Samantha off`, `Samantha 끄고 Codex로 해`, or `이번 건 Sa
 to opt out. After opt-out, a new explicit Samantha intent or `sam` alias is
 required to reactivate Samantha routing.
 
-Sticky routing is not hidden memory, daemon/watch behavior, a chat adapter, a
-project-global default, a routine trigger, or a bypass around task specs,
-isolated worktrees, `HARNESS_RESULT`, deterministic verification, or
-Samantha-owned lifecycle gates.
+Sticky routing is not hidden memory, background operation, a messaging
+interface, a project-global default, an automatic routine, or a bypass around
+task specs, isolated worktrees, `HARNESS_RESULT`, deterministic verification,
+or Samantha-owned lifecycle gates.
 
 `Samantha command:` normalizes executable work into a bounded plan or task spec
 direction first; it does not bypass worktree isolation, scope checks,
@@ -115,7 +115,7 @@ lifecycle gates.
 
 For cross-repo Codex Chat use, activation is provided by the global
 `samantha-operator` skill; this README and the operating guides describe the
-protocol, not a daemon or chat adapter.
+protocol, not a background service or messaging integration.
 
 ## Product Shape
 
@@ -129,9 +129,9 @@ Samantha should help BK run software work with discipline:
 - produce concise implementation reports
 - keep merge, push, cleanup, recovery, and authority changes explicit
 
-Adjacent surfaces such as chat adapters, daemon operation, dashboards, routine
-triggers, remote/control-plane operation, budget governance, multi-project
-orchestration, and multi-writer execution are v1 candidate surfaces, not
+Adjacent product surfaces such as messaging integrations, background operation,
+operator UIs, scheduled automation, remote/control-plane operation, budget
+governance, multi-project orchestration, and multi-writer execution are not
 automatic scope and not automatic rejections. They should be introduced only as
 reviewed product slices with explicit authority, verification, evidence, and
 lifecycle gates.

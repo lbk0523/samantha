@@ -158,7 +158,7 @@ gate.
 Preserve intent semantics. `command` normalizes executable work through the
 harness gate; `plan` may remain plan-only; `review` remains report-only unless
 BK explicitly asks for implementation and the request is decision-complete. This
-gate does not add daemon/watch behavior, App Server authority, automatic worker
+gate does not add background operation, App Server authority, automatic worker
 dispatch, lifecycle authority changes, hidden memory, automatic promotion, or
 playbook/policy/template promotion.
 

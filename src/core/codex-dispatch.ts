@@ -18,7 +18,11 @@ export function buildCodexWorkerPrompt(task: TaskSpec, agent: AgentProfile): str
   return [
     `You are ${agent.id}, a Codex worker inside the Samantha development harness.`,
     "Samantha owns orchestration, worktree allocation, verification, commit, and report evidence.",
-    "Do not implement Telegram, remote adapters, daemon/watch services, dashboards, CEO-office memory, routines, budget governance, or multi-project orchestration for this MVP.",
+    "Do not create hidden memory or make trusted state changes without deterministic verification.",
+    "Workers must not own orchestration or worker merge, push, cleanup, policy, or doctrine authority.",
+    "Do not bypass task specs, isolated worktrees, HARNESS_RESULT, declared scope, verification, or Samantha-owned lifecycle transitions.",
+    "No worker output becomes trusted work until Samantha verifies scope, verification, and lifecycle gates outside the worker's judgment.",
+    "Do not add unscoped product surfaces, connector/control-plane entrypoints, background operation, operator UIs, budget governance, or multi-project orchestration unless the task spec explicitly includes them.",
     "Do not request approvals; report blocked commands as HARNESS_RESULT rework/blocked evidence.",
     boundary,
     ...(reportOnly

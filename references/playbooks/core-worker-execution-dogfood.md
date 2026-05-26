@@ -88,9 +88,9 @@ Stop the dogfood set, or mark the affected run for rework, when:
 
 This playbook does not authorize:
 
-- dashboards;
-- daemon/watch services;
-- remote adapters;
+- operator UIs;
+- background operation;
+- integration/control-plane entrypoints;
 - multi-project orchestration;
 - hidden memory;
 - autonomous push;

@@ -10,11 +10,11 @@
 유지하면서, Samantha를 실제 Codex 작업에 사용해 run evidence, lesson evidence,
 task evidence를 쌓고 하네스 성능과 편의성을 고도화하는 버전이다.
 
-Samantha v1은 chat adapter, daemon/watch, dashboard, routine trigger,
+Samantha v1은 메시징 통합, 백그라운드 동작, 운영자 UI, 예약 자동화,
 remote/control plane을 operator activation에 자동으로 추가하지 않는다. 그러나 이
-표면들은 더 이상 v0 non-goal이라는 이유만으로 부적합 판정하지 않는다. 별도
-reviewed product slice와 authority, verification, lifecycle 설계가 있으면 v1
-candidate surface로 검토한다.
+표면들은 더 이상 오래된 slice exclusion이라는 이유만으로 부적합 판정하지 않는다.
+별도 reviewed product slice와 authority, verification, lifecycle 설계가 있으면
+인접 제품 표면으로 검토한다.
 
 이 문서는 프로토콜 사양이다. 다른 repo의 Codex 세션에서 이 프로토콜을
 활성화하는 실제 장치는 전역 Codex skill
@@ -46,8 +46,8 @@ sam <alias>: <자연어 요청>
 
 명시적인 `Samantha <intent>:` 또는 `sam <alias>:` 메시지가 한 번 나오면, 그
 Codex thread 안에서는 Sticky Samantha Session이 활성화된다. 활성화 범위는
-thread-local이다. 다른 thread, 다른 project, repo 전역 기본값, daemon/watch,
-routine trigger, chat adapter 상태로 확장되지 않는다.
+thread-local이다. 다른 thread, 다른 project, repo 전역 기본값, 백그라운드 동작,
+예약 자동화, 메시징 통합 상태로 확장되지 않는다.
 
 Sticky Samantha Session이 활성화된 뒤에는 prefix가 없는 follow-up도 Samantha CEO
 routing으로 처리한다. 단, prefix-free follow-up은 직전 intent를 고정 default로
@@ -72,7 +72,7 @@ Opt-out 이후 같은 thread에서도 prefix 없는 메시지는 일반 Codex �
 `sam <alias>:` 메시지가 필요하다.
 
 Sticky Samantha Session은 편의용 routing 규칙일 뿐이다. hidden memory,
-daemon/watch behavior, chat adapter, project-global default, routine trigger가
+백그라운드 동작, 메시징 인터페이스, project-global default, 자동 routine이
 아니며 task spec, isolated worktree, `HARNESS_RESULT`, deterministic verification,
 Samantha-owned commit/report 같은 lifecycle gate를 우회하는 권한도 아니다.
 
@@ -466,7 +466,7 @@ bun run samantha batches:execute --batch-id=<batch-id> --runtime=codex-sdk
 ```
 
 Runtime 선택은 BatchSpec runtime policy, report orchestration runtime 선택,
-automatic fallback, App Server 통합, hidden UI state, daemon/watch, dashboard,
+automatic fallback, App Server 통합, hidden UI state, 백그라운드 동작, 운영자 UI,
 writerCap 변경, runtime-owned verification/scope/commit/lifecycle/cleanup/push/
 recovery/orchestration authority를 허용하지 않는다. SDK failure가 run log에서
 진단되지 않거나, `HARNESS_RESULT` 보존이 깨지거나, SDK metadata에서
@@ -477,19 +477,19 @@ rollback한다.
 
 상세 기준은 `references/playbooks/sdk-dogfood-runtime-selection.md`를 따른다.
 
-## v1 Candidate Surface와 Hard Gate
+## 인접 제품 표면과 Hard Gate
 
 Samantha Operating Protocol v1은 다음 표면을 현재 operator activation에 자동으로
-추가하지 않는다. 단, 이들은 v0 non-goal이 아니라 v1 candidate surface다. Samantha가
-각 표면을 제품 범위로 받아들이려면 별도 reviewed product slice와 명시적인
-authority, verification, lifecycle gate가 필요하다:
+추가하지 않는다. 단, 이들은 blanket exclusion도 아니다. Samantha가 각 표면을 제품
+범위로 받아들이려면 별도 reviewed product slice와 명시적인 authority,
+verification, lifecycle gate가 필요하다:
 
 - `bun run samantha ask`
 - slash-command parsing
-- Slack, Telegram, 또는 다른 chat adapter
-- daemon 또는 watch behavior
-- dashboard
-- routine trigger
+- Slack/Telegram식 메시징 통합
+- 백그라운드/감시 동작
+- 운영자 UI
+- 예약 자동화
 - budget governance
 - remote/control plane
 - multi-project orchestration

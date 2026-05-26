@@ -152,8 +152,8 @@ Do not:
 
 - scan full transcripts automatically;
 - watch chats, logs, directories, or run streams for correction signals;
-- create routine triggers, daemon behavior, dashboards, remote adapters, or
-  notification workflows;
+- create scheduled automation, background behavior, operator UIs,
+  integration/control-plane entrypoints, or notification workflows;
 - infer BK preferences from unstated context;
 - draft candidates from private or unavailable evidence;
 - promote candidates automatically;
@@ -173,7 +173,7 @@ Before closing a mining task, check that:
 - no promoted artifact was edited unless the task separately authorized that
   exact file;
 - no automatic scan, promotion, hidden memory, runtime code, CLI surface, task
-  template, agent profile, run log, worktree, or dashboard was created.
+  template, agent profile, run log, worktree, or operator UI was created.
 
 For docs-only edits to this playbook or candidate markdown, run the markdown
 diff check specified by the task.
