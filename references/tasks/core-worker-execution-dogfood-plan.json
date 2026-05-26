@@ -1,0 +1,44 @@
+{
+  "id": "core-worker-execution-dogfood-plan",
+  "title": "Write core worker execution dogfood plan",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/core-worker-execution-dogfood.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "test -f references/playbooks/core-worker-execution-dogfood.md",
+    "grep -F '20-run dogfood' references/playbooks/core-worker-execution-dogfood.md",
+    "grep -F 'false pass' references/playbooks/core-worker-execution-dogfood.md",
+    "grep -F 'timeout' references/playbooks/core-worker-execution-dogfood.md",
+    "git diff --check HEAD -- references/playbooks/core-worker-execution-dogfood.md"
+  ],
+  "instructions": "Implement only Slice 5 of Core worker execution trust hardening: create a concise docs-only 20-run dogfood evidence plan at references/playbooks/core-worker-execution-dogfood.md.\n\nRequired content:\n- Explain the purpose: judge Samantha core worker execution reliability from evidence, not architecture optimism.\n- Define a 20-run dogfood plan for real Samantha work after Slices 1-4.\n- Include metrics for task spec writing time, worker runtime, verification time, manual review time, retry/rework time, false pass count, false block count, timeout count, scope violation count, and task template reuse.\n- Include review questions after 20 runs: whether Samantha reduced review time, whether task spec friction is too high, which task families fail most, whether verify command quality issues recur, and what templates are justified by evidence.\n- Include stop conditions and non-goals: no dashboard, daemon/watch, remote adapter, multi-project orchestration, hidden memory, autonomous push, writerCap increase, broad batch expansion, or LLM semantic verification.\n- Keep the document as an operational playbook, not roadmap doctrine and not an implementation backlog.\n\nDo not change source code, tests, task specs, task templates, agent profiles, roadmap/doctrine docs, run logs, lifecycle state, package files, daemon/watch behavior, dashboards, remote adapters, hidden memory, or orchestration scope. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: add core worker dogfood plan",
+  "status": "pending"
+}
