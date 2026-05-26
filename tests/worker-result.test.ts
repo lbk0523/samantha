@@ -356,6 +356,43 @@ describe("evaluateWorkerResult", () => {
     expectTiming(result.verificationTiming!);
   });
 
+  test("cleans up SIGTERM-ignoring verify commands within a bounded timeout window", async () => {
+    const { root, baseCommit } = await makeRepo();
+    await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");
+
+    const startedAt = performance.now();
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        verifyCommands: [
+          "printf 'started\\n'; printf 'still running\\n' >&2; trap '' TERM; sleep 2",
+        ],
+        verifyTimeoutMs: 50,
+      },
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+    });
+    const durationMs = performance.now() - startedAt;
+
+    expect(durationMs).toBeLessThan(1000);
+    expect(result.pass).toBe(false);
+    expect(result.verifyResults).toHaveLength(1);
+    expect(result.verifyResults[0]).toMatchObject({
+      exitCode: 124,
+      timedOut: true,
+      timeoutMs: 50,
+      stdout: "started\n",
+      stderr: "still running\n",
+      timeoutDetails: {
+        reason: "verify-timeout",
+        signal: "SIGTERM",
+      },
+    });
+    expectTiming(result.verifyResults[0]!);
+    expectTiming(result.verificationTiming!);
+  });
+
   test("stops verify commands after a timeout", async () => {
     const { root, baseCommit } = await makeRepo();
     await writeFile(join(root, "allowed.txt"), "changed\n", "utf8");

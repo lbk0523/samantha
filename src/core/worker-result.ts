@@ -18,6 +18,7 @@ import {
 const DEFAULT_VERIFY_TIMEOUT_MS = 10 * 60 * 1000;
 const VERIFY_TIMEOUT_EXIT_CODE = 124;
 const VERIFY_TIMEOUT_SIGNAL = "SIGTERM";
+const VERIFY_TIMEOUT_CLEANUP_GRACE_MS = 100;
 
 export interface VerifyCommandTimeoutDetails {
   reason: "verify-timeout";
@@ -103,14 +104,19 @@ async function runVerifyCommand(
     cwd,
     stdout: "pipe",
     stderr: "pipe",
+    detached: true,
   });
 
   let timedOut = false;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let cleanupId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<"timeout">((resolve) => {
     timeoutId = setTimeout(() => {
       timedOut = true;
-      child.kill(VERIFY_TIMEOUT_SIGNAL);
+      killVerifyProcess(child, VERIFY_TIMEOUT_SIGNAL);
+      cleanupId = setTimeout(() => {
+        killVerifyProcess(child, "SIGKILL");
+      }, VERIFY_TIMEOUT_CLEANUP_GRACE_MS);
       resolve("timeout");
     }, timeoutMs);
   });
@@ -119,6 +125,8 @@ async function runVerifyCommand(
   if (timeoutId) clearTimeout(timeoutId);
   const exitCode =
     timedOut || exitOrTimeout === "timeout" ? VERIFY_TIMEOUT_EXIT_CODE : exitOrTimeout;
+  if (timedOut) await child.exited;
+  if (cleanupId) clearTimeout(cleanupId);
 
   const [stdout, stderr] = await Promise.all([
     new Response(child.stdout).text(),
@@ -142,6 +150,17 @@ async function runVerifyCommand(
       : {}),
     ...finishOperationTiming(timing),
   };
+}
+
+function killVerifyProcess(
+  child: Bun.Subprocess<"ignore", "pipe", "pipe">,
+  signal: NodeJS.Signals,
+): void {
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
 }
 
 async function runVerifyCommands(
