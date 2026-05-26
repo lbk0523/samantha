@@ -23,11 +23,11 @@ export const DEFAULT_SAFETY_POLICY: SafetyPolicy = {
 
 const KNOWN_AGENT_ROLES: AgentRole[] = ["writer", "reviewer", "evaluator", "spec", "researcher"];
 
-function validateWriterVerifyCommands(verifyCommands: string[]): string[] {
+function validateWriterVerifyCommands(task: TaskSpec): string[] {
   const violations: string[] = [];
   let reportedEmptyCommand = false;
 
-  for (const command of verifyCommands) {
+  for (const command of task.verifyCommands) {
     const trimmed = command.trim();
     if (trimmed.length === 0) {
       if (!reportedEmptyCommand) {
@@ -47,11 +47,21 @@ function validateWriterVerifyCommands(verifyCommands: string[]): string[] {
     }
   }
 
+  if (requiresTestOrTypecheckVerification(task) && !task.verifyCommands.some(isTestOrTypecheckCommand)) {
+    violations.push(
+      "core-module or tdd-first writer tasks must include a real test runner or typecheck verify command",
+    );
+  }
+
+  if (task.riskClass === "lifecycle-sensitive" && !task.verifyCommands.some(isBroadVerificationCommand)) {
+    violations.push("lifecycle-sensitive writer tasks must include broad verification");
+  }
+
   return violations;
 }
 
 function isNoopOrSimpleOutputCommand(command: string): boolean {
-  const normalized = command.toLowerCase().replace(/\s+/g, " ");
+  const normalized = normalizeVerifyCommand(command);
 
   return (
     /^(true|false|pwd|ls)(\s|$)/.test(normalized) ||
@@ -61,7 +71,7 @@ function isNoopOrSimpleOutputCommand(command: string): boolean {
 }
 
 function isLongRunningVerifyCommand(command: string): boolean {
-  const normalized = command.toLowerCase().replace(/\s+/g, " ");
+  const normalized = normalizeVerifyCommand(command);
 
   return (
     /^sleep(\s|$)/.test(normalized) ||
@@ -75,6 +85,40 @@ function isLongRunningVerifyCommand(command: string): boolean {
     /^vite\s+dev(\s|$)/.test(normalized) ||
     /^next\s+dev(\s|$)/.test(normalized)
   );
+}
+
+function requiresTestOrTypecheckVerification(task: TaskSpec): boolean {
+  return task.taskFamily === "core-module" || task.workMode === "tdd-first";
+}
+
+function isTestOrTypecheckCommand(command: string): boolean {
+  const normalized = normalizeVerifyCommand(command);
+
+  return /^bun\s+test(\s|$)/.test(normalized) || normalized === "bun run typecheck";
+}
+
+function isBroadVerificationCommand(command: string): boolean {
+  const normalized = normalizeVerifyCommand(command);
+
+  return normalized === "bun test" || normalized === "bun run typecheck";
+}
+
+function normalizeVerifyCommand(command: string): string {
+  return unwrapSimpleShellCommand(command).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function unwrapSimpleShellCommand(command: string): string {
+  const trimmed = command.trim();
+  const shellWrapped = /^(?:bash|sh|zsh)\s+-(?:c|lc)\s+(.+)$/.exec(trimmed);
+  if (!shellWrapped) return trimmed;
+
+  const inner = shellWrapped[1].trim();
+  const quote = inner[0];
+  if ((quote === '"' || quote === "'") && inner.endsWith(quote)) {
+    return inner.slice(1, -1).trim();
+  }
+
+  return inner;
 }
 
 export function validateWriterCap(
@@ -182,7 +226,7 @@ export function validateDispatch(
     if (policy.requiredVerifyCommandsForWriters && task.verifyCommands.length === 0) {
       violations.push("writer tasks must declare verifyCommands");
     }
-    violations.push(...validateWriterVerifyCommands(task.verifyCommands));
+    violations.push(...validateWriterVerifyCommands(task));
   }
 
   if (agent.writerClass === "non-writer") {

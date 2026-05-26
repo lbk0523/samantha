@@ -157,6 +157,15 @@ describe("dispatch policy", () => {
     );
   });
 
+  test("blocks writer tasks with shell-wrapped no-op verify commands", () => {
+    const result = validateDispatch({ ...validTask, verifyCommands: ["bash -lc true"] }, worker);
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      "writer verifyCommands must not use no-op/simple output commands: bash -lc true",
+    );
+  });
+
   test("blocks writer tasks with long-running watch or dev verify commands", () => {
     const commands = [
       "sleep 1",
@@ -178,6 +187,16 @@ describe("dispatch policy", () => {
     }
   });
 
+  test("blocks writer tasks with shell-wrapped simple output or long-running dev verify commands", () => {
+    const commands = ["sh -c \"echo ok\"", "zsh -lc \"sleep 999\"", "bash -lc 'npm run dev'"];
+
+    for (const command of commands) {
+      const result = validateDispatch({ ...validTask, verifyCommands: [command] }, worker);
+
+      expect(result.mayDispatch).toBe(false);
+    }
+  });
+
   test("blocks writer tasks with whitespace-only verify commands", () => {
     const result = validateDispatch({ ...validTask, verifyCommands: ["  \n\t"] }, worker);
 
@@ -187,20 +206,99 @@ describe("dispatch policy", () => {
     );
   });
 
-  test("allows focused writer verify commands", () => {
+  test("blocks core-module writer tasks with only grep for missing test or typecheck verification", () => {
+    const result = validateDispatch({ ...validTask, verifyCommands: ["grep -q policy src/core/policy.ts"] }, worker);
+
+    expect(result.mayDispatch).toBe(false);
+    expect(result.violations).toContain(
+      "core-module or tdd-first writer tasks must include a real test runner or typecheck verify command",
+    );
+  });
+
+  test("blocks tdd-first writer tasks with only file checks for missing test or typecheck verification", () => {
+    const commands = ["test -f src/core/policy.ts", "git diff --check HEAD -- src/core/policy.ts"];
+
+    for (const command of commands) {
+      const result = validateDispatch(
+        {
+          ...validTask,
+          taskFamily: "cli-command",
+          workMode: "tdd-first",
+          verifyCommands: [command],
+        },
+        worker,
+      );
+
+      expect(result.mayDispatch).toBe(false);
+      expect(result.violations).toContain(
+        "core-module or tdd-first writer tasks must include a real test runner or typecheck verify command",
+      );
+    }
+  });
+
+  test("blocks lifecycle-sensitive writer tasks without broad verification", () => {
     const commands = [
+      "grep -q policy src/core/policy.ts",
+      "test -f src/core/policy.ts",
       "bun test tests/policy.test.ts",
-      "bun run typecheck",
-      "bun test",
-      "git diff --check HEAD -- '*.md' 'references/**/*.md'",
     ];
 
     for (const command of commands) {
-      const result = validateDispatch({ ...validTask, verifyCommands: [command] }, worker);
+      const result = validateDispatch(
+        {
+          ...validTask,
+          riskClass: "lifecycle-sensitive",
+          verifyCommands: [command],
+        },
+        worker,
+      );
+
+      expect(result.mayDispatch).toBe(false);
+      expect(result.violations).toContain("lifecycle-sensitive writer tasks must include broad verification");
+    }
+  });
+
+  test("allows focused test verification for routine core-module and tdd-first writer tasks", () => {
+    const result = validateDispatch(
+      { ...validTask, verifyCommands: ["bun test tests/policy.test.ts"] },
+      worker,
+    );
+
+    expect(result.mayDispatch).toBe(true);
+    expect(result.violations).toEqual([]);
+  });
+
+  test("allows broad verification for lifecycle-sensitive writer tasks", () => {
+    const commands = [
+      "bun test",
+      "bun run typecheck",
+    ];
+
+    for (const command of commands) {
+      const result = validateDispatch(
+        { ...validTask, riskClass: "lifecycle-sensitive", verifyCommands: [command] },
+        worker,
+      );
 
       expect(result.mayDispatch).toBe(true);
       expect(result.violations).toEqual([]);
     }
+  });
+
+  test("allows docs-only minimal-change writer tasks to use git diff verification", () => {
+    const result = validateDispatch(
+      {
+        ...validTask,
+        taskFamily: "docs-only",
+        workMode: "minimal-change",
+        targetFiles: ["README.md"],
+        verifyCommands: ["git diff --check HEAD -- '*.md' 'references/**/*.md'"],
+      },
+      worker,
+    );
+
+    expect(result.mayDispatch).toBe(true);
+    expect(result.violations).toEqual([]);
   });
 
   test("blocks allowNoop tasks without a non-empty rationale", () => {

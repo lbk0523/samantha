@@ -51,9 +51,9 @@ function taskSpecFor(batchTask: BatchSpec["tasks"][number]): TaskSpec {
   return {
     id: batchTask.taskId,
     title: `Task ${batchTask.taskId}`,
-    taskFamily: "core-module",
-    workMode: "tdd-first",
-    riskClass: "lifecycle-sensitive",
+    taskFamily: "cli-command",
+    workMode: "minimal-change",
+    riskClass: "routine",
     targetAgent: batchTask.targetAgent,
     targetFiles: batchTask.declaredTargetFiles,
     forbiddenChanges: batchTask.declaredForbiddenChanges,

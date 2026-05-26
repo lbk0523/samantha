@@ -49,9 +49,9 @@ const agent: AgentProfile = {
 const task: TaskSpec = {
   id: "worker-dispatch-fixture",
   title: "Run worker dispatch",
-  taskFamily: "core-module",
-  workMode: "tdd-first",
-  riskClass: "lifecycle-sensitive",
+  taskFamily: "docs-only",
+  workMode: "minimal-change",
+  riskClass: "routine",
   targetAgent: "codex-worker",
   targetFiles: ["README.md"],
   forbiddenChanges: ["runs/**", "worktrees/**"],
