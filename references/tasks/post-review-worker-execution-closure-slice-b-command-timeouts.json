@@ -1,0 +1,60 @@
+{
+  "id": "post-review-worker-execution-closure-slice-b-command-timeouts",
+  "title": "Add setup and exec-json worker timeouts",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-runtime-adapter.ts",
+    "src/core/sequential-ceo-autopilot.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/codex-dispatch.test.ts",
+    "tests/sequential-ceo-autopilot.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/policy.ts",
+    "src/core/worker-result.ts",
+    "src/core/batch-*.ts",
+    "tests/policy.test.ts",
+    "tests/worker-result.test.ts",
+    "tests/batch-execution.test.ts",
+    "tests/cli.test.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/worker-dispatch.test.ts tests/codex-dispatch.test.ts tests/sequential-ceo-autopilot.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only Slice B from references/initiatives/post-review-worker-execution-closure.md. Use that initiative document as read-only source-of-truth for this slice. Slice A is already accepted and cleaned. Do not start Slice C.\n\nPurpose:\n- Add bounded timeout behavior to the shared command runner, setup commands, and the exec-json worker runtime path.\n- Do not implement Codex SDK stream timeout in this slice except for passing through the workerTimeoutMs input shape needed by the shared WorkerRuntimeAdapter contract. Slice C owns actual codex-sdk stream timeout behavior.\n\nRequired behavior:\n- Add optional TaskSpec fields setupTimeoutMs?: number and workerTimeoutMs?: number.\n- Extend CommandRunResult with timeout evidence: timedOut?: boolean, timeoutMs?: number, and timeoutDetails?: a small structured object with a deterministic timeout reason and signal.\n- Add timeoutMs support to runCommand(command, { cwd, timeoutMs }). Without timeoutMs, preserve current behavior.\n- On command timeout, terminate the process group when possible, fall back to child.kill, use a short bounded cleanup grace, return exitCode 124, and preserve stdout/stderr emitted before timeout.\n- Run setup commands sequentially with task.setupTimeoutMs ?? a deterministic default of 60_000 ms. Stop after the first non-zero or timed-out setup result.\n- Ensure setup failure or timeout prevents worker runtime dispatch.\n- Pass task.workerTimeoutMs ?? a deterministic default of 1_200_000 ms through executeWorkerDispatch to the runtime adapter.\n- Have the exec-json adapter call runCommand with workerTimeoutMs so exec-json worker runtime timeout is enforced and recorded.\n- Update closed TaskSpec validator surfaces only where they would otherwise reject setupTimeoutMs or workerTimeoutMs. Keep this minimal; do not broaden validator semantics beyond accepting finite positive timeout fields if needed.\n\nRequired tests:\n- runCommand without timeout preserves existing stdout, stderr, exit code, and timing behavior.\n- runCommand with timeout returns exitCode 124, timedOut true, timeoutMs, and timeoutDetails.\n- runCommand timeout captures stdout/stderr emitted before timeout.\n- SIGTERM-ignoring commands return within a bounded cleanup window.\n- setup commands stop after timeout and worker runtime adapter is not called.\n- exec-json runtime timeout returns timeout evidence.\n- Existing setup command order/failure behavior still passes.\n- Existing codex dispatch and worker dispatch tests still pass.\n- If closed TaskSpec validator surfaces are touched, add or update focused tests proving setupTimeoutMs and workerTimeoutMs are accepted without broadening unrelated schema fields.\n\nStop conditions:\n- Stop and report rework if the implementation requires adding CLI flags or a new command surface.\n- Stop and report rework if the implementation weakens existing verification quality policy.\n- Stop and report rework if timeout evidence cannot be preserved through CommandRunResult.\n- Stop and report rework if setup timeout still allows worker runtime dispatch.\n- Stop and report rework if actual codex-sdk stream timeout implementation is required; that belongs to Slice C.\n\nDo not edit task templates, docs, lifecycle artifacts, merge/cleanup logic, lesson promotion code, dashboard/daemon/remote behavior, writerCap, hidden memory, Graphify integration, or LLM semantic verification. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: add setup and exec-json worker timeouts",
+  "status": "pending"
+}
