@@ -1,6 +1,6 @@
 # Initiative: Post-Review Worker Execution Closure
 
-Status: planned
+Status: Slice C ready; Slice A and Slice B accepted and cleaned
 Source: Samantha post-review fix planning, 2026-05-27
 Last updated: 2026-05-27
 
@@ -79,7 +79,14 @@ task spec
 
 ### Slice A: No-Op Gate Correction
 
-Status: ready
+Status: accepted and cleaned
+
+Lifecycle evidence:
+
+- Accepted commit: `ac6c6b6054acc81e999c5a65dba54aa049ceba2d`
+- Run log:
+  `runs/2026-05-27T00-02-24-332Z-post-review-worker-execution-closure-slice-a-noop-gate.json`
+- Cleanup evidence: `runs/run-lifecycle.jsonl`
 
 Purpose: close the writer no-op bypass by basing no-op detection on
 pre-verification worker-produced changes.
@@ -134,7 +141,14 @@ Stop conditions:
 
 ### Slice B: Setup And Exec-Json Runtime Timeout
 
-Status: ready after Slice A
+Status: accepted and cleaned
+
+Lifecycle evidence:
+
+- Accepted commit: `2032908465a4614bbe47acfc954ae7725e46eae9`
+- Run log:
+  `runs/2026-05-27T00-53-51-280Z-post-review-worker-execution-closure-slice-b-command-timeouts.json`
+- Cleanup evidence: `runs/run-lifecycle.jsonl`
 
 Purpose: add bounded timeout behavior to the shared command runner, setup
 commands, and the exec-json worker runtime path.
@@ -279,25 +293,28 @@ Completion requires:
 
 ## Current Next Action
 
-Resolve the dirty working tree before dispatch. Then run Slice A only.
+Run Slice C only after confirming the target repository is clean. Slice A and
+Slice B are already accepted and cleaned; do not reopen them.
 
 Recommended next prompt:
 
 ```text
-sam c: post-review worker execution closure Slice A task spec을 만들고 worker run까지 진행해줘.
+sam c: post-review worker execution closure Slice C task spec을 만들고 worker run까지 진행해줘.
 Context:
 - Samantha repo: /Users/byung/Documents/samantha
-- Initiative source of truth: references/initiatives/post-review-worker-execution-closure.md
+- Initiative source of truth: /Users/byung/Documents/samantha/references/initiatives/post-review-worker-execution-closure.md
+- Use that initiative document as the controlling plan for Slice C boundaries, target files, forbidden changes, verification, stop conditions, and lifecycle gates.
 - Original five-slice plan remains complete; do not reopen it.
-- Dirty precondition: untracked hermes_samantha_workflow_integration_report.md must be resolved before dispatch; if still dirty, stop and report.
+- Slice A accepted and cleaned: ac6c6b6054acc81e999c5a65dba54aa049ceba2d
+- Slice B accepted and cleaned: 2032908465a4614bbe47acfc954ae7725e46eae9
 Ask:
-- Create only Slice A TaskSpec for no-op gate correction.
+- Create only Slice C TaskSpec for Codex SDK runtime timeout from the source-of-truth initiative document.
 - Commit the TaskSpec planning artifact.
 - Dispatch one SDK-backed Samantha worker run with --runtime=codex-sdk.
-- Do not start Slice B or C.
+- Do not reopen Slice A or Slice B.
 Scope:
-- src/core/worker-result.ts
-- tests/worker-result.test.ts
+- src/core/worker-runtime-adapter.ts
+- tests/worker-dispatch.test.ts or a focused worker runtime adapter test
 Output:
 - task spec path
 - run log path
@@ -306,7 +323,8 @@ Output:
 - changed-file scope
 Stop:
 - Do not push.
-- Do not touch timeout code.
-- Do not edit references outside the Slice A task spec.
+- Do not add CLI surface.
+- Do not broaden policy.
+- Do not edit references outside the Slice C task spec.
 - Do not dispatch if the target repo is dirty.
 ```
