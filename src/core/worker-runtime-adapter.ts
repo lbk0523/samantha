@@ -1,4 +1,4 @@
-import { Codex, type ThreadEvent, type ThreadOptions } from "@openai/codex-sdk";
+import { Codex, type ThreadEvent, type ThreadOptions, type TurnOptions } from "@openai/codex-sdk";
 import {
   finishOperationTiming,
   runCommand,
@@ -84,12 +84,19 @@ export const execJsonWorkerRuntimeAdapter: WorkerRuntimeAdapter = {
 
 interface CodexSdkThread {
   id: string | null;
-  runStreamed(input: string): Promise<{ events: AsyncGenerator<ThreadEvent> }>;
+  runStreamed(input: string, turnOptions?: TurnOptions): Promise<{ events: AsyncGenerator<ThreadEvent> }>;
 }
 
 interface CodexSdkClient {
   startThread(options?: ThreadOptions): CodexSdkThread;
 }
+
+const CODEX_SDK_TIMEOUT = Symbol("codex-sdk-timeout");
+const CODEX_SDK_TIMEOUT_EXIT_CODE = 124;
+const CODEX_SDK_TIMEOUT_DETAILS = {
+  reason: "command-timeout" as const,
+  signal: "SIGTERM" as const,
+};
 
 export function buildCodexSdkCommand(input: {
   agent: AgentProfile;
@@ -130,6 +137,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
       const eventCounts: Record<string, number> = {};
       let finalResponse = "";
       let threadId: string | undefined;
+      let thread: CodexSdkThread | undefined;
       let runtimeError: string | undefined;
       const timing = startOperationTiming();
 
@@ -137,25 +145,80 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
         const client =
           input.createClient?.(run.codexBin) ??
           new Codex(run.codexBin ? { codexPathOverride: run.codexBin } : undefined);
-        const thread = client.startThread({
+        thread = client.startThread({
           workingDirectory: run.worktreePath,
           model: run.agent.model,
           sandboxMode: run.agent.writerClass === "non-writer" ? "read-only" : "workspace-write",
           approvalPolicy: "never",
         });
-        const stream = await thread.runStreamed(run.dispatch.prompt);
 
-        for await (const event of stream.events) {
-          eventCounts[event.type] = (eventCounts[event.type] ?? 0) + 1;
-          if (event.type === "thread.started") {
-            threadId = event.thread_id;
-          } else if (event.type === "item.completed" && event.item.type === "agent_message") {
-            finalResponse = event.item.text;
-          } else if (event.type === "turn.failed") {
-            runtimeError = event.error.message;
-          } else if (event.type === "error") {
-            runtimeError = event.message;
+        const abortController = new AbortController();
+        let timeoutFired = false;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<typeof CODEX_SDK_TIMEOUT>((resolve) => {
+          timeoutId = setTimeout(() => {
+            timeoutFired = true;
+            abortController.abort();
+            resolve(CODEX_SDK_TIMEOUT);
+          }, run.workerTimeoutMs);
+        });
+        const raceWithTimeout = <T>(promise: Promise<T>): Promise<T | typeof CODEX_SDK_TIMEOUT> =>
+          Promise.race([promise, timeout]);
+        const timeoutResult = (): WorkerRuntimeExecution => {
+          threadId ??= thread?.id ?? undefined;
+          return {
+            command: {
+              command: run.dispatch.command,
+              exitCode: CODEX_SDK_TIMEOUT_EXIT_CODE,
+              stdout: finalResponse,
+              stderr: `codex-sdk runtime timed out after ${run.workerTimeoutMs}ms`,
+              timedOut: true,
+              timeoutMs: run.workerTimeoutMs,
+              timeoutDetails: CODEX_SDK_TIMEOUT_DETAILS,
+              ...finishOperationTiming(timing),
+            },
+            runtime: {
+              kind: "codex-sdk",
+              approvalPolicy: "never",
+              ...(threadId ? { threadId } : {}),
+              eventCounts,
+            },
+          };
+        };
+
+        try {
+          const stream = await raceWithTimeout(
+            thread.runStreamed(run.dispatch.prompt, { signal: abortController.signal }),
+          );
+          if (stream === CODEX_SDK_TIMEOUT) return timeoutResult();
+
+          const events = stream.events[Symbol.asyncIterator]();
+          while (true) {
+            const next = await raceWithTimeout(events.next());
+            if (next === CODEX_SDK_TIMEOUT) {
+              const close = events.return?.(undefined);
+              if (close) void close.catch(() => undefined);
+              return timeoutResult();
+            }
+            if (next.done) break;
+
+            const event = next.value;
+            eventCounts[event.type] = (eventCounts[event.type] ?? 0) + 1;
+            if (event.type === "thread.started") {
+              threadId = event.thread_id;
+            } else if (event.type === "item.completed" && event.item.type === "agent_message") {
+              finalResponse = event.item.text;
+            } else if (event.type === "turn.failed") {
+              runtimeError = event.error.message;
+            } else if (event.type === "error") {
+              runtimeError = event.message;
+            }
           }
+        } catch (err) {
+          if (timeoutFired) return timeoutResult();
+          throw err;
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
         }
         threadId ??= thread.id ?? undefined;
 
@@ -176,6 +239,7 @@ export function createCodexSdkWorkerRuntimeAdapter(input: {
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        threadId ??= thread?.id ?? undefined;
         return {
           command: {
             command: run.dispatch.command,
