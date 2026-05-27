@@ -2361,6 +2361,24 @@ describe("Sequential CEO Autopilot run_task preflight report", () => {
     });
   });
 
+  test("accepts positive TaskSpec timeout fields during run_task preflight", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      taskSpec: {
+        setupTimeoutMs: 5_000,
+        workerTimeoutMs: 60_000,
+      },
+    });
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("accepted");
+    expect(report.blockingReasons).toEqual([]);
+  });
+
   test("blocks malformed candidates through current artifact validation first", async () => {
     const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture();
     const malformed = {
@@ -2552,6 +2570,27 @@ describe("Sequential CEO Autopilot run_task preflight report", () => {
     expect(report.blockingReasons).toContain(
       "TaskSpec.riskClass must be routine, authority-sensitive, doctrine-sensitive, or lifecycle-sensitive: admin",
     );
+  });
+
+  test("rejects invalid TaskSpec timeout fields without broadening unknown fields", async () => {
+    const { root, artifactPath, continuation } = await writeRunTaskPreflightFixture({
+      taskSpec: {
+        setupTimeoutMs: 0,
+        workerTimeoutMs: "soon" as unknown as number,
+        command: "bun test",
+      } as Partial<TaskSpec>,
+    });
+
+    const report = await buildSequentialContinuationRunTaskPreflightReport({
+      repoRoot: root,
+      artifactPath,
+      artifact: continuation,
+    });
+
+    expect(report.status).toBe("blocked");
+    expect(report.blockingReasons).toContain("TaskSpec.setupTimeoutMs must be a finite positive number when present");
+    expect(report.blockingReasons).toContain("TaskSpec.workerTimeoutMs must be a finite positive number when present");
+    expect(report.blockingReasons).toContain("unknown TaskSpec field: command");
   });
 
   test("blocks untracked, dirty, and stale TaskSpec commit evidence", async () => {

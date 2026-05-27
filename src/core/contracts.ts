@@ -55,8 +55,10 @@ export interface TaskSpec {
   targetFiles: string[];
   forbiddenChanges: string[];
   setupCommands?: string[];
+  setupTimeoutMs?: number;
   verifyCommands: string[];
   verifyTimeoutMs?: number;
+  workerTimeoutMs?: number;
   instructions: string;
   resultMode?: TaskResultMode;
   allowNoop?: boolean;

@@ -1125,7 +1125,49 @@ describe("worker dispatch", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout.trim()).toBe("out");
     expect(result.stderr.trim()).toBe("err");
+    expect(result.timedOut).toBeUndefined();
     expectCommandTiming(result);
+  });
+
+  test("times out commands with deterministic timeout evidence", async () => {
+    const result = await runCommand(["bash", "-lc", "sleep 1"], { timeoutMs: 25 });
+
+    expect(result).toMatchObject({
+      exitCode: 124,
+      timedOut: true,
+      timeoutMs: 25,
+      timeoutDetails: {
+        reason: "command-timeout",
+        signal: "SIGTERM",
+      },
+    });
+    expectCommandTiming(result);
+  });
+
+  test("preserves stdout and stderr emitted before command timeout", async () => {
+    const result = await runCommand(
+      ["bash", "-lc", "printf before-timeout && printf before-timeout-err >&2 && sleep 1"],
+      { timeoutMs: 25 },
+    );
+
+    expect(result.exitCode).toBe(124);
+    expect(result.timedOut).toBe(true);
+    expect(result.stdout).toBe("before-timeout");
+    expect(result.stderr).toBe("before-timeout-err");
+  });
+
+  test("returns within a bounded cleanup window when a command ignores SIGTERM", async () => {
+    const startedAt = Date.now();
+    const result = await runCommand(["bash", "-lc", "trap '' TERM; sleep 5"], { timeoutMs: 25 });
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect(result.exitCode).toBe(124);
+    expect(result.timedOut).toBe(true);
+    expect(result.timeoutDetails).toMatchObject({
+      reason: "command-timeout",
+      signal: "SIGTERM",
+      cleanupSignal: "SIGKILL",
+    });
   });
 
   test("runs setup commands in order and stops after first failure", async () => {
@@ -1137,6 +1179,44 @@ describe("worker dispatch", () => {
     expect(fail).toHaveLength(2);
     expect(fail[1]?.exitCode).toBe(7);
     for (const result of fail) expectCommandTiming(result);
+  });
+
+  test("stops setup after timeout and does not dispatch the worker runtime", async () => {
+    const repo = await makeRepo();
+    let executeCalled = false;
+
+    const result = await executeWorkerDispatch({
+      task: {
+        ...task,
+        setupCommands: ["printf setup-started && sleep 1", "echo skipped"],
+        setupTimeoutMs: 25,
+      },
+      agent,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      runtimeAdapter: {
+        kind: "exec-json",
+        prepare() {
+          return { prompt: "should not execute", command: ["bash", "-lc", "echo should-not-run"] };
+        },
+        async execute() {
+          executeCalled = true;
+          throw new Error("worker runtime should not execute after setup timeout");
+        },
+      },
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.setupResults).toHaveLength(1);
+    expect(result.setupResults[0]).toMatchObject({
+      exitCode: 124,
+      stdout: "setup-started",
+      timedOut: true,
+      timeoutMs: 25,
+    });
+    expect(executeCalled).toBe(false);
+    expect(result.command).toBeUndefined();
+    expect(result.evaluation).toBeUndefined();
   });
 
   test("creates a Samantha-owned commit from evaluated worker files", async () => {

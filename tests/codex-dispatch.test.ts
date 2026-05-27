@@ -185,6 +185,7 @@ describe("codex dispatch preparation", () => {
       dispatch: prepared,
       agent: worker,
       worktreePath: "/tmp/samantha-worktree",
+      workerTimeoutMs: 1_000,
     });
 
     expect(result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
@@ -193,6 +194,36 @@ describe("codex dispatch preparation", () => {
       exitCode: 0,
       stdout: "ok",
       stderr: "",
+    });
+  });
+
+  test("exec-json adapter enforces worker timeout with command evidence", async () => {
+    const prepared = execJsonWorkerRuntimeAdapter.prepare({
+      task,
+      agent: worker,
+      worktreePath: "/tmp/samantha-worktree",
+      codexBin: "printf",
+    });
+    prepared.command = ["bash", "-lc", "printf before-timeout && sleep 1"];
+
+    const result = await execJsonWorkerRuntimeAdapter.execute({
+      dispatch: prepared,
+      agent: worker,
+      worktreePath: "/tmp/samantha-worktree",
+      workerTimeoutMs: 25,
+    });
+
+    expect(result.runtime).toEqual({ kind: "exec-json", approvalPolicy: "never" });
+    expect(result.command).toMatchObject({
+      command: ["bash", "-lc", "printf before-timeout && sleep 1"],
+      exitCode: 124,
+      stdout: "before-timeout",
+      timedOut: true,
+      timeoutMs: 25,
+      timeoutDetails: {
+        reason: "command-timeout",
+        signal: "SIGTERM",
+      },
     });
   });
 });

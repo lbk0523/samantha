@@ -40,6 +40,9 @@ import { allocateWorktree } from "./worktree";
 
 export { runCommand, type CommandRunResult } from "./command-runner";
 
+export const DEFAULT_SETUP_TIMEOUT_MS = 60_000;
+export const DEFAULT_WORKER_TIMEOUT_MS = 1_200_000;
+
 export interface PrepareWorkerDispatchInput {
   task: TaskSpec;
   agent: AgentProfile;
@@ -126,11 +129,15 @@ export async function prepareWorkerDispatch(
   };
 }
 
-export async function runSetupCommands(commands: string[], cwd: string): Promise<CommandRunResult[]> {
+export async function runSetupCommands(
+  commands: string[],
+  cwd: string,
+  timeoutMs = DEFAULT_SETUP_TIMEOUT_MS,
+): Promise<CommandRunResult[]> {
   const results: CommandRunResult[] = [];
 
   for (const command of commands) {
-    const result = await runProcessCommand(["bash", "-lc", command], { cwd });
+    const result = await runProcessCommand(["bash", "-lc", command], { cwd, timeoutMs });
     results.push(result);
     if (result.exitCode !== 0) break;
   }
@@ -170,6 +177,12 @@ function buildWorkerPreDispatchContext(input: {
       forbiddenChanges: input.task.forbiddenChanges,
       verifyCommands: input.task.verifyCommands,
       setupCommands: input.task.setupCommands ?? [],
+      ...(input.task.setupTimeoutMs === undefined
+        ? {}
+        : { setupTimeoutMs: input.task.setupTimeoutMs }),
+      ...(input.task.workerTimeoutMs === undefined
+        ? {}
+        : { workerTimeoutMs: input.task.workerTimeoutMs }),
       ...(input.task.allowNoop === undefined
         ? {}
         : { allowNoop: input.task.allowNoop }),
@@ -389,7 +402,11 @@ export async function executeWorkerDispatch(
     input.task.resultMode === "report" || input.agent.writerClass === "non-writer"
       ? await collectChangedFileSnapshots({ baseCommit, cwd: preparation.worktreePath })
       : [];
-  const setupResults = await runSetupCommands(input.task.setupCommands ?? [], preparation.worktreePath);
+  const setupResults = await runSetupCommands(
+    input.task.setupCommands ?? [],
+    preparation.worktreePath,
+    input.task.setupTimeoutMs ?? DEFAULT_SETUP_TIMEOUT_MS,
+  );
 
   if (setupResults.some((result) => result.exitCode !== 0)) {
     return {
@@ -407,6 +424,7 @@ export async function executeWorkerDispatch(
     agent: input.agent,
     worktreePath: preparation.worktreePath,
     codexBin: input.codexBin,
+    workerTimeoutMs: input.task.workerTimeoutMs ?? DEFAULT_WORKER_TIMEOUT_MS,
   });
   const command = runtimeExecution.command;
   const output = [command.stdout, command.stderr].filter(Boolean).join("\n");

@@ -27,6 +27,7 @@ export interface WorkerRuntimeAdapter {
     agent: AgentProfile;
     worktreePath: string;
     codexBin?: string;
+    workerTimeoutMs: number;
   }): Promise<WorkerRuntimeExecution>;
 }
 
@@ -75,7 +76,7 @@ export const execJsonWorkerRuntimeAdapter: WorkerRuntimeAdapter = {
   },
   async execute(input) {
     return {
-      command: await runCommand(input.dispatch.command),
+      command: await runCommand(input.dispatch.command, { timeoutMs: input.workerTimeoutMs }),
       runtime: { kind: "exec-json", approvalPolicy: "never" },
     };
   },

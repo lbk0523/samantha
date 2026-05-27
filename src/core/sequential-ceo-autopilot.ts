@@ -1095,7 +1095,9 @@ const TASK_SPEC_FIELDS = new Set([
   "targetFiles",
   "forbiddenChanges",
   "setupCommands",
+  "setupTimeoutMs",
   "verifyCommands",
+  "workerTimeoutMs",
   "instructions",
   "resultMode",
   "expectedCommitSubject",
@@ -4625,6 +4627,11 @@ function validateRunTaskTaskSpec(value: unknown): string[] {
   if (hasOwn(value, "setupCommands") && !hasOnlyNonEmptyStrings(value.setupCommands, { allowEmpty: true })) {
     violations.push("TaskSpec.setupCommands must be a string array when present");
   }
+  for (const field of ["setupTimeoutMs", "workerTimeoutMs"] as const) {
+    if (hasOwn(value, field) && !isFinitePositiveNumber(value[field])) {
+      violations.push(`TaskSpec.${field} must be a finite positive number when present`);
+    }
+  }
   if (hasOwn(value, "resultMode") && !TASK_RESULT_MODES.has(value.resultMode as string)) {
     violations.push(`TaskSpec.resultMode must be write or report when present: ${String(value.resultMode)}`);
   }
@@ -6773,6 +6780,10 @@ function hasOnlyNonEmptyStrings(value: unknown, options: { allowEmpty: boolean }
   }
 
   return value.every(isNonEmptyString);
+}
+
+function isFinitePositiveNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function sameStringArray(left: string[], right: string[]): boolean {
