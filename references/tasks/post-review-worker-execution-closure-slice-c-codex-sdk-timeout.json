@@ -1,0 +1,56 @@
+{
+  "id": "post-review-worker-execution-closure-slice-c-codex-sdk-timeout",
+  "title": "Bound codex-sdk worker runtime timeout",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/worker-runtime-adapter.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/worker-runtime-adapter.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "src/cli.ts",
+    "src/commands/**",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock",
+    "src/core/policy.ts",
+    "src/core/worker-result.ts",
+    "src/core/command-runner.ts",
+    "src/core/batch-*.ts",
+    "tests/policy.test.ts",
+    "tests/worker-result.test.ts",
+    "tests/batch-execution.test.ts",
+    "tests/cli.test.ts",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/worker-runtime-adapter.test.ts tests/worker-dispatch.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only Slice C from references/initiatives/post-review-worker-execution-closure.md. Use that initiative document as read-only source-of-truth for this slice. Slice A and Slice B are already accepted and cleaned; do not reopen them.\n\nPurpose:\n- Bound Codex SDK worker runtime execution so a never-ending SDK stream cannot hang the harness.\n- Use the workerTimeoutMs input already passed through by Slice B.\n- Do not change setup timeout behavior, exec-json timeout behavior, command-runner behavior, worker-result behavior, policy, CLI, lifecycle, cleanup, merge, task templates, or doctrine documents.\n\nRequired behavior:\n- Bound createCodexSdkWorkerRuntimeAdapter().execute() so thread.runStreamed() and stream consumption return a harness-facing result after workerTimeoutMs.\n- On timeout, return runtime command evidence with exitCode 124, timedOut true, timeoutMs, and deterministic timeoutDetails.\n- Preserve partial stdout or final response text where available.\n- Preserve diagnosable stderr that explains the Codex SDK timeout.\n- Preserve thread id and event counts already observed where available.\n- Use an SDK abort or cancellation API if one is available in the existing adapter/client shape.\n- If safe cancellation is not available, implement the smallest bounded harness-facing result and leave a short code comment stating the limitation. Do not silently ignore timeout.\n- Avoid background async work that can keep the harness process alive indefinitely.\n\nRequired tests:\n- A fake Codex SDK stream that never completes returns a timeout result after workerTimeoutMs.\n- The timeout result records exitCode 124, timedOut true, timeoutMs, timeoutDetails, and timeout stderr.\n- Partial event counts and thread id are preserved when available.\n- Existing SDK success, turn.failed, stream error, and thrown client exception behavior still passes.\n\nStop conditions:\n- Stop and report rework if the SDK timeout path cannot return without leaving the harness process stuck.\n- Stop and report rework if the implementation requires worker-owned orchestration or retries.\n- Stop and report rework if existing SDK error evidence is lost or made ambiguous.\n- Stop and report rework if the implementation requires CLI surface, policy broadening, lifecycle changes, merge/cleanup changes, task template changes, or command-runner changes broader than a narrow helper gap.\n\nDo not edit task templates, docs, lifecycle artifacts, merge/cleanup logic, lesson promotion code, dashboard/daemon/remote behavior, writerCap, hidden memory, Graphify integration, or LLM semantic verification. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: bound codex-sdk worker runtime timeout",
+  "status": "pending"
+}
