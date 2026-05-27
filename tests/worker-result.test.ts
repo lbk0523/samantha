@@ -108,6 +108,29 @@ describe("evaluateWorkerResult", () => {
     expect(result.verifyResults[0]?.exitCode).toBe(0);
   });
 
+  test("fails writer no-op results even when verify creates a target file", async () => {
+    const { root, baseCommit } = await makeRepo();
+
+    const result = await evaluateWorkerResult({
+      task: {
+        ...task,
+        targetFiles: ["verify-created.txt"],
+        verifyCommands: ["printf 'created by verify\\n' > verify-created.txt"],
+      },
+      cwd: root,
+      baseCommit,
+      output: 'HARNESS_RESULT: {"status":"pass","note":"done","commit":""}',
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.changedFiles).toEqual(["verify-created.txt"]);
+    expect(result.scopeViolations).toEqual([]);
+    expect(result.verifyResults[0]).toMatchObject({
+      command: "printf 'created by verify\\n' > verify-created.txt",
+      exitCode: 0,
+    });
+  });
+
   test("allows explicit writer no-op pass results with a rationale", async () => {
     const { root, baseCommit } = await makeRepo();
 

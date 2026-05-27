@@ -274,9 +274,10 @@ export async function evaluateWorkerResult(input: {
     ? finishOperationTiming(verificationTimingStart)
     : undefined;
   const verifyPassed = verifyResults.every((result) => result.exitCode === 0);
+  const workerProducedChanges = initialChangedFiles.length > 0;
   const writeTaskNoopAllowed =
     input.task.resultMode === "report" ||
-    changedFiles.length > 0 ||
+    workerProducedChanges ||
     hasExplicitNoopAllowance(input.task);
 
   return {
