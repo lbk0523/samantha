@@ -1,6 +1,6 @@
 # Initiative: Post-Review Worker Execution Closure
 
-Status: Slice C ready; Slice A and Slice B accepted and cleaned
+Status: completed
 Source: Samantha post-review fix planning, 2026-05-27
 Last updated: 2026-05-27
 
@@ -217,7 +217,14 @@ Stop conditions:
 
 ### Slice C: Codex SDK Runtime Timeout
 
-Status: ready after Slice B
+Status: accepted and cleaned
+
+Lifecycle evidence:
+
+- Accepted commit: `226af80f77c012cc222e75227fd57a831bbc3455`
+- Run log:
+  `runs/2026-05-27T04-08-35-388Z-post-review-worker-execution-closure-slice-c-codex-sdk-timeout.json`
+- Cleanup evidence: `runs/run-lifecycle.jsonl`
 
 Purpose: bound Codex SDK worker runtime execution so a never-ending SDK stream
 cannot hang the harness.
@@ -293,38 +300,8 @@ Completion requires:
 
 ## Current Next Action
 
-Run Slice C only after confirming the target repository is clean. Slice A and
-Slice B are already accepted and cleaned; do not reopen them.
+No ready next slice. This initiative is closed.
 
-Recommended next prompt:
-
-```text
-sam c: post-review worker execution closure Slice C task spec을 만들고 worker run까지 진행해줘.
-Context:
-- Samantha repo: /Users/byung/Documents/samantha
-- Initiative source of truth: /Users/byung/Documents/samantha/references/initiatives/post-review-worker-execution-closure.md
-- Use that initiative document as the controlling plan for Slice C boundaries, target files, forbidden changes, verification, stop conditions, and lifecycle gates.
-- Original five-slice plan remains complete; do not reopen it.
-- Slice A accepted and cleaned: ac6c6b6054acc81e999c5a65dba54aa049ceba2d
-- Slice B accepted and cleaned: 2032908465a4614bbe47acfc954ae7725e46eae9
-Ask:
-- Create only Slice C TaskSpec for Codex SDK runtime timeout from the source-of-truth initiative document.
-- Commit the TaskSpec planning artifact.
-- Dispatch one SDK-backed Samantha worker run with --runtime=codex-sdk.
-- Do not reopen Slice A or Slice B.
-Scope:
-- src/core/worker-runtime-adapter.ts
-- tests/worker-dispatch.test.ts or a focused worker runtime adapter test
-Output:
-- task spec path
-- run log path
-- HARNESS_RESULT
-- verification result
-- changed-file scope
-Stop:
-- Do not push.
-- Do not add CLI surface.
-- Do not broaden policy.
-- Do not edit references outside the Slice C task spec.
-- Do not dispatch if the target repo is dirty.
-```
+If future work finds adjacent lifecycle or artifact-retention questions, route
+them through a separate reviewed initiative boundary instead of appending them
+silently here.
