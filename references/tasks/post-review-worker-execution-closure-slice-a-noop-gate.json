@@ -1,0 +1,57 @@
+{
+  "id": "post-review-worker-execution-closure-slice-a-noop-gate",
+  "title": "Close post-review no-op gate bypass",
+  "taskFamily": "core-module",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/core/worker-result.ts",
+    "tests/worker-result.test.ts"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock",
+    "src/cli.ts",
+    "src/commands/**",
+    "src/core/contracts.ts",
+    "src/core/command-runner.ts",
+    "src/core/policy.ts",
+    "src/core/worker-dispatch.ts",
+    "src/core/worker-runtime-adapter.ts",
+    "src/core/batch-execution.ts",
+    "tests/policy.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/batch-execution.test.ts",
+    "tests/cli.test.ts",
+    "references/agent-profiles/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/worker-result.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement only Slice A from references/initiatives/post-review-worker-execution-closure.md. Use that initiative document as read-only source-of-truth for this slice. Do not start Slice B or Slice C.\n\nProblem to fix:\n- The writer no-op gate currently uses final changedFiles after verification commands run.\n- A writer can therefore change nothing, have a verify command create or modify a file inside targetFiles, and be treated as non-noop.\n\nRequired behavior:\n- For writer write tasks, no-op allowance must be based on pre-verification worker-produced changes, not final changedFiles after verify side effects.\n- Keep final changed-file collection after verification so verification side effects remain visible to scope checks and run evidence.\n- If initialChangedFiles.length === 0 and the task does not have explicit no-op allowance, evaluation.pass must be false even when HARNESS_RESULT is pass, verification passes, and final changedFiles contains a file created by verification.\n- Explicit no-op allowance remains valid only when task.allowNoop === true and task.noopRationale is a non-empty string.\n- Report-only behavior remains unchanged.\n\nImplementation direction:\n- In src/core/worker-result.ts, change the writer no-op allowance to use initialChangedFiles.length > 0 instead of changedFiles.length > 0. If useful for clarity, introduce a small local boolean such as workerProducedChanges.\n- Do not change verify timeout behavior, setup timeout behavior, worker runtime timeout behavior, dispatch policy, CLI behavior, task templates, docs, lifecycle artifacts, merge/cleanup logic, dashboard/daemon/remote behavior, writerCap, hidden memory, or LLM semantic verification.\n\nRequired tests in tests/worker-result.test.ts:\n- Add a focused regression test proving a writer task with no pre-verification changes fails even when a verify command creates a target file.\n- The test should assert result.pass is false, final changedFiles includes the verify-created target file, scopeViolations are empty, and the verify command exits 0.\n- Preserve existing tests proving explicit allowNoop + noopRationale can pass and report-only behavior is unchanged.\n\nStop conditions:\n- Stop and report rework if the fix requires touching timeout code, command-runner code, worker dispatch code, policy code, CLI code, or source files outside src/core/worker-result.ts.\n- Stop and report rework if the test can only pass by weakening scope checks or changing report-only semantics.\n\nEnd with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "fix: close no-op verification side-effect bypass",
+  "status": "pending"
+}
