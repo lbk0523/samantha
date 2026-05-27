@@ -1,0 +1,43 @@
+{
+  "id": "update-hermes-maintenance-operator-mvp-a-findings",
+  "title": "Update Hermes maintenance operator with MVP A findings",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/hermes-maintenance-operator.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "README.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "WORK-RULES.md",
+    "hermes_samantha_workflow_integration_report.md",
+    "src/**",
+    "tests/**",
+    "references/agent-profiles/**",
+    "references/initiatives/**",
+    "references/lessons/**",
+    "references/operations/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "rg \"Evidence Freshness Contract|Headless Trigger|BK-Provided Delta|provider/API|lessons:review-inbox|lessons:promotion-queue|index-only stale|dangling index\" references/playbooks/hermes-maintenance-operator.md",
+    "git diff --check HEAD -- references/playbooks/hermes-maintenance-operator.md"
+  ],
+  "instructions": "Update only references/playbooks/hermes-maintenance-operator.md to incorporate BK's Hermes MVP A read-only dogfood findings from this session. Treat hermes_samantha_workflow_integration_report.md as historical input only; do not edit it and do not copy stale allowlist language from it without correcting it. Preserve the core purpose: Hermes is not a second Samantha, not an execution harness, and not a state manager. Samantha remains the action owner; Hermes is a read-only judgment reviewer that summarizes evidence, keeps authority separate, and gives BK decision candidates.\n\nAdd or refine concise sections so the playbook captures these trial findings:\n- Headless Trigger: real Hermes usage may be headless, so BK commands should be short. Repeated guardrails belong in the playbook/profile, not in every BK prompt. Include one short example trigger for a Samantha maintenance or lesson index freshness brief.\n- Evidence Freshness Contract: separate Evidence Packet from BK-Provided Delta; label old snapshots as old snapshots; do not assert current repo state without fresh evidence; if BK provides a resolved delta, remove that item from active maintenance issues instead of repeatedly treating it as open.\n- Action Boundary: Hermes should return BK decision candidates, not execution instructions. It may suggest a next Samantha inspect/plan/review prompt, but must not create task specs, dispatch workers, run lifecycle actions, promote lessons, mutate git, or invoke Codex directly.\n- Lesson command mutation caveat: lessons:review-inbox and lessons:promotion-queue are not read-only in practice because they can write review artifacts or refresh references/lessons/reviews/index.json. Hermes MVP A may read existing lesson artifacts or consume command output supplied by BK/Samantha, but it must not run those commands as read-only local inspection. Also state that recommendedAction fields in lesson review artifacts are evidence fields, not instructions to execute promotion.\n- Output Hygiene: provider/API/transport errors from Hermes or Codex connections must not be mixed into the Maintenance Brief as evidence. Brief artifacts should contain the brief, cited evidence, BK delta, decisions, and non-actions only.\n- Lesson Surface Trial Findings: record the session's interpretation rule without changing lesson artifacts: lesson review index is best understood from current code/docs as a durable current inbox review coverage index, not a registry of every reviews/*.json file. Distinguish index-only stale, inbox-only unreviewed coverage/backlog, and dangling index. Keep index freshness separate from lesson quality, manual review merit, or promotion decisions.\n\nKeep the edit surgical and markdown-only. Do not add new authorized state-changing command surfaces. Do not weaken the existing forbidden actions, future expansion gates, or hard boundaries around hidden memory, direct Codex invocation, task execution, lesson promotion, git mutation, lifecycle mutation, worktree cleanup, policy/doctrine authority, or trusted state changes. Stop and report rework if the update appears to require code, tests, CLI changes, task template changes, lesson artifact edits, run evidence edits, or Hermes profile installation outside this playbook. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: update hermes maintenance operator findings",
+  "status": "pending"
+}

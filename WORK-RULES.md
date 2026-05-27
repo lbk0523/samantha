@@ -260,11 +260,26 @@ Stop:
 
 Empty or irrelevant slots may be omitted for simple handoffs.
 
-Use `sam b:` when the work is still directional. Close brainstorm work with:
+Use `sam b:` when the work is still directional. During the conversation, use a
+grill-style one-question decision loop by default:
+
+```text
+Question:
+Recommended answer:
+Tradeoff:
+Why this matters:
+```
+
+Ask one decision at a time. If repo docs or code can answer the question,
+inspect them before asking BK. Do not make every brainstorm turn a long state
+report. Close brainstorm work with:
 
 - accepted decisions
 - rejected alternatives
-- remaining architecture or product questions
+- open decisions
+- decision debt
+- readiness verdict: `continue_brainstorm`, `plan`, `command`, or `blocked`
+- continuity artifact decision
 - the smallest useful next prompt
 
 If the direction is coherent but execution boundaries are not yet complete, the
@@ -275,14 +290,41 @@ authority, artifact lifecycle, validation boundary, or stop conditions remain
 unclear.
 
 Use `sam p:` when the next valuable work is to turn accepted direction into a
-plan. Close plan work with:
+plan. Unless the work is a simple single slice, close plan work with a Plan
+Readiness Review:
 
-- assumptions and decisions used by the plan
+- stage classification
+- artifact decision and durable artifact path
+- accepted decisions and decision debt
+- codebase evidence
 - target artifact or capability boundary
+- proposed execution units
+- slice sizing gate and rationale
+- HITL vs AFK classification
 - intended files or artifact families, if known
 - verification approach
 - stop conditions
-- whether the next prompt should be `sam c:` or another `sam p:`
+- plan verdict: `ready_for_command`, `needs_brainstorm`,
+  `needs_plan_refinement`, `needs_review`, or `blocked`
+- recommended next prompt
+
+The artifact decision is `none`, `create_initiative_brief`,
+`update_initiative_brief`, or `create_short_prd_section`. Use `none` for a
+small single slice where a text-only plan is enough. For long-running or
+multi-slice work, create or update an Initiative Continuity Brief when later
+slices depend on current decisions and a future session would likely miss the
+broader objective from one task spec or handoff prompt. Short PRD or checklist
+content should normally live inside the initiative brief.
+
+The slice sizing gate blocks micro-slicing. Plan execution units around
+cohesive work surfaces, not tiny individual invariants. Related changes that
+share a validator, artifact shape, command workflow, or verification boundary
+should default to one command slice when they can be tested, verified,
+committed, and pushed together without crossing authority boundaries. If the
+plan splits smaller, name the authority, verification, lifecycle, product
+uncertainty, broad framework, or repository-risk reason that justifies it. If
+that reason is absent, return `needs_plan_refinement` instead of
+`ready_for_command`.
 
 `sam p:` organizes accepted decisions into an executable plan; it must not
 invent product, authority, artifact lifecycle, or validation decisions to make a
@@ -315,9 +357,9 @@ self-build authority gate.
 
 ### Post-Command Handoff Branch Contract
 
-After command work, treat the next prompt as operating guidance, not runtime
-automation or automatic continuation. The final response must separate current
-completion evidence from the next boundary:
+After command work, treat the next prompt as operating guidance by default, not
+runtime automation or an automatic execution contract. The final response must
+separate current completion evidence from the next boundary:
 
 - `Outcome`: what happened in the current command slice.
 - `Trusted evidence`: task spec, run/report, `HARNESS_RESULT`, deterministic
@@ -342,16 +384,56 @@ Use this branch table when choosing the handoff:
 | `no next action` | none | Completion rule satisfied and no meaningful cohesive slice remains. Say `No next action recommended` and state the reason. |
 | `adjacent initiative needed` | separate `sam b:` or `sam p:` | Adjacent authority or product surface belongs outside the current initiative boundary. |
 
+### Bounded Command Continuation Contract
+
+As a narrow exception to ordinary handoff guidance, `sam c:` may operate
+bounded continuation only when an approved Initiative Continuity Brief and a
+structured continuation artifact provide trusted routing state. Markdown
+roadmap prose, chat transcript, and worker summaries cannot authorize successor
+execution.
+
+Bounded continuation must preserve this envelope:
+
+- `pushAllowed: false`
+- `batchExecutionAllowed: false`
+- `multiWriterAllowed: false`
+- `backgroundOperationAllowed: false`
+- `requiresStructuredContinuationArtifact: true`
+- `requiresFreshPreflightPerSlice: true`
+- `maxFailedEvidenceReworkCycles: 1`
+
+Bounded continuation must reuse existing gates rather than creating a parallel
+trust path: continuity brief status rules, structured continuation artifact
+validation, `continuation:show`, `runTaskCandidate` preflight,
+`continuation:run-task-once`, `runAcceptCandidate` preflight,
+`continuation:accept-run-once`, `continuation:update-status-after-accept`, and
+`readiness:check`.
+
+Each bounded continuation report must cite the initiative path, structured
+continuation artifact path, current slice id, selected action type, status
+transition, evidence references, verification result, successful-continuation
+or failed-evidence-rework classification, remaining rework budget, side-effect
+map, next ready slice or active stop condition, and exact next Samantha command
+or no-next-action reason.
+
 Stop before recommending another `sam c:` when any of these are true:
 
 - product judgment is still needed;
 - authority expansion is being considered;
 - target files or artifact families are unclear;
+- forbidden changes, verify commands, repo root, base evidence, structured
+  continuation artifact, or lifecycle handling is missing or ambiguous;
 - verification is unclear or unavailable;
 - dirty or stale repo risk could invalidate the handoff;
 - current completion failed or is untrusted;
 - lifecycle ambiguity remains;
-- push, secrets, credentials, or external access is required;
+- `HARNESS_RESULT` is missing or invalid;
+- scope checks or deterministic verification failed;
+- push, secrets, credentials, external access, connector access, background
+  operation, hidden memory, operator UI, remote adapter, dashboard scope,
+  multi-project orchestration, batch execution, or multi-writer execution is
+  required;
+- Samantha cannot update local evidence without inventing facts;
 - the next work belongs to a new initiative boundary.
 
 Any recommended prompt must remain one copy-paste-ready fenced `text` block.

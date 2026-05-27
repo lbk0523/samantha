@@ -187,8 +187,8 @@ Samantha repo 자신의 self-build writer implementation에서는 위 gate의 wo
 | Intent | 언제 쓰는가 | Samantha가 내야 하는 산출물 |
 | --- | --- | --- |
 | `command` | BK에게 software goal이 있고 Samantha 운영으로 정규화해야 할 때. | 먼저 단계와 lifecycle gate를 분류한다. implementation 단계이면 scoped plan, task spec 방향, 또는 task spec path; doctrine/architecture 단계이면 roadmap 또는 artifact design. |
-| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX나 product doctrine을 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르는 문답식 수렴, tradeoff, 더 정확한 용어, 2-3개 방향 비교, accepted decision, rejected alternative, remaining architecture question, decision point, self-review, 그리고 Brainstorm Brief. |
-| `plan` | architecture/roadmap plan 또는 decision-complete implementation plan이 필요할 때. | 먼저 phase roadmap, architecture completeness, assumption, decision point, stop condition을 확인한다. implementation 단계일 때만 interface, scope, test를 포함한 구현 계획으로 내려간다. |
+| `brainstorm` | 작업이 아직 executable하지 않고 방향을 같이 잡아야 할 때. 특히 MVP product UI/UX나 product doctrine을 논의할 때. | `references/playbooks/samantha-brainstorming.md`를 따르되, 기본 대화는 grill-style one-question decision loop로 운영한다. 한 번에 하나의 질문을 묻고, recommended answer, tradeoff, why this matters를 함께 제시한다. 코드나 문서 탐색으로 답할 수 있는 질문은 BK에게 묻기 전에 먼저 탐색한다. 종료 시에만 accepted decision, rejected alternative, open decision, decision debt, readiness verdict, continuity artifact decision, recommended next prompt를 담은 Brainstorm Brief로 닫는다. |
+| `plan` | architecture/roadmap plan 또는 decision-complete implementation plan이 필요할 때. | 먼저 phase roadmap, architecture completeness, assumption, decision point, stop condition을 확인한다. implementation 단계일 때만 Plan Readiness Review로 내려간다. Plan Readiness Review는 Artifact decision, durable artifact path, accepted decisions, decision debt, target capability/artifact boundary, proposed execution units, Slice sizing gate, verification strategy, stop conditions, plan verdict, recommended next prompt를 포함해야 한다. |
 | `review` | critique, readiness check, risk finding, evidence synthesis가 필요할 때. | findings와 open question이 있는 report-only assessment. |
 | `recover` | failed, blocked, stale, incomplete run evidence를 기준으로 다음 액션을 정해야 할 때. | diagnosis와 다음 bounded action. 보통 더 좁은 follow-up task 또는 lifecycle step. |
 | `inspect` | runs, tasks, batches, lessons, docs의 현재 상태를 보고 싶을 때. | 의사결정에 필요한 짧은 state summary와 highest-value next action. |
@@ -249,18 +249,126 @@ slot order(`Context:`, `Ask:`, `Scope:`, `Output:`, `Stop:`)를 유지한다.
 | `no next action` | 없음 | completion rule satisfied 상태이고 의미 있는 cohesive slice가 남아 있지 않다. `No next action recommended`와 이유를 쓴다. |
 | `adjacent initiative needed` | 별도 `sam b:` 또는 `sam p:` | 현재 initiative 밖의 adjacent authority 또는 product surface가 발견되었다. 새 initiative boundary로 분리한다. |
 
-`sam b:`는 방향이 아직 executable하지 않을 때 쓴다. Brainstorm 결과는 accepted
-decisions, rejected alternatives, remaining architecture/product questions,
-recommended next prompt를 분리해서 끝낸다. 방향은 잡혔지만 실행 경계가 아직 불완전하면
-다음 prompt는 `sam p:`가 되어야 한다. 제품 방향, authority, artifact lifecycle,
-validation boundary, stop condition이 이미 충분히 결정되어 있다면 `sam c:`로 바로
-넘길 수 있지만, 그 이유를 명시해야 한다.
+### Bounded Command Continuation
 
-`sam p:`는 accepted direction을 실행 가능한 계획으로 좁힐 때 쓴다. Plan 결과는
-assumptions, target artifact 또는 capability boundary, intended files 또는 artifact
-families, verification approach, stop conditions, next prompt를 포함해야 한다. 다음
-prompt는 보통 `sam c:`이지만, product/architecture 결정이 남아 있으면 또 다른
-`sam p:`나 BK decision으로 남겨야 한다.
+일반 `sam c:` handoff는 운영 guidance다. 예외적으로 `sam c:`가 bounded continuation을
+명시적으로 운영할 수 있으려면 아래 조건을 모두 만족해야 한다:
+
+- approved Initiative Continuity Brief가 있고, current next slice 또는 deterministic
+  next-slice chain이 명시되어 있다.
+- trusted routing input은 Initiative Continuity Brief를 인용하는 structured
+  continuation artifact다. Markdown roadmap prose, chat transcript, worker summary는
+  successor execution을 승인할 수 없다.
+- 각 writer slice는 여전히 explicit TaskSpec, target files, forbidden changes,
+  verify commands, isolated worktree, `HARNESS_RESULT`, deterministic verification,
+  scope check, Samantha-owned accept/lifecycle gate를 사용한다.
+- continuation은 기존 Samantha gate를 재사용한다. 예: continuity brief status rule,
+  structured continuation artifact validation, `continuation:show`, `runTaskCandidate`
+  preflight, `continuation:run-task-once`, `runAcceptCandidate` preflight,
+  `continuation:accept-run-once`, `continuation:update-status-after-accept`,
+  `readiness:check`.
+- autonomy envelope는 `pushAllowed: false`, `batchExecutionAllowed: false`,
+  `multiWriterAllowed: false`, `backgroundOperationAllowed: false`,
+  `requiresStructuredContinuationArtifact: true`,
+  `requiresFreshPreflightPerSlice: true`, `maxFailedEvidenceReworkCycles: 1`을
+  보존한다.
+
+Bounded continuation report는 initiative path, structured continuation artifact path,
+current slice id, selected action type, status transition, evidence references,
+verification result, successful-continuation인지 failed-evidence rework인지, 남은
+rework budget, side-effect map, next ready slice 또는 active stop condition, exact
+next Samantha command 또는 no-next-action reason을 보고해야 한다.
+
+Bounded continuation은 다음 조건에서 즉시 멈춘다:
+
+- BK의 product, scope, priority, authority 결정이 필요하다.
+- doctrine, policy, contract, agent profile, task template, package metadata,
+  lockfile, authority boundary 작업에 reviewed plan이 없다.
+- target files, forbidden changes, verify commands, repo root, base evidence,
+  lifecycle handling이 없거나 모호하다.
+- repo에 unrelated dirty changes, stale base evidence, unresolved lifecycle state가
+  있다.
+- structured continuation artifact가 없거나 invalid/stale이거나 unknown action
+  type을 가리킨다.
+- worker run evidence에 valid `HARNESS_RESULT`가 없다.
+- scope check 또는 deterministic verification이 실패한다.
+- push, secret, connector access, background operation, hidden memory, operator UI,
+  remote adapter, dashboard scope, multi-project orchestration, batch execution,
+  multi-writer execution이 필요하다.
+- Samantha가 local evidence를 사실 조작 없이 갱신할 수 없다.
+
+`sam b:`는 방향이 아직 executable하지 않을 때 쓴다. 진행 중에는 grill-style
+one-question decision loop를 기본값으로 사용한다:
+
+```text
+Question:
+Recommended answer:
+Tradeoff:
+Why this matters:
+```
+
+한 번에 하나의 결정을 묻고, 코드나 문서 탐색으로 답할 수 있는 질문은 BK에게 묻기 전에
+먼저 탐색한다. `sam b:`는 매 턴마다 긴 상태 보고서를 내지 않는다. Samantha-specific
+gate는 종료 시 Brainstorm Brief에만 둔다:
+
+```text
+Brainstorm Brief
+- Goal:
+- Accepted decisions:
+- Rejected alternatives:
+- Open decisions:
+- Decision debt:
+- Ready for: continue_brainstorm | plan | command | blocked
+- Continuity artifact decision:
+- Recommended next prompt:
+```
+
+방향은 잡혔지만 실행 경계가 아직 불완전하면 다음 prompt는 `sam p:`가 되어야 한다.
+제품 방향, authority, artifact lifecycle, validation boundary, stop condition이 이미
+충분히 결정되어 있다면 `sam c:`로 바로 넘길 수 있지만, 그 이유를 명시해야 한다.
+
+`sam p:`는 accepted direction을 실행 가능한 계획으로 좁힐 때 쓴다. 단순한 단일
+slice가 아니면 Plan Readiness Review로 닫아야 한다:
+
+```text
+Plan Readiness Review
+- Stage classification:
+- Artifact decision:
+- Durable artifact path:
+- Accepted decisions used:
+- Decision debt:
+- Codebase evidence:
+- Target capability / artifact boundary:
+- Proposed execution units:
+- Slice sizing gate:
+  - Are we splitting by cohesive work surface, not tiny invariants?
+  - Can related changes sharing validator / artifact shape / command workflow /
+    verification boundary be grouped safely?
+  - If split smaller, what authority, verification, lifecycle, product
+    uncertainty, broad framework, or repository-risk reason justifies it?
+- Slice sizing rationale:
+- HITL vs AFK classification:
+- Intended files / artifact families:
+- Verification strategy:
+- Stop conditions:
+- Plan verdict:
+- Recommended next prompt:
+```
+
+`Artifact decision`은 `none`, `create_initiative_brief`,
+`update_initiative_brief`, `create_short_prd_section` 중 하나로 둔다. 작은 단일
+slice는 `none`과 text-only plan으로 충분할 수 있다. 장기 또는 multi-slice work에서
+다음 session이 chat transcript만으로 broader objective를 놓칠 위험이 있으면
+`references/initiatives/<slug>.md`의 Initiative Continuity Brief를 생성하거나
+갱신해야 한다. Short PRD나 checklist는 별도 parent artifact로 흩뜨리지 말고,
+기본적으로 해당 brief 안의 section으로 둔다.
+
+Slice sizing gate가 실패하면 `ready_for_command` verdict를 내면 안 된다. 같은
+validator, artifact shape, command workflow, verification boundary를 공유하는 관련
+변경은 authority boundary를 넘지 않고 함께 test, verify, commit, push할 수 있는 한
+하나의 cohesive command slice로 묶는 것을 기본값으로 삼는다. 더 작게 나누려면
+authority, verification, lifecycle, product uncertainty, broad framework risk, 또는
+repo risk 같은 명확한 이유를 밝혀야 한다.
 
 `sam p:`는 결정을 만드는 단계가 아니라 이미 수렴한 결정을 계획으로 정리하는 단계다.
 계획 중 unresolved product direction, authority boundary, artifact lifecycle,

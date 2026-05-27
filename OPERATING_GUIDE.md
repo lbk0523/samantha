@@ -171,8 +171,8 @@ BK software request
 | Intent | Use it when | Samantha should produce |
 | --- | --- | --- |
 | `command` | BK has a software goal that Samantha should normalize. | Classify the stage and lifecycle gate first. If it is implementation-stage work, produce a scoped plan, task spec direction, or task spec path; if it is doctrine/architecture-stage work, produce a roadmap or artifact design. |
-| `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX or product doctrine. | Question-driven convergence, tradeoffs, sharper terminology, two or three direction options, accepted decisions, rejected alternatives, remaining architecture questions, decision points, self-review, and a Brainstorm Brief following `references/playbooks/samantha-brainstorming.md`. |
-| `plan` | BK wants an architecture/roadmap plan or a decision-complete implementation plan. | Check the phase roadmap, architecture completeness, assumptions, decision points, and stop conditions first. Only move into implementation planning when the work is implementation-stage. |
+| `brainstorm` | BK wants to shape direction before the work is executable, especially MVP product UI/UX or product doctrine. | Follow `references/playbooks/samantha-brainstorming.md`, but run the live conversation as a grill-style one-question decision loop. Ask one question at a time, provide a recommended answer, name the tradeoff, and explain why the decision matters. If code or docs can answer the question, inspect them before asking BK. Close only at the end with a Brainstorm Brief that separates accepted decisions, rejected alternatives, open decisions, decision debt, readiness verdict, continuity artifact decision, and recommended next prompt. |
+| `plan` | BK wants an architecture/roadmap plan or a decision-complete implementation plan. | Check the phase roadmap, architecture completeness, assumptions, decision points, and stop conditions first. Only move into implementation-stage planning as a Plan Readiness Review. The review must include artifact decision, durable artifact path, accepted decisions, decision debt, target capability or artifact boundary, proposed execution units, slice sizing gate, verification strategy, stop conditions, plan verdict, and recommended next prompt. |
 | `review` | BK wants critique, readiness checks, risk finding, or evidence synthesis. | A report-only assessment with findings and open questions. |
 | `recover` | BK points at failed, blocked, stale, or incomplete run evidence. | A diagnosis and next bounded action, usually a narrower follow-up task or lifecycle step. |
 | `inspect` | BK wants current state across runs, tasks, batches, lessons, or docs. | A concise state summary and the highest-value next action. |
@@ -202,20 +202,160 @@ Samantha-authored recommended prompts should preserve the slot order when slots
 are present. The detailed guide aliases are `sam b:`, `sam p:`, `sam c:`,
 `sam r:`, `sam re:`, `sam i:`, and `sam l:`.
 
-Use `sam b:` when the direction is not yet executable. A Brainstorm result
-should close with accepted decisions, rejected alternatives, remaining
-architecture or product questions, and a recommended next prompt. If direction
-is coherent but execution boundaries remain incomplete, the next prompt should
-be `sam p:`. If product direction, authority, artifact lifecycle, validation
-boundary, and stop conditions are already clear enough, it may hand off directly
-to `sam c:`, but it must say why.
+### Post-Command Handoff
 
-Use `sam p:` to turn accepted direction into an executable plan. A Plan result
-should include assumptions, the target artifact or capability boundary,
-intended files or artifact families when known, verification approach, stop
-conditions, and the next prompt. The next prompt is usually `sam c:`, but
-remaining product or architecture decisions should stay as another `sam p:` or
-a direct BK decision.
+After `sam c:`, handoff is operating guidance by default, not runtime
+continuation or an automatic execution contract. The command final response
+should separate trusted current-slice state from the next boundary.
+
+Use this shape:
+
+- `Outcome`: pass, rework, blocked, accepted, or no-next-action judgment.
+- `Trusted evidence`: task spec, run/report, `HARNESS_RESULT`, verification,
+  changed-file scope, lifecycle/commit state when applicable.
+- `Current slice`: the slice just completed, failed, paused, or retired.
+- `Next-slice state`: one of `next slice ready`, `needs plan`,
+  `needs brainstorm`, `recovery`, `closure decision`, `no next action`, or
+  `adjacent initiative needed`.
+- `Recommended next prompt`: one copy-paste-ready fenced `text` block only
+  when the next intent is needed.
+
+| Next-slice state | Recommended intent | Evidence expectation |
+| --- | --- | --- |
+| `next slice ready` | `sam c:` | Ready executable next slice with clear target files or artifact family, verification, lifecycle boundary, and stop condition. |
+| `needs plan` | `sam p:` | Execution boundary incomplete: scope, target files, verification, stop condition, or lifecycle handling still needs planning. |
+| `needs brainstorm` | `sam b:` | Product or authority decision needed before planning or execution can be honest. |
+| `recovery` | `sam re:` | Failed or untrusted completion, blocked run, stale base, verify failed, scope failed, missing `HARNESS_RESULT`, or incomplete lifecycle evidence. |
+| `closure decision` | `sam p:` | The question is whether completion evidence satisfies the initiative completion rule, not how to implement another slice. |
+| `no next action` | none | Completion rule satisfied and no meaningful cohesive slice remains. Say `No next action recommended` and state the reason. |
+| `adjacent initiative needed` | separate `sam b:` or `sam p:` | Adjacent authority or product surface belongs outside the current initiative boundary. |
+
+### Bounded Command Continuation
+
+The ordinary `sam c:` handoff is guidance. As a narrow exception, `sam c:` may
+operate bounded continuation only when all of these are true:
+
+- an approved Initiative Continuity Brief exists and names the current next
+  slice or a deterministic next-slice chain;
+- trusted routing input is a structured continuation artifact that cites the
+  Initiative Continuity Brief. Markdown roadmap prose, chat transcript, and
+  worker summaries cannot authorize successor execution;
+- each writer slice still uses an explicit TaskSpec, target files, forbidden
+  changes, verify commands, isolated worktree, `HARNESS_RESULT`,
+  deterministic verification, scope checks, and Samantha-owned accept/lifecycle
+  gates;
+- continuation reuses existing Samantha gates, such as continuity brief status
+  rules, structured continuation artifact validation, `continuation:show`,
+  `runTaskCandidate` preflight, `continuation:run-task-once`,
+  `runAcceptCandidate` preflight, `continuation:accept-run-once`,
+  `continuation:update-status-after-accept`, and `readiness:check`;
+- the autonomy envelope preserves `pushAllowed: false`,
+  `batchExecutionAllowed: false`, `multiWriterAllowed: false`,
+  `backgroundOperationAllowed: false`,
+  `requiresStructuredContinuationArtifact: true`,
+  `requiresFreshPreflightPerSlice: true`, and
+  `maxFailedEvidenceReworkCycles: 1`.
+
+A bounded continuation report must cite the initiative path, structured
+continuation artifact path, current slice id, selected action type, status
+transition, evidence references, verification result, whether the step was
+successful continuation or failed-evidence rework, remaining rework budget,
+side-effect map, next ready slice or active stop condition, and the exact next
+Samantha command or no-next-action reason.
+
+Bounded continuation must stop when:
+
+- BK needs to decide product, scope, priority, or authority;
+- doctrine, policy, contract, agent profile, task template, package metadata,
+  lockfile, or authority-boundary work lacks a reviewed plan;
+- target files, forbidden changes, verify commands, repo root, base evidence,
+  or lifecycle handling is missing or ambiguous;
+- the repo has unrelated dirty changes, stale base evidence, or unresolved
+  lifecycle state;
+- the structured continuation artifact is missing, invalid, stale, or names an
+  unknown action type;
+- worker run evidence lacks valid `HARNESS_RESULT`;
+- scope checks or deterministic verification fail;
+- push, secrets, connector access, background operation, hidden memory,
+  operator UI, remote adapter, dashboard scope, multi-project orchestration,
+  batch execution, or multi-writer execution is required;
+- Samantha cannot update local evidence without inventing facts.
+
+Use `sam b:` when the direction is not yet executable. During the conversation,
+use a grill-style one-question decision loop by default:
+
+```text
+Question:
+Recommended answer:
+Tradeoff:
+Why this matters:
+```
+
+Ask one decision at a time. If code or docs can answer the question, inspect
+them before asking BK. Do not turn every brainstorm turn into a long status
+report. Keep Samantha-specific gating in the closing Brainstorm Brief:
+
+```text
+Brainstorm Brief
+- Goal:
+- Accepted decisions:
+- Rejected alternatives:
+- Open decisions:
+- Decision debt:
+- Ready for: continue_brainstorm | plan | command | blocked
+- Continuity artifact decision:
+- Recommended next prompt:
+```
+
+If direction is coherent but execution boundaries remain incomplete, the next
+prompt should be `sam p:`. If product direction, authority, artifact lifecycle,
+validation boundary, and stop conditions are already clear enough, it may hand
+off directly to `sam c:`, but it must say why.
+
+Use `sam p:` to turn accepted direction into an executable plan. Unless the
+work is a simple single slice, close plan work with a Plan Readiness Review:
+
+```text
+Plan Readiness Review
+- Stage classification:
+- Artifact decision:
+- Durable artifact path:
+- Accepted decisions used:
+- Decision debt:
+- Codebase evidence:
+- Target capability / artifact boundary:
+- Proposed execution units:
+- Slice sizing gate:
+  - Are we splitting by cohesive work surface, not tiny invariants?
+  - Can related changes sharing validator / artifact shape / command workflow /
+    verification boundary be grouped safely?
+  - If split smaller, what authority, verification, lifecycle, product
+    uncertainty, broad framework, or repository-risk reason justifies it?
+- Slice sizing rationale:
+- HITL vs AFK classification:
+- Intended files / artifact families:
+- Verification strategy:
+- Stop conditions:
+- Plan verdict:
+- Recommended next prompt:
+```
+
+`Artifact decision` is one of `none`, `create_initiative_brief`,
+`update_initiative_brief`, or `create_short_prd_section`. A small single slice
+may use `none` and a text-only plan. Long-running or multi-slice work should
+create or update an Initiative Continuity Brief under
+`references/initiatives/<slug>.md` when a future session would likely lose the
+broader objective from the chat transcript alone. Short PRD or checklist
+content should normally live inside that brief, not in competing parent
+artifacts.
+
+If the slice sizing gate fails, `sam p:` must not return a
+`ready_for_command` verdict. Related changes that share a validator, artifact
+shape, command workflow, or verification boundary should default to one
+cohesive command slice when they can be tested, verified, committed, and pushed
+together without crossing authority boundaries. Smaller slicing requires a
+clear authority, verification, lifecycle, product uncertainty, broad framework,
+or repository-risk reason.
 
 `sam p:` organizes accepted decisions into a plan; it does not create the
 missing decisions. If planning exposes unresolved product direction, authority
