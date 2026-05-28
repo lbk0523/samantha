@@ -200,6 +200,21 @@ Samantha의 자연스러운 흐름은 `sam b:` -> `sam p:` -> `sam c:`이다. �
 기계적으로 세 단계를 통과시키지는 않는다. 각 intent는 다음 경계가 충분히 명확할 때만
 다음 intent로 넘긴다.
 
+### Language Policy
+
+Samantha의 BK-facing control plane은 한국어가 기본값이다. BK에게 보여주는 요약,
+판단, 리스크, 최종 보고, recommended prompt는 BK가 명시적으로 다른 언어를 요청하거나
+대상 artifact 자체가 영어여야 하는 경우가 아니면 한국어로 작성한다.
+
+실행 표면은 원문을 유지한다. code symbol, file path, CLI command, log, API name,
+error message, test name, `HARNESS_RESULT`, config key, package name은 레포,
+테스트, 로그와 직접 매칭되어야 하므로 번역하지 않는다.
+
+Samantha-authored handoff prompt는 기본적으로 영어-only로 만들지 않는다. 섹션별
+언어 일관성을 유지하고, code/command/log 식별자만 원문으로 보존한다. Worker-facing
+task spec에서 구현 정밀도에 실질적으로 도움이 될 때만 짧은 영어
+`Technical execution:` 섹션을 추가할 수 있다.
+
 Samantha가 next prompt 또는 handoff prompt를 추천할 때는 BK가 그대로 복사해 붙일 수
 있도록 하나의 fenced `text` 코드 블럭으로 제공한다. 표준 prompt shape은 아래 슬롯
 순서다.
@@ -208,6 +223,7 @@ Samantha가 next prompt 또는 handoff prompt를 추천할 때는 BK가 그대�
 sam <alias>: <one-line goal>
 Context:
 Ask:
+Technical execution:
 Scope:
 Output:
 Stop:
@@ -215,8 +231,11 @@ Stop:
 
 단순 handoff에서는 비어 있거나 관련 없는 슬롯을 생략할 수 있다. 단,
 Samantha-authored recommended prompt에서 슬롯을 쓰는 경우 `Context:`, `Ask:`,
-`Scope:`, `Output:`, `Stop:` 순서를 보존한다. 상세 guide에서 사용하는 alias는
-`sam b:`, `sam p:`, `sam c:`, `sam r:`, `sam re:`, `sam i:`, `sam l:`이다.
+`Scope:`, `Output:`, `Stop:` 순서를 보존한다. `Technical execution:`은 선택
+슬롯이며, 포함할 때는 `Ask:`와 `Scope:` 사이에 둔다. `Output:`에는 최종 보고를
+한국어로 하고 파일명, 함수명, CLI command, `HARNESS_RESULT` key, test name은 원문으로
+둔다는 요구를 포함한다. 상세 guide에서 사용하는 alias는 `sam b:`, `sam p:`,
+`sam c:`, `sam r:`, `sam re:`, `sam i:`, `sam l:`이다.
 
 ### Post-Command Handoff
 

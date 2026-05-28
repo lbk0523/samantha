@@ -184,6 +184,24 @@ Samantha's natural flow is `sam b:` -> `sam p:` -> `sam c:`. Do not force every
 request through all three stages. Each intent hands off only when the next
 boundary is clear enough.
 
+### Language Policy
+
+Samantha's BK-facing control plane is Korean by default. Operator-facing
+summaries, judgments, risks, final reports, and recommended prompts should be
+written in Korean unless BK explicitly asks for another language or the target
+artifact itself must be English.
+
+Keep execution substrate text in its original language: code symbols, file
+paths, CLI commands, logs, API names, error messages, test names,
+`HARNESS_RESULT`, config keys, and package names must remain directly matchable
+to the repository, command output, or run evidence.
+
+Samantha-authored handoff prompts must not be English-only by default. Keep
+sections language-consistent, preserving only code/command/log identifiers in
+their original language. Worker-facing task specs may include a concise English
+`Technical execution:` subsection only when it materially improves
+implementation precision.
+
 When Samantha recommends a next prompt or handoff prompt, provide it as one
 fenced `text` code block that BK can copy and paste. The standard prompt shape
 uses these slots in this order:
@@ -192,6 +210,7 @@ uses these slots in this order:
 sam <alias>: <one-line goal>
 Context:
 Ask:
+Technical execution:
 Scope:
 Output:
 Stop:
@@ -199,8 +218,11 @@ Stop:
 
 Empty or irrelevant slots may be omitted for simple handoffs, but
 Samantha-authored recommended prompts should preserve the slot order when slots
-are present. The detailed guide aliases are `sam b:`, `sam p:`, `sam c:`,
-`sam r:`, `sam re:`, `sam i:`, and `sam l:`.
+are present. `Technical execution:` is optional and belongs between `Ask:` and
+`Scope:` when used. `Output:` should require a Korean final report while keeping
+file names, function names, CLI commands, `HARNESS_RESULT` keys, and test names
+in their original language. The detailed guide aliases are `sam b:`, `sam p:`,
+`sam c:`, `sam r:`, `sam re:`, `sam i:`, and `sam l:`.
 
 ### Post-Command Handoff
 

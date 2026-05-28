@@ -31,6 +31,13 @@ export function buildCodexWorkerPrompt(task: TaskSpec, agent: AgentProfile): str
         ]
       : []),
     "",
+    "Operator-facing language policy:",
+    "- Final reports and recommended Samantha handoff prompts to BK must be Korean by default unless the task spec explicitly requires another language.",
+    "- Preserve code symbols, file paths, CLI commands, logs, API names, error messages, test names, HARNESS_RESULT, config keys, and package names in their original language.",
+    "- When recommending a next Samantha prompt, use Korean by default and keep the slot shape Context, Ask, Scope, Output, Stop.",
+    "- Include an English Technical execution subsection only when it materially improves implementation precision.",
+    "- Set Output to Korean by default, and never return an English-only Samantha handoff prompt unless BK explicitly asks or the target artifact must be English.",
+    "",
     `Task: ${task.id}`,
     `Title: ${task.title}`,
     "",

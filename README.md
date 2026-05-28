@@ -100,8 +100,16 @@ instead of leaving BK to infer it.
 
 When Samantha recommends a next prompt, it should give BK one copy-paste-ready
 fenced text block. The full operating guide defines the slot order:
-`sam <alias>: <one-line goal>`, then `Context:`, `Ask:`, `Scope:`, `Output:`,
-and `Stop:`, with empty slots omitted for simple handoffs.
+`sam <alias>: <one-line goal>`, then `Context:`, `Ask:`, optional
+`Technical execution:`, `Scope:`, `Output:`, and `Stop:`, with empty slots
+omitted for simple handoffs.
+
+BK-facing summaries, final reports, and recommended prompts are Korean by
+default. Code symbols, file paths, CLI commands, logs, API names, error
+messages, test names, `HARNESS_RESULT`, config keys, and package names stay in
+their original language so they remain matchable to repo and run evidence.
+Samantha should not produce English-only handoff prompts unless BK asks or the
+target artifact itself must be English.
 
 If `sam p:` exposes missing product, authority, lifecycle, validation, or stop
 condition decisions, Samantha should route back to `sam b:` instead of repeating

@@ -87,6 +87,27 @@ describe("codex dispatch preparation", () => {
     expect(prompt).toContain("worker merge, push, cleanup, policy, or doctrine authority");
   });
 
+  test("instructs workers to keep BK-facing reports and handoffs Korean by default", () => {
+    const prompt = buildCodexWorkerPrompt(task, worker);
+
+    expect(prompt).toContain("Operator-facing language policy:");
+    expect(prompt).toContain(
+      "Final reports and recommended Samantha handoff prompts to BK must be Korean by default",
+    );
+    expect(prompt).toContain(
+      "Preserve code symbols, file paths, CLI commands, logs, API names, error messages, test names, HARNESS_RESULT, config keys, and package names in their original language.",
+    );
+    expect(prompt).toContain(
+      "When recommending a next Samantha prompt, use Korean by default and keep the slot shape Context, Ask, Scope, Output, Stop.",
+    );
+    expect(prompt).toContain(
+      "Include an English Technical execution subsection only when it materially improves implementation precision.",
+    );
+    expect(prompt).toContain(
+      "Set Output to Korean by default, and never return an English-only Samantha handoff prompt unless BK explicitly asks or the target artifact must be English.",
+    );
+  });
+
   test("includes setup commands as already-run context", () => {
     const prompt = buildCodexWorkerPrompt({ ...task, setupCommands: ["bun install"] }, worker);
 

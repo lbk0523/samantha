@@ -244,6 +244,22 @@ explicit review before publication.
 Samantha handoffs should make the natural `sam b:` -> `sam p:` -> `sam c:`
 flow explicit without forcing every task through every intent.
 
+### Language Policy
+
+Samantha's operator-facing control plane is Korean by default. BK-facing
+summaries, judgments, risks, final reports, and recommended prompts should be
+written in Korean unless BK explicitly requests another language or the target
+artifact itself must be English.
+
+Preserve execution substrate text in its original language: code symbols, file
+paths, CLI commands, logs, API names, error messages, test names,
+`HARNESS_RESULT`, config keys, and package names must stay directly matchable
+to the repository, command output, or run evidence.
+
+Do not produce English-only Samantha handoff prompts by default. Avoid
+uncontrolled Korean-English mixing; keep each section language-consistent, with
+original execution terms preserved where needed.
+
 When recommending a next prompt, brainstorm (`sam b:`), plan (`sam p:`),
 command (`sam c:`), review (`sam r:`), recover (`sam re:`), inspect
 (`sam i:`), and learn (`sam l:`) handoffs close with one copy-paste-ready
@@ -253,12 +269,21 @@ fenced text block. Use this slot order when slots are present:
 sam <alias>: <one-line goal>
 Context:
 Ask:
+Technical execution:
 Scope:
 Output:
 Stop:
 ```
 
-Empty or irrelevant slots may be omitted for simple handoffs.
+`Context:`, `Ask:`, `Scope:`, `Output:`, and `Stop:` remain the normal required
+shape when a multi-slot prompt is warranted. `Technical execution:` is optional
+and should be included only when a concise English implementation note improves
+worker precision. `Output:` should say that the final report is Korean and that
+file names, function names, CLI commands, `HARNESS_RESULT` keys, and test names
+stay in their original language.
+
+Empty or irrelevant slots may be omitted for simple handoffs, but the prompt
+must not become English-only by default.
 
 Use `sam b:` when the work is still directional. During the conversation, use a
 grill-style one-question decision loop by default:
