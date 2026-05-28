@@ -125,6 +125,13 @@ shape if it recurs" are raw evidence only until rewritten into that form.
 - Verify commands must be connected to the task's changed surface. Prefer
   focused verification first, then broader sanity checks only when the change can
   affect shared executable behavior.
+- For authority-sensitive worker runs, especially policy, lifecycle, accept,
+  scope, verification, or trust-boundary changes, passing tests, changed-file
+  scope, and `HARNESS_RESULT` are necessary but not sufficient accept evidence.
+  The accept review must also run or inspect a small source-of-truth adversarial
+  matrix for the trust boundary being changed. Keep this scoped to
+  authority-sensitive work; do not add the extra matrix to routine low-risk
+  documentation or implementation tasks.
 - Do not create "light" writer tasks that skip worktree isolation, scope checks,
   deterministic verification, run evidence, or Samantha-owned transitions.
 

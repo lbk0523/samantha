@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md",
+  "reviewedAt": "2026-05-28T13:27:02.102Z",
+  "runId": "2026-05-21T07-03-46Z-frontend-visual-qa-consolidated",
+  "taskId": "",
+  "observedOutcome": "",
+  "suggestedArtifactType": "candidate playbook update or readiness checklist.",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "",
+    "outcome": "",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}

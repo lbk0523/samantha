@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "candidatePath": "references/lessons/inbox/2026-05-13T03-48-10-822Z-add-tasks-from-run-command.md",
-  "reviewedAt": "2026-05-28T13:27:02.097Z",
-  "runId": "2026-05-13T03-48-10-822Z-add-tasks-from-run-command",
-  "taskId": "add-tasks-from-run-command",
+  "candidatePath": "references/lessons/inbox/2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2.md",
+  "reviewedAt": "2026-05-28T13:27:02.100Z",
+  "runId": "2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2",
+  "taskId": "add-execution-batch-assembly-dry-run-v2",
   "observedOutcome": "pass",
   "suggestedArtifactType": "playbook",
   "superseded": {
@@ -11,7 +11,7 @@
     "status": "not detected"
   },
   "recurrence": {
-    "taskFamily": "add-tasks-from-run-command",
+    "taskFamily": "add-execution-batch-assembly-dry-run",
     "outcome": "pass",
     "count": 1,
     "threshold": 2,

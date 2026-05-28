@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "candidatePath": "references/lessons/inbox/2026-05-13T03-48-10-822Z-add-tasks-from-run-command.md",
-  "reviewedAt": "2026-05-28T13:27:02.097Z",
-  "runId": "2026-05-13T03-48-10-822Z-add-tasks-from-run-command",
-  "taskId": "add-tasks-from-run-command",
+  "candidatePath": "references/lessons/inbox/2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries.md",
+  "reviewedAt": "2026-05-28T13:27:02.102Z",
+  "runId": "2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries",
+  "taskId": "verification-duplication-optimization-boundaries",
   "observedOutcome": "pass",
   "suggestedArtifactType": "playbook",
   "superseded": {
@@ -11,7 +11,7 @@
     "status": "not detected"
   },
   "recurrence": {
-    "taskFamily": "add-tasks-from-run-command",
+    "taskFamily": "verification-duplication-optimization-boundaries",
     "outcome": "pass",
     "count": 1,
     "threshold": 2,

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-17T03-33-22-self-build-task-spec-lifecycle.md",
+  "reviewedAt": "2026-05-28T13:27:02.100Z",
+  "runId": "2026-05-17T03-33-22-self-build-task-spec-lifecycle",
+  "taskId": "record-self-build-task-spec-lifecycle-lesson",
+  "observedOutcome": "a self-build dispatch task spec was created under",
+  "suggestedArtifactType": "playbook or operating rule",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "record-self-build-task-spec-lifecycle-lesson",
+    "outcome": "a self-build dispatch task spec was created under",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}

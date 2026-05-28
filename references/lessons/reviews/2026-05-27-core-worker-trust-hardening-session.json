@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "candidatePath": "references/lessons/inbox/2026-05-27-core-worker-trust-hardening-session.md",
-  "reviewedAt": "2026-05-26T23:30:51.246Z",
+  "reviewedAt": "2026-05-28T13:27:02.102Z",
   "runId": "2026-05-27-core-worker-trust-hardening-session",
   "taskId": "core-worker-trust-hardening-session",
   "observedOutcome": "original five-slice trust hardening plan completed, while residual hardening needed separate tracking",

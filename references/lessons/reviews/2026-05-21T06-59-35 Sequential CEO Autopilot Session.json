@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-21T06-59-35-sequential-ceo-autopilot-session.md",
+  "reviewedAt": "2026-05-28T13:27:02.101Z",
+  "runId": "2026-05-21T06-59-35 Sequential CEO Autopilot Session",
+  "taskId": "",
+  "observedOutcome": "",
+  "suggestedArtifactType": "",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "",
+    "outcome": "",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}

@@ -25,7 +25,10 @@ For each run:
 3. Preserve the run log, changed-file scope result, verify command output, and
    `HARNESS_RESULT`.
 4. Record manual review findings before Samantha commits or rejects the result.
-5. Classify the run as accepted, rework, blocked, or rejected, and record the
+5. When a source report, review, or task is intentionally narrowed, record each
+   omitted source requirement as accepted residual work instead of leaving it to
+   be rediscovered in later reviews.
+6. Classify the run as accepted, rework, blocked, or rejected, and record the
    evidence that justified that classification.
 
 Use the same evidence sheet or run-summary format for all 20 runs. The point is
@@ -47,6 +50,8 @@ Record these fields for every run:
   later showed was acceptable.
 - Timeout count.
 - Scope violation count.
+- Accepted residual work, when the task intentionally narrowed a source report,
+  source review, or broader requirement set.
 - Task template reuse, including the template name or `none`.
 - Verify command quality note, especially when commands are missing, too broad,
   flaky, or unable to prove the intended behavior.

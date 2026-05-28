@@ -1,16 +1,24 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-05-16T08:51:51.824Z",
+  "reviewedAt": "2026-05-28T13:27:02.102Z",
   "inboxPath": "references/lessons/inbox",
   "reviewsPath": "references/lessons/reviews",
   "summary": {
-    "total": 6,
+    "total": 14,
     "autoRejected": 1,
-    "needsMoreEvidence": 1,
-    "promotionCandidates": 0,
-    "manualReview": 4
+    "needsMoreEvidence": 5,
+    "promotionCandidates": 1,
+    "manualReview": 7
   },
   "queue": [
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-27-core-worker-trust-hardening-session.md",
+      "reviewPath": "references/lessons/reviews/2026-05-27-core-worker-trust-hardening-session.json",
+      "runId": "2026-05-27-core-worker-trust-hardening-session",
+      "taskId": "core-worker-trust-hardening-session",
+      "action": "promote_candidate",
+      "reason": "playbook candidate is ready for manual promotion"
+    },
     {
       "candidatePath": "references/lessons/inbox/2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood.md",
       "reviewPath": "references/lessons/reviews/2026-05-16T05-15-18-040Z-sdk-failed-recovery-dogfood.json",
@@ -44,10 +52,66 @@
       "reason": "suggested artifact type requires manual review"
     },
     {
+      "candidatePath": "references/lessons/inbox/2026-05-17T03-33-22-self-build-task-spec-lifecycle.md",
+      "reviewPath": "references/lessons/reviews/2026-05-17T03-33-22-self-build-task-spec-lifecycle.json",
+      "runId": "2026-05-17T03-33-22-self-build-task-spec-lifecycle",
+      "taskId": "record-self-build-task-spec-lifecycle-lesson",
+      "action": "manual_review",
+      "reason": "suggested artifact type requires manual review"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-21T06-59-35-sequential-ceo-autopilot-session.md",
+      "reviewPath": "references/lessons/reviews/2026-05-21T06-59-35 Sequential CEO Autopilot Session.json",
+      "runId": "2026-05-21T06-59-35 Sequential CEO Autopilot Session",
+      "taskId": "",
+      "action": "manual_review",
+      "reason": "suggested artifact type requires manual review"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md",
+      "reviewPath": "references/lessons/reviews/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.json",
+      "runId": "2026-05-21T07-03-46Z-frontend-visual-qa-consolidated",
+      "taskId": "",
+      "action": "manual_review",
+      "reason": "suggested artifact type requires manual review"
+    },
+    {
       "candidatePath": "references/lessons/inbox/2026-05-13T03-48-10-822Z-add-tasks-from-run-command.md",
       "reviewPath": "references/lessons/reviews/2026-05-13T03-48-10-822Z-add-tasks-from-run-command.json",
       "runId": "2026-05-13T03-48-10-822Z-add-tasks-from-run-command",
       "taskId": "add-tasks-from-run-command",
+      "action": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2.md",
+      "reviewPath": "references/lessons/reviews/2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2.json",
+      "runId": "2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2",
+      "taskId": "add-execution-batch-assembly-dry-run-v2",
+      "action": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-20T00-37-17-545Z-sequential-ceo-autopilot-s8-schema-example-correction.md",
+      "reviewPath": "references/lessons/reviews/2026-05-20T00-37-17-545Z-sequential-ceo-autopilot-s8-schema-example-correction.json",
+      "runId": "2026-05-20T00-37-17-545Z-sequential-ceo-autopilot-s8-schema-example-correction",
+      "taskId": "sequential-ceo-autopilot-s8-schema-example-correction",
+      "action": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-20T04-31-56-096Z-sequential-ceo-autopilot-s11-contract-field-correction.md",
+      "reviewPath": "references/lessons/reviews/2026-05-20T04-31-56-096Z-sequential-ceo-autopilot-s11-contract-field-correction.json",
+      "runId": "2026-05-20T04-31-56-096Z-sequential-ceo-autopilot-s11-contract-field-correction",
+      "taskId": "sequential-ceo-autopilot-s11-contract-field-correction",
+      "action": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries.md",
+      "reviewPath": "references/lessons/reviews/2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries.json",
+      "runId": "2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries",
+      "taskId": "verification-duplication-optimization-boundaries",
       "action": "needs_more_evidence",
       "reason": "playbook candidate needs more evidence before promotion (1/2)"
     },
@@ -162,6 +226,142 @@
       "recommendedAction": "manual_review",
       "classification": "manual_review",
       "reason": "suggested artifact type requires manual review"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2.md",
+      "reviewPath": "references/lessons/reviews/2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2.json",
+      "runId": "2026-05-16T13-42-53-100Z-add-execution-batch-assembly-dry-run-v2",
+      "taskId": "add-execution-batch-assembly-dry-run-v2",
+      "suggestedArtifactType": "playbook",
+      "recurrence": {
+        "taskFamily": "add-execution-batch-assembly-dry-run",
+        "outcome": "pass",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-17T03-33-22-self-build-task-spec-lifecycle.md",
+      "reviewPath": "references/lessons/reviews/2026-05-17T03-33-22-self-build-task-spec-lifecycle.json",
+      "runId": "2026-05-17T03-33-22-self-build-task-spec-lifecycle",
+      "taskId": "record-self-build-task-spec-lifecycle-lesson",
+      "suggestedArtifactType": "playbook or operating rule",
+      "recurrence": {
+        "taskFamily": "record-self-build-task-spec-lifecycle-lesson",
+        "outcome": "a self-build dispatch task spec was created under",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "manual_review",
+      "reason": "suggested artifact type requires manual review"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-20T00-37-17-545Z-sequential-ceo-autopilot-s8-schema-example-correction.md",
+      "reviewPath": "references/lessons/reviews/2026-05-20T00-37-17-545Z-sequential-ceo-autopilot-s8-schema-example-correction.json",
+      "runId": "2026-05-20T00-37-17-545Z-sequential-ceo-autopilot-s8-schema-example-correction",
+      "taskId": "sequential-ceo-autopilot-s8-schema-example-correction",
+      "suggestedArtifactType": "playbook",
+      "recurrence": {
+        "taskFamily": "sequential-ceo-autopilot-s8-schema-example-correction",
+        "outcome": "pass",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-20T04-31-56-096Z-sequential-ceo-autopilot-s11-contract-field-correction.md",
+      "reviewPath": "references/lessons/reviews/2026-05-20T04-31-56-096Z-sequential-ceo-autopilot-s11-contract-field-correction.json",
+      "runId": "2026-05-20T04-31-56-096Z-sequential-ceo-autopilot-s11-contract-field-correction",
+      "taskId": "sequential-ceo-autopilot-s11-contract-field-correction",
+      "suggestedArtifactType": "playbook",
+      "recurrence": {
+        "taskFamily": "sequential-ceo-autopilot-s11-contract-field-correction",
+        "outcome": "pass",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-21T06-59-35-sequential-ceo-autopilot-session.md",
+      "reviewPath": "references/lessons/reviews/2026-05-21T06-59-35 Sequential CEO Autopilot Session.json",
+      "runId": "2026-05-21T06-59-35 Sequential CEO Autopilot Session",
+      "taskId": "",
+      "suggestedArtifactType": "",
+      "recurrence": {
+        "taskFamily": "",
+        "outcome": "",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "manual_review",
+      "reason": "suggested artifact type requires manual review"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.md",
+      "reviewPath": "references/lessons/reviews/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.json",
+      "runId": "2026-05-21T07-03-46Z-frontend-visual-qa-consolidated",
+      "taskId": "",
+      "suggestedArtifactType": "candidate playbook update or readiness checklist.",
+      "recurrence": {
+        "taskFamily": "",
+        "outcome": "",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "manual_review",
+      "reason": "suggested artifact type requires manual review"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries.md",
+      "reviewPath": "references/lessons/reviews/2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries.json",
+      "runId": "2026-05-22T22-34-52-878Z-verification-duplication-optimization-boundaries",
+      "taskId": "verification-duplication-optimization-boundaries",
+      "suggestedArtifactType": "playbook",
+      "recurrence": {
+        "taskFamily": "verification-duplication-optimization-boundaries",
+        "outcome": "pass",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "needs_more_evidence",
+      "reason": "playbook candidate needs more evidence before promotion (1/2)"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-27-core-worker-trust-hardening-session.md",
+      "reviewPath": "references/lessons/reviews/2026-05-27-core-worker-trust-hardening-session.json",
+      "runId": "2026-05-27-core-worker-trust-hardening-session",
+      "taskId": "core-worker-trust-hardening-session",
+      "suggestedArtifactType": "playbook promotion candidate",
+      "recurrence": {
+        "taskFamily": "core-worker-trust-hardening-session",
+        "outcome": "repeated review loops from mixing original plan closure with residual hardening",
+        "count": 3,
+        "threshold": 2,
+        "thresholdMet": true
+      },
+      "recommendedAction": "promote_playbook",
+      "classification": "promotion_candidate",
+      "reason": "playbook candidate is ready for manual promotion"
     }
   ]
 }
