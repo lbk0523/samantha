@@ -152,6 +152,7 @@ export async function runDailyLessonReview(
     repoRoot,
     candidates: review.index.candidates,
     dirtyTreeBlocked,
+    targetDate,
   });
   const reportPath = join(repoRoot, "references", "lessons", "daily", `${targetDate}.json`);
   const report: DailyLessonReviewReport = {

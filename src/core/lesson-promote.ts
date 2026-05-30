@@ -35,6 +35,8 @@ export interface LessonAutoPromotionEntry {
 }
 
 export interface LessonAutoPromotionReport {
+  schemaVersion: 1;
+  targetDate: string;
   dirtyTreeBlocked: boolean;
   promoted: LessonAutoPromotionEntry[];
   skipped: LessonAutoPromotionEntry[];
@@ -224,6 +226,7 @@ export async function autoPromoteLessonPlaybooks(input: {
   repoRoot: string;
   candidates: LessonInboxReviewIndexEntry[];
   dirtyTreeBlocked: boolean;
+  targetDate: string;
 }): Promise<LessonAutoPromotionReport> {
   const repoRoot = resolve(input.repoRoot);
   const promoted: LessonAutoPromotionEntry[] = [];
@@ -291,6 +294,8 @@ export async function autoPromoteLessonPlaybooks(input: {
   }
 
   return {
+    schemaVersion: 1,
+    targetDate: input.targetDate,
     dirtyTreeBlocked: input.dirtyTreeBlocked,
     promoted,
     skipped,

@@ -383,6 +383,8 @@ describe("daily lesson review", () => {
     const artifactPath = join(root, "references", "playbooks", "cli-command.md");
 
     expect(result.autoPromotion).toEqual({
+      schemaVersion: 1,
+      targetDate: "2026-05-23",
       dirtyTreeBlocked: false,
       promoted: [
         {
@@ -426,6 +428,8 @@ describe("daily lesson review", () => {
     const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
 
     expect(result.autoPromotion).toEqual({
+      schemaVersion: 1,
+      targetDate: "2026-05-23",
       dirtyTreeBlocked: true,
       promoted: [],
       skipped: [],
@@ -470,6 +474,8 @@ describe("daily lesson review", () => {
 
     expect(result.autoPromotion.promoted).toEqual([]);
     expect(result.autoPromotion.blocked).toEqual([]);
+    expect(result.autoPromotion.schemaVersion).toBe(1);
+    expect(result.autoPromotion.targetDate).toBe("2026-05-23");
     expect(result.autoPromotion.skipped).toEqual([
       {
         candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
@@ -507,6 +513,8 @@ describe("daily lesson review", () => {
     const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
 
     expect(result.autoPromotion).toEqual({
+      schemaVersion: 1,
+      targetDate: "2026-05-23",
       dirtyTreeBlocked: false,
       promoted: [],
       skipped: [

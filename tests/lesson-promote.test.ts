@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { derivePlaybookId, promoteLessonCandidate } from "../src/core/lesson-promote";
+import { autoPromoteLessonPlaybooks, derivePlaybookId, promoteLessonCandidate } from "../src/core/lesson-promote";
 
 let tmpRoots: string[] = [];
 
@@ -22,6 +22,27 @@ describe("lesson promotion", () => {
   test("derives playbook ids from task family first and task id fallback", () => {
     expect(derivePlaybookId({ taskFamily: "cli-command", taskId: "specific-task-v2" })).toBe("cli-command");
     expect(derivePlaybookId({ taskFamily: "", taskId: "specific-task-v2" })).toBe("specific-task-v2");
+  });
+
+  test("includes schema and target date in auto-promotion reports", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-lesson-promote-"));
+    tmpRoots.push(root);
+
+    const result = await autoPromoteLessonPlaybooks({
+      repoRoot: root,
+      candidates: [],
+      dirtyTreeBlocked: false,
+      targetDate: "2026-05-23",
+    });
+
+    expect(result.schemaVersion).toBe(1);
+    expect(result.targetDate).toBe("2026-05-23");
+    expect(result.summary).toEqual({
+      total: 0,
+      promoted: 0,
+      skipped: 0,
+      blocked: 0,
+    });
   });
 
   test("rejects stale no-promotion candidates without creating a playbook", async () => {
