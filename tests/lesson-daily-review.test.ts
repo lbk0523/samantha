@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { promisify } from "node:util";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { defaultPreviousKstDate, runDailyLessonReview } from "../src/core/lesson-daily-review";
 import type { RunSummary } from "../src/core/ledger";
@@ -9,6 +11,7 @@ import { buildWorkerRunLog, type WorkerRunLog } from "../src/core/run-log";
 import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
 
 let tmpRoots: string[] = [];
+const execFileAsync = promisify(execFile);
 
 const agent: AgentProfile = {
   id: "codex-worker",
@@ -108,6 +111,51 @@ async function writeRunLog(root: string, log: WorkerRunLog): Promise<string> {
 async function writeJsonLines<T>(path: string, items: T[]): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${items.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
+}
+
+async function writeInboxCandidate(root: string, name: string, markdown: string): Promise<string> {
+  const path = join(root, "references", "lessons", "inbox", name);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, markdown, "utf8");
+  return path;
+}
+
+function promotionCandidateMarkdown(input: {
+  runId: string;
+  taskId: string;
+  taskFamily?: string;
+  recurrenceCount?: number;
+  suggestedArtifactType?: string;
+}): string {
+  return `# Lesson Candidate: ${input.runId}
+
+## Source
+- Source run id: ${input.runId}
+- Task id: ${input.taskId}
+- Task title: Repeated CLI command
+- Run log: /repo/runs/${input.runId}.json
+
+## Evidence
+- Observed outcome: pass
+
+### Superseded Context
+- Superseded status: not detected
+
+### Recurrence
+${input.taskFamily ? `- Task family: ${input.taskFamily}\n` : ""}- Recurrence outcome: pass
+- Recurrence count: ${input.recurrenceCount ?? 2}
+- Promotion threshold: 2
+
+## Proposed Lesson
+- Proposed lesson: Promote the repeated CLI command pattern.
+- Affected layer: playbook
+- Suggested artifact type: ${input.suggestedArtifactType ?? "playbook"}
+- Risk if adopted: Promotion still requires manual review.
+`;
+}
+
+async function initGitRepo(root: string): Promise<void> {
+  await execFileAsync("git", ["-C", root, "init"]);
 }
 
 function runSummary(log: WorkerRunLog, logPath: string, overrides: Partial<RunSummary> = {}): RunSummary {
@@ -316,5 +364,170 @@ describe("daily lesson review", () => {
     expect(second.draftResults).toEqual(result.draftResults);
     expect(await readFile(candidatePath, "utf8")).toBe("manual candidate\n");
     expect(JSON.parse(await readFile(second.reportPath, "utf8"))).toEqual(second);
+  });
+
+  test("auto-promotes eligible playbook candidates using task family as the playbook id", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-daily-lesson-"));
+    tmpRoots.push(root);
+    await writeInboxCandidate(
+      root,
+      "promotion-candidate-run.md",
+      promotionCandidateMarkdown({
+        runId: "promotion-candidate-run",
+        taskId: "specific-cli-command-v2",
+        taskFamily: "cli-command",
+      }),
+    );
+
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+    const artifactPath = join(root, "references", "playbooks", "cli-command.md");
+
+    expect(result.autoPromotion).toEqual({
+      dirtyTreeBlocked: false,
+      promoted: [
+        {
+          candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
+          reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+          runId: "promotion-candidate-run",
+          taskId: "specific-cli-command-v2",
+          playbookId: "cli-command",
+          artifactPath: "references/playbooks/cli-command.md",
+          reason: "promoted playbook",
+        },
+      ],
+      skipped: [],
+      blocked: [],
+      summary: {
+        total: 1,
+        promoted: 1,
+        skipped: 0,
+        blocked: 0,
+      },
+    });
+    await expect(readFile(artifactPath, "utf8")).resolves.toContain("# Playbook: cli-command");
+    expect(JSON.parse(await readFile(result.reportPath, "utf8"))).toEqual(result);
+  });
+
+  test("blocks all playbook creation when the target repo is dirty", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-daily-lesson-"));
+    tmpRoots.push(root);
+    await initGitRepo(root);
+    await writeFile(join(root, "dirty.txt"), "dirty\n", "utf8");
+    await writeInboxCandidate(
+      root,
+      "promotion-candidate-run.md",
+      promotionCandidateMarkdown({
+        runId: "promotion-candidate-run",
+        taskId: "specific-cli-command-v2",
+        taskFamily: "cli-command",
+      }),
+    );
+
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+
+    expect(result.autoPromotion).toEqual({
+      dirtyTreeBlocked: true,
+      promoted: [],
+      skipped: [],
+      blocked: [
+        {
+          candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
+          reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+          runId: "promotion-candidate-run",
+          taskId: "specific-cli-command-v2",
+          playbookId: "cli-command",
+          artifactPath: "references/playbooks/cli-command.md",
+          reason: "dirty target repo",
+        },
+      ],
+      summary: {
+        total: 1,
+        promoted: 0,
+        skipped: 0,
+        blocked: 1,
+      },
+    });
+    await expect(readFile(join(root, "references", "playbooks", "cli-command.md"), "utf8")).rejects.toThrow();
+  });
+
+  test("skips existing playbooks without overwrite", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-daily-lesson-"));
+    tmpRoots.push(root);
+    await writeInboxCandidate(
+      root,
+      "promotion-candidate-run.md",
+      promotionCandidateMarkdown({
+        runId: "promotion-candidate-run",
+        taskId: "specific-cli-command-v2",
+        taskFamily: "cli-command",
+      }),
+    );
+    const artifactPath = join(root, "references", "playbooks", "cli-command.md");
+    await mkdir(dirname(artifactPath), { recursive: true });
+    await writeFile(artifactPath, "existing\n", "utf8");
+
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+
+    expect(result.autoPromotion.promoted).toEqual([]);
+    expect(result.autoPromotion.blocked).toEqual([]);
+    expect(result.autoPromotion.skipped).toEqual([
+      {
+        candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
+        reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+        runId: "promotion-candidate-run",
+        taskId: "specific-cli-command-v2",
+        playbookId: "cli-command",
+        artifactPath: "references/playbooks/cli-command.md",
+        reason: "playbook already exists",
+      },
+    ]);
+    expect(result.autoPromotion.summary).toEqual({
+      total: 1,
+      promoted: 0,
+      skipped: 1,
+      blocked: 0,
+    });
+    await expect(readFile(artifactPath, "utf8")).resolves.toBe("existing\n");
+  });
+
+  test("skips non-eligible playbook candidates without creating playbooks", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-daily-lesson-"));
+    tmpRoots.push(root);
+    await writeInboxCandidate(
+      root,
+      "needs-more-evidence-run.md",
+      promotionCandidateMarkdown({
+        runId: "needs-more-evidence-run",
+        taskId: "specific-cli-command-v2",
+        taskFamily: "cli-command",
+        recurrenceCount: 1,
+      }),
+    );
+
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+
+    expect(result.autoPromotion).toEqual({
+      dirtyTreeBlocked: false,
+      promoted: [],
+      skipped: [
+        {
+          candidatePath: "references/lessons/inbox/needs-more-evidence-run.md",
+          reviewPath: "references/lessons/reviews/needs-more-evidence-run.json",
+          runId: "needs-more-evidence-run",
+          taskId: "specific-cli-command-v2",
+          playbookId: "cli-command",
+          artifactPath: "references/playbooks/cli-command.md",
+          reason: "not eligible for auto-promotion: playbook candidate needs more evidence before promotion (1/2)",
+        },
+      ],
+      blocked: [],
+      summary: {
+        total: 1,
+        promoted: 0,
+        skipped: 1,
+        blocked: 0,
+      },
+    });
+    await expect(readFile(join(root, "references", "playbooks", "cli-command.md"), "utf8")).rejects.toThrow();
   });
 });

@@ -2,6 +2,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { draftLessonFromAcceptedRun, type AcceptedRunLessonDraftStatus } from "./lesson-draft";
 import { reviewLessonInbox, type LessonInboxReviewIndex, type LessonPromotionQueueEntry } from "./lesson-inbox-review";
+import {
+  autoPromoteLessonPlaybooks,
+  isGitWorkTreeDirty,
+  type LessonAutoPromotionReport,
+} from "./lesson-promote";
 import { RunIndex, type RunSummary } from "./ledger";
 
 export interface DailyLessonReviewInput {
@@ -29,6 +34,7 @@ export interface DailyLessonReviewReport {
   reviewIndexPath: string;
   summary: LessonInboxReviewIndex["summary"];
   promotionQueue: LessonPromotionQueueEntry[];
+  autoPromotion: LessonAutoPromotionReport;
   reportPath: string;
 }
 
@@ -123,6 +129,7 @@ export async function runDailyLessonReview(
   const repoRoot = resolve(input.repoRoot);
   const targetDate = input.date ?? defaultPreviousKstDate(input.now);
   const window = kstDateWindow(targetDate);
+  const dirtyTreeBlocked = await isGitWorkTreeDirty(repoRoot);
   const summaries = await new RunIndex(join(repoRoot, "runs", "index.jsonl")).list();
   const runs = selectedRuns({ summaries, window });
   const draftResults: DailyLessonDraftResult[] = [];
@@ -141,6 +148,11 @@ export async function runDailyLessonReview(
   }
 
   const review = await reviewLessonInbox({ repoRoot });
+  const autoPromotion = await autoPromoteLessonPlaybooks({
+    repoRoot,
+    candidates: review.index.candidates,
+    dirtyTreeBlocked,
+  });
   const reportPath = join(repoRoot, "references", "lessons", "daily", `${targetDate}.json`);
   const report: DailyLessonReviewReport = {
     schemaVersion: 1,
@@ -154,6 +166,7 @@ export async function runDailyLessonReview(
     reviewIndexPath: review.indexPath,
     summary: review.index.summary,
     promotionQueue: review.index.queue,
+    autoPromotion,
     reportPath,
   };
 

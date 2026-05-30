@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promoteLessonCandidate } from "../src/core/lesson-promote";
+import { derivePlaybookId, promoteLessonCandidate } from "../src/core/lesson-promote";
 
 let tmpRoots: string[] = [];
 
@@ -19,6 +19,11 @@ afterEach(async () => {
 });
 
 describe("lesson promotion", () => {
+  test("derives playbook ids from task family first and task id fallback", () => {
+    expect(derivePlaybookId({ taskFamily: "cli-command", taskId: "specific-task-v2" })).toBe("cli-command");
+    expect(derivePlaybookId({ taskFamily: "", taskId: "specific-task-v2" })).toBe("specific-task-v2");
+  });
+
   test("rejects stale no-promotion candidates without creating a playbook", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-lesson-promote-"));
     tmpRoots.push(root);
