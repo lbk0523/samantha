@@ -6,6 +6,7 @@ import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { RunIndex, type RunSummary } from "../src/core/ledger";
 import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import type { WorkerRunHookEvidence, WorkerRunLog } from "../src/core/run-log";
+import type { RunVisibilitySummary } from "../src/core/run-visibility";
 import { showRun } from "../src/core/run-show";
 
 let tmpRoots: string[] = [];
@@ -304,6 +305,27 @@ function runLog(runId: string, input: { hookEvidence?: WorkerRunHookEvidence } =
   };
 }
 
+function defaultVisibilitySummary(): RunVisibilitySummary {
+  return {
+    threadNavigation: {
+      status: "missing",
+      threadId: null,
+    },
+    harnessStatus: "pass",
+    topLevelPass: true,
+    candidateCommitStatus: "present",
+    candidateCommitHash: "a".repeat(40),
+    scopeStatus: "in_scope",
+    changedFileCount: 1,
+    scopeViolationCount: 0,
+    verificationStatus: "missing",
+    verificationResultCount: 0,
+    mergeStatus: "not_started",
+    cleanupStatus: "not_started",
+    finalGitStatus: "not_captured",
+  };
+}
+
 function runSummary(runId: string, logPath: string): RunSummary {
   return {
     schemaVersion: 1,
@@ -340,6 +362,7 @@ async function writeRunFixture(input: {
   runsDir: string;
   runId: string;
   hookEvidence?: WorkerRunHookEvidence;
+  log?: WorkerRunLog;
 }): Promise<{
   summary: RunSummary;
   log: WorkerRunLog;
@@ -347,7 +370,7 @@ async function writeRunFixture(input: {
 }> {
   await mkdir(input.runsDir, { recursive: true });
   const logPath = join(input.runsDir, `${input.runId}.json`);
-  const log = runLog(input.runId, { hookEvidence: input.hookEvidence });
+  const log = input.log ?? runLog(input.runId, { hookEvidence: input.hookEvidence });
   const summary = runSummary(input.runId, logPath);
 
   await writeFile(logPath, `${JSON.stringify(log, null, 2)}\n`, "utf8");
@@ -374,6 +397,7 @@ describe("showRun", () => {
       summary,
       log,
       lifecycle,
+      visibilitySummary: defaultVisibilitySummary(),
     });
   });
 
@@ -389,6 +413,87 @@ describe("showRun", () => {
       summary,
       log,
       lifecycle: null,
+      visibilitySummary: defaultVisibilitySummary(),
+    });
+  });
+
+  test("returns visibility summary from run log evidence without treating thread id as trusted state", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-run-show-"));
+    tmpRoots.push(root);
+    const runsDir = join(root, "runs");
+    const log = runLog("run-log-only-evidence");
+    log.result.runtime = {
+      kind: "codex-sdk",
+      approvalPolicy: "never",
+      threadId: "thread_advisory_navigation_only",
+    };
+    log.result.pass = false;
+    log.result.evaluation = {
+      pass: false,
+      harness: { status: "rework", note: "worker requested rework", commit: "" },
+      changedFiles: ["allowed.txt", "state/leak.txt"],
+      scopeViolations: [
+        {
+          file: "state/leak.txt",
+          reason: "forbidden",
+          matchedPattern: "state/**",
+        },
+      ],
+      verifyResults: [
+        {
+          command: "test -f allowed.txt",
+          exitCode: 1,
+          stdout: "",
+          stderr: "missing allowed.txt",
+        },
+      ],
+    };
+    log.result.commit = undefined;
+    log.trajectory = [
+      {
+        sequence: 1,
+        event: "merge_checked",
+        status: "completed",
+        note: "merge check fixture",
+      },
+      {
+        sequence: 2,
+        event: "cleanup_finished",
+        status: "failed",
+        note: "cleanup failure fixture",
+      },
+    ];
+
+    const { summary, logPath } = await writeRunFixture({
+      runsDir,
+      runId: "run-log-only-evidence",
+      log,
+    });
+    const lifecycle = lifecycleRecord("run-log-only-evidence", logPath);
+    await writeFile(join(runsDir, "run-lifecycle.jsonl"), `${JSON.stringify(lifecycle)}\n`, "utf8");
+
+    const result = await showRun({ runId: "run-log-only-evidence", runsDir });
+
+    expect(result.summary).toEqual(summary);
+    expect(result.summary.pass).toBe(true);
+    expect(result.lifecycle).toEqual(lifecycle);
+    expect(result.visibilitySummary).toEqual({
+      threadNavigation: {
+        status: "available",
+        threadId: "thread_advisory_navigation_only",
+      },
+      harnessStatus: "rework",
+      topLevelPass: false,
+      candidateCommitStatus: "missing",
+      candidateCommitHash: null,
+      scopeStatus: "violations",
+      changedFileCount: 2,
+      scopeViolationCount: 1,
+      verificationStatus: "failed",
+      verificationResultCount: 1,
+      mergeStatus: "checked",
+      cleanupStatus: "failed",
+      finalGitStatus: "not_captured",
     });
   });
 
@@ -407,6 +512,7 @@ describe("showRun", () => {
     expect(result.summary).toEqual(summary);
     expect(result.summary.outcome).toBe("pass");
     expect(result.log).toEqual(log);
+    expect(result.visibilitySummary).toEqual(defaultVisibilitySummary());
     expect(result.log.hookEvidence).toEqual(hookEvidence);
     expect(result.log.hookEvidence?.events[1].invocations[0].stdout).toBe("blocked raw stdout evidence");
     expect(result.log.hookEvidence?.events[1].invocations[0].stdoutTruncated).toBe(true);

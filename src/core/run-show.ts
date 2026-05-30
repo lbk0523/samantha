@@ -3,6 +3,10 @@ import { RunIndex, type RunSummary } from "./ledger";
 import { readWorkerRunLog } from "./merge-gate";
 import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
 import type { WorkerRunHookEvidence, WorkerRunLog } from "./run-log";
+import {
+  buildRunVisibilitySummary,
+  type RunVisibilitySummary,
+} from "./run-visibility";
 
 export interface RunShowInput {
   runId: string;
@@ -13,6 +17,7 @@ export interface RunShowResult {
   summary: RunSummary;
   log: WorkerRunLog;
   lifecycle: RunLifecycleRecord | null;
+  visibilitySummary: RunVisibilitySummary;
   hookSummary?: RunShowHookSummary;
 }
 
@@ -166,6 +171,7 @@ export async function showRun(input: RunShowInput): Promise<RunShowResult> {
     summary,
     log,
     lifecycle: lifecycle ?? null,
+    visibilitySummary: buildRunVisibilitySummary(log),
     ...(log.hookEvidence ? { hookSummary: summarizeRunHooks(log.hookEvidence) } : {}),
   };
 }
