@@ -6,9 +6,11 @@ import {
 import { evaluateMergeGate, readWorkerRunLog, type MergeGateResult } from "./merge-gate";
 import {
   recordCleanupFinished,
+  recordFinalGitStatusCaptured,
   recordLifecycleMarked,
   recordMergeChecked,
   recordMergeFinished,
+  type FinalGitStatus,
 } from "./post-run-trajectory";
 import {
   lifecycleBaseFromRunLog,
@@ -85,6 +87,40 @@ async function timedRunCommand(
   const timing = startOperationTiming();
   const result = await run(command, cwd);
   return { ...result, ...finishOperationTiming(timing) };
+}
+
+function porcelainLineCount(stdout: string): number {
+  return stdout.split(/\r?\n/).filter(Boolean).length;
+}
+
+async function captureFinalGitStatus(input: {
+  runLogPath: string;
+  repoRoot: string;
+  run: (command: string[], cwd: string) => Promise<RunAcceptCommandResult>;
+}): Promise<void> {
+  const command = ["git", "status", "--porcelain=v1"];
+  const timing = startOperationTiming();
+  try {
+    const commandResult = await input.run(command, input.repoRoot);
+    const result = { ...commandResult, ...finishOperationTiming(timing) };
+    const finalGitStatus: FinalGitStatus =
+      result.exitCode === 0 ? (result.stdout.length === 0 ? "clean" : "dirty") : "unavailable";
+    await recordFinalGitStatusCaptured(input.runLogPath, {
+      finalGitStatus,
+      command,
+      exitCode: result.exitCode,
+      ...(result.exitCode === 0 ? { porcelainLineCount: porcelainLineCount(result.stdout) } : {}),
+      startedAt: result.startedAt,
+      finishedAt: result.finishedAt,
+      durationMs: result.durationMs,
+    });
+  } catch {
+    await recordFinalGitStatusCaptured(input.runLogPath, {
+      finalGitStatus: "unavailable",
+      command,
+      ...finishOperationTiming(timing),
+    });
+  }
 }
 
 async function markLifecycle(input: {
@@ -167,6 +203,9 @@ export async function acceptRun(
         stateDir: input.stateDir,
       })
     : undefined;
+  if (cleaned) {
+    await captureFinalGitStatus({ runLogPath, repoRoot, run });
+  }
   const lessonDraft = await draftLessonFromAcceptedRun({
     runLogPath,
     repoRoot,

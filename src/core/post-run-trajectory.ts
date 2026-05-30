@@ -123,3 +123,41 @@ export async function recordCleanupFinished(
     ...timingFields(timing),
   });
 }
+
+export type FinalGitStatus = "clean" | "dirty" | "unavailable";
+
+export async function recordFinalGitStatusCaptured(
+  runLogPath: string,
+  result: {
+    finalGitStatus: FinalGitStatus;
+    command: string[];
+    exitCode?: number;
+    porcelainLineCount?: number;
+    startedAt?: string;
+    finishedAt?: string;
+    durationMs?: number;
+  },
+): Promise<WorkerRunTrajectoryEntry> {
+  return appendWorkerRunTrajectoryEntry(runLogPath, {
+    event: "final_git_status_captured",
+    status: result.finalGitStatus === "unavailable" ? "failed" : "completed",
+    note: "final git status captured",
+    details: {
+      finalGitStatus: result.finalGitStatus,
+      command: result.command,
+      ...(typeof result.exitCode === "number" ? { exitCode: result.exitCode } : {}),
+      ...(typeof result.porcelainLineCount === "number"
+        ? { porcelainLineCount: result.porcelainLineCount }
+        : {}),
+    },
+    ...timingFields(
+      result.startedAt && result.finishedAt && typeof result.durationMs === "number"
+        ? {
+            startedAt: result.startedAt,
+            finishedAt: result.finishedAt,
+            durationMs: result.durationMs,
+          }
+        : undefined,
+    ),
+  });
+}

@@ -3,7 +3,7 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git, gitHead } from "../src/core/git";
-import { acceptRun } from "../src/core/run-accept";
+import { acceptRun, type RunAcceptCommandResult } from "../src/core/run-accept";
 import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import type { WorkerRunLog } from "../src/core/run-log";
 import { allocateWorktree } from "../src/core/worktree";
@@ -170,6 +170,22 @@ async function readLifecycle(path: string): Promise<RunLifecycleRecord[]> {
     .map((line) => JSON.parse(line) as RunLifecycleRecord);
 }
 
+async function runFixtureCommand(command: string[], cwd: string): Promise<RunAcceptCommandResult> {
+  const child = Bun.spawn(command, {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+
+  return { command, exitCode, stdout, stderr };
+}
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -228,7 +244,110 @@ describe("acceptRun", () => {
       "lifecycle_marked",
       "cleanup_finished",
       "lifecycle_marked",
+      "final_git_status_captured",
     ]);
+    expect(log.trajectory?.[5]).toMatchObject({
+      event: "final_git_status_captured",
+      status: "completed",
+      details: {
+        finalGitStatus: "clean",
+        command: ["git", "status", "--porcelain=v1"],
+        exitCode: 0,
+        porcelainLineCount: 0,
+      },
+    });
+    for (const entry of log.trajectory ?? []) expectTiming(entry);
+  });
+
+  test("records dirty final git status from the injected git status command after cleanup", async () => {
+    const { root, logPath, stateDir, commit } = await makeRun();
+    const commands: string[][] = [];
+
+    const result = await acceptRun(
+      { runLogPath: logPath, repoRoot: root, stateDir },
+      {
+        runCommand: async (command, cwd) => {
+          commands.push(command);
+          if (command.join(" ") === "git status --porcelain=v1") {
+            return {
+              command,
+              exitCode: 0,
+              stdout: " M allowed.txt\n?? extra.txt\n",
+              stderr: "",
+            };
+          }
+          return runFixtureCommand(command, cwd);
+        },
+      },
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(commands).toEqual([
+      ["git", "merge", "--ff-only", commit],
+      ["git", "status", "--porcelain=v1"],
+    ]);
+
+    const log = await readLog(logPath);
+    expect(log.trajectory?.map((entry) => entry.event)).toEqual([
+      "merge_checked",
+      "merge_finished",
+      "lifecycle_marked",
+      "cleanup_finished",
+      "lifecycle_marked",
+      "final_git_status_captured",
+    ]);
+    expect(log.trajectory?.[5]).toMatchObject({
+      event: "final_git_status_captured",
+      status: "completed",
+      details: {
+        finalGitStatus: "dirty",
+        command: ["git", "status", "--porcelain=v1"],
+        exitCode: 0,
+        porcelainLineCount: 2,
+      },
+    });
+    for (const entry of log.trajectory ?? []) expectTiming(entry);
+  });
+
+  test("records unavailable final git status when the injected git status command fails", async () => {
+    const { root, logPath, stateDir, commit } = await makeRun();
+    const commands: string[][] = [];
+
+    const result = await acceptRun(
+      { runLogPath: logPath, repoRoot: root, stateDir },
+      {
+        runCommand: async (command, cwd) => {
+          commands.push(command);
+          if (command.join(" ") === "git status --porcelain=v1") {
+            return {
+              command,
+              exitCode: 2,
+              stdout: "",
+              stderr: "status failed by test",
+            };
+          }
+          return runFixtureCommand(command, cwd);
+        },
+      },
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(commands).toEqual([
+      ["git", "merge", "--ff-only", commit],
+      ["git", "status", "--porcelain=v1"],
+    ]);
+
+    const log = await readLog(logPath);
+    expect(log.trajectory?.[5]).toMatchObject({
+      event: "final_git_status_captured",
+      status: "failed",
+      details: {
+        finalGitStatus: "unavailable",
+        command: ["git", "status", "--porcelain=v1"],
+        exitCode: 2,
+      },
+    });
+    expect(log.trajectory?.[5]?.details).not.toHaveProperty("porcelainLineCount");
     for (const entry of log.trajectory ?? []) expectTiming(entry);
   });
 
