@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-05-28T13:27:02.102Z",
+  "reviewedAt": "2026-05-29T08:03:31.958Z",
   "inboxPath": "references/lessons/inbox",
   "reviewsPath": "references/lessons/reviews",
   "summary": {
-    "total": 14,
+    "total": 15,
     "autoRejected": 1,
     "needsMoreEvidence": 5,
     "promotionCandidates": 1,
-    "manualReview": 7
+    "manualReview": 8
   },
   "queue": [
     {
@@ -72,6 +72,14 @@
       "reviewPath": "references/lessons/reviews/2026-05-21T07-03-46Z-frontend-visual-qa-consolidated.json",
       "runId": "2026-05-21T07-03-46Z-frontend-visual-qa-consolidated",
       "taskId": "",
+      "action": "manual_review",
+      "reason": "suggested artifact type requires manual review"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-29-halucy-sam-l-routing-boundary.md",
+      "reviewPath": "references/lessons/reviews/2026-05-29-halucy-sam-l-routing-boundary.json",
+      "runId": "2026-05-29-halucy-sam-l-routing-boundary",
+      "taskId": "halucy-sam-l-routing-boundary",
       "action": "manual_review",
       "reason": "suggested artifact type requires manual review"
     },
@@ -362,6 +370,23 @@
       "recommendedAction": "promote_playbook",
       "classification": "promotion_candidate",
       "reason": "playbook candidate is ready for manual promotion"
+    },
+    {
+      "candidatePath": "references/lessons/inbox/2026-05-29-halucy-sam-l-routing-boundary.md",
+      "reviewPath": "references/lessons/reviews/2026-05-29-halucy-sam-l-routing-boundary.json",
+      "runId": "2026-05-29-halucy-sam-l-routing-boundary",
+      "taskId": "halucy-sam-l-routing-boundary",
+      "suggestedArtifactType": "operating guide or Samantha operator skill note",
+      "recurrence": {
+        "taskFamily": "halucy-sam-l-routing-boundary",
+        "outcome": "first observed explicit correction",
+        "count": 1,
+        "threshold": 2,
+        "thresholdMet": false
+      },
+      "recommendedAction": "manual_review",
+      "classification": "manual_review",
+      "reason": "suggested artifact type requires manual review"
     }
   ]
 }

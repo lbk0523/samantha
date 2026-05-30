@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "candidatePath": "references/lessons/inbox/2026-05-29-halucy-sam-l-routing-boundary.md",
+  "reviewedAt": "2026-05-29T08:03:31.958Z",
+  "runId": "2026-05-29-halucy-sam-l-routing-boundary",
+  "taskId": "halucy-sam-l-routing-boundary",
+  "observedOutcome": "operator initially interpreted `sam l` as Halucy project Learning Card work; BK corrected that `sam l` means lessons needed for Samantha workflow improvement.",
+  "suggestedArtifactType": "operating guide or Samantha operator skill note",
+  "superseded": {
+    "stale": false,
+    "status": "not detected"
+  },
+  "recurrence": {
+    "taskFamily": "halucy-sam-l-routing-boundary",
+    "outcome": "first observed explicit correction",
+    "count": 1,
+    "threshold": 2,
+    "thresholdMet": false
+  },
+  "recommendedAction": "manual_review",
+  "classification": "manual_review",
+  "reason": "suggested artifact type requires manual review"
+}
