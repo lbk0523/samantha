@@ -88,6 +88,11 @@ fixed named range before the queue becomes open-ended. New authority discovered
 after that point should usually become a separate reviewed initiative instead
 of another silently appended slice.
 
+When an accepted slice plan's stated success criteria are met, declare that
+plan complete. Move newly discovered adjacent hardening into a separately named
+initiative, and record intentionally omitted source-report requirements as
+residual work instead of silently reopening the completed plan.
+
 Separate completion evidence from closure decisions. A completion-candidate
 slice proves that the intended capability works; a closure slice decides
 whether that evidence completes the initiative or whether follow-up authority

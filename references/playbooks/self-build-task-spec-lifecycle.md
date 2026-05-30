@@ -147,6 +147,16 @@ Samantha owns orchestration, worktree allocation, verification, commit, and
 report evidence. A task spec lifecycle choice must not increase worker
 authority.
 
+## Accept Review Checklist
+
+For authority-sensitive or policy-sensitive self-build runs:
+
+- `HARNESS_RESULT`, changed-file scope, and passing verification are necessary
+  accept evidence, but not always sufficient;
+- accept review should include a small source-of-truth adversarial matrix for
+  the trust boundary being changed;
+- cleanup debt must be reported separately from functional completion.
+
 ## Verification Expectations
 
 For a persistent-spec run, verification evidence should show:
