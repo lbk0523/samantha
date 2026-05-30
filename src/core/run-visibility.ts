@@ -10,7 +10,7 @@ export type ScopeStatus = "in_scope" | "violations" | "missing" | "unknown";
 export type VerificationStatus = "passed" | "failed" | "missing" | "unknown";
 export type MergeStatus = "completed" | "checked" | "failed" | "not_started" | "unknown";
 export type CleanupStatus = "completed" | "failed" | "not_started" | "unknown";
-export type FinalGitStatus = "not_captured";
+export type FinalGitStatus = "not_captured" | "clean" | "dirty" | "unavailable";
 
 export interface RunVisibilitySummary {
   threadNavigation: {
@@ -139,6 +139,21 @@ function summarizeCleanup(trajectory: WorkerRunTrajectoryEntry[] | undefined): C
   return "not_started";
 }
 
+function isCapturedFinalGitStatus(value: unknown): value is Exclude<FinalGitStatus, "not_captured"> {
+  return value === "clean" || value === "dirty" || value === "unavailable";
+}
+
+function summarizeFinalGitStatus(
+  trajectory: WorkerRunTrajectoryEntry[] | undefined,
+): FinalGitStatus {
+  const finalGitStatusCaptured = lastTrajectoryEntry(trajectory, "final_git_status_captured");
+  if (!finalGitStatusCaptured) return "not_captured";
+  if (finalGitStatusCaptured.status !== "completed") return "unavailable";
+
+  const finalGitStatus = finalGitStatusCaptured.details?.finalGitStatus;
+  return isCapturedFinalGitStatus(finalGitStatus) ? finalGitStatus : "unavailable";
+}
+
 export function buildRunVisibilitySummary(log: WorkerRunLog): RunVisibilitySummary {
   const threadId = log.result.runtime?.threadId;
   const commitHash = log.result.commit?.commitHash;
@@ -159,6 +174,6 @@ export function buildRunVisibilitySummary(log: WorkerRunLog): RunVisibilitySumma
     ...verification,
     mergeStatus: summarizeMerge(log.trajectory),
     cleanupStatus: summarizeCleanup(log.trajectory),
-    finalGitStatus: "not_captured",
+    finalGitStatus: summarizeFinalGitStatus(log.trajectory),
   };
 }

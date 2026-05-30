@@ -53,6 +53,7 @@ export type WorkerRunTrajectoryEvent =
   | "worker_commit_finished"
   | "merge_checked"
   | "merge_finished"
+  | "final_git_status_captured"
   | "lifecycle_marked"
   | "cleanup_finished";
 

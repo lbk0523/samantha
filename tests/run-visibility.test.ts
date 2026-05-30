@@ -52,12 +52,14 @@ function trajectoryEntry(
   sequence: number,
   event: WorkerRunTrajectoryEntry["event"],
   status: WorkerRunTrajectoryEntry["status"],
+  details?: WorkerRunTrajectoryEntry["details"],
 ): WorkerRunTrajectoryEntry {
   return {
     sequence,
     event,
     status,
     note: `${event} fixture`,
+    ...(details ? { details } : {}),
   };
 }
 
@@ -339,35 +341,82 @@ describe("buildRunVisibilitySummary", () => {
     });
   });
 
-  test("always reports final git status as not captured", () => {
+  test("reports final git status as not captured when no trajectory evidence exists", () => {
+    expect(summary({ trajectory: [] }).finalGitStatus).toBe("not_captured");
+  });
+
+  test("does not infer final git status from merge and cleanup trajectory alone", () => {
     expect(summary().finalGitStatus).toBe("not_captured");
+  });
+
+  test("projects clean final git status from completed trajectory evidence", () => {
+    expect(
+      summary({
+        trajectory: [
+          trajectoryEntry(1, "merge_checked", "completed"),
+          trajectoryEntry(2, "final_git_status_captured", "completed", {
+            finalGitStatus: "clean",
+          }),
+        ],
+      }).finalGitStatus,
+    ).toBe("clean");
+  });
+
+  test("projects dirty final git status from the latest completed trajectory evidence", () => {
+    expect(
+      summary({
+        trajectory: [
+          trajectoryEntry(1, "final_git_status_captured", "completed", {
+            finalGitStatus: "clean",
+          }),
+          trajectoryEntry(2, "final_git_status_captured", "completed", {
+            finalGitStatus: "dirty",
+          }),
+        ],
+      }).finalGitStatus,
+    ).toBe("dirty");
+  });
+
+  test("projects unavailable for malformed or failed final git status evidence", () => {
+    expect(
+      summary({
+        trajectory: [
+          trajectoryEntry(1, "final_git_status_captured", "completed", {
+            finalGitStatus: "pristine",
+          }),
+        ],
+      }).finalGitStatus,
+    ).toBe("unavailable");
+
+    expect(
+      summary({
+        trajectory: [
+          trajectoryEntry(1, "final_git_status_captured", "failed", {
+            finalGitStatus: "clean",
+          }),
+        ],
+      }).finalGitStatus,
+    ).toBe("unavailable");
+  });
+
+  test("keeps thread id advisory and separate from final git status", () => {
     expect(
       summary({
         result: {
-          pass: false,
           runtime: {
             kind: "codex-sdk",
             approvalPolicy: "never",
-            threadId: "thread_from_failed_run",
+            threadId: "thread_with_no_git_status_authority",
           },
-          evaluation: {
-            pass: false,
-            harness: {
-              status: "rework",
-              note: "rework",
-              commit: "",
-            },
-            changedFiles: [],
-            scopeViolations: [],
-            verifyResults: [verifyResult(1)],
-          },
-          commit: undefined,
         },
-        trajectory: [
-          trajectoryEntry(1, "merge_checked", "completed"),
-          trajectoryEntry(2, "cleanup_finished", "failed"),
-        ],
-      }).finalGitStatus,
-    ).toBe("not_captured");
+        trajectory: [],
+      }),
+    ).toMatchObject({
+      threadNavigation: {
+        status: "available",
+        threadId: "thread_with_no_git_status_authority",
+      },
+      finalGitStatus: "not_captured",
+    });
   });
 });
