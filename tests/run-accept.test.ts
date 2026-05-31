@@ -194,8 +194,20 @@ afterEach(async () => {
 describe("acceptRun", () => {
   test("merges a mergeable run, marks lifecycle, and cleans the worker worktree", async () => {
     const { root, logPath, stateDir, worktreePath, branch, commit } = await makeRun();
+    const lessonCandidatePath = join(root, "references", "lessons", "inbox", "accept-run.md");
+    const statusChecks: Array<{ lessonDraftExists: boolean }> = [];
 
-    const result = await acceptRun({ runLogPath: logPath, repoRoot: root, stateDir });
+    const result = await acceptRun(
+      { runLogPath: logPath, repoRoot: root, stateDir },
+      {
+        runCommand: async (command, cwd) => {
+          if (command.join(" ") === "git status --porcelain=v1") {
+            statusChecks.push({ lessonDraftExists: await exists(lessonCandidatePath) });
+          }
+          return runFixtureCommand(command, cwd);
+        },
+      },
+    );
 
     expect(result.accepted).toBe(true);
     expect(result.status).toBe("accepted");
@@ -215,7 +227,7 @@ describe("acceptRun", () => {
     expect(result.lessonDraft).toMatchObject({
       status: "created",
       reason: "verify_failed recovery success",
-      path: join(root, "references", "lessons", "inbox", "accept-run.md"),
+      path: lessonCandidatePath,
       runId: "accept-run",
     });
     expect(await gitHead(root)).toBe(commit);
@@ -231,11 +243,12 @@ describe("acceptRun", () => {
     expect(lifecycle[0].mergedAt).toBeTruthy();
     expect(lifecycle[0].cleanedAt).toBeTruthy();
 
-    const lessonCandidate = await readFile(join(root, "references", "lessons", "inbox", "accept-run.md"), "utf8");
+    const lessonCandidate = await readFile(lessonCandidatePath, "utf8");
     expect(lessonCandidate).toContain("# Lesson Candidate: accept-run");
     expect(lessonCandidate).toContain("- Observed outcome: pass");
     expect(lessonCandidate).toContain("- Lifecycle state: merged and cleaned");
     expect(lessonCandidate).toContain("- Review note: Review manually before promotion.");
+    expect(statusChecks).toEqual([{ lessonDraftExists: true }]);
 
     const log = await readLog(logPath);
     expect(log.trajectory?.map((entry) => entry.event)).toEqual([
@@ -250,10 +263,10 @@ describe("acceptRun", () => {
       event: "final_git_status_captured",
       status: "completed",
       details: {
-        finalGitStatus: "clean",
+        finalGitStatus: "dirty",
         command: ["git", "status", "--porcelain=v1"],
         exitCode: 0,
-        porcelainLineCount: 0,
+        porcelainLineCount: 1,
       },
     });
     for (const entry of log.trajectory ?? []) expectTiming(entry);

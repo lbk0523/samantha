@@ -203,14 +203,14 @@ export async function acceptRun(
         stateDir: input.stateDir,
       })
     : undefined;
-  if (cleaned) {
-    await captureFinalGitStatus({ runLogPath, repoRoot, run });
-  }
   const lessonDraft = await draftLessonFromAcceptedRun({
     runLogPath,
     repoRoot,
     stateDir: input.stateDir,
   });
+  if (cleaned) {
+    await captureFinalGitStatus({ runLogPath, repoRoot, run });
+  }
 
   return {
     accepted: true,
