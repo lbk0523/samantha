@@ -2794,6 +2794,26 @@ The fixture is complete when readiness is clear.
     ).toThrow("runtime must be exec-json or codex-sdk");
   });
 
+  test("parses first-run demo arguments", () => {
+    expect(parseCliArgs(["demo:first-run"])).toEqual({
+      command: "demo:first-run",
+    });
+    expect(
+      parseCliArgs([
+        "demo:first-run",
+        "--demo-root=/tmp/samantha-demo-root",
+        "--runtime=codex-sdk",
+      ]),
+    ).toEqual({
+      command: "demo:first-run",
+      demoRoot: "/tmp/samantha-demo-root",
+      runtimeKind: "codex-sdk",
+    });
+    expect(() => parseCliArgs(["demo:first-run", "--runtime=unknown"])).toThrow(
+      "runtime must be exec-json or codex-sdk",
+    );
+  });
+
   test("parses run inspection and merge check arguments", () => {
     expect(parseCliArgs(["runs:list", "--runs-dir=runs"])).toEqual({
       command: "runs:list",

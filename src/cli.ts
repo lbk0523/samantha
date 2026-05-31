@@ -2,6 +2,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
 import {
+  formatFirstRunDemoResult,
+  runFirstRunDemo,
+  type FirstRunDemoInput,
+} from "./core/first-run-demo";
+import {
   orchestrateReportOnlyReviews,
   type OrchestrateReportOnlyReviewsInput,
 } from "./commands/orchestrate-reports";
@@ -111,6 +116,10 @@ export interface ContinuationAcceptRunOnceCliArgs {
 
 export interface RunTaskCliArgs extends RunTaskCommandInput {
   command: "run-task";
+}
+
+export interface DemoFirstRunCliArgs extends FirstRunDemoInput {
+  command: "demo:first-run";
 }
 
 export interface RunsListCliArgs {
@@ -305,6 +314,7 @@ export type SamanthaCliArgs =
   | ContinuationLoopCliArgs
   | ContinuationRunTaskOnceCliArgs
   | ContinuationAcceptRunOnceCliArgs
+  | DemoFirstRunCliArgs
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
@@ -521,6 +531,16 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(flags.get("worktrees-dir") ? { worktreesDir: flags.get("worktrees-dir") } : {}),
       ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
       ...(flags.get("codex-bin") ? { codexBin: flags.get("codex-bin") } : {}),
+      ...(runtimeKind ? { runtimeKind } : {}),
+    };
+  }
+
+  if (command === "demo:first-run") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const runtimeKind = parseWorkerRuntimeKind(flags.get("runtime"));
+    return {
+      command: "demo:first-run",
+      ...(flags.get("demo-root") ? { demoRoot: flags.get("demo-root") } : {}),
       ...(runtimeKind ? { runtimeKind } : {}),
     };
   }
@@ -973,7 +993,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:update-status-after-accept|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:daily-review|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:update-status-after-accept|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|demo:first-run|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:daily-review|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -1354,6 +1374,12 @@ export async function main(argv: string[]): Promise<number> {
       ),
     );
     return result.execution.pass ? 0 : 1;
+  }
+
+  if (args.command === "demo:first-run") {
+    const result = await runFirstRunDemo(args);
+    console.log(formatFirstRunDemoResult(result).join("\n"));
+    return result.status === "pass" ? 0 : 1;
   }
 
   if (args.command === "runs:list") {

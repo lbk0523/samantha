@@ -2,5 +2,7 @@ node_modules/
 runs/
 worktrees/
 .samantha-worktrees/
+.samantha-demo
+.samantha-demo/
 graphify-out/
 .DS_Store
