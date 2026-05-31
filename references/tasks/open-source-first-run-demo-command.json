@@ -1,0 +1,50 @@
+{
+  "id": "open-source-first-run-demo-command",
+  "title": "Implement open-source first-run demo command",
+  "taskFamily": "cli-command",
+  "workMode": "tdd-first",
+  "riskClass": "authority-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    ".gitignore",
+    "src/cli.ts",
+    "src/core/first-run-demo.ts",
+    "tests/cli.test.ts",
+    "tests/first-run-demo.test.ts",
+    "examples/first-run-demo/fixture-repo/README.md",
+    "examples/first-run-demo/fixture-repo/demo-input.txt"
+  ],
+  "forbiddenChanges": [
+    "README.md",
+    "package.json",
+    "bun.lockb",
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "references/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    "node_modules/**",
+    "LICENSE*",
+    "CONTRIBUTING*",
+    "CODE_OF_CONDUCT*",
+    "SECURITY*"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "bun test tests/cli.test.ts tests/first-run-demo.test.ts",
+    "git check-ignore .samantha-demo",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement the first public local demo contract from references/operations/open-source-first-run-demo-brief.md. Add an explicit local CLI command demo:first-run. The command must create a generated demo root under .samantha-demo/<demo-id>/, copy examples/first-run-demo/fixture-repo/ into .samantha-demo/<demo-id>/fixture-repo/, initialize the copied fixture as a git repository with a baseline commit, generate an inspectable bounded task.json under the demo root, and call the existing Samantha worker execution path against the copied fixture repo with worktrees and runs directories under the same demo root. The generated worker task must target only demo-output.txt, forbid README.md, demo-input.txt, and .git/** changes, require exactly one HARNESS_RESULT line, and verify with portable shell commands that demo-output.txt exists and contains the exact line Samantha first-run demo passed. On success, print a compact structured summary containing pass status, demo id, fixture repo, worker worktree, run log, HARNESS_RESULT status, verification status, candidate commit, and cleanup command. On failure, print stage, reason, next action, demo id when available, run log when available, and cleanup guidance. Preserve generated artifacts by default and print cleanup guidance; do not automatically delete them. Add .samantha-demo/ to .gitignore. Add dependency-free fixture files under examples/first-run-demo/fixture-repo/. Add focused tests for CLI parsing, generated path safety under the demo root, fixture copy behavior, structured failure output, and git ignore coverage. Do not add init, doctor, demo cleanup commands, package publishing, README rewrite, license/contribution/security docs, background behavior, remote behavior, merge/accept/push behavior, arbitrary real-repo onboarding, hidden memory, worker-owned orchestration, or writerCap changes. Do not mutate the user's current repository as the target repo; the demo must run only against the copied fixture repo. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add first-run demo command",
+  "status": "pending"
+}
