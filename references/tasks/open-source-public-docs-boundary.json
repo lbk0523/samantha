@@ -1,0 +1,59 @@
+{
+  "id": "open-source-public-docs-boundary",
+  "title": "Document open-source public artifact map and docs boundary",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/operations/open-source-artifact-map.md",
+    "references/operations/open-source-public-docs-plan.md",
+    "references/initiatives/open-source-readiness.md"
+  ],
+  "forbiddenChanges": [
+    "README.md",
+    "package.json",
+    "bun.lockb",
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    "LICENSE*",
+    "CONTRIBUTING*",
+    "CODE_OF_CONDUCT*",
+    "SECURITY*",
+    ".gitignore",
+    "src/**",
+    "tests/**",
+    "examples/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "references/operations/open-source-readiness-audit.md",
+    "references/operations/open-source-first-run-demo-brief.md",
+    "references/operations/open-source-first-run-demo-dogfood.md",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    ".samantha-demo/**",
+    "node_modules/**"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f references/operations/open-source-artifact-map.md",
+    "test -f references/operations/open-source-public-docs-plan.md",
+    "rg -n \"dogfood-private split|public artifact map|public docs restructuring|feedback intake|README rewrite\" references/operations/open-source-artifact-map.md references/operations/open-source-public-docs-plan.md references/initiatives/open-source-readiness.md",
+    "rg -n \"413991128f3f0718c05846d23c018a38c4c33c7f|open-source-first-run-demo-dogfood|S3|S5\" references/operations/open-source-artifact-map.md references/operations/open-source-public-docs-plan.md references/initiatives/open-source-readiness.md",
+    "git diff --check HEAD -- references/operations/open-source-artifact-map.md references/operations/open-source-public-docs-plan.md references/initiatives/open-source-readiness.md"
+  ],
+  "instructions": "Create the next large docs/product slice for Samantha open-source readiness before README rewrite. Read references/initiatives/open-source-readiness.md plus the completed evidence reports references/operations/open-source-readiness-audit.md, references/operations/open-source-first-run-demo-brief.md, and references/operations/open-source-first-run-demo-dogfood.md. Create references/operations/open-source-artifact-map.md as a decision-complete public artifact map that classifies the current public release surfaces into publish as-is, generalize before publishing, dogfood/private, and remove/exclude from first public release. The map must include an explicit dogfood-private split policy, name what happens to references, runs, operations reports, task specs, lesson artifacts, task templates, agent profiles, examples, top-level docs, CLI/help surfaces, and the accepted first-run demo evidence. Create references/operations/open-source-public-docs-plan.md as the README-rewrite prerequisite plan covering public docs restructuring, README section order, what not to expose in the first public path, feedback intake plan, and release-gating checklist. Update references/initiatives/open-source-readiness.md to reflect current evidence: S1 audit completed, S2 demo contract completed, S4 demo command implemented and dogfooded at accepted commit 413991128f3f0718c05846d23c018a38c4c33c7f, and this S3/S5 docs boundary slice in progress or completed as appropriate. Keep the slice docs-only. Do not rewrite README, change package metadata, create LICENSE/CONTRIBUTING/SECURITY/CODE_OF_CONDUCT, move/delete references, delete runs or dogfood evidence, edit source/tests/examples, change task templates/agent profiles/playbooks/lessons, or reimplement the demo command. If the public/private boundary cannot be decided without moving or deleting files, stop and report the unresolved decision instead of making those changes. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: map open source public docs boundary",
+  "status": "pending"
+}
