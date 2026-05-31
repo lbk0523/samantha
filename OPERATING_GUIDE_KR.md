@@ -139,6 +139,16 @@ completion rule, final response checklist는 `WORK-RULES.md`를 따른다. Persi
 task spec과 ephemeral task spec의 선택 기준은
 `references/playbooks/self-build-task-spec-lifecycle.md`를 따른다.
 
+Thread Control Plane 또는 background thread를 사용할 때도 같은 경계를 유지한다.
+background thread는 navigation/supervision surface일 뿐이며, `thread id`,
+`thread summary`, `visibilitySummary`는 advisory navigation only다. Trusted
+evidence는 `HARNESS_RESULT`, changed-file scope, deterministic verification,
+candidate commit, `final_git_status_captured`, lifecycle record를 포함한
+Samantha run evidence에 남는다. accept, merge, cleanup, lifecycle authority는
+계속 Samantha가 가진다. 반복되는 수동 마찰이 충분히 크면 thread API automation은
+별도 reviewed initiative에서 authority, provenance, freshness, lifecycle 설계를
+먼저 다룬다.
+
 ## 운영 모드와 라우팅 분류
 
 Samantha는 canonical 또는 alias 형태의 `command`, `brainstorm`, `plan` 요청을 받으면

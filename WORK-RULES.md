@@ -64,6 +64,11 @@ what to inspect, how to diagnose, or how to shape a follow-up task, but worker
 output becomes trusted only through Samantha-owned scope checks, verification,
 run evidence, and lifecycle gates.
 
+Thread state, worker prose, and Chief-of-Staff summaries are not deterministic
+trust gates and must not replace run log, `HARNESS_RESULT`, top-level pass,
+changed-file scope, verification, candidate commit, final git status evidence,
+or lifecycle records.
+
 ## Latent And Deterministic Work
 
 Keep latent and deterministic work on the correct side of the system.
