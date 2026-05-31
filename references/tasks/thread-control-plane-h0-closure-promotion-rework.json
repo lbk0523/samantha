@@ -1,0 +1,45 @@
+{
+  "id": "thread-control-plane-h0-closure-promotion-rework",
+  "title": "Rework Thread Control Plane H0 canonical promotion",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "OPERATING_GUIDE_KR.md",
+    "WORK-RULES.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/thread-control/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/lessons/**",
+    "references/operations/**",
+    "references/initiatives/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "git diff --check HEAD -- OPERATING_GUIDE_KR.md WORK-RULES.md",
+    "rg -n \"Thread Control Plane|background thread|thread id|thread summary|Samantha run evidence|advisory navigation|worker-owned orchestration|Chief-of-Staff|visibilitySummary|final_git_status_captured\" OPERATING_GUIDE_KR.md WORK-RULES.md",
+    "bash -lc 'if git diff --unified=0 -- OPERATING_GUIDE_KR.md WORK-RULES.md | rg \"^\\\\+[^+]\" | rg -n \"create_thread|read_thread|send_message_to_thread|scheduler|daemon|UI|MCP|connector|JSON schema|run-log field|lifecycle state\"; then exit 1; else exit 0; fi'"
+  ],
+  "instructions": "Rework H0 closure/promotion after the first run was blocked only because its third verify command matched the OPERATING_GUIDE_KR.md diff header substring UI. Keep the same docs-only intent and produce a valid candidate commit through Samantha gates.\n\nRead as evidence: references/thread-control/samantha-thread-control-plane.md, references/thread-control/operator-playbook.md, references/thread-control/g5-evidence-accessibility-review.md, references/thread-control/g6-chief-of-staff-evidence-review-dogfood.md, references/thread-control/g7-chief-of-staff-evidence-summary-review.md, references/thread-control/f3-runs-show-visibility-dogfood.md, and references/thread-control/f7-final-git-status-capture-dogfood.md. If the blocked run log runs/2026-05-31T07-04-06-338Z-thread-control-plane-h0-closure-promotion.json is available, use it as optional context; do not block if it is absent from the worker worktree.\n\nDecision remains: skip the standalone G8 checklist. Do not create a G8 checklist document. The reason is that Samantha already has stronger trusted evidence surfaces through TaskSpec, codex-sdk worker run, run log, visibilitySummary, final_git_status_captured, and lifecycle gate. H0 should only promote the minimum canonical operating policy.\n\nRequired documentation outcome:\n- In OPERATING_GUIDE_KR.md, add a small user-facing operating policy note for Thread Control Plane or background thread use. The note must say that background threads are navigation/supervision surfaces only, thread id and thread summary are advisory navigation only, trusted evidence remains Samantha run evidence, and Samantha keeps accept/merge/cleanup/lifecycle authority.\n- In WORK-RULES.md, add at most one concise work-discipline rule if needed: thread state, worker prose, and Chief-of-Staff summaries are not deterministic trust gates and must not replace run log, HARNESS_RESULT, top-level pass, changed-file scope, verification, candidate commit, final git status evidence, or lifecycle records.\n- State or imply that thread API automation is a separate future initiative only if repeated manual friction justifies a reviewed authority/provenance/freshness/lifecycle design.\n\nKeep the promotion surgical. Preserve existing Korean BK-facing style in OPERATING_GUIDE_KR.md. Preserve code and operational tokens in English where they must match logs or CLI output. Do not rewrite existing thread-control reference documents, translate them wholesale, add schemas, change run-log fields, change lifecycle state, add CLI behavior, add tests, or implement any automation. Do not modify AGENTS.md; if a hard-gate gap requires AGENTS.md, stop and report that follow-up instead. Do not create hidden memory or new playbooks.\n\nStop if any wording treats thread id, thread summary, Chief-of-Staff prose, worker prose, or manual reports as trusted evidence. Stop if any wording gives background threads orchestration, accept, merge, cleanup, push, lifecycle, policy, doctrine, or task-spec authority. Stop if the work expands into thread API automation, scheduler, daemon, UI, MCP, connector, schema, run-log field, or lifecycle state design. End with exactly one HARNESS_RESULT line.",
+  "resultMode": "write",
+  "expectedCommitSubject": "docs: close thread control plane policy",
+  "status": "pending"
+}
