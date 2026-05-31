@@ -1,9 +1,9 @@
 # Initiative: Open Source Readiness
 
-Status: proposed
+Status: in progress
 Source: BK and Codex planning discussion on 2026-05-30 about preparing
 Samantha for eventual public release and feedback.
-Last updated: 2026-05-30
+Last updated: 2026-05-31
 
 ## Goal
 
@@ -168,25 +168,25 @@ remove from public release
 | Slice | Status | Objective | Output | Verification |
 | --- | --- | --- | --- | --- |
 | S0 | completed | Create this initiative brief and lock the public readiness boundary. | `references/initiatives/open-source-readiness.md` | File exists, scope includes first-run UX, and non-goals preserve authority gates. |
-| S1 | proposed | Run a report-only public readiness audit. | Audit report listing private assumptions, confusing public surfaces, and release blockers. | Report cites inspected files and classifies each finding with one of the audit outcomes. |
-| S2 | proposed | Design the first-run demo contract. | Demo brief covering fixture repo, demo command, expected output, safe failure path, and cleanup behavior. | Brief proves the demo cannot mutate a user's real repo accidentally and preserves the trust loop. |
-| S3 | proposed | Rewrite public-facing docs around the trust loop and demo path. | README and public architecture/docs updates. | Docs check plus review that current support and non-goals are clear. |
-| S4 | proposed | Implement or wire the one-command demo only after S2 is accepted. | Demo command or package runner path plus fixtures. | Fresh-environment demo run, focused tests where code changes exist, and `bun run typecheck` / `bun test` when executable surfaces change. |
-| S5 | proposed | Prepare feedback intake. | Issue/discussion templates and release notes focused on workflow feedback. | Templates ask for environment, first-run result, gate friction, missing verification, and desired workflow shape. |
+| S1 | completed | Run a report-only public readiness audit. | `references/operations/open-source-readiness-audit.md` | Report cites inspected files and classifies blockers across private assumptions, confusing surfaces, first-run blockers, authority-risky docs, and demo prerequisites. |
+| S2 | completed | Design the first-run demo contract. | `references/operations/open-source-first-run-demo-brief.md` | Brief fixes `demo:first-run`, disposable fixture behavior, expected output, safe failure paths, cleanup behavior, and preserved trust-loop gates. |
+| S3 | in progress | Rewrite public-facing docs around the trust loop and demo path. | Public artifact map and README-rewrite prerequisite plan in `references/operations/open-source-artifact-map.md` and `references/operations/open-source-public-docs-plan.md`; later README rewrite remains separate. | Docs boundary exists before README rewrite, including dogfood-private split, public docs restructuring, and release-gating checklist. |
+| S4 | completed | Implement or wire the one-command demo only after S2 is accepted. | `demo:first-run` command and fixture path accepted at commit `413991128f3f0718c05846d23c018a38c4c33c7f`; dogfood evidence in `references/operations/open-source-first-run-demo-dogfood.md`. | Dogfood report records `bun run samantha demo:first-run --runtime=codex-sdk`, `HARNESS_RESULT: pass`, deterministic verification pass, disposable fixture repo, candidate commit, and no merge into a real user repository. |
+| S5 | in progress | Prepare feedback intake. | README prerequisite plan now defines feedback intake requirements; issue/discussion templates and release notes remain a later explicit slice. | Plan asks for environment, first-run result, gate friction, missing verification, and desired workflow shape before template implementation. |
 
 ## Current Next Slice
 
-S1 is the next safe slice.
+S3/S5 documentation boundary work is the current safe slice.
 
 Recommended next prompt:
 
 ```text
-sam r: Samantha 공개 준비를 위한 report-only readiness audit을 해주세요.
-Context: 기준 문서는 references/initiatives/open-source-readiness.md 입니다.
-Ask: 공개 전 차단 요소를 private assumptions, confusing public surfaces, first-run blockers, authority-risky docs, and demo prerequisites로 분류해주세요.
-Scope: 문서와 references artifact를 읽고 보고서만 작성합니다. 구현 파일 수정, task spec 생성, worker dispatch, commit은 하지 않습니다.
-Output: references/operations/open-source-readiness-audit.md
-Stop: 민감 정보 삭제나 문서 수정이 필요하면 직접 수정하지 말고 후속 task 후보로만 제안하세요.
+sam c: Samantha open-source README rewrite 전 public docs boundary를 완료해주세요.
+Context: S1 audit은 references/operations/open-source-readiness-audit.md, S2 demo contract는 references/operations/open-source-first-run-demo-brief.md, S4 dogfood evidence는 references/operations/open-source-first-run-demo-dogfood.md 입니다. Accepted demo commit은 413991128f3f0718c05846d23c018a38c4c33c7f 입니다.
+Ask: references/operations/open-source-artifact-map.md 와 references/operations/open-source-public-docs-plan.md 를 기준으로 README rewrite에 필요한 공개/비공개 문서 경계를 확정하고, 남은 S3/S5 후속 task를 분리해주세요.
+Scope: 이번 slice는 docs-only 입니다. README rewrite, package metadata, license/governance files, source/tests/examples, task templates, agent profiles, lessons, runs, dogfood evidence 이동/삭제는 하지 않습니다.
+Output: 한국어 요약과 변경 파일 목록, 검증 결과. 문서 본문은 기존 repo 관례에 맞춰 English를 유지해도 됩니다.
+Stop: public/private boundary가 파일 이동이나 삭제 없이는 결정되지 않으면 그 결정을 unresolved로 보고하고 멈추세요.
 ```
 
 ## Completion Rule
