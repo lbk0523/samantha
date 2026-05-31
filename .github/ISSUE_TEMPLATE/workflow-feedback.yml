@@ -1,0 +1,102 @@
+name: Trust-gate workflow feedback
+description: Report friction in the local trust loop, evidence shape, or workflow expectations.
+title: "workflow feedback: "
+labels: ["feedback", "trust-gates"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for trust-gate and workflow feedback from the first public path. Evidence beats broad feature requests.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, shell, Bun version, Git version, and repository state.
+      placeholder: "macOS 15, zsh, bun 1.x, git 2.x, clean clone"
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: Exact command or workflow step that produced the feedback.
+      placeholder: "bun run samantha demo:first-run"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Worker runtime used for the run, if applicable.
+      options:
+        - codex-sdk
+        - exec-json
+        - default or unknown
+        - not applicable
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      description: Which stage of the trust loop this feedback concerns.
+      options:
+        - first-run preflight
+        - fixture setup
+        - dispatch
+        - worker
+        - HARNESS_RESULT
+        - deterministic verification
+        - run log/report
+        - candidate commit
+        - cleanup
+        - expectations or mental model
+    validations:
+      required: true
+  - type: input
+    id: run_log
+    attributes:
+      label: Run log path
+      description: Path to the generated run log or report, if available.
+      placeholder: ".samantha-demo/<demo-id>/runs/<run-id>.json"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: HARNESS_RESULT and verification evidence
+      description: Include the relevant run summary, HARNESS_RESULT, verification result, or report excerpt.
+      placeholder: |
+        HARNESS_RESULT: pass
+        verification: pass
+        candidate commit: <hash>
+    validations:
+      required: true
+  - type: input
+    id: cleanup
+    attributes:
+      label: Cleanup status
+      description: Whether generated `.samantha-demo/` evidence was preserved, removed, or unclear.
+      placeholder: "preserved under .samantha-demo/<demo-id>; cleanup command printed"
+  - type: textarea
+    id: gate_friction
+    attributes:
+      label: gate friction
+      description: Which trust gate made the workflow better or worse?
+      placeholder: "The forbidden-change gate helped, but the run log path was hard to find."
+    validations:
+      required: true
+  - type: textarea
+    id: expectations
+    attributes:
+      label: Expectations
+      description: What did you expect Samantha to accept, reject, explain, or leave untouched?
+      placeholder: "I expected the worker output to remain untrusted until verification passed."
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: First-release scope check
+      description: Keep this feedback on local trust-loop clarity.
+      options:
+        - label: This feedback is not asking to expand the first release into remote operation, background automation, dashboards, connector expansion, budget governance, writer parallelism, or multi-project orchestration.
+          required: true

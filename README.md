@@ -1,306 +1,266 @@
 # Samantha Harness
 
-Last updated: 2026-05-16
+Samantha is a local development harness for deciding when agent-produced work is
+safe to accept.
 
-## Decision
+It is not a more autonomous coding agent. It is a trust loop around coding
+agents: define bounded work, run it in isolation, require explicit worker
+evidence, run deterministic verification, and keep the final accept decision
+outside the worker's judgment.
 
-Samantha is the active CEO-style local development harness for BK's Codex
-software work.
+The first public path is intentionally small:
 
-The migration from `samantha-codex` is complete. Historical migration notes are
-not active requirements; current direction comes from:
+```bash
+bun run samantha demo:first-run
+```
 
-- `AGENTS.md`
-- `NORTH_STAR.md`
-- `ARCHITECTURE.md`
-- `ROADMAP.md`
+That command runs the loop against a disposable fixture repository under
+`.samantha-demo/` so a local developer can inspect the evidence without
+mutating a real project.
 
-The core product loop is:
+## What Samantha Is
+
+Samantha is a CEO-style local harness for software work. It helps a user or
+operator turn a minimal goal into a scoped task, send that task to a worker
+runtime, and decide whether the result is acceptable from evidence rather than
+trusting the worker's final message.
+
+Samantha's job is to preserve boundaries:
+
+- task scope is declared before execution;
+- workers edit only inside isolated worktrees;
+- target files and forbidden files are checked after the run;
+- workers must emit `HARNESS_RESULT`;
+- deterministic verification runs outside the worker's judgment;
+- candidate commits and reports become evidence for a Samantha-owned accept
+  decision.
+
+The first public release path is a local trust demo, not a SaaS control plane,
+remote operation system, background daemon, dashboard, connector platform,
+budget governance layer, writer parallelism system, or multi-project
+orchestrator.
+
+## The Trust Loop
+
+The core loop is:
 
 ```text
 minimal user goal
--> Samantha CEO decomposition
--> task spec
--> isolated worktree
--> Codex run
--> HARNESS_RESULT
+-> Samantha task spec
+-> isolated worker worktree
+-> worker output with HARNESS_RESULT
 -> deterministic verification
--> Samantha-owned commit/report
+-> run log and candidate commit evidence
+-> Samantha-owned accept or reject decision
 ```
 
-## How To Use Samantha
+No worker output becomes trusted work just because the worker says it is done.
+The harness records what changed, whether the worker stayed in scope, whether
+verification passed, and where the evidence lives.
 
-Samantha v1 is operated through Codex Chat with an explicit operating prefix.
-v1 is the dogfood and evidence-driven improvement version: use Samantha on real
-Codex work, accumulate run, lesson, and task evidence, and improve harness
-performance and convenience through reviewed artifacts.
+## Quickstart: First-Run Demo
 
-```text
-Samantha <intent>: <natural language request>
-sam <alias>: <natural language request>
-```
-
-Official debut intents are `command`, `brainstorm`, `plan`, `review`,
-`recover`, `inspect`, and `learn`.
-
-Short aliases are:
-
-| Alias | Intent |
-| --- | --- |
-| `sam c:` | `command` |
-| `sam b:` | `brainstorm` |
-| `sam p:` | `plan` |
-| `sam r:` | `review` |
-| `sam re:` | `recover` |
-| `sam i:` | `inspect` |
-| `sam l:` | `learn` |
-
-Bare `sam:` has no default intent.
-
-Example:
-
-```text
-Samantha command: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 run의 상태와 다음 액션을 한눈에 보이게 개선해줘.
-sam c: 이 repo에서 runs:list 출력이 너무 거칠어. 최근 run의 상태와 다음 액션을 한눈에 보이게 개선해줘.
-```
-
-After any explicit `Samantha <intent>:` or `sam <alias>:` message, Sticky
-Samantha Session routing applies to prefix-free follow-ups in that Codex
-thread. Follow-ups are routed through Samantha CEO classification rather than a
-fixed default intent: Samantha still decides whether the message is doctrine,
-architecture, roadmap, decision-complete implementation, report-only review, or
-recovery/lifecycle work before recommending execution.
-
-Use `sam off`, `Samantha off`, `Samantha 끄고 Codex로 해`, or `이번 건 Samantha 없이 직접 해`
-to opt out. After opt-out, a new explicit Samantha intent or `sam` alias is
-required to reactivate Samantha routing.
-
-Sticky routing is not hidden memory, background operation, a messaging
-interface, a project-global default, an automatic routine, or a bypass around
-task specs, isolated worktrees, `HARNESS_RESULT`, deterministic verification,
-or Samantha-owned lifecycle gates.
-
-`Samantha command:` normalizes executable work into a bounded plan or task spec
-direction first; it does not bypass worktree isolation, scope checks,
-deterministic verification, run evidence, or Samantha-owned lifecycle gates.
-
-See `OPERATING_GUIDE.md` for the full protocol and examples.
-
-`Samantha brainstorm` is the pre-execution direction surface for product,
-architecture, and MVP UI/UX discussion. It should inspect context, ask one
-narrowing question at a time, compare two or three directions when useful, and
-use temporary browser visuals only when seeing the artifact is better than
-reading about it. It should end in a self-reviewed Brainstorm Brief rather than
-code, task specs, worker dispatches, or committed design specs by default.
-
-The natural handoff is `sam b:` for direction, then `sam p:` for a bounded plan,
-then `sam c:` for executable work. Samantha should skip stages only when the
-next boundary is already clear, and it should name the next intent explicitly
-instead of leaving BK to infer it.
-
-When Samantha recommends a next prompt, it should give BK one copy-paste-ready
-fenced text block. The full operating guide defines the slot order:
-`sam <alias>: <one-line goal>`, then `Context:`, `Ask:`, optional
-`Technical execution:`, `Scope:`, `Output:`, and `Stop:`, with empty slots
-omitted for simple handoffs.
-
-BK-facing summaries, final reports, and recommended prompts are Korean by
-default. Code symbols, file paths, CLI commands, logs, API names, error
-messages, test names, `HARNESS_RESULT`, config keys, and package names stay in
-their original language so they remain matchable to repo and run evidence.
-Samantha should not produce English-only handoff prompts unless BK asks or the
-target artifact itself must be English.
-
-If `sam p:` exposes missing product, authority, lifecycle, validation, or stop
-condition decisions, Samantha should route back to `sam b:` instead of repeating
-plan mode around unmade decisions.
-
-When a brainstorm or plan creates multiple dependent slices, preserve the parent
-context in an Initiative Continuity Brief under `references/initiatives/`. The
-brief is reviewable repo state for accepted decisions, the slice queue, and the
-next-session prompt; it does not replace task specs, run logs, verification, or
-lifecycle gates.
-
-For cross-repo Codex Chat use, activation is provided by the global
-`samantha-operator` skill; this README and the operating guides describe the
-protocol, not a background service or messaging integration.
-
-## Product Shape
-
-Samantha should help BK run software work with discipline:
-
-- define scoped tasks
-- isolate code changes
-- run Codex under explicit boundaries
-- verify results
-- record auditable evidence
-- produce concise implementation reports
-- keep merge, push, cleanup, recovery, and authority changes explicit
-
-Adjacent product surfaces such as messaging integrations, background operation,
-operator UIs, scheduled automation, remote/control-plane operation, budget
-governance, multi-project orchestration, and multi-writer execution are not
-automatic scope and not automatic rejections. They should be introduced only as
-reviewed product slices with explicit authority, verification, evidence, and
-lifecycle gates.
-
-Single-writer execution is an MVP constraint, not a permanent doctrine:
-post-MVP parallelism starts with report-only workers and can use speculative
-writer batches only through Samantha-owned BatchSpec gates, isolated worktrees,
-ordered integration, and post-merge verification. This does not raise
-`writerCap` or give workers orchestration authority.
-
-## Repository Boundary
-
-The repo should stay a narrow package and CLI while the harness core matures.
-
-Current package shape:
-
-```text
-src/
-  cli.ts
-  core/
-    batch-execution.ts
-    batch-replan.ts
-    batch-spec-store.ts
-    batch-spec.ts
-    codex-dispatch.ts
-    contracts.ts
-    git.ts
-    glob.ts
-    harness-result.ts
-    ledger.ts
-    lesson-draft.ts
-    lesson-inbox-review.ts
-    lesson-promote.ts
-    lesson-review.ts
-    merge-gate.ts
-    policy.ts
-    post-run-trajectory.ts
-    run-accept.ts
-    run-commit.ts
-    run-diagnose.ts
-    run-lifecycle-store.ts
-    run-list.ts
-    run-log.ts
-    run-show.ts
-    task-from-run.ts
-    task-from-template.ts
-    task-family.ts
-    worker-dispatch.ts
-    worker-result.ts
-    worktree-cleanup.ts
-    worktree.ts
-  commands/
-    orchestrate-reports.ts
-    run-task.ts
-tests/
-references/
-  agent-profiles/
-  initiatives/
-  lessons/
-  playbooks/
-  tasks/
-  task-templates/
-```
-
-## Core Principles
-
-- Codex may write code only inside a Samantha-allocated worktree.
-- Writer tasks must declare target files, forbidden files, and verify commands.
-- Non-writer report tasks must declare no target files, setup commands, or verify
-  commands.
-- Worker output must include `HARNESS_RESULT`.
-- Samantha, not the worker, owns the final commit.
-- Verification happens outside the worker's judgment.
-- Merge, push, cleanup, retry, recovery, connector access, and secret access are
-  separate gates.
-- Non-writer roles are report-only and should not edit files.
-- Workers must not own orchestration; future parallelism belongs to Samantha.
-- Learning must be explicit repository artifacts: candidates, reviews,
-  playbooks, templates, profiles, policy/tests, or direction documents.
-- Hidden memory, automatic promotion, and unreviewed authority changes are not
-  allowed.
-- Keep the implementation small enough to understand in one sitting.
-
-## Current CLI Surface
+Install dependencies, then run:
 
 ```bash
-bun run samantha run-task <task.json> --repo-root=<repo>
-bun run samantha runs:list
-bun run samantha runs:show <run-id>
-bun run samantha merge:check --run-log=<path> --repo-root=<repo>
-bun run samantha runs:mark-lifecycle --run-log=<path> --repo-root=<repo> --event=merged|cleaned
-bun run samantha worktree:cleanup --run-log=<path> --repo-root=<repo>
-bun run samantha runs:accept --run-log=<path> --repo-root=<repo>
-bun run samantha runs:diagnose --run-log=<path>
-bun run samantha reports:summarize --run-log=<path> [--run-log=<path>]...
-bun run samantha reports:orchestrate --repo-root=<repo> --task=<task.json> --task=<task.json>...
-bun run samantha readiness:check [--initiative=<path>] [--task=<task.json>] [--run-log=<path>]
-bun run samantha lessons:draft --run-log=<path>
-bun run samantha lessons:review <candidate.md>
-bun run samantha lessons:review-inbox [--repo-root=<repo>]
-bun run samantha lessons:promote <candidate.md> --playbook-id=<id>
-bun run samantha lessons:record-evidence <playbook.md> --run-log=<path> --assessment=helped|not-helped|unclear --note=<note>
-bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]...
-bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title>
-bun run samantha batches:list
-bun run samantha batches:show --batch-id=<id>
-bun run samantha batches:preflight --batch=<path>
-bun run samantha batches:execute --batch=<path> --target-branch=<branch>
-bun run samantha batches:reject --batch=<path> --reason=<reason>
-bun run samantha batches:replace --batch=<path> --replacement-batch-id=<id> --replacement=<path> --replan-evidence=<path>
+bun install --frozen-lockfile
+bun run samantha demo:first-run
 ```
 
-Phase 5 stale-base replacement and source rejection stay deliberately separate:
+The demo creates a generated directory like:
 
-- stale-base preflight or integration records `block_and_replan` evidence with
-  `sourceBatchSpecMutation: "not_performed"`; it does not automatically create
-  a replacement or close the source `BatchSpec`
-- `batches:replace` is Samantha-owned planning only: it consumes matching
-  stale-base evidence, creates a new planned `BatchSpec` at `observedHead`,
-  clears worker run and candidate evidence, and still requires ordinary
-  BatchSpec preflight (`batches:preflight`) before dispatch
-- `batches:reject` is the separate Samantha-owned source closure: it mutates
-  only the source top-level `status` to `rejected` and writes lifecycle audit
-  evidence
-- rebase execution, `writerCap` increases, worker-owned orchestration, and
-  worker-owned lifecycle mutation remain outside the implemented boundary
+```text
+.samantha-demo/<demo-id>/
+```
 
-Current task templates:
+Inside that directory Samantha creates a disposable fixture repository, a worker
+worktree, a generated task spec, and a run log. The worker task is deliberately
+small: create one demo output file in the fixture repo and report
+`HARNESS_RESULT`.
 
-- `references/task-templates/docs-only.json`
-- `references/task-templates/core-module-with-tests.json`
-- `references/task-templates/cli-command-with-tests.json`
-- `references/task-templates/report-only-review.json`
+The command does not merge into your real repository. The generated
+`.samantha-demo/<demo-id>/` directory is preserved after the run so you can
+inspect the task spec, run log, worker worktree, and candidate commit. When you
+are done inspecting it, remove the generated demo directory with the cleanup
+command printed by the CLI:
 
-`readiness:check` is a deterministic report-only surface. With `--initiative`,
-it checks an Initiative Continuity Brief for required sections, valid slice
-statuses, blockers, and a current next slice. With `--task` and `--run-log`, it
-audits plan completion by comparing the task spec against run evidence,
-declared verification, scope evaluation, HARNESS_RESULT, and candidate commit
-state.
+```bash
+rm -rf .samantha-demo/<demo-id>
+```
 
-## Acceptance Baseline
+The cleanup path is constrained to `.samantha-demo/`. The demo should not ask
+you to remove a real project directory.
 
-Samantha's core loop is credible when:
+If you need to select the worker runtime explicitly, the accepted dogfood run
+used:
 
-- a writer task runs in an isolated worktree
-- Codex receives a scoped prompt with target and forbidden files
-- Samantha parses the worker's `HARNESS_RESULT`
-- changed files are checked against scope
-- declared verification commands pass
-- Samantha creates the commit after gates pass
-- a JSON run log records prompt, command, output, changed files, verification,
-  and commit
-- failed or out-of-scope worker output is rejected without committing
-- post-run merge, acceptance, cleanup, diagnosis, lesson drafting, lesson
-  review, promotion, and later evidence recording remain explicit operations
-- report-only runs allocate no worktree, create no commit, and remain advice-only
-  evidence for a Samantha decision point
-- BatchSpec writer batches re-run preflight, dispatch only eligible writer
-  groups from `baseCommit`, integrate candidates in queue order, verify after
-  accepted merges, record stale-base `block_and_replan` evidence, record
-  lifecycle evidence, clean up only after terminal accepted evidence, and allow
-  source BatchSpec rejection and explicit stale-base replacement generation only
-  through Samantha-owned commands with audit evidence
+```bash
+bun run samantha demo:first-run --runtime=codex-sdk
+```
+
+## What Success Looks Like
+
+A successful first-run demo prints a compact summary in this shape:
+
+```text
+Samantha first-run demo: pass
+demo id: demo-<timestamp>
+fixture repo: .samantha-demo/<demo-id>/fixture-repo
+worker worktree: .samantha-demo/<demo-id>/worktrees/open-source-first-run-demo
+run log: .samantha-demo/<demo-id>/runs/<run-id>.json
+HARNESS_RESULT: pass
+verification: pass
+candidate commit: <hash>
+merge: not performed (disposable worker worktree only)
+cleanup: rm -rf .samantha-demo/<demo-id>
+```
+
+The accepted public-readiness dogfood evidence is recorded at
+[`references/operations/open-source-first-run-demo-dogfood.md`](references/operations/open-source-first-run-demo-dogfood.md).
+That report records accepted demo implementation commit
+`413991128f3f0718c05846d23c018a38c4c33c7f` as evidence that the demo path was
+exercised. It is not a setup requirement for users.
+
+## What Samantha Will Not Do In The First Public Path
+
+The first public path is intentionally narrow. It will not:
+
+- mutate your real repository during `demo:first-run`;
+- require private run history or local dogfood evidence;
+- publish or require package publishing decisions;
+- settle license, contribution, security, or code-of-conduct governance;
+- start remote operation, background automation, or connector/control-plane
+  entrypoints;
+- provide dashboards, budget governance, writer parallelism, or multi-project
+  orchestration;
+- present BatchSpec execution, lesson promotion, or advanced lifecycle commands
+  as onboarding requirements.
+
+Those areas need explicit design, authority boundaries, and verification before
+they become public product surfaces.
+
+## Core Concepts
+
+**Task Spec**
+
+A task spec declares the worker's goal, allowed target files, forbidden changes,
+verification commands, expected commit subject, and final `HARNESS_RESULT`
+requirement.
+
+**Worker**
+
+A worker is the agent process that attempts the scoped task. Workers do not own
+orchestration, merge, push, cleanup, policy, or final trust decisions.
+
+**Isolated Worktree**
+
+Writer work happens in a separate worktree created for the task. This makes the
+diff inspectable and keeps worker edits away from the operator's active checkout.
+
+**Target Files And Forbidden Changes**
+
+Samantha checks whether the worker changed only the declared target files and
+avoided forbidden paths. Out-of-scope edits are evidence for rejection or rework.
+
+**Deterministic Verification**
+
+Verification commands are run after worker execution. They should prove the
+intended behavior with deterministic checks instead of relying on a worker
+summary.
+
+**HARNESS_RESULT**
+
+Workers must end with a machine-readable `HARNESS_RESULT` line. Samantha parses
+it as worker evidence, then compares it against scope and verification evidence.
+
+**Run Log And Report**
+
+Run logs preserve prompt, command, runtime, changed files, parsed
+`HARNESS_RESULT`, verification results, and candidate commit data. Reports are
+human-readable summaries of that evidence.
+
+**Candidate Commit And Accept Boundary**
+
+Samantha can create a candidate commit after gates pass. Accepting, merging,
+cleaning up, and publishing remain separate lifecycle decisions owned by the
+harness/operator, not by the worker.
+
+## Current Command Surface
+
+Start here:
+
+```bash
+bun run samantha demo:first-run
+```
+
+Advanced command families exist for local harness operation and dogfood use.
+They are authority-sensitive and should be used only when you understand the
+task spec, run log, lifecycle, and cleanup boundaries:
+
+- `run-task`
+- `runs:*`
+- `merge:check`
+- `worktree:cleanup`
+- `reports:*`
+- `lessons:*`
+- `continuation:*`
+- `batches:*`
+- `batch-plans:*`
+- `readiness:check`
+- `tasks:*`
+
+The public quickstart intentionally does not require these commands.
+
+## Repository Map
+
+Public entrypoints:
+
+- `README.md` explains the trust loop and first-run demo.
+- `examples/first-run-demo/fixture-repo/` is the disposable fixture template
+  copied by `demo:first-run`.
+- `references/operations/open-source-first-run-demo-brief.md` records the demo
+  contract.
+- `references/operations/open-source-first-run-demo-dogfood.md` records accepted
+  dogfood evidence for the first-run demo.
+- `references/operations/open-source-artifact-map.md` and
+  `references/operations/open-source-public-docs-plan.md` define the current
+  public/dogfood documentation boundary.
+
+Advanced or mixed evidence areas:
+
+- `references/` is an evidence registry and planning archive, not a single
+  public docs directory.
+- `runs/**`, `worktrees/**`, `.samantha-worktrees/**`, and `.samantha-demo/**`
+  are generated or local execution state.
+- Direction and operating docs may include dogfood-specific authority rules
+  until later public-generalization slices revise them.
+
+## Feedback
+
+First-run feedback is most useful when it includes evidence:
+
+- OS, shell, Bun version, Git version, and selected worker runtime;
+- exact command, especially `bun run samantha demo:first-run`;
+- whether `.samantha-demo/<demo-id>/` was created;
+- stage where the run failed: preflight, fixture setup, dispatch, worker,
+  `HARNESS_RESULT`, deterministic verification, candidate commit, or cleanup;
+- run log path, if available;
+- cleanup status and whether the printed cleanup command stayed under
+  `.samantha-demo/`;
+- whether a gate felt too strict, too loose, or unclear;
+- what you expected Samantha to do that it intentionally did not do.
+
+Use the first-run failure issue template for demo failures and the workflow
+feedback template for trust-gate friction.
+
+## Release Maturity
+
+Samantha is an active dogfood harness with a working first-run demo, not a
+polished public platform. The current release path is for local developers who
+want to inspect a trust loop around agent work and report where the evidence,
+verification, or operator workflow is confusing.
+
+Package publishing, license/governance files, broader public examples, remote
+operation, background automation, dashboards, connector expansion, budget
+governance, writer parallelism, and multi-project orchestration are not included
+in this first public path.

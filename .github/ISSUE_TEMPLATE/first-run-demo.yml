@@ -1,0 +1,101 @@
+name: First-run demo failure
+description: Report a failure or confusing result from bun run samantha demo:first-run.
+title: "first-run demo: "
+labels: ["first-run", "feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for the local first-run demo only. Please include evidence from the generated `.samantha-demo/<demo-id>/` directory when available.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, shell, Bun version, Git version, and clone/install path.
+      placeholder: "macOS 15, zsh, bun 1.x, git 2.x, cloned under ~/src/samantha"
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: Exact first-run command you ran.
+      placeholder: "bun run samantha demo:first-run"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Worker runtime selected or implied by the command.
+      options:
+        - codex-sdk
+        - exec-json
+        - default or unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      description: Where the first-run failure or confusing output appeared.
+      options:
+        - preflight
+        - fixture setup
+        - dispatch
+        - worker
+        - HARNESS_RESULT
+        - deterministic verification
+        - candidate commit
+        - cleanup
+        - unknown
+    validations:
+      required: true
+  - type: input
+    id: run_log
+    attributes:
+      label: Run log path
+      description: Path to the generated run log, if the demo printed one.
+      placeholder: ".samantha-demo/<demo-id>/runs/<run-id>.json"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: HARNESS_RESULT and verification evidence
+      description: Paste the compact summary, parsed HARNESS_RESULT, verification result, or relevant error excerpt.
+      placeholder: |
+        Samantha first-run demo: failed
+        stage: verification
+        HARNESS_RESULT: pass
+        verification: failed
+    validations:
+      required: true
+  - type: input
+    id: cleanup
+    attributes:
+      label: Cleanup status
+      description: Whether `.samantha-demo/<demo-id>/` exists and what cleanup command was printed.
+      placeholder: "directory exists; cleanup: rm -rf .samantha-demo/<demo-id>"
+    validations:
+      required: true
+  - type: textarea
+    id: gate_friction
+    attributes:
+      label: gate friction
+      description: Which trust gate felt too strict, too loose, or unclear?
+      placeholder: "The HARNESS_RESULT gate was clear, but the verification failure did not explain the expected file."
+  - type: textarea
+    id: expectations
+    attributes:
+      label: Expectations
+      description: What did you expect the first-run demo to do, and what happened instead?
+      placeholder: "I expected the demo to preserve evidence and print one cleanup command."
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: First-release scope check
+      description: Keep this report focused on the first-run demo and local trust gates.
+      options:
+        - label: This report is not requesting remote operation, background automation, dashboards, connector expansion, budget governance, writer parallelism, or multi-project orchestration as first-release scope.
+          required: true
