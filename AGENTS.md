@@ -52,6 +52,8 @@ Read these before broad architectural or roadmap changes:
 - `NORTH_STAR.md`
 - `ARCHITECTURE.md`
 - `ROADMAP.md`
+- `OPERATING_GUIDE_KR.md` for BK-facing Samantha intent and handoff protocol
+- `WORK-RULES.md` for Codex/Samantha working discipline and completion checks
 
 ## Work Rules
 

@@ -2,7 +2,8 @@
 
 This file is the source of truth for BK/Codex working discipline in this repo.
 Keep detailed operating rules here so `AGENTS.md` can stay focused on product
-and authority boundaries.
+and authority boundaries and `OPERATING_GUIDE_KR.md` can stay focused on
+BK-facing usage protocol.
 
 ## Prime Directive
 
@@ -297,6 +298,20 @@ stay in their original language.
 Empty or irrelevant slots may be omitted for simple handoffs, but the prompt
 must not become English-only by default.
 
+Inside an active Sticky Samantha Session, a copy-paste-ready prompt is the full
+audit/restart input, not always the required same-thread input. If Samantha just
+recommended a next prompt, BK may approve that exact prompt with a short
+same-thread shortcut such as "추천한 sam p로 계속", "위 sam c로 진행",
+"이 프롬프트 그대로 실행 정규화", or "방금 추천한 다음 단계로 가자".
+
+Same-thread shortcuts reuse the immediately preceding `Recommended next prompt`
+as the routing input. They must not add new scope, authority, target repo, or
+execution permission beyond that prompt. If the prompt is executable or mutating,
+the shortcut must still make execution intent clear, and all Samantha lifecycle
+gates remain in force. Use the full fenced prompt for new threads, delayed
+resumption, cross-repo handoff, or audit logs where transcript-local context is
+not enough.
+
 Use `sam b:` when the work is still directional. During the conversation, use a
 grill-style one-question decision loop by default:
 
@@ -408,6 +423,8 @@ separate current completion evidence from the next boundary:
   initiative needed`.
 - `Recommended next prompt`: one copy-paste-ready fenced `text` block only when
   a next prompt is warranted.
+- `Same-thread shortcut`: optional short approval phrase when BK can continue
+  from the immediately preceding `Recommended next prompt` in the same thread.
 
 Use this branch table when choosing the handoff:
 
@@ -478,6 +495,11 @@ When slots are present, preserve the existing slot order: `Context:`, `Ask:`,
 `Scope:`, `Output:`, `Stop:`. No-next-action outcomes must state the reason
 instead of inventing work.
 
+When a same-thread continuation is expected, include a short `Same-thread
+shortcut` after the recommended prompt. The shortcut is optional guidance for the
+current thread only; it does not replace the fenced prompt as the restartable
+handoff artifact.
+
 Samantha's current systemized handoff surfaces are its own intents, task specs,
 run evidence, reports, and reviewable repo artifacts.
 
@@ -516,8 +538,9 @@ continue.
 
 For post-command work, use the Post-Command Handoff final response shape:
 `Outcome`, `Trusted evidence`, `Current slice`, `Next-slice state`, and
-`Recommended next prompt`. Recommend `sam re:` instead of `sam c:` for failed
-or untrusted command completion, and recommend no next action only when the
+`Recommended next prompt`, plus optional `Same-thread shortcut` when same-thread
+continuation is expected. Recommend `sam re:` instead of `sam c:` for failed or
+untrusted command completion, and recommend no next action only when the
 completion rule is satisfied or there is no coherent remaining slice.
 
 Before proposing any direct BK action, first check whether Codex can either do it

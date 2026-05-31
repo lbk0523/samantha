@@ -602,6 +602,41 @@ docs plus existing commands are sufficient for now. Future deterministic
 support should start as a separate reviewed initiative only if new dogfood or
 review evidence proves a concrete gap.
 
+## 2026-05-31 Operating Contract Consolidation
+
+Status: completed
+
+This follow-up consolidation reduces drift across Samantha's operator surfaces.
+It keeps the initiative closed and records the current canonical owner map:
+
+| Surface | Canonical role |
+| --- | --- |
+| `AGENTS.md` | Product boundary, hard authority gates, and source-map pointers. |
+| `OPERATING_GUIDE_KR.md` | BK-facing Samantha intent, sticky routing, same-thread shortcut, and handoff protocol. |
+| `WORK-RULES.md` | Codex/Samantha working discipline, self-build authority gate, lifecycle rules, completion checks, and final response checklist. |
+| `/Users/byung/.codex/skills/samantha-operator/SKILL.md` | Thin global router that activates Samantha routing and points to canonical repo documents. |
+
+Accepted decisions:
+
+- Include the global `samantha-operator` skill in the operating-contract work;
+  repo docs alone are not enough because the skill is the actual Codex routing
+  surface.
+- Delete `OPERATING_GUIDE.md` instead of keeping an English summary. Korean is
+  the canonical operating guide, and a summary-only English copy would preserve
+  a drift surface without adding operational value.
+- Leave historical references in completed slice notes, `references/tasks/**`,
+  and `references/operations/**` unchanged. They are evidence from the time they
+  were created, not active routing surfaces.
+
+Verification boundary:
+
+- Active references should point to `OPERATING_GUIDE_KR.md`, `WORK-RULES.md`,
+  and `AGENTS.md` according to their role.
+- The global skill should not duplicate drift-prone policy lists when it can
+  point to canonical repo documents.
+- Future changes to Samantha operation should update the canonical owner first
+  and use the other surfaces as pointers, not parallel policy stores.
+
 ## Verification Strategy
 
 - Docs-only slices: `git diff --check HEAD -- '*.md' 'references/**/*.md'`.
