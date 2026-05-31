@@ -11,6 +11,9 @@ Accepted demo commit: `413991128f3f0718c05846d23c018a38c4c33c7f`
 Thread-policy delta audit:
 `references/operations/open-source-thread-policy-delta-audit.md`
 Accepted thread-policy commit: `45197c6c4be3e17f258ac2f8c26522aa494552f7`
+Accepted governance files commit: `17d6349`
+Package final pass:
+`references/operations/open-source-package-readiness-final-pass.md`
 
 ## Purpose
 
@@ -20,8 +23,9 @@ docs readiness, governance/package readiness, dogfood-private boundary checks,
 release blocker checks, and stop conditions.
 
 This document does not release the project, publish a package, modify package
-metadata, create governance files, move references, delete runs, or change the
-public/private artifact boundary.
+publication settings, move references, delete runs, or change the
+public/private artifact boundary. The package metadata and package contents
+boundary are now clone-only ready; package publishing remains deferred.
 
 ## Evidence Baseline
 
@@ -34,6 +38,7 @@ Before public release, confirm these accepted slices:
 | S3 README and public docs | `README.md`, `references/operations/open-source-artifact-map.md`, `references/operations/open-source-public-docs-plan.md` | README rewrite accepted at `b059a2485fd17b051beb1b061c40bd64e86c4218`. |
 | S4 demo implementation | `references/operations/open-source-first-run-demo-dogfood.md` and accepted implementation commit `413991128f3f0718c05846d23c018a38c4c33c7f` | Dogfood evidence records `demo:first-run`, `HARNESS_RESULT`, verification, candidate commit, and no real repo merge. |
 | S5 feedback intake | `.github/ISSUE_TEMPLATE/first-run-demo.yml`, `.github/ISSUE_TEMPLATE/workflow-feedback.yml`, `references/operations/open-source-release-note-draft.md` | Feedback intake accepted at `b059a2485fd17b051beb1b061c40bd64e86c4218`. |
+| S6 governance/package final pass | `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `package.json`, `references/operations/open-source-package-readiness-final-pass.md` | Governance files accepted at `17d6349`; package metadata and package contents are clone-only ready; `private: true` remains; `publishConfig`, `bin`, and package publishing remain deferred. |
 | Thread-policy delta | `references/operations/open-source-thread-policy-delta-audit.md` and accepted thread-policy commit `45197c6c4be3e17f258ac2f8c26522aa494552f7` | Completed delta audit says thread-control artifacts remain advanced dogfood/private surfaces and must not enter the first public path. |
 
 Stop if any accepted evidence is missing, superseded, or contradicted by the
@@ -82,6 +87,8 @@ Release gate:
   dogfood/private evidence and not as public product features.
 - `README.md` states that package publishing, license/governance files, broader
   examples, and advanced orchestration are not in the first public path.
+- `README.md` and governance docs keep the first public path clone-only:
+  `bun install --frozen-lockfile` and `bun run samantha demo:first-run`.
 - Feedback intake asks for environment, command, stage, run log, cleanup,
   `HARNESS_RESULT`, verification evidence, gate friction, and expectations.
 - The release note draft asks for gate-friction feedback rather than broad
@@ -103,7 +110,8 @@ Stop conditions:
 
 Release gate:
 
-- `LICENSE` exists and reflects BK's chosen license.
+- `LICENSE` exists and reflects BK's chosen MIT license. Accepted governance
+  files commit: `17d6349`.
 - `CONTRIBUTING` defines contribution scope for the first public release.
 - `CONTRIBUTING` accepts only thread-control documentation clarification in the
   first release and excludes thread API automation, scheduler/daemon behavior,
@@ -115,36 +123,39 @@ Release gate:
   advisory thread evidence as trusted state.
 - `CODE_OF_CONDUCT` exists or BK explicitly chooses a narrower first-release
   conduct policy with documented scope.
-- Package name is chosen and registry availability is checked if package
-  publishing is planned.
 - Package metadata no longer describes Samantha as only a personal harness.
-- `private: true` removal is approved only after governance and metadata are
-  ready.
-- `publishConfig`, `bin`, and `files` are reviewed before package-runner claims.
+- `package.json` records `license: MIT`, repository, bugs, homepage, keywords,
+  Bun `engines`, and a conservative `files` array.
+- `private: true` remains because package publication is not part of the
+  clone-only public path.
+- `publishConfig` and `bin` remain absent, so npm/package-runner readiness is
+  not claimed.
 - Package contents exclude dogfood/private evidence unless a specific artifact
   is intentionally public.
-- Package contents explicitly decide whether `references/thread-control/**` is
-  excluded or shipped only with an advanced dogfood evidence label.
-- npm/package-runner readiness is verified before `bunx`, `npm exec`, or `npx`
-  is advertised.
+- Package contents exclude `references/thread-control/**` by default; it remains
+  advanced dogfood/private evidence, excluded from public onboarding and package
+  contents.
+- Package contents dry-run evidence is recorded in
+  `references/operations/open-source-package-readiness-final-pass.md`.
+- npm/package-runner readiness must be re-verified before `bunx`, `npm exec`,
+  or `npx` is advertised.
 
 Decision debt that blocks release:
 
-- license choice;
-- contribution acceptance policy;
-- SECURITY reporting channel;
-- CODE_OF_CONDUCT scope and enforcement contact;
 - package name;
 - package publishing target;
 - `private: true` removal timing;
-- package `publishConfig`, `bin`, and `files` contents;
-- `references/thread-control/**` package inclusion or exclusion.
+- package `publishConfig` and `bin` executable contract;
+- package-runner support target;
+- GitHub repository visibility change, if BK chooses to make the repository
+  public.
 
 Stop conditions:
 
-- BK has not made the required governance decisions.
-- The release would require package publishing or package metadata changes that
-  are not implemented and verified.
+- The release would require package publishing, `private: true` removal,
+  `publishConfig`, or `bin`.
+- The release would require package metadata changes beyond the clone-only
+  metadata and `files` boundary already implemented and verified.
 - The release would require moving, deleting, redacting, or promoting
   dogfood/private artifacts outside an explicit task.
 
@@ -160,6 +171,7 @@ Release gate:
 - `references/thread-control/**` remains advanced dogfood/private unless a
   later public-docs or package-contents slice explicitly promotes a specific
   artifact with an advanced evidence label.
+  It is excluded from public onboarding and package contents by default.
 - Raw lesson inbox entries, lesson review JSON, and correction transcripts are
   not public onboarding docs.
 - Target-project initiatives and reports for private work are not linked from
@@ -185,21 +197,15 @@ Stop conditions:
 
 Block public release if any item is true:
 
-- no `LICENSE`;
-- no `SECURITY` reporting channel;
-- `SECURITY` omits thread id/summary/run-log leakage or advisory evidence
-  misuse while thread-control artifacts remain in the repository;
-- no first-release contribution scope;
-- `CONTRIBUTING` invites thread API automation, background operation, or
-  control-plane feature PRs before a reviewed initiative exists;
-- no conduct policy decision;
-- package metadata still says "Personal Codex development harness" while
-  package publishing is planned;
+- package metadata still says "Personal Codex development harness";
 - `private: true` is still present while claiming package publication, or
   removed before governance/package gates pass;
+- `publishConfig` or `bin` is required for a claimed package-runner path but is
+  absent or unverified;
 - no package contents verification before package publishing;
-- no explicit package contents decision for `references/thread-control/**`
-  before package publishing;
+- package contents include dogfood/private surfaces such as
+  `references/thread-control/**`, `references/tasks/**`, `references/lessons/**`,
+  `runs/**`, `worktrees/**`, `.samantha-worktrees/**`, or `.samantha-demo/**`;
 - `demo:first-run` fails or cannot be verified from a clean local checkout;
 - README or release copy promises unsupported product surfaces;
 - public docs blur worker output with trusted Samantha acceptance;
@@ -210,18 +216,19 @@ Block public release if any item is true:
 The first public release is ready only when all of these are true:
 
 - S1 through S5 evidence is present and accepted.
-- Governance/package readiness blockers are either resolved or explicitly
-  declared as not part of the current public release.
+- Governance/package readiness blockers are resolved for clone-only release or
+  explicitly declared deferred for package publication.
 - `demo:first-run` remains the public entrypoint.
 - Public docs make the maturity level clear: active dogfood harness, not a
   polished platform.
 - Feedback templates are available for first-run failures and trust-gate
   workflow feedback.
 - Dogfood/private artifacts are excluded from onboarding and package contents.
-- Thread-control artifacts are excluded from onboarding and either excluded from
-  package contents or clearly labeled as advanced dogfood evidence.
-- Package publishing claims match actual package metadata and verified package
-  contents.
+- Thread-control artifacts are excluded from public onboarding and package
+  contents by default; any later promotion requires a new reviewed slice.
+- Package publishing remains deferred; no package publishing, `bunx`, `npm
+  exec`, or `npx` claims are made while `private: true` remains and
+  `publishConfig`/`bin` are absent.
 - No release blocker checks remain true.
 
 If this gate fails, the next action is a scoped follow-up task, not a broad

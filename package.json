@@ -3,7 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Personal Codex development harness",
+  "description": "Local harness for verifying agent-produced code before accepting it",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lbk0523/samantha.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lbk0523/samantha/issues"
+  },
+  "homepage": "https://github.com/lbk0523/samantha#readme",
+  "keywords": [
+    "agent",
+    "codex",
+    "harness",
+    "verification",
+    "trust-loop",
+    "worktree"
+  ],
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "src/",
+    "examples/first-run-demo/fixture-repo/"
+  ],
   "scripts": {
     "samantha": "bun run src/cli.ts",
     "typecheck": "bun x tsc --noEmit",

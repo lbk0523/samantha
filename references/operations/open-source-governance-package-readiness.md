@@ -1,7 +1,7 @@
 # Open Source Governance And Package Readiness
 
 Date: 2026-05-31
-Status: decision-complete brief before implementation
+Status: completed for clone-only package readiness; package publication deferred
 Source initiative: `references/initiatives/open-source-readiness.md`
 Accepted README and feedback intake commit:
 `b059a2485fd17b051beb1b061c40bd64e86c4218`
@@ -9,21 +9,26 @@ Accepted demo commit: `413991128f3f0718c05846d23c018a38c4c33c7f`
 Thread-policy delta audit:
 `references/operations/open-source-thread-policy-delta-audit.md`
 Accepted thread-policy commit: `45197c6c4be3e17f258ac2f8c26522aa494552f7`
+Accepted governance files commit: `17d6349`
+Package final pass:
+`references/operations/open-source-package-readiness-final-pass.md`
 
 ## Purpose
 
-This brief defines the governance and package readiness boundary for the first
-public Samantha release before any top-level governance files or package
-metadata are changed.
+This brief records the governance and package readiness boundary for the first
+public Samantha release.
 
-This slice is documentation-only. It does not create `LICENSE`,
-`CONTRIBUTING`, `SECURITY`, or `CODE_OF_CONDUCT`; it does not edit
-`package.json`; it does not remove `private: true`; it does not add
-`publishConfig`, `bin`, or `files`; and it does not perform package publishing.
+Governance files were accepted at commit `17d6349`. The package final pass
+updated public-facing package metadata and added a conservative `files` array,
+but it did not remove `private: true`, add `publishConfig`, add `bin`, claim
+package-runner readiness, or perform package publishing.
 
-The goal is to make the remaining decisions explicit enough that the next
-implementation task can be narrow, reviewable, and blocked on BK decisions
-where needed.
+The current supported public path remains clone-only:
+
+```bash
+bun install --frozen-lockfile
+bun run samantha demo:first-run
+```
 
 ## Current Evidence Baseline
 
@@ -38,16 +43,19 @@ artifacts:
 | S4 first-run demo implementation evidence | completed | `references/operations/open-source-first-run-demo-dogfood.md` records `bun run samantha demo:first-run --runtime=codex-sdk`, `HARNESS_RESULT: pass`, deterministic verification, and no merge into a real user repository. Accepted implementation commit: `413991128f3f0718c05846d23c018a38c4c33c7f`. |
 | S5 feedback intake | completed | `.github/ISSUE_TEMPLATE/first-run-demo.yml`, `.github/ISSUE_TEMPLATE/workflow-feedback.yml`, and `references/operations/open-source-release-note-draft.md` ask for first-run evidence and gate-friction feedback. Accepted at `b059a2485fd17b051beb1b061c40bd64e86c4218`. |
 | Thread-policy delta | completed | `references/operations/open-source-thread-policy-delta-audit.md` records that `references/thread-control/**` remains advanced dogfood/private evidence after accepted thread-policy commit `45197c6c4be3e17f258ac2f8c26522aa494552f7`. |
+| Governance files | completed | `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, and `CODE_OF_CONDUCT.md` were accepted at commit `17d6349`. |
+| Package metadata and contents | completed for clone-only readiness | `package.json` has public metadata, `license: MIT`, Bun `engines`, and conservative `files`; package contents dry-run evidence is recorded in `references/operations/open-source-package-readiness-final-pass.md`. |
 
-The remaining public release blockers are governance decisions, package
-readiness decisions, and final dogfood-private release checks.
+The remaining release decisions are outside package metadata hygiene: package
+publication, package-runner executable contract, `private: true` removal,
+`publishConfig`, `bin`, and GitHub repository visibility remain deferred.
 
 ## Governance Surfaces
 
 ### LICENSE
 
-Decision needed: BK must choose the license before a public release that invites
-use, modification, or package distribution.
+Decision: BK chose MIT for the clone-only public path. `LICENSE` exists and was
+accepted at commit `17d6349`.
 
 Recommended options:
 
@@ -56,20 +64,13 @@ Recommended options:
 - Source-available or no public license yet: acceptable only if the release is
   intentionally feedback-only and clearly not open-source distribution.
 
-Decision debt:
-
-- Choose the license.
-- Decide whether copyright owner should be BK personally or an organization.
-- Confirm whether dependencies and examples are compatible with the chosen
-  license.
-
-Release gate: do not present the repository as open source or publish a package
-until `LICENSE` exists and matches the intended distribution posture.
+Release gate: package metadata must keep `license: MIT` unless a later
+governance task changes the license intentionally.
 
 ### CONTRIBUTING
 
-Decision needed: BK must decide what kinds of external contribution are welcome
-in the first public path.
+Decision: `CONTRIBUTING.md` defines the limited first-release contribution
+scope and was accepted at commit `17d6349`.
 
 Recommended first-release policy:
 
@@ -88,22 +89,14 @@ Recommended first-release policy:
   target-file/forbidden-file checks, deterministic verification,
   `HARNESS_RESULT`, run evidence, and Samantha-owned lifecycle transitions.
 
-Decision debt:
-
-- Decide whether first-release contributions are issues-only or PRs accepted.
-- Decide whether PRs require tests, dogfood evidence, or Samantha run evidence.
-- Decide whether governance-sensitive changes need report-only review before
-  implementation.
-- Decide whether any thread-control documentation PRs are accepted before a
-  reviewed thread-control public initiative exists.
-
 Release gate: do not invite broad contributions until `CONTRIBUTING` states the
 first-release scope and authority boundaries.
 
 ### SECURITY
 
-Decision needed: BK must choose a security reporting channel before public
-release.
+Decision: `SECURITY.md` uses GitHub private vulnerability reporting when
+available and instructs reporters not to disclose sensitive details publicly if
+that private channel is unavailable. It was accepted at commit `17d6349`.
 
 Recommended options:
 
@@ -131,24 +124,14 @@ Security reporting policy should cover:
   push, lifecycle, policy, or doctrine authority to a background thread;
 - dependency vulnerability reports for the runtime path.
 
-Decision debt:
-
-- Choose the reporting channel.
-- Decide expected response time language.
-- Decide whether unsupported areas such as remote operation, connectors,
-  dashboards, or background automation are explicitly out of scope for security
-  reporting in the first release.
-- Decide how reporters should redact thread ids, prompts, run logs, lifecycle
-  evidence, local paths, and manual linkage reports before submitting security
-  reports.
-
 Release gate: do not publish a public package or solicit public adoption until
 `SECURITY` gives reporters a private path.
 
 ### CODE_OF_CONDUCT
 
-Decision needed: BK must decide whether the first release adopts a standard
-code of conduct and what community surface it covers.
+Decision: `CODE_OF_CONDUCT.md` defines a repository-scoped policy for GitHub
+issues, pull requests, discussions, and feedback templates. It was accepted at
+commit `17d6349`.
 
 Recommended options:
 
@@ -158,19 +141,12 @@ Recommended options:
 - Defer community expansion while still stating basic conduct expectations in
   `CONTRIBUTING`.
 
-Decision debt:
-
-- Choose the policy text.
-- Decide enforcement contact.
-- Decide whether the code of conduct applies only to GitHub interactions or to
-  future community channels as well.
-
 Release gate: do not open broad community discussion spaces until
 `CODE_OF_CONDUCT` scope and enforcement contact are decided.
 
 ## Package Readiness
 
-Current `package.json` state:
+Current `package.json` state after the final pass:
 
 ```json
 {
@@ -178,19 +154,34 @@ Current `package.json` state:
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Personal Codex development harness"
+  "description": "Local harness for verifying agent-produced code before accepting it",
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "src/",
+    "examples/first-run-demo/fixture-repo/"
+  ]
 }
 ```
 
-This is not package-runner ready. The current repository can document:
+This is clone-only ready, not package-runner ready. The current repository can
+document:
 
 ```bash
 bun install --frozen-lockfile
 bun run samantha demo:first-run
 ```
 
-It should not claim npm or `bunx` package execution until package metadata is
-reviewed and `private: true` removal is intentionally approved.
+It should not claim npm, `bunx`, `npx`, or package execution until package
+publication is explicitly designed, `private: true` removal is approved,
+`publishConfig` and `bin` are added, and a package-runner path is verified.
 
 ### Package Name
 
@@ -212,19 +203,24 @@ Decision debt:
 - Decide owner scope and package provenance.
 
 Release gate: package publishing is blocked until the name is chosen and
-registry ownership is confirmed.
+registry ownership is confirmed. Clone-only public release does not require
+package name or registry ownership resolution.
 
 ### Package Metadata
 
-Required metadata before package publication:
+Metadata completed for clone-only readiness:
 
 - public-facing `description` that does not say "Personal Codex development
   harness";
 - `license` matching the chosen `LICENSE`;
-- `repository`, `bugs`, and `homepage` fields once the public remote is final;
+- `repository`, `bugs`, and `homepage` fields for
+  `https://github.com/lbk0523/samantha`;
 - `keywords` that describe local harness, agent verification, and trust loop
   without overclaiming autonomy;
-- clear `engines` or runtime expectations if Bun is required;
+- clear Bun `engines` runtime expectation.
+
+Metadata still deferred for package publication:
+
 - package `version` strategy tied to release maturity.
 
 Decision debt:
@@ -234,24 +230,21 @@ Decision debt:
 - Decide whether package metadata should reference Codex-specific runtime
   support or present a broader worker-runtime boundary.
 
-Release gate: do not remove `private: true` until this metadata is complete and
-reviewed.
+Release gate: do not remove `private: true` until package publication is
+explicitly approved.
 
 ### publishConfig, bin, and files
 
-`publishConfig`, `bin`, and `files` need explicit design before any package
-runner claim.
+`files` is now defined for clone-only package contents hygiene. `publishConfig`
+and `bin` remain deferred and need explicit design before any package-runner
+claim.
 
 Readiness questions:
 
 - `bin`: what executable name should users run, and should it invoke
   `src/cli.ts` directly or a built entrypoint?
-- `files`: which public files should ship, and how will dogfood/private
-  artifacts under `references/`, `runs/`, worktrees, and generated demo state be
-  excluded?
-- `references/thread-control/**`: should these files be excluded from package
-  tarballs, or included only with an advanced dogfood evidence label and no
-  quickstart references?
+- `references/thread-control/**`: excluded from public onboarding and package
+  contents by default; it remains advanced dogfood/private evidence.
 - `publishConfig`: should the package be public, scoped-public, or restricted
   while feedback remains early?
 - package runner: should the supported path be `bunx`, `npm exec`, `npx`, or
@@ -260,14 +253,16 @@ Readiness questions:
 Decision debt:
 
 - Define the executable contract.
-- Define package contents and exclusions.
-- Decide `references/thread-control/**` inclusion or exclusion and verify the
-  decision in package contents checks.
 - Decide build output and TypeScript execution strategy.
-- Decide whether fixture examples must be included in package tarballs.
+- Decide whether fixture examples remain included in package tarballs once a
+  real package runner path exists.
 
 Release gate: do not document npm/package-runner readiness until `bin`,
-`files`, and `publishConfig` are reviewed with package-tarball evidence.
+`files`, and `publishConfig` are reviewed with package-tarball evidence. The
+clone-only final pass verified that package contents exclude dogfood/private
+surfaces including `references/thread-control/**`, `references/tasks/**`,
+`references/lessons/**`, `runs/**`, `worktrees/**`,
+`.samantha-worktrees/**`, and `.samantha-demo/**`.
 
 ### private: true Removal
 
@@ -284,34 +279,24 @@ Preconditions:
 - first public docs still route users through `demo:first-run` and do not expose
   dogfood/private evidence as required setup.
 
-Release gate: `private: true` must remain until governance and package metadata
-are ready together.
+Release gate: `private: true` remains after clone-only metadata readiness and
+must stay until package publication is intentionally approved.
 
 ## Explicit Decision Debt
 
-BK decisions required before implementation:
+Deferred decisions required before package publication:
 
-- `LICENSE`: MIT, Apache-2.0, or another explicit posture.
-- `CONTRIBUTING`: issues-only, PRs accepted, or limited PR scope.
-- `SECURITY`: GitHub private vulnerability reporting, email alias, or another
-  private channel.
-- SECURITY redaction expectations for thread ids, thread summaries, prompts,
-  run logs, lifecycle evidence, local paths, and manual linkage reports.
-- `CODE_OF_CONDUCT`: standard policy, minimal policy, or deferred community
-  expansion with basic conduct language elsewhere.
 - Package name: `samantha`, scoped package, or alternate public name.
-- Package target: clone-only first release, Bun package runner, npm package
-  runner, or delayed package publishing.
+- Package target beyond clone-only first release: Bun package runner, npm
+  package runner, or delayed package publishing.
 - `private: true`: removal only after governance/package gates pass.
-- `publishConfig`, `bin`, and `files`: exact executable and package contents.
-- `references/thread-control/**`: excluded from package contents, or included
-  only as advanced dogfood evidence.
+- `publishConfig` and `bin`: exact executable and publication contract.
 
 Until these are decided, the honest public posture is:
 
 ```text
 Clone the repository, install with Bun, run demo:first-run, and report feedback
-through the provided templates. Package publishing is not ready.
+through the provided templates. Package publishing is deferred.
 ```
 
 ## Release Gates
@@ -327,40 +312,38 @@ Governance/package release gate:
   trusted state.
 - `CODE_OF_CONDUCT` scope is decided before broad community spaces open.
 - `package.json` has public-ready package metadata.
-- `private: true` removal is reviewed with package publication intent.
-- `publishConfig`, `bin`, and `files` are present only after package contents
-  are verified.
-- `references/thread-control/**` package contents behavior is explicitly
-  decided and verified.
-- npm/package-runner readiness is proven with deterministic packaging checks
-  before being advertised.
+- `private: true` remains until package publication intent is approved.
+- `publishConfig` and `bin` are absent while package publication is deferred.
+- `files` excludes dogfood/private package contents by default.
+- `references/thread-control/**` is excluded from public onboarding and package
+  contents by default.
+- npm/package-runner readiness is not advertised until proven with deterministic
+  packaging checks.
 - Public docs still separate public artifacts from dogfood/private evidence.
 - `demo:first-run` remains the first public command path.
 
-Stop condition: if any gate requires actual top-level governance files,
-package metadata changes, package publishing, artifact movement/deletion, or a
-changed public/private boundary, stop and create a separate implementation task
-instead of broadening this docs slice.
+Stop condition: if any gate requires package publishing, `private: true`
+removal, `publishConfig`, `bin`, artifact movement/deletion, or a changed
+public/private boundary, stop and create a separate implementation task instead
+of broadening this clone-only readiness slice.
 
 ## Next Implementation Task Boundary
 
 The next implementation task boundary should be one narrow task after BK
-answers the decision debt above.
+chooses whether to stay clone-only or pursue package publication.
 
 Recommended sequence:
 
-1. Governance files task: add `LICENSE`, `CONTRIBUTING`, `SECURITY`, and
-   `CODE_OF_CONDUCT` from BK-approved choices. Verification should check file
-   existence, required contact/channel text, first-release scope limits,
-   thread-control leakage/security language, thread API automation exclusions,
-   and no package metadata changes unless explicitly included.
-2. Package metadata task: update `package.json` only after governance files are
-   accepted. Verification should include metadata checks, `bun install
-   --frozen-lockfile` if needed, `bun run samantha demo:first-run` or a focused
-   packaging-safe check, and a package contents dry run that proves the
-   `references/thread-control/**` decision before any package publishing claim.
-3. Release checklist closeout: run the public release checklist and record
-   blockers without moving dogfood/private artifacts unless explicitly scoped.
+1. Clone-only release decision: report-only check of repository visibility,
+   release note wording, and final stop conditions without changing package
+   publication state.
+2. Package publication design, only if BK wants it: decide package name,
+   registry ownership, executable contract, `bin`, `publishConfig`, build
+   output, package-runner command, `private: true` removal timing, and package
+   contents verification.
+3. Package publication implementation, only after design acceptance: implement
+   the executable package contract and rerun package tarball verification before
+   making any npm, `bunx`, `npm exec`, or `npx` claim.
 
 Do not combine governance files, package metadata, package publication, and
 public/private artifact movement into one worker task.
