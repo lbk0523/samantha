@@ -170,29 +170,35 @@ remove from public release
 | S0 | completed | Create this initiative brief and lock the public readiness boundary. | `references/initiatives/open-source-readiness.md` | File exists, scope includes first-run UX, and non-goals preserve authority gates. |
 | S1 | completed | Run a report-only public readiness audit. | `references/operations/open-source-readiness-audit.md` | Report cites inspected files and classifies blockers across private assumptions, confusing surfaces, first-run blockers, authority-risky docs, and demo prerequisites. |
 | S2 | completed | Design the first-run demo contract. | `references/operations/open-source-first-run-demo-brief.md` | Brief fixes `demo:first-run`, disposable fixture behavior, expected output, safe failure paths, cleanup behavior, and preserved trust-loop gates. |
-| S3 | in progress | Rewrite public-facing docs around the trust loop and demo path. | Public artifact map and README-rewrite prerequisite plan in `references/operations/open-source-artifact-map.md` and `references/operations/open-source-public-docs-plan.md`; later README rewrite remains separate. | Docs boundary exists before README rewrite, including dogfood-private split, public docs restructuring, and release-gating checklist. |
+| S3 | completed | Rewrite public-facing docs around the trust loop and demo path. | Public artifact map and README-rewrite prerequisite plan in `references/operations/open-source-artifact-map.md` and `references/operations/open-source-public-docs-plan.md`; README rewrite accepted at commit `b059a2485fd17b051beb1b061c40bd64e86c4218`. | `README.md` now leads with `demo:first-run`, the trust loop, public maturity, feedback routing, and dogfood-private boundaries. |
 | S4 | completed | Implement or wire the one-command demo only after S2 is accepted. | `demo:first-run` command and fixture path accepted at commit `413991128f3f0718c05846d23c018a38c4c33c7f`; dogfood evidence in `references/operations/open-source-first-run-demo-dogfood.md`. | Dogfood report records `bun run samantha demo:first-run --runtime=codex-sdk`, `HARNESS_RESULT: pass`, deterministic verification pass, disposable fixture repo, candidate commit, and no merge into a real user repository. |
-| S5 | in progress | Prepare feedback intake. | README prerequisite plan now defines feedback intake requirements; issue/discussion templates and release notes remain a later explicit slice. | Plan asks for environment, first-run result, gate friction, missing verification, and desired workflow shape before template implementation. |
+| S5 | completed | Prepare feedback intake. | `.github/ISSUE_TEMPLATE/first-run-demo.yml`, `.github/ISSUE_TEMPLATE/workflow-feedback.yml`, and `references/operations/open-source-release-note-draft.md` accepted at commit `b059a2485fd17b051beb1b061c40bd64e86c4218`. | Feedback intake asks for environment, `demo:first-run` command, stage, run log, `HARNESS_RESULT`, verification evidence, cleanup status, gate friction, and expectations. |
+| S6 | in progress | Document governance and package readiness before top-level governance files or package metadata change. | `references/operations/open-source-governance-package-readiness.md` and `references/operations/open-source-public-release-checklist.md`. | Docs identify decision debt for `LICENSE`, `CONTRIBUTING`, `SECURITY`, `CODE_OF_CONDUCT`, package metadata, package name, `private: true`, `publishConfig`, package publishing, release gate checks, and the next implementation task boundary. |
 
 ## Current Next Slice
 
-S3/S5 documentation boundary work is the current safe slice.
+Governance/package readiness is the current docs-only slice. It should decide
+what must be true before `LICENSE`, `CONTRIBUTING`, `SECURITY`,
+`CODE_OF_CONDUCT`, package metadata, package name, `private: true`,
+`publishConfig`, `bin`, `files`, npm/package-runner readiness, or package
+publishing are changed.
 
-Recommended next prompt:
+Recommended next prompt after this slice:
 
 ```text
-sam c: Samantha open-source README rewrite 전 public docs boundary를 완료해주세요.
-Context: S1 audit은 references/operations/open-source-readiness-audit.md, S2 demo contract는 references/operations/open-source-first-run-demo-brief.md, S4 dogfood evidence는 references/operations/open-source-first-run-demo-dogfood.md 입니다. Accepted demo commit은 413991128f3f0718c05846d23c018a38c4c33c7f 입니다.
-Ask: references/operations/open-source-artifact-map.md 와 references/operations/open-source-public-docs-plan.md 를 기준으로 README rewrite에 필요한 공개/비공개 문서 경계를 확정하고, 남은 S3/S5 후속 task를 분리해주세요.
-Scope: 이번 slice는 docs-only 입니다. README rewrite, package metadata, license/governance files, source/tests/examples, task templates, agent profiles, lessons, runs, dogfood evidence 이동/삭제는 하지 않습니다.
-Output: 한국어 요약과 변경 파일 목록, 검증 결과. 문서 본문은 기존 repo 관례에 맞춰 English를 유지해도 됩니다.
-Stop: public/private boundary가 파일 이동이나 삭제 없이는 결정되지 않으면 그 결정을 unresolved로 보고하고 멈추세요.
+sam b: Samantha open-source governance/package implementation 전에 BK 결정 부채를 확정해주세요.
+Context: S1/S2/S3/S4/S5는 완료되었습니다. README rewrite와 feedback intake는 accepted commit b059a2485fd17b051beb1b061c40bd64e86c4218 입니다. Governance/package readiness brief는 references/operations/open-source-governance-package-readiness.md 이고 public release checklist는 references/operations/open-source-public-release-checklist.md 입니다.
+Ask: LICENSE, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, package name, package publishing target, private: true removal timing, publishConfig/bin/files 방침을 결정하거나 deferred로 명시해주세요.
+Scope: 이번 단계는 decision review 입니다. 아직 top-level governance files, package.json, bun.lockb, source/tests/examples, references 이동/삭제, package publishing은 하지 않습니다.
+Output: 한국어 결정 목록, deferred decision debt, 다음 implementation task boundary.
+Stop: BK 결정 없이는 구현 task로 넘기지 마세요.
 ```
 
 ## Completion Rule
 
-This initiative is ready for public release only after S1 through S5 either
+This initiative is ready for public release only after S1 through S6 either
 complete with evidence or are explicitly rejected with a documented reason. Any
-new public command surface, installer, or demo implementation must still go
-through ordinary Samantha task specs, isolated worktrees, `HARNESS_RESULT`,
-deterministic verification, and Samantha-owned commit/report gates.
+new public command surface, installer, package metadata change, governance file,
+or demo implementation must still go through ordinary Samantha task specs,
+isolated worktrees, `HARNESS_RESULT`, deterministic verification, and
+Samantha-owned commit/report gates.
