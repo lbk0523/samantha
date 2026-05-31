@@ -1,0 +1,54 @@
+{
+  "id": "open-source-governance-files",
+  "title": "Add first-release open-source governance files",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md"
+  ],
+  "forbiddenChanges": [
+    "README.md",
+    "package.json",
+    "bun.lockb",
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE.md",
+    "OPERATING_GUIDE_KR.md",
+    ".github/**",
+    ".gitignore",
+    "src/**",
+    "tests/**",
+    "examples/**",
+    "references/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    ".samantha-demo/**",
+    "node_modules/**"
+  ],
+  "setupCommands": [
+    "bun install --frozen-lockfile"
+  ],
+  "verifyCommands": [
+    "test -f LICENSE",
+    "test -f CONTRIBUTING.md",
+    "test -f SECURITY.md",
+    "test -f CODE_OF_CONDUCT.md",
+    "rg -n \"MIT License|Permission is hereby granted\" LICENSE",
+    "rg -n \"demo:first-run|limited PR|documentation|trust loop|HARNESS_RESULT|deterministic verification|thread API automation|background operation|control-plane\" CONTRIBUTING.md",
+    "rg -n \"private vulnerability|public issue|thread id|thread summary|prompt|run log|lifecycle evidence|local path|manual linkage|advisory.*trusted|redact\" SECURITY.md",
+    "rg -n \"issues|pull requests|discussions|feedback templates|enforcement|scope\" CODE_OF_CONDUCT.md",
+    "git diff --check HEAD -- LICENSE CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md"
+  ],
+  "instructions": "Add only the first-release open-source governance files approved by BK. Use MIT for LICENSE. Create CONTRIBUTING.md with a limited first-release contribution scope: accept demo:first-run bug reports, docs clarification, and small trust-loop improvements; require contributors to preserve task specs, isolated worktrees, target/forbidden-file scope, deterministic verification, HARNESS_RESULT, run evidence, and Samantha-owned lifecycle transitions; exclude feature PRs for remote operation, background automation, dashboards, connector/control-plane entrypoints, budget governance, writer parallelism, multi-project orchestration, thread API automation, scheduler/daemon behavior, run-log schema expansion, CLI exposure, UI, MCP integration, package-manager expansion, and package-runner claims unless a later reviewed initiative authorizes them. Create SECURITY.md using GitHub private vulnerability reporting as the preferred private channel; state that public issues should not be used for security reports; require redaction of thread ids, thread summaries, prompts, run logs, lifecycle evidence, local paths, manual linkage reports, worker output, and private dogfood evidence; cover advisory thread evidence being misused as trusted state. Create CODE_OF_CONDUCT.md as a minimal GitHub-surface conduct policy for issues, pull requests, discussions, and feedback templates only, with practical enforcement language that does not imply broader community infrastructure. Keep the first public posture clone-only: do not claim npm, bunx, npx, package publishing, package-runner readiness, or package metadata readiness. Do not edit package.json, README.md, .github templates, source, tests, examples, references, run evidence, worktrees, or generated state. Do not remove private: true. Do not decide publishConfig, bin, files, package contents, or package publishing. Do not promote references/thread-control/** into public onboarding or package contents; treat it as excluded from package contents by default and advanced dogfood/private evidence if mentioned. Preconditions for dispatch: the current base must include the accepted thread-policy delta docs in references/operations/open-source-artifact-map.md, references/operations/open-source-public-release-checklist.md, and references/operations/open-source-governance-package-readiness.md. If GitHub private vulnerability reporting is not available or an enforcement contact is required but unavailable, stop and report the blocker instead of inventing a personal contact. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: add open source governance files",
+  "status": "pending"
+}

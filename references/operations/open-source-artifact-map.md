@@ -7,6 +7,9 @@ Source audit: `references/operations/open-source-readiness-audit.md`
 Source demo brief: `references/operations/open-source-first-run-demo-brief.md`
 Accepted demo evidence: `references/operations/open-source-first-run-demo-dogfood.md`
 Accepted demo commit: `413991128f3f0718c05846d23c018a38c4c33c7f`
+Thread-policy delta audit:
+`references/operations/open-source-thread-policy-delta-audit.md`
+Accepted thread-policy commit: `45197c6c4be3e17f258ac2f8c26522aa494552f7`
 
 ## Purpose
 
@@ -39,6 +42,10 @@ The dogfood-private split is the governing rule for open-source readiness:
 - First public docs must not require users to understand BK-specific workflows,
   private project names, historical worker failures, lesson promotion history,
   BatchSpec operations, or background automation before running the demo.
+- Thread-control artifacts are advanced dogfood/private evidence by default.
+  Thread ids, thread summaries, manual linkage reports, and Chief-of-Staff
+  summaries are advisory navigation surfaces, not trusted state or public
+  quickstart requirements.
 - No public convenience may weaken task specs, isolated worktrees, target-file
   scope, forbidden-change checks, deterministic verification, `HARNESS_RESULT`,
   run logs, candidate commits, or Samantha-owned lifecycle transitions.
@@ -99,7 +106,8 @@ dogfood/private unless a later slice redacts and promotes a specific artifact.
 | `references/tasks/**` | Historical and active Samantha task specs. Dogfood/private by default because they encode local repo history and authority-sensitive work. |
 | `references/lessons/inbox/**` and `references/lessons/reviews/**` | Learning evidence and correction transcripts. Dogfood/private unless a lesson is explicitly promoted into a public playbook or policy. |
 | Target-project initiatives such as Haechi, HaLucy, Hermes, Toss, or other product-specific artifacts | Private/dogfood context, not public Samantha product docs. |
-| Batch plans, batch specs, hooks evidence, launch agent templates, thread-control artifacts | Advanced dogfood surfaces. Exclude from first public path because they imply background operation, orchestration expansion, or multi-run governance. |
+| Batch plans, batch specs, hooks evidence, and launch agent templates | Advanced dogfood surfaces. Exclude from first public path because they imply background operation, orchestration expansion, or multi-run governance. |
+| `references/thread-control/**` | Advanced dogfood/private evidence. Exclude from the first public path because these artifacts cover manual background thread creation, advisory linkage, Chief-of-Staff reporting, and visibility practices that must not be presented as public setup or trusted acceptance gates. |
 
 Dogfood/private does not mean "delete." It means the artifact should not be
 presented as public setup, public doctrine, or required user knowledge.
@@ -117,6 +125,8 @@ entry path:
 - unreviewed lesson candidates and lesson review JSON;
 - advanced BatchSpec writer orchestration, batch-plan preparation, and
   replacement workflows;
+- thread-control artifacts unless a later package/docs slice explicitly labels
+  them as advanced dogfood evidence;
 - remote operation, connector/control-plane surfaces, budget governance,
   dashboards, and multi-project orchestration;
 - package-runner publication claims until package metadata, license, and public
@@ -168,6 +178,27 @@ them as public evidence. Current public-relevant reports are:
 - `references/operations/open-source-public-docs-plan.md`.
 
 All other operation reports remain dogfood/private unless individually reviewed.
+
+### Thread-Control Artifacts
+
+`references/thread-control/**` is not part of the first public onboarding path.
+These documents may remain in the repository as advanced dogfood/private
+evidence, but public docs and package contents must not require them for
+`demo:first-run`.
+
+Thread-control promotion requires an explicit later review because the current
+surface includes manual background thread creation, advisory linkage reports,
+operator reporting standards, and Chief-of-Staff evidence summaries. If a later
+slice includes any thread-control files in a public docs bundle or package
+tarball, it must label them as advanced dogfood evidence and preserve these
+invariants:
+
+- thread id and thread summary are advisory navigation only;
+- Chief-of-Staff summaries are report-only input, not trusted state;
+- manual linkage reports index run logs and lifecycle evidence but do not
+  replace them;
+- worker-owned orchestration remains forbidden;
+- accept, merge, cleanup, lifecycle, and policy authority remains Samantha-owned.
 
 ### Task Specs
 
@@ -263,6 +294,8 @@ does not authorize:
 - rewriting `README.md`;
 - changing package metadata;
 - adding `LICENSE`, `CONTRIBUTING`, `SECURITY`, or `CODE_OF_CONDUCT`;
+- deciding package tarball contents without an explicit `files` or equivalent
+  package contents check;
 - moving or deleting references;
 - deleting runs or dogfood evidence;
 - changing task templates, agent profiles, playbooks, lessons, source, tests,
