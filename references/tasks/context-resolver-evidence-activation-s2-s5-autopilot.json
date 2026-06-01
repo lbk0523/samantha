@@ -1,0 +1,48 @@
+{
+  "id": "context-resolver-evidence-activation-s2-s5-autopilot",
+  "title": "Complete Context Resolver evidence activation S2-S5",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/context-resolver-evidence-activation.md",
+    "references/initiatives/context-resolver-evidence-activation.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/agent-profiles/**",
+    "references/lessons/**",
+    "references/context-resolver-index.md",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    ".samantha-demo/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "rg -n \"Learning Asset Status|Evidence Pack|Applicability Gate|Feedback Loop\" references/playbooks/context-resolver-evidence-activation.md",
+    "rg -n \"promote_candidate|manual_review|needs_more_evidence|reject_candidate\" references/playbooks/context-resolver-evidence-activation.md",
+    "rg -n \"S2: Learning Asset Status|S3: Evidence Pack|S4: Applicability Gate|S5: Feedback Loop|Status: completed|no-current-next-slice\" references/initiatives/context-resolver-evidence-activation.md",
+    "rg -n \"hidden memory|automatic context loading|automatic promotion|policy rewrite|worker authority expansion|background daemon|dashboard|remote/control plane\" references/playbooks/context-resolver-evidence-activation.md references/initiatives/context-resolver-evidence-activation.md",
+    "git diff --check HEAD -- references/playbooks/context-resolver-evidence-activation.md references/initiatives/context-resolver-evidence-activation.md"
+  ],
+  "instructions": "Complete S2 through S5 of references/initiatives/context-resolver-evidence-activation.md as one cohesive documentation-only autopilot slice. Read references/initiatives/context-resolver-evidence-activation.md, references/playbooks/context-resolver-evidence-activation.md, references/playbooks/learning-trigger-policy.md, references/playbooks/self-build-task-spec-lifecycle.md, and references/lessons/reviews/index.json before editing. Expand references/playbooks/context-resolver-evidence-activation.md so it contains explicit operating guidance for Learning Asset Status, Evidence Pack, Applicability Gate, and Feedback Loop. Learning Asset Status must explain how statuses such as promote_candidate, manual_review, needs_more_evidence, and reject_candidate activate review attention without promotion or policy change. Evidence Pack must define minimum evidence packs for common task families while keeping route hints, run evidence, HARNESS_RESULT, deterministic verification, changed-file scope, and lifecycle records in separate authority layers. Applicability Gate must define how to reject stale, superseded, slice-local, unrelated, or non-authoritative evidence without editing policy, doctrine, lessons, templates, source, or tests. Feedback Loop must define where verified route gaps, missing evidence categories, or recurring learning-status issues should land as reviewable documentation updates without hidden memory, automatic promotion, policy rewrite, or worker authority expansion. Update references/initiatives/context-resolver-evidence-activation.md according to its End-of-Session Update Rule: mark S2, S3, S4, and S5 completed, record changed files and verification intent, add accepted decisions from the grouped slice, set Current Next Slice to no-current-next-slice with a closure decision, and make the Completion Rule visibly satisfied. Do not edit references/context-resolver-index.md yet; pointer cleanup can be a separate future task only if needed. Do not edit source code, tests, task specs, task templates, agent profiles, lesson files, run logs, lifecycle records, package files, policy, or platform/runtime surfaces. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: complete context resolver evidence activation",
+  "status": "pending"
+}
