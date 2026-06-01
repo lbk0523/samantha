@@ -31,10 +31,13 @@
   },
   "files": [
     "README.md",
+    "README.ko.md",
     "LICENSE",
     "CONTRIBUTING.md",
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
+    "docs/first-run.md",
+    "docs/assets/samantha-header.png",
     "dist/",
     "examples/first-run-demo/fixture-repo/",
     "references/agent-profiles/codex-worker.json"
