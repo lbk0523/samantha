@@ -1,0 +1,48 @@
+{
+  "id": "context-resolver-evidence-activation-s1-route-map",
+  "title": "Create Context Resolver Evidence Activation Route Map",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/playbooks/context-resolver-evidence-activation.md",
+    "references/initiatives/context-resolver-evidence-activation.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/agent-profiles/**",
+    "references/lessons/**",
+    "references/context-resolver-index.md",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    ".samantha-demo/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "test -f references/playbooks/context-resolver-evidence-activation.md",
+    "rg -n \"Evidence Activation Matrix|Route|Task signal|Activated evidence categories|Learning asset statuses|Required evidence pack|Applicability warning|Stop condition|Post-work feedback target\" references/playbooks/context-resolver-evidence-activation.md",
+    "rg -n \"hidden memory|automatic context loading|background daemon|dashboard|remote/control plane|worker authority expansion\" references/playbooks/context-resolver-evidence-activation.md",
+    "rg -n \"S1: Route Map|Status: completed|S2: Learning Asset Status|Status: ready\" references/initiatives/context-resolver-evidence-activation.md",
+    "git diff --check HEAD -- references/playbooks/context-resolver-evidence-activation.md references/initiatives/context-resolver-evidence-activation.md"
+  ],
+  "instructions": "Implement S1 of references/initiatives/context-resolver-evidence-activation.md as a documentation-only slice. Create references/playbooks/context-resolver-evidence-activation.md as the operating playbook for the Evidence Activation Matrix. The playbook must be larger than a read-first guide and must define a route-level matrix with these columns or clearly equivalent sections: Route, Task signal, Activated evidence categories, Learning asset statuses to inspect, Required evidence pack, Applicability warning, Stop condition, and Post-work feedback target. It must preserve the current manual/reviewable boundary: no resolver code, no automatic context loading, no hidden memory, no platform surfaces, no automatic promotion, no policy rewrite, and no worker authority expansion. It should explain how future S2-S5 slices will refine Learning Asset Status, Evidence Pack, Applicability Gate, and Feedback Loop without implementing those future slices prematurely. Update references/initiatives/context-resolver-evidence-activation.md according to its End-of-Session Update Rule: mark S1 Route Map completed, record changed files and verification intent, add the accepted decision that S1 output is an Evidence Activation Matrix playbook, and set S2 Learning Asset Status as the current ready slice with a copy-paste-ready next prompt. Do not edit references/context-resolver-index.md yet; that pointer cleanup is intentionally later. Do not edit source code, tests, task specs, task templates, agent profiles, lesson files, run logs, lifecycle records, package files, or policy. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: add context resolver evidence activation matrix",
+  "status": "pending"
+}
