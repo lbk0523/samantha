@@ -128,6 +128,12 @@ The initial annotated route table lives in
 `references/context-resolver-index.md`; keep it small and manual unless repeated
 evidence justifies reviewed resolver implementation work.
 
+Route-specific evidence activation guidance lives in
+`references/playbooks/context-resolver-evidence-activation.md`; use it after
+choosing the smallest matching route to check learning asset status, evidence
+packs, applicability, stop conditions, and feedback targets without turning the
+resolver into runtime code.
+
 ## Task Classes / Execution Modes
 
 Samantha should not model cheap work as a weaker safety mode. Cheap work should

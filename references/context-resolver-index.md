@@ -1,6 +1,6 @@
 # Context Resolver Index
 
-Status: initial annotated routing artifact
+Status: active manual routing artifact
 
 Source: `ARCHITECTURE.md` Context Resolver Principle.
 
