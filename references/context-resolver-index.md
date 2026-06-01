@@ -15,6 +15,13 @@ authority and product boundaries; narrower playbooks, templates, run evidence,
 or candidate artifacts should carry the task-specific detail. If the route does
 not match the current task, do not preload it.
 
+After selecting the smallest matching route, use
+`references/playbooks/context-resolver-evidence-activation.md` as the Evidence
+Activation Layer for that route. Check the route's learning asset status,
+required evidence pack, applicability gate, stop condition, and post-work
+feedback target there without duplicating the Evidence Activation Matrix in this
+index.
+
 ## Initial Routes
 
 | Route | Task signal | Read-first artifacts | Why those artifacts matter | When not to read them | Authority limits |
