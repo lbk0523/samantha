@@ -41,6 +41,8 @@ context loading, hidden state, or new worker authority.
 - The initiative may add or update documentation-only artifacts in later
   slices, but it does not authorize source code, tests, policy, task templates,
   agent profiles, run logs, lifecycle records, or runtime behavior changes.
+- S1 output is the Evidence Activation Matrix playbook at
+  `references/playbooks/context-resolver-evidence-activation.md`.
 
 ## Non-Goals
 
@@ -81,7 +83,7 @@ context loading, hidden state, or new worker authority.
 
 ### S1: Route Map
 
-- Status: ready
+- Status: completed
 - Objective: Draft a compact route map that shows how current Context Resolver
   routes map to evidence categories: direction docs, playbooks, task specs, run
   evidence, lesson candidates, review records, and lifecycle records.
@@ -89,6 +91,18 @@ context loading, hidden state, or new worker authority.
 - Verification: Markdown diff check plus explicit confirmation that no resolver
   code, automatic loading, policy, task template, agent profile, run log, or
   lifecycle behavior changed.
+- Changed files:
+  - `references/playbooks/context-resolver-evidence-activation.md`
+  - `references/initiatives/context-resolver-evidence-activation.md`
+- Verification intent:
+  - Confirm the playbook exists.
+  - Confirm the Evidence Activation Matrix includes route-level evidence
+    activation columns.
+  - Confirm manual/reviewable non-goals remain explicit.
+  - Confirm S1 is completed and S2 is the next ready slice.
+  - Run markdown diff whitespace checks for the changed files.
+- Accepted decision: S1 output is an operating playbook named the Evidence
+  Activation Matrix, not an update to `references/context-resolver-index.md`.
 - Next prompt:
 
 ```text
@@ -107,14 +121,28 @@ Stop if the slice would require resolver code, automatic context loading, hidden
 
 ### S2: Learning Asset Status
 
-- Status: pending
+- Status: ready
 - Objective: Define how a future route should display learning asset status
   using existing review classifications such as `promote_candidate`,
   `manual_review`, `needs_more_evidence`, and `reject_candidate`.
 - Dependency: S1 completed.
 - Verification: Markdown diff check plus an example showing that status
   activates review attention without promoting guidance or changing policy.
-- Next prompt: Pending until S1 is completed and verified.
+- Next prompt:
+
+```text
+sam p: context-resolver-evidence-activation S2 Learning Asset Status
+Context:
+Read references/initiatives/context-resolver-evidence-activation.md, references/playbooks/context-resolver-evidence-activation.md, and references/playbooks/learning-trigger-policy.md first.
+Ask:
+Define the smallest documentation-only Learning Asset Status slice for the Evidence Activation Matrix. Show how statuses such as promote_candidate, manual_review, needs_more_evidence, and reject_candidate should activate review attention without promoting guidance or changing policy.
+Scope:
+Docs-only. Do not edit source, tests, policy, task specs, task templates, agent profiles, lessons, run logs, lifecycle records, resolver code, or platform/runtime surfaces. Do not edit references/context-resolver-index.md yet.
+Output:
+Korean report plus exact artifact changes, one status example, and verification evidence.
+Stop:
+Stop if the slice would require automatic promotion, hidden memory, policy rewrite, resolver code, automatic context loading, or worker authority expansion.
+```
 
 ### S3: Evidence Pack
 
@@ -154,7 +182,7 @@ Stop if the slice would require resolver code, automatic context loading, hidden
 
 ## Current Next Slice
 
-S1: Route Map is the current ready slice.
+S2: Learning Asset Status is the current ready slice.
 
 ## End-of-Session Update Rule
 
