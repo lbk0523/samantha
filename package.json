@@ -1,7 +1,6 @@
 {
-  "name": "samantha",
+  "name": "@lbk0523/samantha",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Local harness for verifying agent-produced code before accepting it",
   "license": "MIT",
@@ -24,17 +23,25 @@
   "engines": {
     "bun": ">=1.2.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "samantha": "dist/cli.js"
+  },
   "files": [
     "README.md",
     "LICENSE",
     "CONTRIBUTING.md",
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
-    "src/",
-    "examples/first-run-demo/fixture-repo/"
+    "dist/",
+    "examples/first-run-demo/fixture-repo/",
+    "references/agent-profiles/codex-worker.json"
   ],
   "scripts": {
     "samantha": "bun run src/cli.ts",
+    "build": "rm -rf dist && bun build src/cli.ts --target=bun --packages=external --outfile=dist/cli.js && chmod +x dist/cli.js",
     "typecheck": "bun x tsc --noEmit",
     "test": "bun test"
   },

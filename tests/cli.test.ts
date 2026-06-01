@@ -2814,6 +2814,26 @@ The fixture is complete when readiness is clear.
     );
   });
 
+  test("declares the Bun-first public package runner contract", async () => {
+    const packageJson = JSON.parse(await readFile(join(import.meta.dir, "..", "package.json"), "utf8"));
+
+    expect(packageJson.name).toBe("@lbk0523/samantha");
+    expect("private" in packageJson).toBe(false);
+    expect(packageJson.publishConfig).toEqual({ access: "public" });
+    expect(packageJson.bin).toEqual({ samantha: "dist/cli.js" });
+    expect(packageJson.scripts.build).toContain("bun build src/cli.ts");
+    expect(packageJson.files).toEqual([
+      "README.md",
+      "LICENSE",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      "CODE_OF_CONDUCT.md",
+      "dist/",
+      "examples/first-run-demo/fixture-repo/",
+      "references/agent-profiles/codex-worker.json",
+    ]);
+  });
+
   test("parses run inspection and merge check arguments", () => {
     expect(parseCliArgs(["runs:list", "--runs-dir=runs"])).toEqual({
       command: "runs:list",

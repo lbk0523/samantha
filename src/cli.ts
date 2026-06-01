@@ -1,5 +1,8 @@
+#!/usr/bin/env bun
+import { realpathSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runTaskCommand, type RunTaskCommandInput } from "./commands/run-task";
 import {
   formatFirstRunDemoResult,
@@ -394,6 +397,10 @@ function parsePositiveInteger(value: string | undefined, usage: string): number 
     throw new Error(usage);
   }
   return Number(value);
+}
+
+function packageAssetRootFromEntrypoint(): string {
+  return resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), "..");
 }
 
 export function parseCliArgs(argv: string[]): SamanthaCliArgs {
@@ -1377,7 +1384,10 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   if (args.command === "demo:first-run") {
-    const result = await runFirstRunDemo(args);
+    const result = await runFirstRunDemo({
+      ...args,
+      packageAssetRoot: packageAssetRootFromEntrypoint(),
+    });
     console.log(formatFirstRunDemoResult(result).join("\n"));
     return result.status === "pass" ? 0 : 1;
   }

@@ -20,8 +20,10 @@ export type FirstRunDemoStatus = "pass" | "failed" | "blocked";
 export interface FirstRunDemoPaths {
   demoId: string;
   repoRoot: string;
+  packageAssetRoot: string;
   demoRoot: string;
   fixtureSource: string;
+  agentProfile: string;
   fixtureRepo: string;
   worktreesDir: string;
   runsDir: string;
@@ -31,6 +33,7 @@ export interface FirstRunDemoPaths {
 
 export interface FirstRunDemoInput {
   repoRoot?: string;
+  packageAssetRoot?: string;
   demoRoot?: string;
   demoId?: string;
   runtimeKind?: WorkerRuntimeKind;
@@ -69,17 +72,21 @@ function cleanupCommandFor(input: { repoRoot: string; demoRoot: string; explicit
 
 export function buildFirstRunDemoPaths(input: {
   repoRoot?: string;
+  packageAssetRoot?: string;
   demoRoot?: string;
   demoId?: string;
 } = {}): FirstRunDemoPaths {
   const repoRoot = resolve(input.repoRoot ?? ".");
+  const packageAssetRoot = resolve(input.packageAssetRoot ?? repoRoot);
   const demoId = input.demoId ?? timestampDemoId();
   const demoRoot = resolve(input.demoRoot ?? join(repoRoot, ".samantha-demo", demoId));
   const paths = {
     demoId,
     repoRoot,
+    packageAssetRoot,
     demoRoot,
-    fixtureSource: join(repoRoot, "examples", "first-run-demo", "fixture-repo"),
+    fixtureSource: join(packageAssetRoot, "examples", "first-run-demo", "fixture-repo"),
+    agentProfile: join(packageAssetRoot, "references", "agent-profiles", "codex-worker.json"),
     fixtureRepo: join(demoRoot, "fixture-repo"),
     worktreesDir: join(demoRoot, "worktrees"),
     runsDir: join(demoRoot, "runs"),
@@ -140,8 +147,8 @@ async function runPreflight(input: {
   if (input.runtimeKind !== "codex-sdk" && input.runtimeKind !== "exec-json") {
     throw new Error("runtime must be exec-json or codex-sdk");
   }
-  await assertPathExists(join(input.paths.repoRoot, "src", "cli.ts"), "Samantha CLI entrypoint is missing");
   await assertPathExists(input.paths.fixtureSource, "first-run demo fixture is missing");
+  await assertPathExists(input.paths.agentProfile, "first-run demo agent profile is missing");
   for (const command of [["bun", "--version"], ["git", "--version"]]) {
     const result = await input.runPreflightCommand(command, input.paths.repoRoot);
     if (result.exitCode !== 0) {
@@ -274,6 +281,7 @@ export async function runFirstRunDemo(input: FirstRunDemoInput = {}): Promise<Fi
   try {
     paths = buildFirstRunDemoPaths({
       repoRoot: input.repoRoot,
+      packageAssetRoot: input.packageAssetRoot,
       demoRoot: input.demoRoot,
       demoId: input.demoId,
     });
@@ -311,7 +319,7 @@ export async function runFirstRunDemo(input: FirstRunDemoInput = {}): Promise<Fi
     workerResult = await executeRunTask({
       taskPath: paths.taskPath,
       repoRoot: paths.fixtureRepo,
-      agentPath: join(paths.repoRoot, "references", "agent-profiles", "codex-worker.json"),
+      agentPath: paths.agentProfile,
       worktreesDir: paths.worktreesDir,
       runsDir: paths.runsDir,
       runtimeKind,

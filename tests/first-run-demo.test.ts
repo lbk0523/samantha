@@ -112,6 +112,23 @@ describe("first-run demo", () => {
     }
   });
 
+  test("separates package assets from the user working directory", async () => {
+    const userRoot = await mkdtemp(join(tmpdir(), "samantha-first-run-user-"));
+    tmpRoots.push(userRoot);
+    const packageAssetRoot = await tempRepoRoot();
+    const paths = buildFirstRunDemoPaths({
+      repoRoot: userRoot,
+      packageAssetRoot,
+      demoId: "demo-package-assets",
+    });
+
+    expect(paths.repoRoot).toBe(userRoot);
+    expect(paths.packageAssetRoot).toBe(packageAssetRoot);
+    expect(paths.demoRoot).toBe(join(userRoot, ".samantha-demo", "demo-package-assets"));
+    expect(paths.fixtureSource).toBe(join(packageAssetRoot, "examples", "first-run-demo", "fixture-repo"));
+    expect(paths.agentProfile).toBe(join(packageAssetRoot, "references", "agent-profiles", "codex-worker.json"));
+  });
+
   test("copies the dependency-free fixture and writes an inspectable task", async () => {
     const repoRoot = await tempRepoRoot();
     const result = await runFirstRunDemo({
@@ -144,6 +161,34 @@ describe("first-run demo", () => {
       "grep -Fx \"Samantha first-run demo passed\" demo-output.txt",
     ]);
     expect(task.instructions).toContain("End with exactly one HARNESS_RESULT line.");
+  });
+
+  test("runs from a package runner working directory while reading bundled assets", async () => {
+    const userRoot = await mkdtemp(join(tmpdir(), "samantha-first-run-user-"));
+    tmpRoots.push(userRoot);
+    const packageAssetRoot = await tempRepoRoot();
+    const result = await runFirstRunDemo({
+      repoRoot: userRoot,
+      packageAssetRoot,
+      demoId: "demo-package-runner",
+      executeRunTask: async ({ repoRoot: fixtureRepo, taskPath, worktreesDir, runsDir, agentPath }) => {
+        expect(fixtureRepo).toBe(join(userRoot, ".samantha-demo", "demo-package-runner", "fixture-repo"));
+        expect(taskPath).toBe(join(userRoot, ".samantha-demo", "demo-package-runner", "task.json"));
+        expect(worktreesDir).toBe(join(userRoot, ".samantha-demo", "demo-package-runner", "worktrees"));
+        expect(runsDir).toBe(join(userRoot, ".samantha-demo", "demo-package-runner", "runs"));
+        expect(agentPath).toBe(join(packageAssetRoot, "references", "agent-profiles", "codex-worker.json"));
+        return fakeRunTaskResult({
+          pass: true,
+          worktreePath: join(worktreesDir!, "open-source-first-run-demo"),
+          runLogPath: join(runsDir!, "run-1.json"),
+          commitHash: "b".repeat(40),
+        });
+      },
+    });
+
+    expect(result.status).toBe("pass");
+    await expect(readFile(join(result.paths!.fixtureRepo, "README.md"), "utf8")).resolves.toBe("# Fixture\n");
+    expect(result.paths!.fixtureSource).toBe(join(packageAssetRoot, "examples", "first-run-demo", "fixture-repo"));
   });
 
   test("formats structured failure output with cleanup guidance", async () => {
