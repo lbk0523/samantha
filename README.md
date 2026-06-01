@@ -144,7 +144,6 @@ The first public path is intentionally narrow. It will not:
 - mutate your real repository during `demo:first-run`;
 - require private run history or local dogfood evidence;
 - require `npx`, `npm exec`, or Node-general CLI support;
-- settle license, contribution, security, or code-of-conduct governance;
 - start remote operation, background automation, or connector/control-plane
   entrypoints;
 - provide dashboards, budget governance, writer parallelism, or multi-project
@@ -241,6 +240,8 @@ Public entrypoints:
   contract.
 - `references/operations/open-source-first-run-demo-dogfood.md` records accepted
   dogfood evidence for the first-run demo.
+- `references/operations/open-source-npm-publication-closeout.md` records
+  `@lbk0523/samantha@0.1.0` publication evidence and package-runner dogfood.
 - `references/operations/open-source-artifact-map.md` and
   `references/operations/open-source-public-docs-plan.md` define the current
   public/dogfood documentation boundary.
@@ -259,7 +260,9 @@ Advanced or mixed evidence areas:
 First-run feedback is most useful when it includes evidence:
 
 - OS, shell, Bun version, Git version, and selected worker runtime;
-- exact command, especially `bun run samantha demo:first-run`;
+- primary package command: `bunx @lbk0523/samantha demo:first-run`;
+- clone-based local development command, if used:
+  `bun run samantha demo:first-run`;
 - whether `.samantha-demo/<demo-id>/` was created;
 - stage where the run failed: preflight, fixture setup, dispatch, worker,
   `HARNESS_RESULT`, deterministic verification, candidate commit, or cleanup;
@@ -279,7 +282,6 @@ polished public platform. The current release path is for local developers who
 want to inspect a trust loop around agent work and report where the evidence,
 verification, or operator workflow is confusing.
 
-Package publishing, license/governance files, broader public examples, remote
-operation, background automation, dashboards, connector expansion, budget
-governance, writer parallelism, and multi-project orchestration are not included
-in this first public path.
+Broader public examples, remote operation, background automation, dashboards,
+connector expansion, budget governance, writer parallelism, and multi-project
+orchestration are not included in this first public path.
