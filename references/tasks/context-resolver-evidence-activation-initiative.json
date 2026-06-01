@@ -1,0 +1,47 @@
+{
+  "id": "context-resolver-evidence-activation-initiative",
+  "title": "Create Context Resolver evidence activation initiative brief",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/initiatives/context-resolver-evidence-activation.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/agent-profiles/**",
+    "references/lessons/**",
+    "references/context-resolver-index.md",
+    "references/playbooks/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    ".samantha-demo/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "test -f references/initiatives/context-resolver-evidence-activation.md",
+    "rg -n \"Evidence Activation Layer|Route Map|Learning Asset Status|Evidence Pack|Applicability Gate|Feedback Loop\" references/initiatives/context-resolver-evidence-activation.md",
+    "rg -n \"hidden memory|background daemon|dashboard|remote/control plane|automatic policy rewrite|worker authority expansion\" references/initiatives/context-resolver-evidence-activation.md",
+    "git diff --check HEAD -- references/initiatives/context-resolver-evidence-activation.md"
+  ],
+  "instructions": "Create references/initiatives/context-resolver-evidence-activation.md as an Initiative Continuity Brief for evolving Samantha's Context Resolver from a read-first routing artifact into an Evidence Activation Layer. Read references/context-resolver-index.md, references/playbooks/initiative-continuity-brief.md, references/playbooks/learning-trigger-policy.md, references/playbooks/self-build-task-spec-lifecycle.md, and references/lessons/reviews/index.json before writing. The brief must include Goal, Source, Accepted Decisions, Non-Goals, Invariants, Slice Queue, Current Next Slice, End-of-Session Update Rule, and Completion Rule. The slice queue must cover Route Map, Learning Asset Status, Evidence Pack, Applicability Gate, and Feedback Loop. Keep the scope docs-only and surgical. Do not edit resolver index, playbooks, lessons, source code, tests, task specs, task templates, agent profiles, run logs, lifecycle records, package files, or policy. Do not introduce platform surfaces such as background daemon, dashboard, remote/control plane, hidden memory, automatic transcript mining, automatic policy rewrite, connector platform, budget governance, or worker authority expansion. If the brief would require any of those surfaces, stop and report blocked. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: add context resolver evidence activation brief",
+  "status": "pending"
+}
