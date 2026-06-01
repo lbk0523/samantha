@@ -1,0 +1,47 @@
+{
+  "id": "context-resolver-index-evidence-activation-pointer",
+  "title": "Link Context Resolver Index to Evidence Activation playbook",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "doctrine-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "references/context-resolver-index.md"
+  ],
+  "forbiddenChanges": [
+    "AGENTS.md",
+    "NORTH_STAR.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "WORK-RULES.md",
+    "OPERATING_GUIDE_KR.md",
+    "README.md",
+    "src/**",
+    "tests/**",
+    "references/tasks/**",
+    "references/task-templates/**",
+    "references/agent-profiles/**",
+    "references/lessons/**",
+    "references/playbooks/**",
+    "references/initiatives/**",
+    "references/batch-specs/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    ".samantha-worktrees/**",
+    ".samantha-demo/**",
+    "package.json",
+    "tsconfig.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "rg -n \"context-resolver-evidence-activation|Evidence Activation Matrix|Evidence Activation Layer\" references/context-resolver-index.md",
+    "rg -n \"learning asset status|required evidence pack|applicability gate|stop condition|post-work feedback\" references/context-resolver-index.md",
+    "rg -n \"not resolver code|automatic context loading|hidden memory\" references/context-resolver-index.md",
+    "git diff --check HEAD -- references/context-resolver-index.md"
+  ],
+  "instructions": "Make a surgical docs-only update to references/context-resolver-index.md so that after selecting the smallest matching route, Samantha is directed to use references/playbooks/context-resolver-evidence-activation.md to check learning asset status, required evidence pack, applicability gate, stop condition, and post-work feedback target. Do not duplicate the full Evidence Activation Matrix into the index. Do not redesign the route table. Do not edit references/playbooks/context-resolver-evidence-activation.md, references/initiatives/context-resolver-evidence-activation.md, source code, tests, task specs, task templates, agent profiles, lessons, run logs, lifecycle records, package files, policy, or platform/runtime surfaces. Preserve that this is not resolver code, not automatic context loading, and not hidden memory. End with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "docs: link context resolver evidence activation",
+  "status": "pending"
+}
