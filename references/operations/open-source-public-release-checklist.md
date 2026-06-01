@@ -1,7 +1,7 @@
 # Open Source Public Release Checklist
 
-Date: 2026-05-31
-Status: concrete release checklist
+Date: 2026-06-01
+Status: public repository and npm package closeout checklist
 Source initiative: `references/initiatives/open-source-readiness.md`
 Governance/package brief:
 `references/operations/open-source-governance-package-readiness.md`
@@ -14,6 +14,8 @@ Accepted thread-policy commit: `45197c6c4be3e17f258ac2f8c26522aa494552f7`
 Accepted governance files commit: `17d6349`
 Package final pass:
 `references/operations/open-source-package-readiness-final-pass.md`
+Npm publication closeout:
+`references/operations/open-source-npm-publication-closeout.md`
 
 ## Purpose
 
@@ -22,10 +24,9 @@ It combines accepted S1/S2/S3/S4/S5 evidence, first-run demo readiness, public
 docs readiness, governance/package readiness, dogfood-private boundary checks,
 release blocker checks, and stop conditions.
 
-This document does not release the project, publish a package, modify package
-publication settings, move references, delete runs, or change the
-public/private artifact boundary. The package metadata and package contents
-boundary are now clone-only ready; package publishing remains deferred.
+This document records the public repository and npm package closeout state. It
+does not publish a package, modify package settings, move references, delete
+runs, or change the public/private artifact boundary.
 
 ## Evidence Baseline
 
@@ -38,7 +39,8 @@ Before public release, confirm these accepted slices:
 | S3 README and public docs | `README.md`, `references/operations/open-source-artifact-map.md`, `references/operations/open-source-public-docs-plan.md` | README rewrite accepted at `b059a2485fd17b051beb1b061c40bd64e86c4218`. |
 | S4 demo implementation | `references/operations/open-source-first-run-demo-dogfood.md` and accepted implementation commit `413991128f3f0718c05846d23c018a38c4c33c7f` | Dogfood evidence records `demo:first-run`, `HARNESS_RESULT`, verification, candidate commit, and no real repo merge. |
 | S5 feedback intake | `.github/ISSUE_TEMPLATE/first-run-demo.yml`, `.github/ISSUE_TEMPLATE/workflow-feedback.yml`, `references/operations/open-source-release-note-draft.md` | Feedback intake accepted at `b059a2485fd17b051beb1b061c40bd64e86c4218`. |
-| S6 governance/package final pass | `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `package.json`, `references/operations/open-source-package-readiness-final-pass.md` | Governance files accepted at `17d6349`; package metadata and package contents are clone-only ready; `private: true` remains; `publishConfig`, `bin`, and package publishing remain deferred. |
+| S6 governance/package final pass | `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `package.json`, `references/operations/open-source-package-readiness-final-pass.md` | Governance files accepted at `17d6349`; package metadata and package contents were prepared and verified before publication. |
+| S7 npm publication closeout | `references/operations/open-source-npm-publication-closeout.md` | GitHub repository is public; npm package is public as `@lbk0523/samantha@0.1.0`; Bun-first package-runner dogfood passed with `HARNESS_RESULT: pass` and verification pass. |
 | Thread-policy delta | `references/operations/open-source-thread-policy-delta-audit.md` and accepted thread-policy commit `45197c6c4be3e17f258ac2f8c26522aa494552f7` | Completed delta audit says thread-control artifacts remain advanced dogfood/private surfaces and must not enter the first public path. |
 
 Stop if any accepted evidence is missing, superseded, or contradicted by the
@@ -48,7 +50,9 @@ current repository state.
 
 Release gate:
 
-- `README.md` points new users to `bun run samantha demo:first-run`.
+- `README.md` points new users to `bunx @lbk0523/samantha demo:first-run`.
+- `README.md` preserves the clone-based local development path with `bun run
+  samantha demo:first-run`.
 - The demo uses disposable fixture state under `.samantha-demo/`.
 - The demo does not mutate the user's real repository.
 - The demo produces or reports `HARNESS_RESULT`.
@@ -85,10 +89,10 @@ Release gate:
   first-run setup, or acceptance decisions.
 - Thread-control artifacts, if mentioned at all, are labeled as advanced
   dogfood/private evidence and not as public product features.
-- `README.md` states that package publishing, license/governance files, broader
-  examples, and advanced orchestration are not in the first public path.
-- `README.md` and governance docs keep the first public path clone-only:
-  `bun install --frozen-lockfile` and `bun run samantha demo:first-run`.
+- `README.md` states that `@lbk0523/samantha@0.1.0` is public and supported
+  through the Bun-first package-runner path.
+- `README.md` and governance docs do not claim `npx`, `npm exec`, or
+  Node-general CLI support.
 - Feedback intake asks for environment, command, stage, run log, cleanup,
   `HARNESS_RESULT`, verification evidence, gate friction, and expectations.
 - The release note draft asks for gate-friction feedback rather than broad
@@ -99,8 +103,8 @@ Stop conditions:
 - Public docs expose private run history, personal paths, target-project
   histories, raw lesson review evidence, or generated worktrees as onboarding
   material.
-- Public docs promise npm/package-runner readiness before package metadata,
-  `private: true` removal, `publishConfig`, `bin`, and `files` are handled.
+- Public docs promise `npx`, `npm exec`, or Node-general CLI support before that
+  contract is implemented and verified.
 - Public docs invite first-release scope expansion into remote operation,
   background automation, dashboards, connector/control-plane entrypoints,
   budget governance, writer parallelism, thread API automation, or
@@ -126,10 +130,10 @@ Release gate:
 - Package metadata no longer describes Samantha as only a personal harness.
 - `package.json` records `license: MIT`, repository, bugs, homepage, keywords,
   Bun `engines`, and a conservative `files` array.
-- `private: true` remains because package publication is not part of the
-  clone-only public path.
-- `publishConfig` and `bin` remain absent, so npm/package-runner readiness is
-  not claimed.
+- The npm package is public as `@lbk0523/samantha@0.1.0`.
+- The supported package-runner command is `bunx @lbk0523/samantha
+  demo:first-run`.
+- `npx`, `npm exec`, and Node-general CLI support are not claimed.
 - Package contents exclude dogfood/private evidence unless a specific artifact
   is intentionally public.
 - Package contents exclude `references/thread-control/**` by default; it remains
@@ -137,25 +141,20 @@ Release gate:
   contents.
 - Package contents dry-run evidence is recorded in
   `references/operations/open-source-package-readiness-final-pass.md`.
-- npm/package-runner readiness must be re-verified before `bunx`, `npm exec`,
-  or `npx` is advertised.
+- New package-runner claims must be re-verified before `npm exec`, `npx`, or
+  Node-general CLI support is advertised.
 
-Decision debt that blocks release:
+Decision debt that remains after first public release:
 
-- package name;
-- package publishing target;
-- `private: true` removal timing;
-- package `publishConfig` and `bin` executable contract;
-- package-runner support target;
-- GitHub repository visibility change, if BK chooses to make the repository
-  public.
+- whether to support `npx`, `npm exec`, or Node-general CLI behavior;
+- whether to add broader examples beyond `demo:first-run`;
+- whether to promote any advanced dogfood/private artifacts into public docs.
 
 Stop conditions:
 
-- The release would require package publishing, `private: true` removal,
-  `publishConfig`, or `bin`.
-- The release would require package metadata changes beyond the clone-only
-  metadata and `files` boundary already implemented and verified.
+- The release would require package metadata changes beyond the published
+  package boundary already implemented and verified.
+- The release would require new package-runner support beyond Bun-first `bunx`.
 - The release would require moving, deleting, redacting, or promoting
   dogfood/private artifacts outside an explicit task.
 
@@ -197,12 +196,9 @@ Stop conditions:
 
 Block public release if any item is true:
 
-- package metadata still says "Personal Codex development harness";
-- `private: true` is still present while claiming package publication, or
-  removed before governance/package gates pass;
-- `publishConfig` or `bin` is required for a claimed package-runner path but is
-  absent or unverified;
-- no package contents verification before package publishing;
+- package metadata says "Personal Codex development harness";
+- docs claim `npx`, `npm exec`, or Node-general CLI support without a verified
+  implementation contract;
 - package contents include dogfood/private surfaces such as
   `references/thread-control/**`, `references/tasks/**`, `references/lessons/**`,
   `runs/**`, `worktrees/**`, `.samantha-worktrees/**`, or `.samantha-demo/**`;
@@ -216,9 +212,10 @@ Block public release if any item is true:
 The first public release is ready only when all of these are true:
 
 - S1 through S5 evidence is present and accepted.
-- Governance/package readiness blockers are resolved for clone-only release or
-  explicitly declared deferred for package publication.
-- `demo:first-run` remains the public entrypoint.
+- Governance/package readiness blockers are resolved for the public npm package.
+- `bunx @lbk0523/samantha demo:first-run` is the public package entrypoint.
+- `bun run samantha demo:first-run` remains available for clone-based local
+  development.
 - Public docs make the maturity level clear: active dogfood harness, not a
   polished platform.
 - Feedback templates are available for first-run failures and trust-gate
@@ -226,9 +223,8 @@ The first public release is ready only when all of these are true:
 - Dogfood/private artifacts are excluded from onboarding and package contents.
 - Thread-control artifacts are excluded from public onboarding and package
   contents by default; any later promotion requires a new reviewed slice.
-- Package publishing remains deferred; no package publishing, `bunx`, `npm
-  exec`, or `npx` claims are made while `private: true` remains and
-  `publishConfig`/`bin` are absent.
+- Package publication is complete for `@lbk0523/samantha@0.1.0`; no `npm exec`,
+  `npx`, or Node-general CLI claims are made.
 - No release blocker checks remain true.
 
 If this gate fails, the next action is a scoped follow-up task, not a broad

@@ -8,15 +8,20 @@ agents: define bounded work, run it in isolation, require explicit worker
 evidence, run deterministic verification, and keep the final accept decision
 outside the worker's judgment.
 
-The first public path is intentionally small:
+The first public path is intentionally small and is now available from the
+published Bun-first npm package:
 
 ```bash
-bun run samantha demo:first-run
+bunx @lbk0523/samantha demo:first-run
 ```
 
 That command runs the loop against a disposable fixture repository under
 `.samantha-demo/` so a local developer can inspect the evidence without
 mutating a real project.
+
+Clone-based local development remains supported with `bun run samantha
+demo:first-run`. Samantha does not currently claim `npx`, `npm exec`, or
+Node-general CLI support.
 
 ## What Samantha Is
 
@@ -60,7 +65,13 @@ verification passed, and where the evidence lives.
 
 ## Quickstart: First-Run Demo
 
-Install dependencies, then run:
+Run the published package with Bun:
+
+```bash
+bunx @lbk0523/samantha demo:first-run
+```
+
+Or, from a cloned checkout, install dependencies and run:
 
 ```bash
 bun install --frozen-lockfile
@@ -95,7 +106,7 @@ If you need to select the worker runtime explicitly, the accepted dogfood run
 used:
 
 ```bash
-bun run samantha demo:first-run --runtime=codex-sdk
+bunx @lbk0523/samantha demo:first-run --runtime=codex-sdk
 ```
 
 ## What Success Looks Like
@@ -121,13 +132,18 @@ That report records accepted demo implementation commit
 `413991128f3f0718c05846d23c018a38c4c33c7f` as evidence that the demo path was
 exercised. It is not a setup requirement for users.
 
+The npm publication closeout is recorded at
+[`references/operations/open-source-npm-publication-closeout.md`](references/operations/open-source-npm-publication-closeout.md).
+It records `@lbk0523/samantha@0.1.0` public package evidence and a Bun-first
+package-runner dogfood pass.
+
 ## What Samantha Will Not Do In The First Public Path
 
 The first public path is intentionally narrow. It will not:
 
 - mutate your real repository during `demo:first-run`;
 - require private run history or local dogfood evidence;
-- publish or require package publishing decisions;
+- require `npx`, `npm exec`, or Node-general CLI support;
 - settle license, contribution, security, or code-of-conduct governance;
 - start remote operation, background automation, or connector/control-plane
   entrypoints;
@@ -190,8 +206,11 @@ harness/operator, not by the worker.
 Start here:
 
 ```bash
-bun run samantha demo:first-run
+bunx @lbk0523/samantha demo:first-run
 ```
+
+For clone-based local development, use `bun run samantha demo:first-run` after
+`bun install --frozen-lockfile`.
 
 Advanced command families exist for local harness operation and dogfood use.
 They are authority-sensitive and should be used only when you understand the

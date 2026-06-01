@@ -1,9 +1,9 @@
 # Initiative: Open Source Readiness
 
-Status: completed for clone-only public readiness; package publication deferred
+Status: completed for public repository and Bun-first npm package readiness
 Source: BK and Codex planning discussion on 2026-05-30 about preparing
 Samantha for eventual public release and feedback.
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 ## Goal
 
@@ -73,7 +73,7 @@ without understanding the internal architecture first.
 Target first-run flow:
 
 ```text
-clone or install Samantha
+run the published Bun-first package or clone Samantha
 -> run one setup or demo command
 -> create or use a fixture repository
 -> dispatch one bounded task
@@ -82,13 +82,13 @@ clone or install Samantha
 -> inspect the generated run log/report
 ```
 
-Acceptable first public forms, in order:
+Supported first public forms:
 
-1. `git clone` plus one documented demo command.
-2. Package-based one-command demo, for example through `bunx` or an equivalent
-   local package runner.
-3. Installer scripts or package-manager distribution only after early feedback
-   proves the extra maintenance cost is worth it.
+1. Package-based Bun-first demo through `bunx @lbk0523/samantha demo:first-run`.
+2. `git clone` plus `bun install --frozen-lockfile` and `bun run samantha
+   demo:first-run`.
+
+`npx`, `npm exec`, and Node-general CLI support are not claimed.
 
 The demo must not require editing local personal paths, copying BK-specific
 commands, or using private repository artifacts.
@@ -173,40 +173,46 @@ remove from public release
 | S3 | completed | Rewrite public-facing docs around the trust loop and demo path. | Public artifact map and README-rewrite prerequisite plan in `references/operations/open-source-artifact-map.md` and `references/operations/open-source-public-docs-plan.md`; README rewrite accepted at commit `b059a2485fd17b051beb1b061c40bd64e86c4218`. | `README.md` now leads with `demo:first-run`, the trust loop, public maturity, feedback routing, and dogfood-private boundaries. |
 | S4 | completed | Implement or wire the one-command demo only after S2 is accepted. | `demo:first-run` command and fixture path accepted at commit `413991128f3f0718c05846d23c018a38c4c33c7f`; dogfood evidence in `references/operations/open-source-first-run-demo-dogfood.md`. | Dogfood report records `bun run samantha demo:first-run --runtime=codex-sdk`, `HARNESS_RESULT: pass`, deterministic verification pass, disposable fixture repo, candidate commit, and no merge into a real user repository. |
 | S5 | completed | Prepare feedback intake. | `.github/ISSUE_TEMPLATE/first-run-demo.yml`, `.github/ISSUE_TEMPLATE/workflow-feedback.yml`, and `references/operations/open-source-release-note-draft.md` accepted at commit `b059a2485fd17b051beb1b061c40bd64e86c4218`. | Feedback intake asks for environment, `demo:first-run` command, stage, run log, `HARNESS_RESULT`, verification evidence, cleanup status, gate friction, and expectations. |
-| S6 | completed | Close governance/package readiness for the clone-only public path while deferring package publication. | Governance files accepted at commit `17d6349`; package metadata and package contents hygiene recorded in `references/operations/open-source-package-readiness-final-pass.md`; checklist updated in `references/operations/open-source-public-release-checklist.md` and `references/operations/open-source-governance-package-readiness.md`. | `package.json` has public-facing package metadata, `license: MIT`, Bun engine metadata, and a conservative `files` array; `private: true` remains; no `publishConfig` or `bin` was added; package dry-run verifies package contents exclude dogfood/private surfaces including `references/thread-control/**`; package publishing remains deferred. |
+| S6 | completed | Close governance/package readiness before package publication. | Governance files accepted at commit `17d6349`; package metadata and package contents hygiene recorded in `references/operations/open-source-package-readiness-final-pass.md`; checklist updated in `references/operations/open-source-public-release-checklist.md` and `references/operations/open-source-governance-package-readiness.md`. | `package.json` has public-facing package metadata, `license: MIT`, Bun engine metadata, and a conservative `files` array; package dry-run verified package contents exclude dogfood/private surfaces including `references/thread-control/**`. |
+| S7 | completed | Close npm publication docs after `@lbk0523/samantha@0.1.0` publication and Bun-first package-runner dogfood. | `references/operations/open-source-npm-publication-closeout.md` records operator preflight publication evidence and package-runner dogfood evidence. | GitHub repository is public; npm package is public as `@lbk0523/samantha@0.1.0`; `npm pack` dry-run returned the expected public package contents; `bunx @lbk0523/samantha demo:first-run --runtime=codex-sdk` dogfood passed with `HARNESS_RESULT: pass` and verification pass. |
 
 ## Current Release State
 
-S1 through S6 are complete for the clone-only public release path. The current
-supported public entry remains:
+S1 through S7 are complete for the first public release path. The primary
+supported public entry is:
+
+```bash
+bunx @lbk0523/samantha demo:first-run
+```
+
+Clone-based local development remains supported with:
 
 ```bash
 bun install --frozen-lockfile
 bun run samantha demo:first-run
 ```
 
-Package metadata and package contents are clone-only ready, but package
-publication remains deferred. `private: true` remains in `package.json`, and
-`publishConfig` and `bin` remain intentionally absent. Do not claim npm,
-`bunx`, `npx`, or package-runner readiness until a later task explicitly
-implements and verifies the executable package contract.
+The npm package is public as `@lbk0523/samantha@0.1.0`. The supported
+package-runner posture is Bun-first only. Do not claim `npx`, `npm exec`, or
+Node-general CLI support until a later task explicitly implements and verifies
+that contract.
 
 Recommended next prompt after this slice:
 
 ```text
-sam p: Samantha clone-only 공개 전 최종 공개 전환 여부를 점검해주세요.
-Context: S1-S6는 완료되었습니다. Governance files는 commit 17d6349에서 accepted 되었고, package metadata/package contents final pass는 references/operations/open-source-package-readiness-final-pass.md 입니다. package publishing은 deferred이며 private: true는 유지됩니다.
-Ask: clone-only 공개 전 GitHub repository visibility, release note 사용 여부, public checklist 잔여 stop condition을 최종 점검해주세요.
-Scope: report-only release decision review 입니다. package publishing, private: true 제거, publishConfig/bin 추가, README rewrite, source/test/example 변경, references 이동/삭제는 하지 않습니다.
-Output: 한국어 공개 전환 결정 요약, 남은 blocker, 다음 Samantha task 또는 stop decision.
-Stop: package publishing이나 repository visibility 변경이 필요하면 별도 lifecycle/owner 결정으로 멈추세요.
+sam p: Samantha 공개 패키지 후속 피드백 경로를 점검해주세요.
+Context: S1-S7는 완료되었습니다. GitHub repository는 public이고 npm package는 @lbk0523/samantha@0.1.0 public package입니다. Bun-first package-runner dogfood는 references/operations/open-source-npm-publication-closeout.md에 기록되어 있습니다.
+Ask: 첫 외부 사용자 피드백 수집 경로와 release note 사용 여부를 점검해주세요.
+Scope: report-only release follow-up review 입니다. npx/npm exec/Node-general CLI 지원, source/test/example 변경, package metadata 변경, references 이동/삭제는 하지 않습니다.
+Output: 한국어 후속 운영 요약, 남은 blocker, 다음 Samantha task 또는 stop decision.
+Stop: 새 command surface나 package-runner 지원 확대가 필요하면 별도 task spec으로 멈추세요.
 ```
 
 ## Completion Rule
 
-This initiative is clone-only ready after S1 through S6 complete with evidence.
-Any new public command surface, installer, package publishing, `private: true`
-removal, `publishConfig` or `bin` addition, package-runner claim, artifact
-movement, governance file change, or demo implementation must still go through
-ordinary Samantha task specs, isolated worktrees, `HARNESS_RESULT`,
-deterministic verification, and Samantha-owned commit/report gates.
+This initiative is public-package ready after S1 through S7 complete with
+evidence. Any new public command surface, installer, `npx`/`npm exec` support,
+Node-general CLI support, artifact movement, governance file change, or demo
+implementation must still go through ordinary Samantha task specs, isolated
+worktrees, `HARNESS_RESULT`, deterministic verification, and Samantha-owned
+commit/report gates.

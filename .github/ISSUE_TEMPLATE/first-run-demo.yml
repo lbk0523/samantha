@@ -1,5 +1,5 @@
 name: First-run demo failure
-description: Report a failure or confusing result from bun run samantha demo:first-run.
+description: Report a failure or confusing result from the first-run demo.
 title: "first-run demo: "
 labels: ["first-run", "feedback"]
 body:
@@ -11,8 +11,8 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, shell, Bun version, Git version, and clone/install path.
-      placeholder: "macOS 15, zsh, bun 1.x, git 2.x, cloned under ~/src/samantha"
+      description: OS, shell, Bun version, Git version, and package or clone path.
+      placeholder: "macOS 15, zsh, bun 1.x, git 2.x, bunx package run or clone under ~/src/samantha"
     validations:
       required: true
   - type: input
@@ -20,7 +20,7 @@ body:
     attributes:
       label: Command
       description: Exact first-run command you ran.
-      placeholder: "bun run samantha demo:first-run"
+      placeholder: "bunx @lbk0523/samantha demo:first-run"
     validations:
       required: true
   - type: dropdown

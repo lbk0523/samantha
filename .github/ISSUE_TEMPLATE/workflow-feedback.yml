@@ -11,8 +11,8 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, shell, Bun version, Git version, and repository state.
-      placeholder: "macOS 15, zsh, bun 1.x, git 2.x, clean clone"
+      description: OS, shell, Bun version, Git version, and package or repository state.
+      placeholder: "macOS 15, zsh, bun 1.x, git 2.x, bunx package run or clean clone"
     validations:
       required: true
   - type: input
@@ -20,7 +20,7 @@ body:
     attributes:
       label: Command
       description: Exact command or workflow step that produced the feedback.
-      placeholder: "bun run samantha demo:first-run"
+      placeholder: "bunx @lbk0523/samantha demo:first-run"
     validations:
       required: true
   - type: dropdown
