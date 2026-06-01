@@ -43,6 +43,23 @@ context loading, hidden state, or new worker authority.
   agent profiles, run logs, lifecycle records, or runtime behavior changes.
 - S1 output is the Evidence Activation Matrix playbook at
   `references/playbooks/context-resolver-evidence-activation.md`.
+- S2-S5 are completed as one cohesive documentation-only autopilot slice in the
+  Evidence Activation Matrix playbook; the slice adds operating guidance for
+  Learning Asset Status, Evidence Pack, Applicability Gate, and Feedback Loop.
+- Learning Asset Status activates review attention only. Statuses such as
+  `promote_candidate`, `manual_review`, `needs_more_evidence`, and
+  `reject_candidate` do not promote guidance, rewrite policy, or change
+  doctrine.
+- Evidence Packs must keep route hints, learning status, run evidence,
+  `HARNESS_RESULT`, deterministic verification, changed-file scope, and
+  lifecycle records in separate authority layers.
+- The Applicability Gate may reject stale, superseded, slice-local, unrelated,
+  or non-authoritative evidence without editing policy, doctrine, lessons,
+  templates, source, or tests.
+- Feedback from verified route gaps, missing evidence categories, or recurring
+  learning-status issues must land as explicit reviewable documentation work,
+  not hidden memory, automatic promotion, policy rewrite, or worker authority
+  expansion.
 
 ## Non-Goals
 
@@ -103,7 +120,7 @@ context loading, hidden state, or new worker authority.
   - Run markdown diff whitespace checks for the changed files.
 - Accepted decision: S1 output is an operating playbook named the Evidence
   Activation Matrix, not an update to `references/context-resolver-index.md`.
-- Next prompt:
+- Historical prompt:
 
 ```text
 sam p: context-resolver-evidence-activation S1 Route Map
@@ -121,14 +138,25 @@ Stop if the slice would require resolver code, automatic context loading, hidden
 
 ### S2: Learning Asset Status
 
-- Status: ready
+- Status: completed
 - Objective: Define how a future route should display learning asset status
   using existing review classifications such as `promote_candidate`,
   `manual_review`, `needs_more_evidence`, and `reject_candidate`.
 - Dependency: S1 completed.
 - Verification: Markdown diff check plus an example showing that status
   activates review attention without promoting guidance or changing policy.
-- Next prompt:
+- Changed files:
+  - `references/playbooks/context-resolver-evidence-activation.md`
+  - `references/initiatives/context-resolver-evidence-activation.md`
+- Verification intent:
+  - Confirm the playbook contains a `Learning Asset Status` section.
+  - Confirm the section names `promote_candidate`, `manual_review`,
+    `needs_more_evidence`, and `reject_candidate`.
+  - Confirm the example says status activates review attention without
+    promotion, policy rewrite, doctrine change, or worker authority expansion.
+- Accepted decision: Learning Asset Status is a review-attention signal only;
+  it does not make a candidate promoted guidance or trusted task instruction.
+- Historical prompt:
 
 ```text
 sam p: context-resolver-evidence-activation S2 Learning Asset Status
@@ -146,7 +174,7 @@ Stop if the slice would require automatic promotion, hidden memory, policy rewri
 
 ### S3: Evidence Pack
 
-- Status: pending
+- Status: completed
 - Objective: Define the minimum evidence pack for common task families, such as
   docs-only edits, doctrine-sensitive review, policy changes, failed-run
   recovery, learning promotion, and self-build task spec lifecycle decisions.
@@ -154,11 +182,25 @@ Stop if the slice would require automatic promotion, hidden memory, policy rewri
 - Verification: Markdown diff check plus examples that keep route hints,
   learning status, run evidence, `HARNESS_RESULT`, and lifecycle records in
   separate authority layers.
-- Next prompt: Pending until S2 is completed and verified.
+- Changed files:
+  - `references/playbooks/context-resolver-evidence-activation.md`
+  - `references/initiatives/context-resolver-evidence-activation.md`
+- Verification intent:
+  - Confirm the playbook contains an `Evidence Pack` section.
+  - Confirm common task families include docs-only edits, doctrine-sensitive
+    review, policy changes, failed-run recovery, learning promotion, and
+    self-build task spec lifecycle decisions.
+  - Confirm route hints, learning status, run evidence, `HARNESS_RESULT`,
+    deterministic verification, changed-file scope, and lifecycle records stay
+    separate.
+- Accepted decision: Missing evidence layers must be named as missing instead
+  of substituted with route hints, status, `HARNESS_RESULT`, verification, or
+  lifecycle evidence from another layer.
+- Next prompt: Historical only; completed in the S2-S5 autopilot slice.
 
 ### S4: Applicability Gate
 
-- Status: pending
+- Status: completed
 - Objective: Define the manual Applicability Gate that decides whether activated
   evidence actually applies to the current task, including when stale,
   slice-local, superseded, or unrelated evidence must be ignored.
@@ -166,11 +208,22 @@ Stop if the slice would require automatic promotion, hidden memory, policy rewri
 - Verification: Markdown diff check plus at least one stale-or-unrelated
   evidence example that is rejected without editing policy, doctrine, lessons,
   templates, source, or tests.
-- Next prompt: Pending until S3 is completed and verified.
+- Changed files:
+  - `references/playbooks/context-resolver-evidence-activation.md`
+  - `references/initiatives/context-resolver-evidence-activation.md`
+- Verification intent:
+  - Confirm the playbook contains an `Applicability Gate` section.
+  - Confirm stale, superseded, slice-local, unrelated, and non-authoritative
+    evidence are reject cases.
+  - Confirm rejection does not edit policy, doctrine, lessons, templates,
+    source, or tests.
+- Accepted decision: The Applicability Gate is a manual use/reject decision for
+  activated evidence, not an authorization to rewrite the evidence source.
+- Next prompt: Historical only; completed in the S2-S5 autopilot slice.
 
 ### S5: Feedback Loop
 
-- Status: pending
+- Status: completed
 - Objective: Define the documentation-only Feedback Loop for updating the
   Evidence Activation Layer after a verified slice reveals a useful route,
   missing evidence category, or recurring learning-status issue.
@@ -178,11 +231,31 @@ Stop if the slice would require automatic promotion, hidden memory, policy rewri
 - Verification: Markdown diff check plus a closure checklist proving that any
   proposed update remains explicit, reviewable, manual, and separate from
   automatic learning or trusted-state mutation.
-- Next prompt: Pending until S4 is completed and verified.
+- Changed files:
+  - `references/playbooks/context-resolver-evidence-activation.md`
+  - `references/initiatives/context-resolver-evidence-activation.md`
+- Verification intent:
+  - Confirm the playbook contains a `Feedback Loop` section.
+  - Confirm verified route gaps, missing evidence categories, and recurring
+    learning-status issues land as reviewable documentation updates.
+  - Confirm the closure checklist blocks hidden memory, automatic promotion,
+    policy rewrite, background daemon, dashboard, remote/control plane, and
+    worker authority expansion.
+- Accepted decision: Feedback from this layer becomes a future explicit
+  documentation task or review path; it is not automatic context loading,
+  hidden memory, automatic promotion, policy rewrite, or trusted-state
+  mutation.
+- Next prompt: Historical only; completed in the S2-S5 autopilot slice.
 
 ## Current Next Slice
 
-S2: Learning Asset Status is the current ready slice.
+no-current-next-slice
+
+Closure decision: Route Map, Learning Asset Status, Evidence Pack,
+Applicability Gate, and Feedback Loop are now documented as a coherent manual
+Evidence Activation Layer. Pointer cleanup in
+`references/context-resolver-index.md` remains out of scope and can be a
+separate future task only if needed.
 
 ## End-of-Session Update Rule
 
@@ -207,3 +280,10 @@ Pack, Applicability Gate, and Feedback Loop are documented as a coherent manual
 Evidence Activation Layer, each slice has verification evidence, no platform
 surface or authority expansion has been introduced, and the brief records
 `no-current-next-slice` with the closure decision.
+
+Completion status: satisfied for this documentation-only initiative. S1 through
+S5 are completed, verification intent is recorded for each slice, no source
+code, tests, task specs, task templates, agent profiles, lessons, run logs,
+lifecycle records, package files, policy, platform surface, or authority
+expansion was introduced, and the Current Next Slice is
+`no-current-next-slice` with a closure decision.

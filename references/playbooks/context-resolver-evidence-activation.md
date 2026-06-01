@@ -62,10 +62,144 @@ review or promotion path.
 | Batch planning | Multiple writer tasks, dependencies, write-set separation, serial-only files, integration order, stale-base behavior, or BatchSpec lifecycle. | BatchSpecs, parallelism boundary, dependency graph, write-set map, stale-base evidence, integration and cleanup records. | Inspect learning assets only for repeated batch failures or accepted batch lessons. Queue status cannot raise writer concurrency. | BatchSpec, dependency and write-set proof, serial-only file list, dispatch order, verification plan, partial-failure handling, and lifecycle evidence. | Parallel execution is separate from parallel trust. Writer concurrency does not increase by changing a value alone. | Stop if the task asks workers to coordinate, spawn agents, merge, rebase, clean up, mutate BatchSpecs, or raise concurrency without reviewed design. | `references/batch-specs/**` or a separate batch initiative, never worker-owned orchestration state. |
 | Docs-only writer task | Target files are markdown only; executable code, tests, templates, profiles, run logs, package metadata, and runtime surfaces are out of scope. | Exact target markdown files, source principle or playbook, markdown diff check, declared target/forbidden scope. | Inspect promoted docs guidance only when it directly governs the target edit. Candidate statuses should not broaden target files. | Markdown diff, changed-file scope limited to target files, requested grep checks, `git diff --check`, and `HARNESS_RESULT` for worker output. | Docs-only authority does not allow resolver code, tests, task specs, run logs, lifecycle records, hidden memory, or platform surfaces. | Stop when the requested edit requires code, policy, templates, profiles, lessons, lifecycle mutation, or files outside declared target scope. | The edited markdown artifact; initiative brief update when the docs-only task is an initiative slice. |
 
+## Learning Asset Status
+
+Learning Asset Status is a review-attention signal, not promotion, policy, or
+doctrine. When a route activates lesson evidence, inspect the queue action,
+classification, candidate path, review path, task family, recurrence evidence,
+and reason before deciding whether the status applies.
+
+Use these statuses this way:
+
+- `promote_candidate`: review attention is high because the queue believes the
+  candidate may be ready for manual promotion. Treat it as a prompt to inspect
+  the candidate, review record, source run evidence, target artifact rationale,
+  and explicit promotion path. Do not treat it as promoted guidance.
+- `manual_review`: a human or Samantha review decision is needed before the
+  candidate can affect durable guidance. Treat it as an open review item, not as
+  task instruction.
+- `needs_more_evidence`: the candidate does not yet have enough recurrence,
+  verification, or source evidence for promotion. Treat it as a reason to avoid
+  generalizing the lesson until more evidence exists.
+- `reject_candidate`: the candidate should not be promoted as guidance. Treat
+  it as negative review evidence, especially when the reason says the evidence
+  was superseded, unrelated, or not a promotion artifact.
+
+Some review records may use adjacent words such as `promotion_candidate` in a
+classification field while the queue action is `promote_candidate`. Preserve the
+source wording when citing evidence, and use the action or classification only
+as review context.
+
+Example: a `promote_candidate` about worker trust hardening may make a doctrine
+route inspect the candidate and review record before changing authority text. It
+does not authorize a doctrine edit, policy rewrite, automatic promotion, or
+worker authority expansion by itself.
+
+## Evidence Pack
+
+An Evidence Pack is the minimum proof bundle needed before claiming a planning,
+review, recovery, or execution result. Keep the authority layers separate:
+
+- route hints say where to look and what family the task resembles;
+- learning status says what review attention is active;
+- run evidence says what happened during a worker or report-only run;
+- `HARNESS_RESULT` is worker-reported status and remains advisory until
+  Samantha verifies it;
+- deterministic verification proves requested commands or checks ran;
+- changed-file scope proves the diff stayed inside the declared target files;
+- lifecycle records prove Samantha-owned dispatch, accept, cleanup, commit, or
+  report transitions.
+
+Minimum packs by common task family:
+
+| Task family | Minimum evidence pack |
+| --- | --- |
+| Docs-only edits | Declared target and forbidden scope, exact markdown diff, changed-file scope limited to target files, requested grep checks, `git diff --check`, and one `HARNESS_RESULT` line from the worker when run under the harness. |
+| Doctrine-sensitive review | Affected doctrine or authority artifact, accepted decision or source evidence being reviewed, report-only review evidence when authority moves, changed-file scope, markdown verification, and an explicit statement that no code, policy, lifecycle, or runtime behavior changed. |
+| Policy changes | Policy artifact or code under review, focused accept/reject tests, deterministic verification output, changed-file scope, rationale for the trust boundary, run evidence, `HARNESS_RESULT`, and Samantha lifecycle/report evidence after acceptance. |
+| Failed-run recovery | Original task spec or run input, failed run log, exact failed command or scope evidence, failure class, original target and forbidden scope, recovery rationale, changed-file scope for any recovery edit, rerun or stop evidence, and lifecycle trajectory. |
+| Learning promotion | Candidate path, review record, source run or correction evidence, status reason, proposed target artifact, explicit review or promotion command when applicable, verification for any promoted artifact change, and changed-file scope. |
+| Self-build task spec lifecycle decisions | Persistent or ephemeral task spec path evidence, pre-dispatch committed-spec or out-of-repo-spec proof, clean worker base evidence, run log, `HARNESS_RESULT`, deterministic verification output, changed-file scope, and Samantha-owned lifecycle state. |
+
+If one layer is missing, name the missing layer instead of filling the gap with
+another layer. For example, a route hint plus `HARNESS_RESULT` does not replace
+deterministic verification, and deterministic verification does not replace
+lifecycle acceptance evidence.
+
+## Applicability Gate
+
+The Applicability Gate is a manual decision made after evidence is activated
+and before it is used. Its question is:
+
+```text
+Does this evidence still apply to this exact task, route, scope, authority
+layer, and time?
+```
+
+Reject activated evidence without editing policy, doctrine, lessons, templates,
+source, or tests when any of these conditions apply:
+
+- stale evidence: a newer accepted decision, verified run, promoted artifact, or
+  lifecycle record supersedes the older evidence;
+- superseded evidence: the review reason, run trajectory, or later accepted
+  slice says the candidate or run should not guide future work;
+- slice-local evidence: a non-goal, stop rule, or tradeoff was accepted only for
+  one initiative slice and was not promoted to a broader artifact;
+- unrelated evidence: the task family, target files, product boundary, or
+  authority layer does not match the current task;
+- non-authoritative evidence: route hints, thread summaries, report-only prose,
+  failed worker output, or queue status are being used as trusted completion
+  evidence.
+
+Example: an older slice-local warning against a `dashboard` or `remote/control
+plane` does not automatically decide a future platform proposal. It may be
+rejected as stale or slice-local for that proposal, while still preserving the
+current stop rule against adding a background daemon, dashboard,
+remote/control plane, connector, or operator UI in a docs-only route.
+
+When the gate rejects evidence, record the rejection in the current report or
+planning artifact if it matters. Do not rewrite the original evidence unless a
+separate authorized review task names that artifact as target scope.
+
+## Feedback Loop
+
+The Feedback Loop preserves verified improvements to this layer as explicit,
+reviewable documentation work. It is not hidden memory, automatic context
+loading, automatic promotion, automatic policy rewrite, or worker authority
+expansion.
+
+Use the smallest reviewable target:
+
+- verified route gaps or ambiguous route boundaries should land in a future
+  update to `references/context-resolver-index.md` or this playbook, only when
+  the task explicitly names that file;
+- missing evidence categories should land in this playbook or the affected
+  initiative brief as a proposed documentation update;
+- recurring learning-status issues should land in the lesson review flow,
+  review record, or a promoted artifact only through the explicit review and
+  promotion path;
+- task spec lifecycle gaps should land in
+  `references/playbooks/self-build-task-spec-lifecycle.md` or a future
+  lifecycle initiative;
+- policy or authority gaps should start as report-only review evidence before
+  any policy code, doctrine, template, profile, source, or test change.
+
+The closure checklist for any feedback update is:
+
+- the source evidence is named and reviewable;
+- deterministic verification or the reason verification is unavailable is
+  recorded;
+- the proposed target artifact is the smallest one that can carry the lesson;
+- no hidden memory, automatic promotion, policy rewrite, background daemon,
+  dashboard, remote/control plane, or worker authority expansion is introduced;
+- changed-file scope stays inside the declared target files;
+- unresolved feedback becomes a future task, not a silent mutation of trusted
+  state.
+
 ## Future Slice Boundaries
 
-Future slices may refine this playbook, but only inside their own declared
-target scope:
+This playbook now contains the S2-S5 operating guidance. Future slices may
+refine it, but only inside their own declared target scope:
 
 - S2 Learning Asset Status may define the display and meaning of statuses such
   as `promote_candidate`, `manual_review`, `needs_more_evidence`, and
