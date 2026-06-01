@@ -8,8 +8,8 @@ agents: define bounded work, run it in isolation, require explicit worker
 evidence, run deterministic verification, and keep the final accept decision
 outside the worker's judgment.
 
-The first public path is intentionally small and is now available from the
-published Bun-first npm package:
+The first public path is intentionally small and is available from the
+published Bun-first npm package. The fastest no-install way to try it is:
 
 ```bash
 bunx @lbk0523/samantha demo:first-run
@@ -19,9 +19,10 @@ That command runs the loop against a disposable fixture repository under
 `.samantha-demo/` so a local developer can inspect the evidence without
 mutating a real project.
 
-Clone-based local development remains supported with `bun run samantha
-demo:first-run`. Samantha does not currently claim `npx`, `npm exec`, or
-Node-general CLI support.
+If you prefer an installed CLI, use `npm install -g @lbk0523/samantha` and then
+run `samantha demo:first-run`. Clone-based local development remains supported
+with `bun install --frozen-lockfile` followed by `bun run samantha
+demo:first-run`. Samantha does not currently claim `npx`, `npm exec`, or Node-general CLI support.
 
 ## What Samantha Is
 
@@ -65,13 +66,21 @@ verification passed, and where the evidence lives.
 
 ## Quickstart: First-Run Demo
 
-Run the published package with Bun:
+For the fastest no-install quick try, run the published package with Bun:
 
 ```bash
 bunx @lbk0523/samantha demo:first-run
 ```
 
-Or, from a cloned checkout, install dependencies and run:
+For an installed CLI path, install the npm package globally and run the command:
+
+```bash
+npm install -g @lbk0523/samantha
+samantha demo:first-run
+```
+
+For clone-based local development, install dependencies from a cloned checkout
+and run:
 
 ```bash
 bun install --frozen-lockfile
@@ -202,10 +211,17 @@ harness/operator, not by the worker.
 
 ## Current Command Surface
 
-Start here:
+Start with the fastest no-install quick try:
 
 ```bash
 bunx @lbk0523/samantha demo:first-run
+```
+
+For an installed CLI path:
+
+```bash
+npm install -g @lbk0523/samantha
+samantha demo:first-run
 ```
 
 For clone-based local development, use `bun run samantha demo:first-run` after
@@ -260,9 +276,11 @@ Advanced or mixed evidence areas:
 First-run feedback is most useful when it includes evidence:
 
 - OS, shell, Bun version, Git version, and selected worker runtime;
-- primary package command: `bunx @lbk0523/samantha demo:first-run`;
+- no-install quick try command: `bunx @lbk0523/samantha demo:first-run`;
+- installed CLI commands, if used:
+  `npm install -g @lbk0523/samantha` then `samantha demo:first-run`;
 - clone-based local development command, if used:
-  `bun run samantha demo:first-run`;
+  `bun install --frozen-lockfile` then `bun run samantha demo:first-run`;
 - whether `.samantha-demo/<demo-id>/` was created;
 - stage where the run failed: preflight, fixture setup, dispatch, worker,
   `HARNESS_RESULT`, deterministic verification, candidate commit, or cleanup;
