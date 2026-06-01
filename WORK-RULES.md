@@ -37,6 +37,23 @@ For multi-step work, state a short plan:
 Prefer tests or deterministic checks that prove the changed surface. Weak goals
 such as "make it work" need clarification or a tighter local interpretation.
 
+## Context Resolver Evidence Activation
+
+Before planning, recommending, or executing Samantha work, classify the request
+against `references/context-resolver-index.md` and choose the smallest matching
+route. Do not preload broad doctrine, playbooks, or historical artifacts when a
+narrower route fits.
+
+After choosing the route, use
+`references/playbooks/context-resolver-evidence-activation.md` to identify the
+route's learning asset status, required evidence pack, applicability gate, stop
+condition, and post-work feedback target.
+
+This is a manual working rule, not runtime resolver code, automatic context
+loading, hidden memory, or a trust gate. If the required evidence is missing,
+stale, or outside the current task scope, state the gap and either stop, narrow
+the task, or route the follow-up through the appropriate Samantha command.
+
 ## Skill / Code Boundary
 
 Before adding a new Samantha behavior, decide whether it belongs in a
