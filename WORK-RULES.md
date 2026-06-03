@@ -54,6 +54,33 @@ loading, hidden memory, or a trust gate. If the required evidence is missing,
 stale, or outside the current task scope, state the gap and either stop, narrow
 the task, or route the follow-up through the appropriate Samantha command.
 
+## Skillpack Activation
+
+After choosing the smallest context route, load the smallest matching
+skillpack under `references/skillpacks/` when the task hits a repeated Samantha
+judgment bottleneck. Do not preload all skillpacks.
+
+Use the packs in pipeline order when more than one applies:
+
+```text
+context-route-selection
+-> task-spec-normalization
+-> verification-strategy
+-> run-evidence-diagnosis
+-> report-next-action
+```
+
+Skillpacks are advisory capability artifacts. They may guide routing,
+decomposition, verification planning, evidence diagnosis, reporting, and
+next-action recommendation. They must not make worker output trusted, replace
+deterministic checks, accept runs, dispatch workers, merge, clean up, push,
+mutate lifecycle state, rewrite policy, promote lessons, create hidden memory,
+or implement runtime resolver behavior.
+
+If a skillpack repeatedly needs deterministic enforcement, template changes,
+hook behavior, resolver code, policy changes, or global skill promotion, stop
+and route that as a separate reviewed task with focused tests.
+
 ## Skill / Code Boundary
 
 Before adding a new Samantha behavior, decide whether it belongs in a

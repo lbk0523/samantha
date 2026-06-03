@@ -78,6 +78,12 @@ decomposition, diagnosis, synthesis, or next-action recommendation, but it
 cannot make worker output trusted, bypass worktree isolation, accept a run,
 merge, clean up, push, or rewrite policy.
 
+The first Samantha skillpack manifests live under `references/skillpacks/`.
+They group repeated Samantha judgment work into advisory capability units with
+triggers, procedures, output contracts, evaluation checks, and authority limits.
+They are not global Codex skills, runtime resolver code, policy gates, hidden
+memory, or automatic promotion mechanisms.
+
 Samantha v1 evaluates adjacent patterns as separate product slices, not
 inherited scope and not automatic rejections. Each slice needs reviewed
 authority, verification, lifecycle, and evidence boundaries before it can
