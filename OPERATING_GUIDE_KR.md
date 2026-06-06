@@ -1,6 +1,6 @@
 # Samantha 운영 가이드
 
-마지막 업데이트: 2026-05-31
+마지막 업데이트: 2026-06-07
 
 ## 목적
 
@@ -45,6 +45,27 @@ sam <alias>: <자연어 요청>
 
 `sam:`처럼 intent가 없는 기본 호출은 없다. 공식 intent와 alias는 위 표의 값만
 사용한다.
+
+## Codex 정책 기반 호출
+
+Samantha의 기본 activation은 BK가 명시적으로 `Samantha <intent>:` 또는
+`sam <alias>:`를 쓰는 방식이다. 다만 workspace `AGENTS.md`, target repo
+`AGENTS.md`, 또는 reviewed startup policy가 어떤 요청을 Samantha-required로
+분류했다면, Codex는 BK를 대신하는 operator proxy로 Samantha를 시작할 수 있다.
+
+정책 기반 호출은 사용자 편의용 sticky session이 아니다. 다른 thread, 다른 project,
+repo 전역 기본값, 백그라운드 동작, 예약 자동화, 메시징 통합으로 확장되지 않는다.
+또한 Codex Desktop이 직접 구현해도 된다는 뜻이 아니다. Codex는 scope를 정규화하고
+task spec 또는 task-spec 결정을 남기고, 기존 Samantha lifecycle gate를 통해
+실행해야 한다.
+
+정책 기반 호출에서 신뢰 가능한 완료 증거는 여전히 Samantha run evidence다. 최종
+보고에는 target repo, harness repo, task spec 또는 task-spec decision, changed-file
+scope, `HARNESS_RESULT`, deterministic verification, candidate commit/report status,
+누락된 lifecycle gate가 포함되어야 한다. Codex Goal mode, subagent, manual thread
+control, worker prose는 advisory evidence일 뿐이며 Samantha run evidence를 대체하지
+않는다. 세부 절차는
+`references/playbooks/codex-initiated-samantha-invocation.md`를 따른다.
 
 ## Sticky Samantha Session
 
@@ -107,10 +128,13 @@ follow-up이 결정 수락인지 실행 승인인지 애매하면 Samantha는 �
 멈춘 뒤 다음 prompt를 추천해야 한다.
 
 전역 skill이 활성화된 세션에서는 현재 Codex 작업 디렉토리를 target repo로 보고,
-Samantha harness repo는 항상 `/Users/byung/Documents/samantha`로 고정한다. 터미널
-편의를 위한 얇은 `samantha` wrapper가 있을 수 있지만, wrapper는 CLI 실행만
-돕는다. Codex Chat activation은 여전히 전역 skill과 명시적인
-`Samantha <intent>:` intent, `sam <alias>:` alias, 또는 활성화된 thread-local sticky follow-up이 담당한다.
+현재 workspace의 Samantha harness repo는
+`/Users/byung/agent-workspace/repos/samantha`로 본다. 다른 checkout을 쓰는 경우에는
+사용자 또는 reviewed config가 harness repo를 명시해야 한다. 터미널 편의를 위한 얇은
+`samantha` wrapper가 있을 수 있지만, wrapper는 CLI 실행만 돕는다. Codex Chat
+activation은 여전히 전역 skill과 명시적인 `Samantha <intent>:` intent,
+`sam <alias>:` alias, 활성화된 thread-local sticky follow-up, 또는 위의 정책 기반
+호출 규칙이 담당한다.
 
 ## 권한 경계
 

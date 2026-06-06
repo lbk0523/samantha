@@ -1,5 +1,13 @@
 # Samantha Harness Rules
 
+## Workspace Policy Inheritance
+
+This repo lives under `/Users/byung/agent-workspace` and inherits the workspace
+startup contract at `/Users/byung/agent-workspace/AGENTS.md`.
+
+The workspace policy never weakens Samantha-specific gates in this file. If the
+rules conflict, follow the stricter Samantha authority boundary.
+
 ## Product Boundary
 
 Samantha is a CEO-style local development harness for BK's Codex software work.
@@ -29,13 +37,37 @@ minimal user goal
 -> Samantha-owned commit/report
 ```
 
+## Codex-Initiated Samantha Invocation
+
+Samantha is normally activated by BK through explicit `Samantha <intent>:` or
+`sam <alias>:` language. Codex may also enter Samantha as an operator proxy when
+a workspace `AGENTS.md`, repo `AGENTS.md`, or other reviewed startup policy has
+already classified the user's request as Samantha-required.
+
+Policy-triggered invocation is not a sticky Samantha session, background
+operation, project-global default, or permission for Codex Desktop to implement
+directly. It is only an entrypoint into the same Samantha-owned lifecycle:
+task spec, isolated worktree, worker run, `HARNESS_RESULT`, deterministic
+verification, and Samantha-owned commit/report.
+
+When Codex invokes Samantha on BK's behalf, it must report the target repo,
+harness repo, task spec or task-spec decision, run evidence, changed-file scope,
+verification results, and any missing gate. Codex Goal mode, subagents, manual
+thread control, or worker prose remain advisory surfaces and do not satisfy
+Samantha evidence requirements.
+
+Use `references/playbooks/codex-initiated-samantha-invocation.md` for the
+preflight, dispatch, and reporting checklist.
+
 ## Self-Build Implementation Gate
 
 Inside the Samantha repo, Codex Desktop must not directly edit implementation
-files for Samantha self-build writer work when either condition applies:
+files for Samantha self-build writer work when any condition applies:
 
 - the request is invoked through `Samantha command:` or `sam c:`
 - a sticky follow-up is classified as decision-complete implementation work
+- workspace policy, repo policy, or the Samantha gate classifies the request as
+  Samantha-required decision-complete writer implementation
 
 Such work must be represented as a task spec, isolated worktree, SDK-backed
 Samantha worker run using `--runtime=codex-sdk`, `HARNESS_RESULT`,

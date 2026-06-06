@@ -197,7 +197,8 @@ metadata for the same repo.
 
 ## Self-Build SDK Authority Gate
 
-When `Samantha command:` or `sam c:` is activated in the Samantha repo and the
+When `Samantha command:` or `sam c:` is activated in the Samantha repo, or when
+workspace/repo policy classifies the request as Samantha-required, and the
 request is decision-complete writer implementation, Codex Desktop must not
 directly edit implementation files. Codex Desktop may clarify scope, classify
 the request, draft the task spec, or report the required next gate, but trusted
@@ -223,6 +224,23 @@ BK explicitly asks for implementation and the request is decision-complete. This
 gate does not add background operation, App Server authority, automatic worker
 dispatch, lifecycle authority changes, hidden memory, automatic promotion, or
 playbook/policy/template promotion.
+
+Policy-triggered invocation is a narrow operator-proxy route. If Codex starts
+Samantha because the workspace Samantha Gate requires it, Codex is only
+normalizing and dispatching through Samantha on BK's behalf. The route does not
+activate Sticky Samantha Session, does not make Samantha the project-global
+default, and does not turn Codex Goal mode, subagents, background threads, or
+worker summaries into trusted evidence.
+
+Before policy-triggered dispatch, Codex must name the target repo, harness repo,
+task-spec source or task-spec decision, target files, forbidden changes,
+verification commands, and stop conditions. After the run, report run evidence,
+`HARNESS_RESULT`, changed-file scope, verification output, candidate commit or
+report status, and any missing lifecycle gate.
+
+Use `references/playbooks/codex-initiated-samantha-invocation.md` for the
+operator-proxy checklist. The playbook is procedural guidance; it does not
+replace deterministic policy, verification, scope, lifecycle, or accept gates.
 
 ## Self-Build Task Spec Lifecycle
 
