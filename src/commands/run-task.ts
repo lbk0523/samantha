@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { AgentProfile, TaskSpec } from "../core/contracts";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "../core/ledger";
+import { appendRunEvent } from "../core/run-events";
 import { buildWorkerRunId, writeWorkerRunLog, type WorkerRunLogWrite } from "../core/run-log";
 import { executeWorkerDispatch, type WorkerDispatchExecution } from "../core/worker-dispatch";
 import { workerRuntimeAdapterForKind } from "../core/worker-runtime-adapter";
@@ -80,6 +81,9 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
       codexBin: input.codexBin,
       runtimeKind,
       hookRunId: runId,
+      onWorkerTurnCompleted: async (event) => {
+        await appendRunEvent({ runsDir, event });
+      },
     });
   } catch (err) {
     if (!isDispatchBlock(err)) throw err;
@@ -110,6 +114,20 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
     logPath: runLog.path,
   });
   await new RunIndex(join(runsDir, "index.jsonl")).append(runSummary);
+  await appendRunEvent({
+    runsDir,
+    event: {
+      eventType: "worker_run_log_written",
+      runId: runLog.runId,
+      taskId: task.id,
+      runLogPath: runLog.path,
+      pass: execution.pass,
+      outcome: runSummary.outcome,
+      ...(execution.evaluation?.harness
+        ? { harnessResultStatus: execution.evaluation.harness.status }
+        : {}),
+    },
+  });
 
   return { execution, runLog, runSummary };
 }

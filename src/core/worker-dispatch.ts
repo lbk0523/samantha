@@ -36,6 +36,7 @@ import {
   evaluateWorkerResult,
   type WorkerResultEvaluation,
 } from "./worker-result";
+import type { RunEventInput } from "./run-events";
 import { allocateWorktree } from "./worktree";
 
 export { runCommand, type CommandRunResult } from "./command-runner";
@@ -53,6 +54,7 @@ export interface PrepareWorkerDispatchInput {
   runtimeKind?: WorkerRuntimeKind;
   runtimeAdapter?: WorkerRuntimeAdapter;
   hookRunId?: string;
+  onWorkerTurnCompleted?: (event: RunEventInput) => Promise<void> | void;
 }
 
 export interface WorkerDispatchPreparation {
@@ -450,7 +452,7 @@ export async function executeWorkerDispatch(
     : undefined;
   const commitPassed = !commit || (commit.add.exitCode === 0 && commit.commit.exitCode === 0);
 
-  return {
+  const execution: WorkerDispatchExecution = {
     preparation,
     setupResults,
     command,
@@ -460,4 +462,18 @@ export async function executeWorkerDispatch(
     ...(hookGate.hookEvidence ? { hookEvidence: hookGate.hookEvidence } : {}),
     pass: command.exitCode === 0 && evaluation.pass && commitPassed,
   };
+
+  await input.onWorkerTurnCompleted?.({
+    eventType: "worker_turn_completed",
+    runId: input.hookRunId ?? `worker-dispatch:${input.task.id}`,
+    taskId: input.task.id,
+    worktreePath: preparation.worktreePath,
+    workerExitCode: command.exitCode,
+    pass: execution.pass,
+    runtimeKind: runtimeExecution.runtime.kind,
+    ...(runtimeExecution.runtime.threadId ? { threadId: runtimeExecution.runtime.threadId } : {}),
+    ...(evaluation.harness ? { harnessResultStatus: evaluation.harness.status } : {}),
+  });
+
+  return execution;
 }

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
+import { readRunEvents, type RunEventInput } from "../src/core/run-events";
 import {
   HOOK_DEFINITION_DIR,
   HOOK_POLICY_PATH,
@@ -366,6 +367,44 @@ describe("worker dispatch", () => {
     );
   });
 
+  test("emits worker_turn_completed after the worker runtime returns", async () => {
+    const repo = await makeRepo();
+    const events: RunEventInput[] = [];
+    const fakeCodex = await makeFakeCodex([
+      'while [ "$1" != "--cd" ]; do shift; done',
+      "shift",
+      'cd "$1"',
+      "echo changed > README.md",
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"changed readme","commit":""}'`,
+    ]);
+
+    const result = await executeWorkerDispatch({
+      task,
+      agent,
+      repoRoot: repo,
+      worktreesDir: "worktrees",
+      codexBin: fakeCodex,
+      hookRunId: "run-worker-turn",
+      onWorkerTurnCompleted: (event) => {
+        events.push(event);
+      },
+    });
+
+    expect(result.pass).toBe(true);
+    expect(events).toEqual([
+      {
+        eventType: "worker_turn_completed",
+        runId: "run-worker-turn",
+        taskId: task.id,
+        worktreePath: result.preparation.worktreePath,
+        workerExitCode: 0,
+        pass: true,
+        runtimeKind: "exec-json",
+        harnessResultStatus: "pass",
+      },
+    ]);
+  });
+
   test("fails writer pass results that produce no changed files", async () => {
     const repo = await makeRepo();
     const fakeCodex = await makeFakeCodex([
@@ -703,6 +742,7 @@ describe("worker dispatch", () => {
 
   test("stops before Codex when setup fails", async () => {
     const repo = await makeRepo();
+    const events: RunEventInput[] = [];
     const fakeCodex = await makeFakeCodex(["echo should-not-run"]);
 
     const result = await executeWorkerDispatch({
@@ -711,6 +751,9 @@ describe("worker dispatch", () => {
       repoRoot: repo,
       worktreesDir: "worktrees",
       codexBin: fakeCodex,
+      onWorkerTurnCompleted: (event) => {
+        events.push(event);
+      },
     });
 
     expect(result.pass).toBe(false);
@@ -719,6 +762,7 @@ describe("worker dispatch", () => {
     expect(result.command).toBeUndefined();
     expect(result.evaluation).toBeUndefined();
     expect(result.commit).toBeUndefined();
+    expect(events).toEqual([]);
   });
 
   test("does not commit failed verification and still writes a failed run log", async () => {
@@ -767,6 +811,22 @@ describe("worker dispatch", () => {
     expect(await gitHead(result.execution.preparation.worktreePath)).toBe(
       result.execution.preparation.allocation!.baseCommit,
     );
+    expect(await readFile(join(repo, "runs", "index.jsonl"), "utf8")).toContain(result.runLog.runId);
+    const runEvents = await readRunEvents({ runsDir: join(repo, "runs") });
+    expect(runEvents.malformedLines).toEqual([]);
+    expect(runEvents.events.map((event) => event.eventType)).toEqual([
+      "worker_turn_completed",
+      "worker_run_log_written",
+    ]);
+    expect(runEvents.events.find((event) => event.eventType === "worker_run_log_written")).toMatchObject({
+      eventType: "worker_run_log_written",
+      runId: result.runLog.runId,
+      taskId: task.id,
+      runLogPath: result.runLog.path,
+      pass: false,
+      outcome: "verify_failed",
+      harnessResultStatus: "pass",
+    });
   });
 
   test("runs worker.pre_dispatch allow hooks before setup and records top-level run-log evidence", async () => {

@@ -28,6 +28,12 @@ import {
   recordMergeChecked,
 } from "./core/post-run-trajectory";
 import {
+  readRunEvents,
+  waitForRunEvent,
+  type RunEventFilter,
+  type RunEventType,
+} from "./core/run-events";
+import {
   lifecycleBaseFromRunLog,
   RunLifecycleStore,
   type RunLifecycleEvent,
@@ -134,6 +140,25 @@ export interface RunsShowCliArgs {
   command: "runs:show";
   runId: string;
   runsDir?: string;
+}
+
+export interface RunsEventsCliArgs {
+  command: "runs:events";
+  runsDir?: string;
+  eventType?: RunEventType;
+  runId?: string;
+  taskId?: string;
+  limit?: number;
+}
+
+export interface RunsWaitCliArgs {
+  command: "runs:wait";
+  runsDir?: string;
+  eventType?: RunEventType;
+  runId?: string;
+  taskId?: string;
+  timeoutMs: number;
+  pollIntervalMs?: number;
 }
 
 export interface MergeCheckCliArgs {
@@ -321,6 +346,8 @@ export type SamanthaCliArgs =
   | RunTaskCliArgs
   | RunsListCliArgs
   | RunsShowCliArgs
+  | RunsEventsCliArgs
+  | RunsWaitCliArgs
   | MergeCheckCliArgs
   | RunsMarkLifecycleCliArgs
   | WorktreeCleanupCliArgs
@@ -392,11 +419,31 @@ function parseWorkerRuntimeKind(value: string | undefined): WorkerRuntimeKind | 
   throw new Error("runtime must be exec-json or codex-sdk");
 }
 
+function parseRunEventType(value: string | undefined): RunEventType | undefined {
+  if (!value) return undefined;
+  if (value === "worker_turn_completed" || value === "worker_run_log_written") return value;
+  throw new Error("event-type must be worker_turn_completed or worker_run_log_written");
+}
+
+function runEventFilterFromFlags(flags: Map<string, string>): RunEventFilter {
+  const eventType = parseRunEventType(flags.get("event-type"));
+  return {
+    ...(eventType ? { eventType } : {}),
+    ...(flags.get("run-id") ? { runId: flags.get("run-id") } : {}),
+    ...(flags.get("task-id") ? { taskId: flags.get("task-id") } : {}),
+  };
+}
+
 function parsePositiveInteger(value: string | undefined, usage: string): number {
   if (!value || !/^[1-9][0-9]*$/.test(value)) {
     throw new Error(usage);
   }
   return Number(value);
+}
+
+function parseOptionalPositiveInteger(value: string | undefined, usage: string): number | undefined {
+  if (value === undefined) return undefined;
+  return parsePositiveInteger(value, usage);
 }
 
 function packageAssetRootFromEntrypoint(): string {
@@ -569,6 +616,41 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       command: "runs:show",
       runId: first,
       ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
+    };
+  }
+
+  if (command === "runs:events") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const filter = runEventFilterFromFlags(flags);
+    const limit = parseOptionalPositiveInteger(
+      flags.get("limit"),
+      "usage: bun run samantha runs:events [--runs-dir=<dir>] [--event-type=worker_turn_completed|worker_run_log_written] [--run-id=<id>] [--task-id=<id>] [--limit=<n>]",
+    );
+    return {
+      command: "runs:events",
+      ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
+      ...filter,
+      ...(limit ? { limit } : {}),
+    };
+  }
+
+  if (command === "runs:wait") {
+    const flags = parseFlags([first, ...rest].filter((arg): arg is string => Boolean(arg)));
+    const filter = runEventFilterFromFlags(flags);
+    const timeoutMs = parsePositiveInteger(
+      flags.get("timeout-ms"),
+      "usage: bun run samantha runs:wait --timeout-ms=<ms> [--runs-dir=<dir>] [--event-type=worker_turn_completed|worker_run_log_written] [--run-id=<id>] [--task-id=<id>] [--poll-interval-ms=<ms>]",
+    );
+    const pollIntervalMs = parseOptionalPositiveInteger(
+      flags.get("poll-interval-ms"),
+      "usage: bun run samantha runs:wait --timeout-ms=<ms> [--runs-dir=<dir>] [--event-type=worker_turn_completed|worker_run_log_written] [--run-id=<id>] [--task-id=<id>] [--poll-interval-ms=<ms>]",
+    );
+    return {
+      command: "runs:wait",
+      ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
+      ...filter,
+      timeoutMs,
+      ...(pollIntervalMs ? { pollIntervalMs } : {}),
     };
   }
 
@@ -1000,7 +1082,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     };
   }
 
-  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:update-status-after-accept|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|demo:first-run|run-task|runs:list|runs:show|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:daily-review|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
+  throw new Error("usage: bun run samantha continuation:show|continuation:update-status|continuation:update-status-after-accept|continuation:step|continuation:loop|continuation:run-task-once|continuation:accept-run-once|demo:first-run|run-task|runs:list|runs:show|runs:events|runs:wait|merge:check|runs:mark-lifecycle|worktree:cleanup|runs:accept|runs:diagnose|reports:summarize|reports:orchestrate|readiness:check|lessons:draft|lessons:daily-review|lessons:review|lessons:review-inbox|lessons:promotion-queue|lessons:promote|lessons:record-evidence|tasks:from-template|tasks:from-run|batches:list|batches:show|batches:preflight|batches:execute|batches:reject|batches:replace|batch-plans:list|batch-plans:show|batch-plans:review|batch-plans:draft|batch-plans:prepare");
 }
 
 function lifecyclePath(input: { runLogPath: string; stateDir?: string }): string {
@@ -1400,6 +1482,40 @@ export async function main(argv: string[]): Promise<number> {
   if (args.command === "runs:show") {
     console.log(JSON.stringify(await showRun(args), null, 2));
     return 0;
+  }
+
+  if (args.command === "runs:events") {
+    console.log(
+      JSON.stringify(
+        await readRunEvents({
+          runsDir: resolve(args.runsDir ?? "runs"),
+          filter: {
+            ...(args.eventType ? { eventType: args.eventType } : {}),
+            ...(args.runId ? { runId: args.runId } : {}),
+            ...(args.taskId ? { taskId: args.taskId } : {}),
+          },
+          ...(args.limit ? { limit: args.limit } : {}),
+        }),
+        null,
+        2,
+      ),
+    );
+    return 0;
+  }
+
+  if (args.command === "runs:wait") {
+    const result = await waitForRunEvent({
+      runsDir: resolve(args.runsDir ?? "runs"),
+      filter: {
+        ...(args.eventType ? { eventType: args.eventType } : {}),
+        ...(args.runId ? { runId: args.runId } : {}),
+        ...(args.taskId ? { taskId: args.taskId } : {}),
+      },
+      timeoutMs: args.timeoutMs,
+      ...(args.pollIntervalMs ? { pollIntervalMs: args.pollIntervalMs } : {}),
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return result.status === "found" ? 0 : 1;
   }
 
   if (args.command === "merge:check") {

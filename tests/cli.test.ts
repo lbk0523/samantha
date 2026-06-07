@@ -10,6 +10,7 @@ import type { BatchSpec } from "../src/core/batch-spec";
 import { DEFAULT_SERIAL_ONLY_RULES } from "../src/core/batch-spec";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
+import { appendRunEvent } from "../src/core/run-events";
 import type {
   SequentialContinuationArtifact,
   SequentialContinuationBatchPlanCandidate,
@@ -2846,6 +2847,46 @@ The fixture is complete when readiness is clear.
     });
     expect(
       parseCliArgs([
+        "runs:events",
+        "--runs-dir=runs",
+        "--event-type=worker_run_log_written",
+        "--run-id=run-1",
+        "--task-id=task-1",
+        "--limit=5",
+      ]),
+    ).toEqual({
+      command: "runs:events",
+      runsDir: "runs",
+      eventType: "worker_run_log_written",
+      runId: "run-1",
+      taskId: "task-1",
+      limit: 5,
+    });
+    expect(
+      parseCliArgs([
+        "runs:wait",
+        "--runs-dir=runs",
+        "--event-type=worker_turn_completed",
+        "--task-id=task-1",
+        "--timeout-ms=1000",
+        "--poll-interval-ms=10",
+      ]),
+    ).toEqual({
+      command: "runs:wait",
+      runsDir: "runs",
+      eventType: "worker_turn_completed",
+      taskId: "task-1",
+      timeoutMs: 1000,
+      pollIntervalMs: 10,
+    });
+    expect(() => parseCliArgs(["runs:events", "--event-type=automatic_accept"])).toThrow(
+      "event-type must be worker_turn_completed or worker_run_log_written",
+    );
+    expect(() => parseCliArgs(["runs:wait", "--event-type=worker_turn_completed"])).toThrow(
+      "usage: bun run samantha runs:wait --timeout-ms=<ms>",
+    );
+    expect(
+      parseCliArgs([
         "merge:check",
         "--run-log=runs/run-1.json",
         "--repo-root=.",
@@ -2857,6 +2898,106 @@ The fixture is complete when readiness is clear.
       repoRoot: ".",
       targetBranch: "main",
     });
+  });
+
+  test("reads and waits on local run events without lifecycle mutation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-cli-run-events-"));
+    tmpRoots.push(root);
+    const runsDir = join(root, "runs");
+    await appendRunEvent({
+      runsDir,
+      eventId: "event-turn",
+      createdAt: "2026-06-07T00:00:00.000Z",
+      event: {
+        eventType: "worker_turn_completed",
+        runId: "run-1",
+        taskId: "task-1",
+        worktreePath: "/tmp/worktree-1",
+        workerExitCode: 0,
+        pass: true,
+      },
+    });
+    await appendRunEvent({
+      runsDir,
+      eventId: "event-log",
+      createdAt: "2026-06-07T00:00:01.000Z",
+      event: {
+        eventType: "worker_run_log_written",
+        runId: "run-1",
+        taskId: "task-1",
+        runLogPath: join(runsDir, "run-1.json"),
+        pass: true,
+        outcome: "pass",
+        harnessResultStatus: "pass",
+      },
+    });
+
+    const originalLog = console.log;
+    const stdout: string[] = [];
+    console.log = (message?: unknown) => {
+      stdout.push(String(message));
+    };
+    try {
+      await expect(
+        main([
+          "runs:events",
+          `--runs-dir=${runsDir}`,
+          "--event-type=worker_run_log_written",
+          "--task-id=task-1",
+        ]),
+      ).resolves.toBe(0);
+      await expect(
+        main([
+          "runs:wait",
+          `--runs-dir=${runsDir}`,
+          "--event-type=worker_turn_completed",
+          "--run-id=run-1",
+          "--timeout-ms=50",
+          "--poll-interval-ms=5",
+        ]),
+      ).resolves.toBe(0);
+      await expect(
+        main([
+          "runs:wait",
+          `--runs-dir=${runsDir}`,
+          "--event-type=worker_run_log_written",
+          "--run-id=missing-run",
+          "--timeout-ms=10",
+          "--poll-interval-ms=5",
+        ]),
+      ).resolves.toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(JSON.parse(stdout[0])).toMatchObject({
+      events: [
+        {
+          eventId: "event-log",
+          eventType: "worker_run_log_written",
+          runId: "run-1",
+          taskId: "task-1",
+          pass: true,
+          harnessResultStatus: "pass",
+        },
+      ],
+      malformedLines: [],
+    });
+    expect(JSON.parse(stdout[1])).toMatchObject({
+      status: "found",
+      event: {
+        eventId: "event-turn",
+        eventType: "worker_turn_completed",
+      },
+    });
+    expect(JSON.parse(stdout[2])).toMatchObject({
+      status: "timeout",
+      timeoutMs: 10,
+    });
+    expect(await pathExists(join(runsDir, "events.jsonl"))).toBe(true);
+    expect(await pathExists(join(runsDir, "index.jsonl"))).toBe(false);
+    expect(await pathExists(join(runsDir, "run-lifecycle.jsonl"))).toBe(false);
+    expect(await pathExists(join(root, "worktrees"))).toBe(false);
   });
 
   test("parses lifecycle and cleanup arguments", () => {
