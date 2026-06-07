@@ -1,0 +1,40 @@
+{
+  "id": "uiwang-candidate-operating-loop-20260607-rework2",
+  "title": "Seed Uiwang candidates cleanup rework",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "routine",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "config/target_complexes.yml",
+    "docs/04_decision_log.md",
+    "docs/05_assumptions.md",
+    "docs/06_risk_register.md",
+    "docs/07_next_actions.md",
+    "reports/weekly/latest.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "dashboard/**",
+    "scripts/**",
+    "pyproject.toml",
+    ".env",
+    "src/uiwang_home_monitor.egg-info/**"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "PYTHONPATH=$PWD/src python3 - <<'PY'\nfrom uiwang_monitor.config_loader import load_target_complexes\nitems = load_target_complexes()\nassert len(items) == 15, len(items)\nassert all(item.get('interest_price_krw') is None and item.get('negotiation_price_krw') is None and item.get('max_price_krw') is None for item in items)\nassert sum(1 for item in items if item.get('area_group') == '호계동-외부비교') == 4\nPY",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-verify PYTHONPATH=$PWD/src python3 -m uiwang_monitor init-db",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-verify PYTHONPATH=$PWD/src python3 -m uiwang_monitor fetch-kapt",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-verify PYTHONPATH=$PWD/src python3 -m uiwang_monitor fetch-transport",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-verify PYTHONPATH=$PWD/src python3 -m uiwang_monitor import-manual-listings",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-verify PYTHONPATH=$PWD/src python3 -m uiwang_monitor import-broker-notes",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-verify PYTHONPATH=$PWD/src python3 -m uiwang_monitor generate-weekly",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-verify PYTHONPATH=$PWD/src python3 -m uiwang_monitor validate",
+    "rm -rf .tmp-uiwang-verify"
+  ],
+  "instructions": "Create a narrowed follow-up from Samantha run evidence.\nRun log: /Users/byung/agent-workspace/logs/samantha/runs/2026-06-07T05-12-59-733Z-uiwang-candidate-operating-loop-20260607-rework.json\nOriginal run: 2026-06-07T05-12-59-733Z-uiwang-candidate-operating-loop-20260607-rework\nOriginal task: uiwang-candidate-operating-loop-20260607-rework - Seed Uiwang candidates with local verify rework\nDiagnosis: scope_failed only because worktree-local verify output under .tmp-uiwang-verify/manual/*.csv remained untracked after successful verification.\n\nImplement the same user-approved candidate operating-data plan from the previous run, but keep the final working tree clean except for declared target files. Do not copy .tmp-uiwang-verify output or any generated manual CSVs into the commit. Use the verifyCommands as authoritative and remove .tmp-uiwang-verify before HARNESS_RESULT if you run local checks yourself.\n\nThe follow-up must keep the same product scope: update config/target_complexes.yml with the 15 user-provided candidates, preserve unknown price fields as null, do not invent asking prices or broker notes, mark K-apt/legal dong codes only when confidently known, and update docs/04_decision_log.md, docs/05_assumptions.md, docs/06_risk_register.md, and docs/07_next_actions.md with the candidate-list operating transition. Keep next actions to 3 or fewer. If reports/weekly/latest.md is created as an ignored output during generate-weekly, do not force-add it.\n\nSDK resume candidate thread id: 019ea07f-a649-7f82-b379-660776ff1aa8\nUse this thread only as optional context if the next runner explicitly supports SDK resume.\nThe follow-up task spec, repository state, target files, and verifyCommands remain authoritative.\n\nDo not retry the previous run, dispatch agents, merge, clean up worktrees outside your own current worktree, push, draft lessons, promote learning artifacts, create hidden memory, or change lifecycle state. Samantha owns those transitions.",
+  "expectedCommitSubject": "data: seed first candidate complex list",
+  "status": "pending"
+}
