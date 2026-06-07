@@ -12,6 +12,13 @@ intent를 쓰고, 어떤 handoff를 기대하고, 같은 Codex thread에서 어�
 유지하면서, Samantha를 실제 Codex 작업에 사용해 run evidence, lesson evidence,
 task evidence를 쌓고 하네스 성능과 편의성을 고도화하는 버전이다.
 
+Samantha는 여러 target repo에서 쓰이는 harness이므로, 생성되는 task spec, run
+evidence, lesson candidate, batch runtime state, worker worktree, lifecycle sidecar,
+lock 파일은 기본적으로 project-scoped state root에 둔다. Samantha harness repo의
+`references/**`는 검토된 template, profile, playbook, hook, doctrine, 명시적 planning
+artifact 같은 reusable asset을 위한 공간이며, 다른 프로젝트의 runtime inbox가
+아니다.
+
 Samantha v1은 메시징 통합, 백그라운드 동작, 운영자 UI, 예약 자동화,
 remote/control plane을 operator activation에 자동으로 추가하지 않는다. 그러나 이
 표면들은 더 이상 오래된 slice exclusion이라는 이유만으로 부적합 판정하지 않는다.

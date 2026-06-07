@@ -102,6 +102,104 @@ The following remain hard gates, not candidate conveniences:
 - no trusted state change without deterministic verification
 - no worker merge, push, cleanup, policy, or doctrine authority
 
+## Project State Boundary
+
+Samantha source repositories must not double as the runtime inbox for every
+project that uses the harness. Generated task specs, run evidence, worker
+worktrees, lifecycle sidecars, temporary batch artifacts, lesson candidates, and
+locks are project runtime state. Reviewed task templates, agent profiles,
+playbooks, hook definitions, doctrine, and source code are reusable assets.
+
+The rule is:
+
+```text
+Generated runtime state lives under ProjectContext.stateRoot.
+Reviewed reusable assets live in the harness repo or explicit project assets.
+```
+
+Every command that reads or writes project-scoped state should first construct a
+`ProjectContext`:
+
+```ts
+interface ProjectContext {
+  projectId: string;
+  harnessRoot: string;
+  targetRepoRoot: string;
+  stateRoot: string;
+  worktreesRoot: string;
+  assetRoot: string;
+}
+```
+
+`projectId` is a stable identity for the target repo checkout. It must avoid
+basename-only collisions so two repos with the same directory name, two clones
+of one repo, or Samantha self-build work do not share runtime state by accident.
+
+`stateRoot` is the default root for project runtime state:
+
+```text
+stateRoot/
+  project.json
+  tasks/
+  runs/
+  batches/
+  lessons/
+    inbox/
+    reviews/
+  locks/
+  worktrees/
+```
+
+The workspace dogfood default is the current workspace evidence area:
+
+```text
+/Users/byung/agent-workspace/logs/samantha/projects/<projectId>/
+```
+
+Packaged or non-workspace use may default to a user home such as
+`~/.samantha/projects/<projectId>/`, but command behavior must be explicit and
+overrideable. CLI flags such as `--runs-dir` and `--worktrees-dir` remain
+compatibility overrides. They should not become the authority model for project
+identity.
+
+`assetRoot` points at reviewed reusable harness assets, currently
+`harnessRoot/references`. A target repo may later provide reviewed overrides
+under `.samantha/`, but generated task specs, run logs, lifecycle records,
+lesson candidates, and batch runtime state still go to `stateRoot` by default.
+
+`references/` is therefore split by meaning:
+
+| Artifact | Default home |
+| --- | --- |
+| Samantha default agent profiles | `assetRoot/agent-profiles` |
+| Samantha default task templates | `assetRoot/task-templates` |
+| Reviewed playbooks, hook definitions, doctrine, and examples | `assetRoot/...` |
+| Project-specific reviewed overrides | `targetRepoRoot/.samantha/...` when explicitly supported |
+| Generated task specs | `stateRoot/tasks` |
+| Run logs, run index, events, lifecycle records | `stateRoot/runs` and `stateRoot/run-lifecycle.jsonl` as defined by the resolver |
+| Runtime batch artifacts and batch audit logs | `stateRoot/batches` |
+| Lesson candidate inbox and deterministic reviews | `stateRoot/lessons/...` |
+| Promoted lessons or reusable guidance | explicit review into `assetRoot` or a project asset repo |
+
+Core modules must not directly invent project-scoped runtime paths with
+`resolve(".")`, `join(repoRoot, "references", ...)`, `join(repoRoot, "runs")`,
+or basename-only worktree roots. They should accept a `ProjectContext`, a
+resolved path from the project path resolver, or an explicit legacy override.
+Low-level JSONL/file helpers may still receive concrete paths, but callers own
+context resolution.
+
+Legacy repo-local `runs/`, `references/tasks/**`, `references/lessons/**`, and
+`references/operations/**` remain readable through explicit paths or reviewed
+migration code. They must not be silently backfilled into the harness source repo
+after a state-rooted run.
+
+Project-local writer locking belongs to this boundary. A writer run may hold a
+lock under the target project's `stateRoot/locks/`, while report-only work may
+remain parallel when it makes no trusted state changes. A stale lock is blocking
+diagnostic evidence first; automatic deletion requires a reviewed cleanup policy.
+This project-local lock does not grant parallel writer trust, change merge
+authority, raise `writerCap`, or bypass ordered integration and verification.
+
 ## Context Resolver Principle
 
 A resolver is a routing rule for context: when a task type, intent, or artifact
@@ -295,7 +393,35 @@ Current policy:
 - non-writer report tasks must not declare setup commands
 - orchestration-conflicting skills are blocked
 
-### 4. Worktree Layer
+### 4. Project Context And Path Layer
+
+The project context layer resolves target repo identity, runtime state roots,
+worktree roots, and reusable asset roots before command code calls core logic.
+
+Planned files:
+
+- `src/core/project-context.ts`
+- `src/core/project-paths.ts`
+- `tests/project-context.test.ts`
+- `tests/project-paths.test.ts`
+
+This layer owns:
+
+- stable `projectId` derivation and optional explicit overrides
+- workspace and home-directory state root defaults
+- path helpers for runs, tasks, batches, lessons, locks, and worktrees
+- asset helpers for harness defaults and reviewed project overrides
+- compatibility handling for explicit legacy flags such as `--runs-dir` and
+  `--worktrees-dir`
+
+It must not:
+
+- make worker output trusted
+- mutate lifecycle, merge, cleanup, or acceptance state
+- hide generated artifacts inside `references/`
+- let workers write runtime state outside their allocated worktree
+
+### 5. Worktree Layer
 
 The worktree layer isolates writes.
 
@@ -312,7 +438,7 @@ Current behavior:
 - reject dirty or mismatched worktrees
 - keep workers away from the target repo worktree
 
-### 5. Dispatch Layer
+### 6. Dispatch Layer
 
 The dispatch layer prepares the worker prompt and command.
 
@@ -335,7 +461,7 @@ Current behavior:
 - evaluate output
 - create the Samantha-owned commit only after gates pass
 
-### 6. Evaluation Layer
+### 7. Evaluation Layer
 
 The evaluation layer judges worker output.
 
@@ -381,7 +507,7 @@ Examples:
 - docs-only changes should use cheap deterministic checks tied to markdown
   changes; full typecheck/test is optional evidence, not the default cost
 
-### 7. Evidence Layer
+### 8. Evidence Layer
 
 The evidence layer records what happened.
 
@@ -444,7 +570,7 @@ Allowed recovery actions:
 Automatic retry can be considered later only when it is visible in run evidence,
 bounded by policy, and cannot accept unverified worker output.
 
-### 8. Integration Gate Layer
+### 9. Integration Gate Layer
 
 The integration gate layer checks whether a worker result may be integrated.
 
@@ -463,7 +589,7 @@ Current behavior:
 - detect missing commits
 - produce a fast-forward merge command without applying it
 
-### 9. Lifecycle Layer
+### 10. Lifecycle Layer
 
 The lifecycle layer tracks explicit post-run transitions.
 
@@ -483,7 +609,7 @@ Current behavior:
 - delete merged worker branches
 - block cleanup for dirty, missing, unintegrated, or unsafe worktrees
 
-### 10. Learning Artifact Layer
+### 11. Learning Artifact Layer
 
 The learning artifact layer turns run evidence into explicit, reviewable
 repository artifacts.

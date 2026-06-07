@@ -18,8 +18,11 @@ reviewed artifacts.
 - `NORTH_STAR.md` defines product identity and success.
 - `ARCHITECTURE.md` defines system shape, authority boundaries, and gates.
 - `ROADMAP.md` sequences product capability phases.
-- `references/tasks/*.json` are executable work units.
-- `runs/*.json` and `runs/index.jsonl` are run evidence.
+- Source-controlled `references/**` artifacts are reviewed reusable assets or
+  explicit planning artifacts.
+- Generated task specs, run evidence, batch runtime state, lesson candidates,
+  worker worktrees, lifecycle sidecars, and locks belong under the resolved
+  project state root unless an explicit legacy path is supplied.
 
 Do not use this roadmap to smuggle in broad backlog scope. When a phase is ready
 for implementation, promote the smallest slice into a task spec with target
@@ -41,6 +44,52 @@ messaging or remote-control integrations, budget governance, and multi-project
 orchestration are not automatic scope. They should not be rejected solely
 because older slices excluded them, but each needs its own reviewed product
 slice with authority, verification, evidence, and lifecycle gates.
+
+## Current Initiative: Project-Scoped State Refactor
+
+Status: active design and implementation initiative.
+
+User capability:
+
+- BK can use Samantha across multiple target projects without generated task
+  specs, run logs, lesson candidates, worktrees, or locks making the Samantha
+  harness source checkout dirty.
+- Samantha can resolve a target repo into a stable `ProjectContext` before
+  command execution.
+- Runs, task specs, batches, lessons, worktrees, lifecycle sidecars, and writer
+  locks are namespaced by project.
+- Reviewed reusable assets remain in the harness repo or explicit project
+  asset locations.
+
+Required gates:
+
+- generated runtime state defaults to `ProjectContext.stateRoot`
+- reusable assets remain reviewed and source-controlled
+- `references/` is not used as the default runtime inbox
+- explicit legacy path flags continue to work
+- project-local writer locks block only the same target project writer path
+- report-only monitoring remains advice-only and does not create trusted state
+- no merge, push, cleanup, lifecycle, or worker trust authority changes
+- no raising `writerCap` as a shortcut for parallelism
+
+Acceptance evidence:
+
+- focused tests for `ProjectContext` and project path resolution
+- run/worktree defaults prove project-scoped state without touching the harness
+  source repo
+- generated task, batch, and lesson artifacts land under `stateRoot` by default
+- same-project writer lock blocks concurrent writer dispatch while report-only
+  work and different project ids remain independent
+- explicit `--runs-dir`, `--worktrees-dir`, and other legacy path overrides still
+  read and write their requested locations
+- `bun run typecheck`
+- `bun test` or a documented focused subset plus any blocked full-suite evidence
+
+Promotion rule:
+
+Treat this initiative as state architecture, not multi-project orchestration.
+It separates project state; it does not add background operation, automatic
+integration, remote control, or parallel writer trust.
 
 ## Phase 0: Credible Local Harness
 

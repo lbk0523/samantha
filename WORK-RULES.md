@@ -189,6 +189,13 @@ shape if it recurs" are raw evidence only until rewritten into that form.
   documentation or implementation tasks.
 - Do not create "light" writer tasks that skip worktree isolation, scope checks,
   deterministic verification, run evidence, or Samantha-owned transitions.
+- Keep generated runtime artifacts out of the harness source repo by default.
+  Task specs produced from templates or run evidence, run logs, batch runtime
+  state, lesson candidates, lifecycle sidecars, locks, and worker worktrees must
+  resolve through `ProjectContext.stateRoot` or an explicit legacy override.
+  `references/**` is for reviewed reusable assets, doctrine, playbooks,
+  templates, profiles, hooks, examples, or explicitly committed planning
+  artifacts; it is not the default inbox for project runtime output.
 
 Git mutations that touch the same repository state must be serialized per repo.
 Do not run overlapping `git config`, `git add`, `git commit`, `git worktree`, or
