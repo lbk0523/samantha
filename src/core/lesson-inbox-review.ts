@@ -1,9 +1,12 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { recordLessonReview, type LessonReviewArtifact, type LessonReviewClassification } from "./lesson-review";
+import { buildProjectContext } from "./project-context";
+import { projectPaths } from "./project-paths";
 
 export interface LessonInboxReviewInput {
   repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface LessonInboxReviewIndexEntry {
@@ -144,18 +147,22 @@ function promotionQueue(entries: LessonInboxReviewIndexEntry[]): LessonPromotion
 }
 
 export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Promise<LessonInboxReviewResult> {
-  const repoRoot = resolve(input.repoRoot ?? ".");
-  const inboxPath = join(repoRoot, "references", "lessons", "inbox");
-  const reviewsPath = join(repoRoot, "references", "lessons", "reviews");
+  const projectContext = await buildProjectContext({
+    targetRepoRoot: input.repoRoot,
+    ...(input.stateRoot ? { stateRoot: input.stateRoot } : {}),
+  });
+  const stateRoot = resolve(projectContext.stateRoot);
+  const inboxPath = projectPaths.lessonInboxDir(projectContext);
+  const reviewsPath = projectPaths.lessonReviewsDir(projectContext);
   const candidates = await listInboxCandidates(inboxPath);
   const entries: LessonInboxReviewIndexEntry[] = [];
 
   for (const candidatePath of candidates) {
-    const result = await recordLessonReview({ candidatePath, repoRoot });
+    const result = await recordLessonReview({ candidatePath, repoRoot: stateRoot });
     entries.push(
       indexEntry({
-        candidatePath: repoRelativePath(repoRoot, candidatePath),
-        reviewPath: repoRelativePath(repoRoot, result.path),
+        candidatePath: repoRelativePath(stateRoot, candidatePath),
+        reviewPath: repoRelativePath(stateRoot, result.path),
         review: result.review,
       }),
     );
@@ -164,8 +171,8 @@ export async function reviewLessonInbox(input: LessonInboxReviewInput = {}): Pro
   const index: LessonInboxReviewIndex = {
     schemaVersion: 1,
     reviewedAt: new Date().toISOString(),
-    inboxPath: repoRelativePath(repoRoot, inboxPath),
-    reviewsPath: repoRelativePath(repoRoot, reviewsPath),
+    inboxPath: repoRelativePath(stateRoot, inboxPath),
+    reviewsPath: repoRelativePath(stateRoot, reviewsPath),
     summary: {
       total: entries.length,
       autoRejected: countClassification(entries, "auto_rejected"),

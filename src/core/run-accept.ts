@@ -28,6 +28,7 @@ export interface RunAcceptInput {
   repoRoot: string;
   targetBranch?: string;
   stateDir?: string;
+  stateRoot?: string;
 }
 
 export interface RunAcceptCommandResult {
@@ -207,6 +208,7 @@ export async function acceptRun(
     runLogPath,
     repoRoot,
     stateDir: input.stateDir,
+    stateRoot: input.stateRoot ?? input.stateDir,
   });
   if (cleaned) {
     await captureFinalGitStatus({ runLogPath, repoRoot, run });

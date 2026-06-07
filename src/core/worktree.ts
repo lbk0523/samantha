@@ -1,7 +1,8 @@
 import { access, mkdir, rm } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { WorktreeAllocation } from "./contracts";
 import { git, gitHead, gitRaw, gitTopLevel } from "./git";
+import { defaultProjectStateRoot, projectIdForTargetRepo } from "./project-context";
 
 export interface AllocateWorktreeOptions {
   repoRoot: string;
@@ -33,7 +34,9 @@ export function branchForTask(taskId: string): string {
 }
 
 export function defaultWorktreesRoot(repoRoot: string): string {
-  return resolve(repoRoot, "..", ".samantha-worktrees", basename(repoRoot));
+  const targetRepoRoot = resolve(repoRoot);
+  const projectId = projectIdForTargetRepo(targetRepoRoot);
+  return resolve(defaultProjectStateRoot({ projectId, targetRepoRoot }), "worktrees");
 }
 
 export function worktreesRoot(repoRoot: string, worktreesDir?: string): string {

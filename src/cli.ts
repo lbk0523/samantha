@@ -209,12 +209,15 @@ export interface ReadinessCheckCliArgs extends BuildReadinessReportInput {
 export interface LessonsDraftCliArgs {
   command: "lessons:draft";
   runLogPath: string;
+  repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface LessonsDailyReviewCliArgs {
   command: "lessons:daily-review";
   repoRoot: string;
   date?: string;
+  stateRoot?: string;
 }
 
 export interface LessonsReviewCliArgs {
@@ -225,11 +228,13 @@ export interface LessonsReviewCliArgs {
 export interface LessonsReviewInboxCliArgs {
   command: "lessons:review-inbox";
   repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface LessonsPromotionQueueCliArgs {
   command: "lessons:promotion-queue";
   repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface LessonsPromoteCliArgs {
@@ -253,6 +258,8 @@ export interface TasksFromTemplateCliArgs {
   title: string;
   replacements?: Record<string, string>;
   repoRoot?: string;
+  stateRoot?: string;
+  taskSpecsDir?: string;
 }
 
 export interface TasksFromRunCliArgs {
@@ -261,6 +268,8 @@ export interface TasksFromRunCliArgs {
   taskId: string;
   title: string;
   repoRoot?: string;
+  stateRoot?: string;
+  taskSpecsDir?: string;
 }
 
 export interface BatchesPreflightCliArgs {
@@ -268,6 +277,8 @@ export interface BatchesPreflightCliArgs {
   batchPath?: string;
   batchId?: string;
   batchesDir?: string;
+  repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface BatchesExecuteCliArgs extends Omit<ExecuteBatchInput, "spec"> {
@@ -275,6 +286,8 @@ export interface BatchesExecuteCliArgs extends Omit<ExecuteBatchInput, "spec"> {
   batchPath?: string;
   batchId?: string;
   batchesDir?: string;
+  repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface BatchesRejectCliArgs {
@@ -282,6 +295,8 @@ export interface BatchesRejectCliArgs {
   batchPath?: string;
   batchId?: string;
   batchesDir?: string;
+  repoRoot?: string;
+  stateRoot?: string;
   stateDir?: string;
   reason: string;
 }
@@ -291,6 +306,8 @@ export interface BatchesReplaceCliArgs {
   batchPath?: string;
   batchId?: string;
   batchesDir?: string;
+  repoRoot?: string;
+  stateRoot?: string;
   replacementBatchId: string;
   replacementPath: string;
   replanEvidencePath: string;
@@ -300,12 +317,16 @@ export interface BatchesReplaceCliArgs {
 export interface BatchesListCliArgs {
   command: "batches:list";
   batchesDir?: string;
+  repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface BatchesShowCliArgs {
   command: "batches:show";
   batchId: string;
   batchesDir?: string;
+  repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface BatchPlansListCliArgs {
@@ -789,6 +810,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     return {
       command: "lessons:draft",
       runLogPath,
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
     };
   }
 
@@ -802,6 +825,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       command: "lessons:daily-review",
       repoRoot,
       ...(flags.get("date") ? { date: flags.get("date") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
     };
   }
 
@@ -820,6 +844,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     return {
       command: "lessons:review-inbox",
       ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
     };
   }
 
@@ -828,6 +853,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     return {
       command: "lessons:promotion-queue",
       ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
     };
   }
 
@@ -869,14 +895,14 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
 
   if (command === "tasks:from-template") {
     if (!first) {
-      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]... [--repo-root=<repo>]");
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]... [--repo-root=<repo>] [--state-root=<dir>] [--task-spec-dir=<dir>]");
     }
     const flags = parseFlags(rest);
     const replacements = parseTemplateReplacements(rest);
     const taskId = flags.get("task-id");
     const title = flags.get("title");
     if (!taskId || !title) {
-      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]... [--repo-root=<repo>]");
+      throw new Error("usage: bun run samantha tasks:from-template <template-id> --task-id=<id> --title=<title> [--set=<placeholder>:<value>]... [--repo-root=<repo>] [--state-root=<dir>] [--task-spec-dir=<dir>]");
     }
     return {
       command: "tasks:from-template",
@@ -885,6 +911,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       title,
       ...(replacements ? { replacements } : {}),
       ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
+      ...(flags.get("task-spec-dir") ? { taskSpecsDir: flags.get("task-spec-dir") } : {}),
     };
   }
 
@@ -894,7 +922,7 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     const taskId = flags.get("task-id");
     const title = flags.get("title");
     if (!runLogPath || !taskId || !title) {
-      throw new Error("usage: bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title> [--repo-root=<repo>]");
+      throw new Error("usage: bun run samantha tasks:from-run --run-log=<path> --task-id=<id> --title=<title> [--repo-root=<repo>] [--state-root=<dir>] [--task-spec-dir=<dir>]");
     }
     return {
       command: "tasks:from-run",
@@ -902,6 +930,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       taskId,
       title,
       ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
+      ...(flags.get("task-spec-dir") ? { taskSpecsDir: flags.get("task-spec-dir") } : {}),
     };
   }
 
@@ -910,6 +940,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
     return {
       command: "batches:list",
       ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
     };
   }
 
@@ -923,6 +955,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       command: "batches:show",
       batchId,
       ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
     };
   }
 
@@ -1007,6 +1041,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(batchPath ? { batchPath } : {}),
       ...(batchId ? { batchId } : {}),
       ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
     };
   }
 
@@ -1026,6 +1062,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(batchPath ? { batchPath } : {}),
       ...(batchId ? { batchId } : {}),
       ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
       ...(flags.get("agent") ? { agentPath: flags.get("agent") } : {}),
       ...(flags.get("worktrees-dir") ? { worktreesDir: flags.get("worktrees-dir") } : {}),
       ...(flags.get("runs-dir") ? { runsDir: flags.get("runs-dir") } : {}),
@@ -1052,6 +1090,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(batchPath ? { batchPath } : {}),
       ...(batchId ? { batchId } : {}),
       ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
       ...(flags.get("state-dir") ? { stateDir: flags.get("state-dir") } : {}),
       reason,
     };
@@ -1075,6 +1115,8 @@ export function parseCliArgs(argv: string[]): SamanthaCliArgs {
       ...(batchPath ? { batchPath } : {}),
       ...(batchId ? { batchId } : {}),
       ...(flags.get("batches-dir") ? { batchesDir: flags.get("batches-dir") } : {}),
+      ...(flags.get("repo-root") ? { repoRoot: flags.get("repo-root") } : {}),
+      ...(flags.get("state-root") ? { stateRoot: flags.get("state-root") } : {}),
       replacementBatchId,
       replacementPath,
       replanEvidencePath,
@@ -1540,6 +1582,8 @@ export async function main(argv: string[]): Promise<number> {
       JSON.stringify(
         await draftLessonFromRunLog({
           runLogPath: resolve(args.runLogPath),
+          repoRoot: args.repoRoot,
+          stateRoot: args.stateRoot,
         }),
         null,
         2,
@@ -1559,12 +1603,12 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   if (args.command === "lessons:review-inbox") {
-    console.log(JSON.stringify(await reviewLessonInbox({ repoRoot: args.repoRoot }), null, 2));
+    console.log(JSON.stringify(await reviewLessonInbox({ repoRoot: args.repoRoot, stateRoot: args.stateRoot }), null, 2));
     return 0;
   }
 
   if (args.command === "lessons:promotion-queue") {
-    console.log(JSON.stringify(await buildLessonPromotionQueue({ repoRoot: args.repoRoot }), null, 2));
+    console.log(JSON.stringify(await buildLessonPromotionQueue({ repoRoot: args.repoRoot, stateRoot: args.stateRoot }), null, 2));
     return 0;
   }
 
@@ -1625,6 +1669,8 @@ export async function main(argv: string[]): Promise<number> {
       taskId: args.taskId,
       title: args.title,
       repoRoot: args.repoRoot,
+      stateRoot: args.stateRoot,
+      taskSpecsDir: args.taskSpecsDir,
     });
     console.log(JSON.stringify(result, null, 2));
     return result.created ? 0 : 1;
@@ -1684,7 +1730,12 @@ export async function main(argv: string[]): Promise<number> {
       if (!batchId) {
         throw new Error("batches:preflight requires --batch=<path> or --batch-id=<id>");
       }
-      spec = await readBatchSpecById({ batchId, batchesDir: args.batchesDir });
+      spec = await readBatchSpecById({
+        batchId,
+        batchesDir: args.batchesDir,
+        repoRoot: args.repoRoot,
+        stateRoot: args.stateRoot,
+      });
     }
     const result = await preflightBatchSpec(spec);
     console.log(JSON.stringify(result, null, 2));
@@ -1703,7 +1754,12 @@ export async function main(argv: string[]): Promise<number> {
       if (!batchId) {
         throw new Error("batches:execute requires --batch=<path> or --batch-id=<id>");
       }
-      spec = await readBatchSpecById({ batchId, batchesDir: args.batchesDir });
+      spec = await readBatchSpecById({
+        batchId,
+        batchesDir: args.batchesDir,
+        repoRoot: args.repoRoot,
+        stateRoot: args.stateRoot,
+      });
     }
     const result = await executeBatch({ ...args, spec });
     console.log(JSON.stringify(result, null, 2));
@@ -1719,6 +1775,8 @@ export async function main(argv: string[]): Promise<number> {
       : (await readBatchSpecRecordById({
           batchId: args.batchId ?? "",
           batchesDir: args.batchesDir,
+          repoRoot: args.repoRoot,
+          stateRoot: args.stateRoot,
         })).path;
     console.log(
       JSON.stringify(
@@ -1744,6 +1802,8 @@ export async function main(argv: string[]): Promise<number> {
       : (await readBatchSpecRecordById({
           batchId: args.batchId ?? "",
           batchesDir: args.batchesDir,
+          repoRoot: args.repoRoot,
+          stateRoot: args.stateRoot,
         })).path;
     console.log(
       JSON.stringify(

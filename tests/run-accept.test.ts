@@ -194,7 +194,7 @@ afterEach(async () => {
 describe("acceptRun", () => {
   test("merges a mergeable run, marks lifecycle, and cleans the worker worktree", async () => {
     const { root, logPath, stateDir, worktreePath, branch, commit } = await makeRun();
-    const lessonCandidatePath = join(root, "references", "lessons", "inbox", "accept-run.md");
+    const lessonCandidatePath = join(stateDir, "lessons", "inbox", "accept-run.md");
     const statusChecks: Array<{ lessonDraftExists: boolean }> = [];
 
     const result = await acceptRun(
@@ -263,10 +263,10 @@ describe("acceptRun", () => {
       event: "final_git_status_captured",
       status: "completed",
       details: {
-        finalGitStatus: "dirty",
+        finalGitStatus: "clean",
         command: ["git", "status", "--porcelain=v1"],
         exitCode: 0,
-        porcelainLineCount: 1,
+        porcelainLineCount: 0,
       },
     });
     for (const entry of log.trajectory ?? []) expectTiming(entry);

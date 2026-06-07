@@ -1,6 +1,8 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { RunIndex, summarizeWorkerRun, type RunOutcome, type RunSummary } from "./ledger";
+import { buildProjectContext } from "./project-context";
+import { projectPaths } from "./project-paths";
 import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
 import { taskFamily } from "./task-family";
 import type { WorkerRunLog } from "./run-log";
@@ -9,6 +11,7 @@ export interface LessonDraftInput {
   runLogPath: string;
   repoRoot?: string;
   stateDir?: string;
+  stateRoot?: string;
 }
 
 export interface LessonDraftWrite {
@@ -345,10 +348,6 @@ async function learningTriggerContext(input: {
   };
 }
 
-function candidatePathForRun(input: { repoRoot: string; runId: string }): string {
-  return join(input.repoRoot, "references", "lessons", "inbox", `${input.runId}.md`);
-}
-
 function buildLessonMarkdown(input: {
   log: WorkerRunLog;
   runLogPath: string;
@@ -410,7 +409,10 @@ ${renderSupersededContext(input.superseded)}
 
 export async function draftLessonFromRunLog(input: LessonDraftInput): Promise<LessonDraftWrite> {
   const runLogPath = resolve(input.runLogPath);
-  const repoRoot = resolve(input.repoRoot ?? ".");
+  const projectContext = await buildProjectContext({
+    targetRepoRoot: input.repoRoot,
+    ...(input.stateRoot ? { stateRoot: input.stateRoot } : {}),
+  });
   const log = await readRunLog(runLogPath);
   const lifecycle = await new RunLifecycleStore(
     lifecycleStorePath({ runLogPath, stateDir: input.stateDir }),
@@ -428,8 +430,8 @@ export async function draftLessonFromRunLog(input: LessonDraftInput): Promise<Le
   });
   const superseded = await supersededContext({ log, runLogPath, outcome: summary.outcome });
   const recurrence = await recurrenceContext({ log, runLogPath, outcome: summary.outcome });
-  const inboxDir = join(repoRoot, "references", "lessons", "inbox");
-  const path = candidatePathForRun({ repoRoot, runId: log.runId });
+  const inboxDir = projectPaths.lessonInboxDir(projectContext);
+  const path = projectPaths.lessonCandidatePath(projectContext, log.runId);
 
   await mkdir(inboxDir, { recursive: true });
   await writeFile(path, buildLessonMarkdown({ log, runLogPath, lifecycle, superseded, recurrence }), "utf8");
@@ -441,9 +443,12 @@ export async function draftLessonFromAcceptedRun(
   input: LessonDraftInput,
 ): Promise<AcceptedRunLessonDraftResult> {
   const runLogPath = resolve(input.runLogPath);
-  const repoRoot = resolve(input.repoRoot ?? ".");
+  const projectContext = await buildProjectContext({
+    targetRepoRoot: input.repoRoot,
+    ...(input.stateRoot ? { stateRoot: input.stateRoot } : {}),
+  });
   const log = await readRunLog(runLogPath);
-  const path = candidatePathForRun({ repoRoot, runId: log.runId });
+  const path = projectPaths.lessonCandidatePath(projectContext, log.runId);
 
   if (isReportOnlyRun(log)) {
     return { status: "skipped", reason: "report-only run is not an automatic lesson draft target" };

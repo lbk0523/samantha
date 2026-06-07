@@ -7,11 +7,15 @@ import { buildLessonPromotionQueue, reviewLessonInbox } from "../src/core/lesson
 let tmpRoots: string[] = [];
 
 async function writeCandidate(root: string, name: string, markdown: string): Promise<string> {
-  const inboxPath = join(root, "references", "lessons", "inbox");
+  const inboxPath = join(root, "state", "lessons", "inbox");
   const path = join(inboxPath, name);
   await mkdir(inboxPath, { recursive: true });
   await writeFile(path, markdown, "utf8");
   return path;
+}
+
+function stateRoot(root: string): string {
+  return join(root, "state");
 }
 
 afterEach(async () => {
@@ -115,28 +119,28 @@ describe("lesson inbox review", () => {
 `,
     );
 
-    const result = await reviewLessonInbox({ repoRoot: root });
-    const indexPath = join(root, "references", "lessons", "reviews", "index.json");
-    const staleReviewPath = join(root, "references", "lessons", "reviews", "stale-run.json");
-    const playbookReviewPath = join(root, "references", "lessons", "reviews", "playbook-run.json");
+    const result = await reviewLessonInbox({ repoRoot: root, stateRoot: stateRoot(root) });
+    const indexPath = join(root, "state", "lessons", "reviews", "index.json");
+    const staleReviewPath = join(root, "state", "lessons", "reviews", "stale-run.json");
+    const playbookReviewPath = join(root, "state", "lessons", "reviews", "playbook-run.json");
     const promotionCandidateReviewPath = join(
       root,
-      "references",
+      "state",
       "lessons",
       "reviews",
       "promotion-candidate-run.json",
     );
-    const staleCandidate = "references/lessons/inbox/stale-run.md";
-    const playbookCandidate = "references/lessons/inbox/playbook-run.md";
-    const promotionCandidate = "references/lessons/inbox/promotion-candidate-run.md";
-    const staleReview = "references/lessons/reviews/stale-run.json";
-    const playbookReview = "references/lessons/reviews/playbook-run.json";
-    const promotionCandidateReview = "references/lessons/reviews/promotion-candidate-run.json";
+    const staleCandidate = "lessons/inbox/stale-run.md";
+    const playbookCandidate = "lessons/inbox/playbook-run.md";
+    const promotionCandidate = "lessons/inbox/promotion-candidate-run.md";
+    const staleReview = "lessons/reviews/stale-run.json";
+    const playbookReview = "lessons/reviews/playbook-run.json";
+    const promotionCandidateReview = "lessons/reviews/promotion-candidate-run.json";
 
     expect(result.indexPath).toBe(indexPath);
     expect(result.index.schemaVersion).toBe(1);
-    expect(result.index.inboxPath).toBe("references/lessons/inbox");
-    expect(result.index.reviewsPath).toBe("references/lessons/reviews");
+    expect(result.index.inboxPath).toBe("lessons/inbox");
+    expect(result.index.reviewsPath).toBe("lessons/reviews");
     expect(result.index.summary).toEqual({
       total: 3,
       autoRejected: 1,
@@ -275,13 +279,13 @@ describe("lesson inbox review", () => {
 `,
     );
 
-    const report = await buildLessonPromotionQueue({ repoRoot: root });
+    const report = await buildLessonPromotionQueue({ repoRoot: root, stateRoot: stateRoot(root) });
 
     expect(report.summary.promotionCandidates).toBe(1);
     expect(report.queue).toEqual([
       {
-        candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
-        reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+        candidatePath: "lessons/inbox/promotion-candidate-run.md",
+        reviewPath: "lessons/reviews/promotion-candidate-run.json",
         runId: "promotion-candidate-run",
         taskId: "repeated-cli-command",
         action: "promote_candidate",

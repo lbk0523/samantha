@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git } from "../src/core/git";
+import { defaultProjectStateRoot, projectIdForTargetRepo } from "../src/core/project-context";
 import {
   allocateWorktree,
   branchForTask,
@@ -39,8 +40,11 @@ describe("worktree allocation", () => {
 
   test("defaults task worktrees outside the target repo", async () => {
     const repo = await makeRepo();
+    const projectId = projectIdForTargetRepo(repo);
 
-    expect(defaultWorktreesRoot(repo)).toContain(".samantha-worktrees");
+    expect(defaultWorktreesRoot(repo)).toBe(
+      join(defaultProjectStateRoot({ projectId, targetRepoRoot: repo }), "worktrees"),
+    );
     expect(worktreePathForTask(repo, "Task 1").startsWith(repo)).toBe(false);
   });
 

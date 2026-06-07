@@ -2,6 +2,9 @@ import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { AgentProfile, TaskSpec } from "../core/contracts";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "../core/ledger";
+import { buildProjectContext } from "../core/project-context";
+import { projectPaths } from "../core/project-paths";
+import { acquireProjectWriterLock, type ProjectWriterLockHandle } from "../core/project-writer-lock";
 import { appendRunEvent } from "../core/run-events";
 import { buildWorkerRunId, writeWorkerRunLog, type WorkerRunLogWrite } from "../core/run-log";
 import { executeWorkerDispatch, type WorkerDispatchExecution } from "../core/worker-dispatch";
@@ -26,10 +29,6 @@ export interface RunTaskCommandResult {
 
 async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
-}
-
-function defaultAgentPath(task: TaskSpec): string {
-  return resolve("references", "agent-profiles", `${task.targetAgent}.json`);
 }
 
 function isDispatchBlock(err: unknown): err is Error {
@@ -65,19 +64,31 @@ function blockedExecution(input: {
 
 export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTaskCommandResult> {
   const task = await readJson<TaskSpec>(resolve(input.taskPath));
-  const agent = await readJson<AgentProfile>(resolve(input.agentPath ?? defaultAgentPath(task)));
   const repoRoot = resolve(input.repoRoot);
-  const runsDir = resolve(input.runsDir ?? resolve(repoRoot, "runs"));
+  const projectContext = await buildProjectContext({ targetRepoRoot: repoRoot });
+  const agent = await readJson<AgentProfile>(
+    resolve(input.agentPath ?? projectPaths.agentProfilePath(projectContext, task.targetAgent)),
+  );
+  const runsDir = resolve(input.runsDir ?? projectPaths.runsDir(projectContext));
+  const worktreesDir = input.worktreesDir ?? projectPaths.worktreesRoot(projectContext);
   const runtimeKind = input.runtimeKind ?? "codex-sdk";
   const startedAt = new Date().toISOString();
   const runId = buildWorkerRunId({ startedAt, taskId: task.id });
   let execution: WorkerDispatchExecution;
+  let writerLock: ProjectWriterLockHandle | undefined;
   try {
+    if (agent.writerClass === "writer" && task.resultMode !== "report") {
+      writerLock = await acquireProjectWriterLock({
+        projectContext,
+        taskId: task.id,
+        runId,
+      });
+    }
     execution = await executeWorkerDispatch({
       task,
       agent,
       repoRoot,
-      worktreesDir: input.worktreesDir,
+      worktreesDir,
       codexBin: input.codexBin,
       runtimeKind,
       hookRunId: runId,
@@ -95,13 +106,15 @@ export async function runTaskCommand(input: RunTaskCommandInput): Promise<RunTas
       runtimeKind,
       error: err,
     });
+  } finally {
+    await writerLock?.release();
   }
   const finishedAt = new Date().toISOString();
   const logInput = {
     task,
     agent,
     repoRoot,
-    worktreesDir: input.worktreesDir,
+    worktreesDir,
     startedAt,
     finishedAt,
     execution,

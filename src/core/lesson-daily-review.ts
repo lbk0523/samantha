@@ -8,11 +8,14 @@ import {
   type LessonAutoPromotionReport,
 } from "./lesson-promote";
 import { RunIndex, type RunSummary } from "./ledger";
+import { buildProjectContext, type ProjectContext } from "./project-context";
+import { projectPaths } from "./project-paths";
 
 export interface DailyLessonReviewInput {
   repoRoot: string;
   date?: string;
   now?: Date;
+  stateRoot?: string;
 }
 
 export interface DailyLessonDraftResult {
@@ -123,14 +126,24 @@ function selectedRuns(input: { summaries: RunSummary[]; window: KstDateWindow })
     );
 }
 
+async function runSummaries(input: { projectContext: ProjectContext; repoRoot: string }): Promise<RunSummary[]> {
+  const stateSummaries = await new RunIndex(projectPaths.runIndexPath(input.projectContext)).list();
+  if (stateSummaries.length > 0) return stateSummaries;
+  return new RunIndex(join(input.repoRoot, "runs", "index.jsonl")).list();
+}
+
 export async function runDailyLessonReview(
   input: DailyLessonReviewInput,
 ): Promise<DailyLessonReviewReport> {
   const repoRoot = resolve(input.repoRoot);
+  const projectContext = await buildProjectContext({
+    targetRepoRoot: repoRoot,
+    ...(input.stateRoot ? { stateRoot: input.stateRoot } : {}),
+  });
   const targetDate = input.date ?? defaultPreviousKstDate(input.now);
   const window = kstDateWindow(targetDate);
   const dirtyTreeBlocked = await isGitWorkTreeDirty(repoRoot);
-  const summaries = await new RunIndex(join(repoRoot, "runs", "index.jsonl")).list();
+  const summaries = await runSummaries({ projectContext, repoRoot });
   const runs = selectedRuns({ summaries, window });
   const draftResults: DailyLessonDraftResult[] = [];
 
@@ -138,6 +151,7 @@ export async function runDailyLessonReview(
     const draft = await draftLessonFromAcceptedRun({
       runLogPath: runLogPath(repoRoot, summary),
       repoRoot,
+      stateRoot: projectContext.stateRoot,
     });
     draftResults.push({
       runId: draft.runId ?? summary.runId,
@@ -147,14 +161,15 @@ export async function runDailyLessonReview(
     });
   }
 
-  const review = await reviewLessonInbox({ repoRoot });
+  const review = await reviewLessonInbox({ repoRoot, stateRoot: projectContext.stateRoot });
   const autoPromotion = await autoPromoteLessonPlaybooks({
     repoRoot,
+    candidateRoot: projectContext.stateRoot,
     candidates: review.index.candidates,
     dirtyTreeBlocked,
     targetDate,
   });
-  const reportPath = join(repoRoot, "references", "lessons", "daily", `${targetDate}.json`);
+  const reportPath = projectPaths.lessonDailyReviewPath(projectContext, targetDate);
   const report: DailyLessonReviewReport = {
     schemaVersion: 1,
     targetDate,
@@ -171,7 +186,7 @@ export async function runDailyLessonReview(
     reportPath,
   };
 
-  await mkdir(join(repoRoot, "references", "lessons", "daily"), { recursive: true });
+  await mkdir(projectPaths.lessonDailyDir(projectContext), { recursive: true });
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   return report;

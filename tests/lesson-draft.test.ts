@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { draftLessonFromAcceptedRun, draftLessonFromRunLog } from "../src/core/lesson-draft";
 import type { RunSummary } from "../src/core/ledger";
+import { sanitizePathSegment } from "../src/core/project-paths";
 import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import { buildWorkerRunLog, type WorkerRunLog } from "../src/core/run-log";
 import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
@@ -112,6 +113,14 @@ async function writeJsonLines<T>(path: string, items: T[]): Promise<void> {
   await writeFile(path, `${items.map((item) => JSON.stringify(item)).join("\n")}\n`, "utf8");
 }
 
+function projectStateRoot(root: string): string {
+  return join(root, "state");
+}
+
+function lessonCandidatePath(root: string, runId: string): string {
+  return join(projectStateRoot(root), "lessons", "inbox", `${sanitizePathSegment(runId)}.md`);
+}
+
 function runSummary(log: WorkerRunLog, logPath: string, overrides: Partial<RunSummary> = {}): RunSummary {
   return {
     schemaVersion: 1,
@@ -165,11 +174,15 @@ describe("lesson drafts", () => {
       "utf8",
     );
 
-    const draft = await draftLessonFromRunLog({ runLogPath, repoRoot: root });
+    const draft = await draftLessonFromRunLog({
+      runLogPath,
+      repoRoot: root,
+      stateRoot: projectStateRoot(root),
+    });
     const markdown = await readFile(draft.path, "utf8");
 
     expect(draft).toEqual({
-      path: join(root, "references", "lessons", "inbox", `${log.runId}.md`),
+      path: lessonCandidatePath(root, log.runId),
       runId: log.runId,
     });
     expect(markdown).toContain(`# Lesson Candidate: ${log.runId}`);
@@ -194,7 +207,7 @@ describe("lesson drafts", () => {
   test("creates an automatic candidate only for accepted and cleaned writer runs", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-lesson-"));
     tmpRoots.push(root);
-    const stateDir = join(root, "state");
+    const stateDir = join(root, "lifecycle-state");
     const log = buildWorkerRunLog({
       task,
       agent,
@@ -231,13 +244,18 @@ describe("lesson drafts", () => {
       },
     ]);
 
-    const draft = await draftLessonFromAcceptedRun({ runLogPath, repoRoot: root, stateDir });
+    const draft = await draftLessonFromAcceptedRun({
+      runLogPath,
+      repoRoot: root,
+      stateDir,
+      stateRoot: projectStateRoot(root),
+    });
     const markdown = await readFile(draft.path ?? "", "utf8");
 
     expect(draft).toEqual({
       status: "created",
       reason: "verify_failed recovery success",
-      path: join(root, "references", "lessons", "inbox", `${log.runId}.md`),
+      path: lessonCandidatePath(root, log.runId),
       runId: log.runId,
     });
     expect(markdown).toContain("- Lifecycle state: merged and cleaned");
@@ -269,7 +287,13 @@ describe("lesson drafts", () => {
       },
     ]);
 
-    await expect(draftLessonFromAcceptedRun({ runLogPath, repoRoot: root })).resolves.toEqual({
+    await expect(
+      draftLessonFromAcceptedRun({
+        runLogPath,
+        repoRoot: root,
+        stateRoot: projectStateRoot(root),
+      }),
+    ).resolves.toEqual({
       status: "skipped",
       reason: "accepted writer run has no high-signal learning trigger evidence",
     });
@@ -287,8 +311,8 @@ describe("lesson drafts", () => {
       execution: execution(),
     });
     const runLogPath = await writeRunLog(root, log);
-    const candidatePath = join(root, "references", "lessons", "inbox", `${log.runId}.md`);
-    await mkdir(join(root, "references", "lessons", "inbox"), { recursive: true });
+    const candidatePath = lessonCandidatePath(root, log.runId);
+    await mkdir(join(projectStateRoot(root), "lessons", "inbox"), { recursive: true });
     await writeFile(candidatePath, "manual review note\n", "utf8");
     await writeJsonLines(join(root, "runs", "run-lifecycle.jsonl"), [
       {
@@ -304,7 +328,11 @@ describe("lesson drafts", () => {
       },
     ]);
 
-    const draft = await draftLessonFromAcceptedRun({ runLogPath, repoRoot: root });
+    const draft = await draftLessonFromAcceptedRun({
+      runLogPath,
+      repoRoot: root,
+      stateRoot: projectStateRoot(root),
+    });
 
     expect(draft).toEqual({
       status: "already_exists",
@@ -376,11 +404,23 @@ describe("lesson drafts", () => {
       },
     ]);
 
-    await expect(draftLessonFromAcceptedRun({ runLogPath: reportRunLogPath, repoRoot: root })).resolves.toEqual({
+    await expect(
+      draftLessonFromAcceptedRun({
+        runLogPath: reportRunLogPath,
+        repoRoot: root,
+        stateRoot: projectStateRoot(root),
+      }),
+    ).resolves.toEqual({
       status: "skipped",
       reason: "report-only run is not an automatic lesson draft target",
     });
-    await expect(draftLessonFromAcceptedRun({ runLogPath: failedRunLogPath, repoRoot: root })).resolves.toEqual({
+    await expect(
+      draftLessonFromAcceptedRun({
+        runLogPath: failedRunLogPath,
+        repoRoot: root,
+        stateRoot: projectStateRoot(root),
+      }),
+    ).resolves.toEqual({
       status: "skipped",
       reason: "run did not pass Samantha evaluation",
     });
@@ -432,7 +472,11 @@ describe("lesson drafts", () => {
       runSummary(sourceLog, sourceRunLogPath, { outcome: "pass", pass: true }),
     ]);
 
-    const draft = await draftLessonFromRunLog({ runLogPath: sourceRunLogPath, repoRoot: root });
+    const draft = await draftLessonFromRunLog({
+      runLogPath: sourceRunLogPath,
+      repoRoot: root,
+      stateRoot: projectStateRoot(root),
+    });
     const markdown = await readFile(draft.path, "utf8");
 
     expect(markdown).toContain("- Task family: add-cli-command");
@@ -477,7 +521,11 @@ describe("lesson drafts", () => {
       runSummary(futureLog, futureRunLogPath, { outcome: "pass", pass: true }),
     ]);
 
-    const draft = await draftLessonFromRunLog({ runLogPath: sourceRunLogPath, repoRoot: root });
+    const draft = await draftLessonFromRunLog({
+      runLogPath: sourceRunLogPath,
+      repoRoot: root,
+      stateRoot: projectStateRoot(root),
+    });
     const markdown = await readFile(draft.path, "utf8");
 
     expect(markdown).toContain("- Task family: add-cli-command");
@@ -520,7 +568,11 @@ describe("lesson drafts", () => {
     });
     const runLogPath = await writeRunLog(root, log);
 
-    const draft = await draftLessonFromRunLog({ runLogPath, repoRoot: root });
+    const draft = await draftLessonFromRunLog({
+      runLogPath,
+      repoRoot: root,
+      stateRoot: projectStateRoot(root),
+    });
     const markdown = await readFile(draft.path, "utf8");
 
     expect(markdown).toContain("- Observed outcome: verify_failed");
@@ -605,7 +657,11 @@ describe("lesson drafts", () => {
     ]);
     await writeJsonLines(join(root, "runs", "run-lifecycle.jsonl"), [lifecycle]);
 
-    const draft = await draftLessonFromRunLog({ runLogPath: sourceRunLogPath, repoRoot: root });
+    const draft = await draftLessonFromRunLog({
+      runLogPath: sourceRunLogPath,
+      repoRoot: root,
+      stateRoot: projectStateRoot(root),
+    });
     const markdown = await readFile(draft.path, "utf8");
 
     expect(markdown).toContain("- Observed outcome: blocked");

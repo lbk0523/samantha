@@ -5,6 +5,8 @@ import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import type { RunOutcome, RunSummary } from "../src/core/ledger";
 import { validateDispatch } from "../src/core/policy";
+import { buildProjectContext } from "../src/core/project-context";
+import { projectPaths } from "../src/core/project-paths";
 import type { RecommendedNextAction } from "../src/core/run-diagnose";
 import type { RunLifecycleRecord } from "../src/core/run-lifecycle-store";
 import { createTaskFromRun } from "../src/core/task-from-run";
@@ -132,6 +134,24 @@ async function makeRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "samantha-task-from-run-"));
   tmpRoots.push(root);
   return root;
+}
+
+function projectInput(root: string): {
+  repoRoot: string;
+  stateRoot: string;
+} {
+  return {
+    repoRoot: root,
+    stateRoot: join(root, "state"),
+  };
+}
+
+async function expectedTaskPath(root: string, taskId: string): Promise<string> {
+  const ctx = await buildProjectContext({
+    targetRepoRoot: root,
+    stateRoot: join(root, "state"),
+  });
+  return projectPaths.taskSpecPath(ctx, taskId);
 }
 
 async function writeRunLog(root: string, log: WorkerRunLog): Promise<string> {
@@ -262,7 +282,7 @@ describe("task creation from run evidence", () => {
     const runLogPath = await writeRunLog(root, baseLog());
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "follow-up",
       title: "Follow up",
@@ -322,7 +342,7 @@ describe("task creation from run evidence", () => {
 
     await expect(
       createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "report-follow-up",
       title: "Report follow up",
@@ -380,7 +400,7 @@ describe("task creation from run evidence", () => {
     );
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "report-rework-follow-up",
       title: "Inspect report rework",
@@ -392,6 +412,7 @@ describe("task creation from run evidence", () => {
       created: true,
       outcome: "rework",
     });
+    expect(result.path).toBe(await expectedTaskPath(root, "report-rework-follow-up"));
     expect(generated).toMatchObject({
       taskFamily: "report-review",
       workMode: "diagnosis-first",
@@ -455,7 +476,7 @@ describe("task creation from run evidence", () => {
     ]);
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "report-superseded-follow-up",
       title: "Inspect superseded report",
@@ -521,7 +542,7 @@ describe("task creation from run evidence", () => {
     ]);
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "report-dirty-follow-up",
       title: "Inspect dirty report",
@@ -555,7 +576,7 @@ describe("task creation from run evidence", () => {
     });
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "superseded-follow-up",
       title: "Inspect superseded run",
@@ -580,7 +601,7 @@ describe("task creation from run evidence", () => {
     await writeSupersedingRunEvidence({ root, sourceLog });
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "uncleaned-follow-up",
       title: "Inspect uncleaned run",
@@ -709,7 +730,7 @@ describe("task creation from run evidence", () => {
       });
 
       const result = await createTaskFromRun({
-        repoRoot: root,
+        ...projectInput(root),
         runLogPath,
         taskId: `${item.name}-superseded-follow-up`,
         title: "Inspect superseded run",
@@ -753,7 +774,7 @@ describe("task creation from run evidence", () => {
     );
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "verify-follow-up",
       title: "Fix original verification",
@@ -803,7 +824,7 @@ describe("task creation from run evidence", () => {
     );
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "legacy-metadata-follow-up",
       title: "Recover legacy metadata run",
@@ -841,7 +862,7 @@ describe("task creation from run evidence", () => {
     );
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "sdk-rework-follow-up",
       title: "Recover failed SDK run",
@@ -885,7 +906,7 @@ describe("task creation from run evidence", () => {
     );
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "exec-json-rework-follow-up",
       title: "Recover failed exec-json run",
@@ -920,7 +941,7 @@ describe("task creation from run evidence", () => {
     );
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "scope-follow-up",
       title: "Narrow original scope",
@@ -961,7 +982,7 @@ describe("task creation from run evidence", () => {
     );
 
     const result = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath,
       taskId: "setup-follow-up",
       title: "Fix setup failure",
@@ -1015,13 +1036,13 @@ describe("task creation from run evidence", () => {
     });
 
     const workerFailed = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath: workerFailedPath,
       taskId: "worker-failed-follow-up",
       title: "Inspect worker failure",
     });
     const malformed = await createTaskFromRun({
-      repoRoot: root,
+      ...projectInput(root),
       runLogPath: malformedPath,
       taskId: "malformed-follow-up",
       title: "Inspect malformed result",
@@ -1058,7 +1079,7 @@ describe("task creation from run evidence", () => {
 
     await expect(
       createTaskFromRun({
-        repoRoot: root,
+        ...projectInput(root),
         runLogPath: commitFailedPath,
         taskId: "commit-follow-up",
         title: "Inspect commit failure",
@@ -1071,8 +1092,8 @@ describe("task creation from run evidence", () => {
       note: "commit failure requires explicit local inspection; no task was created and lifecycle is untrusted",
     });
 
-    await mkdir(join(root, "references", "tasks"), { recursive: true });
-    await writeFile(join(root, "references", "tasks", "existing-task.json"), "{}\n", "utf8");
+    await mkdir(join(root, "state", "tasks"), { recursive: true });
+    await writeFile(join(root, "state", "tasks", "existing-task.json"), "{}\n", "utf8");
     const verifyFailedPath = await writeRunLog(root, {
       ...baseLog(),
       runId: "run-2",
@@ -1090,11 +1111,27 @@ describe("task creation from run evidence", () => {
     });
     await expect(
       createTaskFromRun({
-        repoRoot: root,
+        ...projectInput(root),
         runLogPath: verifyFailedPath,
         taskId: "existing-task",
         title: "Existing task",
       }),
     ).rejects.toThrow("task already exists: existing-task");
+  });
+
+  test("supports explicit legacy task spec directory override", async () => {
+    const root = await makeRoot();
+    const runLogPath = await writeRunLog(root, blockedLog("legacy-source", "needs follow-up"));
+
+    const result = await createTaskFromRun({
+      ...projectInput(root),
+      taskSpecsDir: join(root, "references", "tasks"),
+      runLogPath,
+      taskId: "legacy-follow-up",
+      title: "Legacy follow up",
+    });
+
+    expect(result.path).toBe(join(root, "references", "tasks", "legacy-follow-up.json"));
+    await expect(readFile(result.path ?? "", "utf8")).resolves.toContain("\"id\": \"legacy-follow-up\"");
   });
 });

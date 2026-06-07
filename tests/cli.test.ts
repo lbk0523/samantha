@@ -2825,10 +2825,13 @@ The fixture is complete when readiness is clear.
     expect(packageJson.scripts.build).toContain("bun build src/cli.ts");
     expect(packageJson.files).toEqual([
       "README.md",
+      "README.ko.md",
       "LICENSE",
       "CONTRIBUTING.md",
       "SECURITY.md",
       "CODE_OF_CONDUCT.md",
+      "docs/first-run.md",
+      "docs/assets/samantha-header.png",
       "dist/",
       "examples/first-run-demo/fixture-repo/",
       "references/agent-profiles/codex-worker.json",
@@ -3215,7 +3218,8 @@ The fixture is complete when readiness is clear.
   test("lesson inbox review command writes review index", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-cli-"));
     tmpRoots.push(root);
-    const candidateDir = join(root, "references", "lessons", "inbox");
+    const stateRoot = join(root, "state");
+    const candidateDir = join(stateRoot, "lessons", "inbox");
     await mkdir(candidateDir, { recursive: true });
     await writeFile(
       join(candidateDir, "run-1.md"),
@@ -3248,18 +3252,18 @@ The fixture is complete when readiness is clear.
       stdout = String(message);
     };
     try {
-      await expect(main(["lessons:review-inbox", `--repo-root=${root}`])).resolves.toBe(0);
+      await expect(main(["lessons:review-inbox", `--repo-root=${root}`, `--state-root=${stateRoot}`])).resolves.toBe(0);
     } finally {
       console.log = originalLog;
     }
 
     const result = JSON.parse(stdout);
-    const indexPath = join(root, "references", "lessons", "reviews", "index.json");
+    const indexPath = join(stateRoot, "lessons", "reviews", "index.json");
     expect(result.indexPath).toBe(indexPath);
     expect(JSON.parse(await readFile(indexPath, "utf8"))).toMatchObject({
       schemaVersion: 1,
-      inboxPath: "references/lessons/inbox",
-      reviewsPath: "references/lessons/reviews",
+      inboxPath: "lessons/inbox",
+      reviewsPath: "lessons/reviews",
       summary: {
         total: 1,
         autoRejected: 1,
@@ -3269,8 +3273,8 @@ The fixture is complete when readiness is clear.
       },
       candidates: [
         {
-          candidatePath: "references/lessons/inbox/run-1.md",
-          reviewPath: "references/lessons/reviews/run-1.json",
+          candidatePath: "lessons/inbox/run-1.md",
+          reviewPath: "lessons/reviews/run-1.json",
           runId: "run-1",
           classification: "auto_rejected",
         },
@@ -3281,15 +3285,17 @@ The fixture is complete when readiness is clear.
   test("lesson daily review command writes a date-scoped report", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-cli-"));
     tmpRoots.push(root);
+    const stateRoot = join(root, "state");
 
     const result = await runCliCapturingStdout([
       "lessons:daily-review",
       `--repo-root=${root}`,
+      `--state-root=${stateRoot}`,
       "--date=2026-05-23",
     ]);
 
     const report = JSON.parse(result.stdout);
-    const reportPath = join(root, "references", "lessons", "daily", "2026-05-23.json");
+    const reportPath = join(stateRoot, "lessons", "daily", "2026-05-23.json");
     expect(result.exitCode).toBe(0);
     expect(report).toMatchObject({
       schemaVersion: 1,
@@ -3300,7 +3306,7 @@ The fixture is complete when readiness is clear.
       },
       selectedRunCount: 0,
       draftResults: [],
-      reviewIndexPath: join(root, "references", "lessons", "reviews", "index.json"),
+      reviewIndexPath: join(stateRoot, "lessons", "reviews", "index.json"),
       summary: {
         total: 0,
       },
@@ -3313,7 +3319,8 @@ The fixture is complete when readiness is clear.
   test("lesson promotion queue command prints a review queue without promoting", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-cli-"));
     tmpRoots.push(root);
-    const candidateDir = join(root, "references", "lessons", "inbox");
+    const stateRoot = join(root, "state");
+    const candidateDir = join(stateRoot, "lessons", "inbox");
     await mkdir(candidateDir, { recursive: true });
     await writeFile(
       join(candidateDir, "run-1.md"),
@@ -3352,7 +3359,7 @@ The fixture is complete when readiness is clear.
       stdout = String(message);
     };
     try {
-      await expect(main(["lessons:promotion-queue", `--repo-root=${root}`])).resolves.toBe(0);
+      await expect(main(["lessons:promotion-queue", `--repo-root=${root}`, `--state-root=${stateRoot}`])).resolves.toBe(0);
     } finally {
       console.log = originalLog;
     }
@@ -3365,8 +3372,8 @@ The fixture is complete when readiness is clear.
       },
       queue: [
         {
-          candidatePath: "references/lessons/inbox/run-1.md",
-          reviewPath: "references/lessons/reviews/run-1.json",
+          candidatePath: "lessons/inbox/run-1.md",
+          reviewPath: "lessons/reviews/run-1.json",
           runId: "run-1",
           taskId: "cli-pattern-v2",
           action: "promote_candidate",

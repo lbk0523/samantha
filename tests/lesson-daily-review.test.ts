@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { defaultPreviousKstDate, runDailyLessonReview } from "../src/core/lesson-daily-review";
 import type { RunSummary } from "../src/core/ledger";
+import { sanitizePathSegment } from "../src/core/project-paths";
 import { buildWorkerRunLog, type WorkerRunLog } from "../src/core/run-log";
 import type { WorkerDispatchExecution } from "../src/core/worker-dispatch";
 
@@ -114,10 +115,22 @@ async function writeJsonLines<T>(path: string, items: T[]): Promise<void> {
 }
 
 async function writeInboxCandidate(root: string, name: string, markdown: string): Promise<string> {
-  const path = join(root, "references", "lessons", "inbox", name);
+  const path = join(stateRoot(root), "lessons", "inbox", name);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, markdown, "utf8");
   return path;
+}
+
+function stateRoot(root: string): string {
+  return join(root, "state");
+}
+
+function lessonCandidatePath(root: string, runId: string): string {
+  return join(stateRoot(root), "lessons", "inbox", `${sanitizePathSegment(runId)}.md`);
+}
+
+function dailyReportPath(root: string, targetDate: string): string {
+  return join(stateRoot(root), "lessons", "daily", `${targetDate}.json`);
 }
 
 function promotionCandidateMarkdown(input: {
@@ -262,7 +275,7 @@ describe("daily lesson review", () => {
       },
     ]);
 
-    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23", stateRoot: stateRoot(root) });
 
     expect(result).toMatchObject({
       schemaVersion: 1,
@@ -277,16 +290,16 @@ describe("daily lesson review", () => {
           runId: first.runId,
           status: "created",
           reason: "verify_failed recovery success",
-          path: join(root, "references", "lessons", "inbox", `${first.runId}.md`),
+          path: lessonCandidatePath(root, first.runId),
         },
         {
           runId: second.runId,
           status: "created",
           reason: "verify_failed recovery success",
-          path: join(root, "references", "lessons", "inbox", `${second.runId}.md`),
+          path: lessonCandidatePath(root, second.runId),
         },
       ],
-      reviewIndexPath: join(root, "references", "lessons", "reviews", "index.json"),
+      reviewIndexPath: join(stateRoot(root), "lessons", "reviews", "index.json"),
       summary: {
         total: 2,
         needsMoreEvidence: 1,
@@ -294,6 +307,7 @@ describe("daily lesson review", () => {
       },
     });
     expect(result.promotionQueue.map((entry) => entry.runId)).toEqual([second.runId, first.runId]);
+    expect(result.reportPath).toBe(dailyReportPath(root, "2026-05-23"));
     expect(JSON.parse(await readFile(result.reportPath, "utf8"))).toEqual(result);
   });
 
@@ -303,6 +317,7 @@ describe("daily lesson review", () => {
 
     const result = await runDailyLessonReview({
       repoRoot: root,
+      stateRoot: stateRoot(root),
       now: new Date("2026-05-23T15:30:00.000Z"),
     });
 
@@ -321,8 +336,8 @@ describe("daily lesson review", () => {
       finishedAt: "2026-05-22T16:01:00.000Z",
     });
     const runLogPath = await writeRunLog(root, log);
-    const candidatePath = join(root, "references", "lessons", "inbox", `${log.runId}.md`);
-    await mkdir(join(root, "references", "lessons", "inbox"), { recursive: true });
+    const candidatePath = lessonCandidatePath(root, log.runId);
+    await mkdir(dirname(candidatePath), { recursive: true });
     await writeFile(candidatePath, "manual candidate\n", "utf8");
     await writeJsonLines(join(root, "runs", "index.jsonl"), [
       runSummary(log, runLogPath, {
@@ -350,8 +365,8 @@ describe("daily lesson review", () => {
       },
     ]);
 
-    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
-    const second = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23", stateRoot: stateRoot(root) });
+    const second = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23", stateRoot: stateRoot(root) });
 
     expect(result.draftResults).toEqual([
       {
@@ -379,7 +394,7 @@ describe("daily lesson review", () => {
       }),
     );
 
-    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23", stateRoot: stateRoot(root) });
     const artifactPath = join(root, "references", "playbooks", "cli-command.md");
 
     expect(result.autoPromotion).toEqual({
@@ -388,8 +403,8 @@ describe("daily lesson review", () => {
       dirtyTreeBlocked: false,
       promoted: [
         {
-          candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
-          reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+          candidatePath: "lessons/inbox/promotion-candidate-run.md",
+          reviewPath: "lessons/reviews/promotion-candidate-run.json",
           runId: "promotion-candidate-run",
           taskId: "specific-cli-command-v2",
           playbookId: "cli-command",
@@ -425,7 +440,7 @@ describe("daily lesson review", () => {
       }),
     );
 
-    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23", stateRoot: stateRoot(root) });
 
     expect(result.autoPromotion).toEqual({
       schemaVersion: 1,
@@ -435,8 +450,8 @@ describe("daily lesson review", () => {
       skipped: [],
       blocked: [
         {
-          candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
-          reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+          candidatePath: "lessons/inbox/promotion-candidate-run.md",
+          reviewPath: "lessons/reviews/promotion-candidate-run.json",
           runId: "promotion-candidate-run",
           taskId: "specific-cli-command-v2",
           playbookId: "cli-command",
@@ -470,7 +485,7 @@ describe("daily lesson review", () => {
     await mkdir(dirname(artifactPath), { recursive: true });
     await writeFile(artifactPath, "existing\n", "utf8");
 
-    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23", stateRoot: stateRoot(root) });
 
     expect(result.autoPromotion.promoted).toEqual([]);
     expect(result.autoPromotion.blocked).toEqual([]);
@@ -478,8 +493,8 @@ describe("daily lesson review", () => {
     expect(result.autoPromotion.targetDate).toBe("2026-05-23");
     expect(result.autoPromotion.skipped).toEqual([
       {
-        candidatePath: "references/lessons/inbox/promotion-candidate-run.md",
-        reviewPath: "references/lessons/reviews/promotion-candidate-run.json",
+        candidatePath: "lessons/inbox/promotion-candidate-run.md",
+        reviewPath: "lessons/reviews/promotion-candidate-run.json",
         runId: "promotion-candidate-run",
         taskId: "specific-cli-command-v2",
         playbookId: "cli-command",
@@ -510,7 +525,7 @@ describe("daily lesson review", () => {
       }),
     );
 
-    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23" });
+    const result = await runDailyLessonReview({ repoRoot: root, date: "2026-05-23", stateRoot: stateRoot(root) });
 
     expect(result.autoPromotion).toEqual({
       schemaVersion: 1,
@@ -519,8 +534,8 @@ describe("daily lesson review", () => {
       promoted: [],
       skipped: [
         {
-          candidatePath: "references/lessons/inbox/needs-more-evidence-run.md",
-          reviewPath: "references/lessons/reviews/needs-more-evidence-run.json",
+          candidatePath: "lessons/inbox/needs-more-evidence-run.md",
+          reviewPath: "lessons/reviews/needs-more-evidence-run.json",
           runId: "needs-more-evidence-run",
           taskId: "specific-cli-command-v2",
           playbookId: "cli-command",

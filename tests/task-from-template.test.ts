@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { validateDispatch } from "../src/core/policy";
+import { buildProjectContext } from "../src/core/project-context";
+import { projectPaths } from "../src/core/project-paths";
 import { createTaskFromTemplate } from "../src/core/task-from-template";
 
 let tmpRoots: string[] = [];
@@ -56,6 +58,30 @@ async function copyRepoTemplate(root: string, templateId: string): Promise<void>
   await writeFile(join(dir, `${templateId}.json`), raw, "utf8");
 }
 
+function projectInput(root: string): {
+  repoRoot: string;
+  harnessRoot: string;
+  stateRoot: string;
+} {
+  return {
+    repoRoot: root,
+    harnessRoot: root,
+    stateRoot: join(root, "state"),
+  };
+}
+
+function contextInput(root: string): {
+  targetRepoRoot: string;
+  harnessRoot: string;
+  stateRoot: string;
+} {
+  return {
+    targetRepoRoot: root,
+    harnessRoot: root,
+    stateRoot: join(root, "state"),
+  };
+}
+
 afterEach(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
   tmpRoots = [];
@@ -68,16 +94,17 @@ describe("task creation from templates", () => {
     await writeTemplate(root);
 
     const result = await createTaskFromTemplate({
-      repoRoot: root,
+      ...projectInput(root),
       templateId: "core-module-with-tests",
       taskId: "add-task-template-command",
       title: "Add task template command",
     });
     const raw = await readFile(result.path, "utf8");
     const task = JSON.parse(raw) as TaskSpec;
+    const ctx = await buildProjectContext(contextInput(root));
 
     expect(result).toEqual({
-      path: join(root, "references", "tasks", "add-task-template-command.json"),
+      path: projectPaths.taskSpecPath(ctx, "add-task-template-command"),
       taskId: "add-task-template-command",
       templateId: "core-module-with-tests",
       unresolvedPlaceholders: ["module"],
@@ -94,12 +121,12 @@ describe("task creation from templates", () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-task-template-"));
     tmpRoots.push(root);
     await writeTemplate(root);
-    await mkdir(join(root, "references", "tasks"), { recursive: true });
-    await writeFile(join(root, "references", "tasks", "existing-task.json"), "{}\n", "utf8");
+    await mkdir(join(root, "state", "tasks"), { recursive: true });
+    await writeFile(join(root, "state", "tasks", "existing-task.json"), "{}\n", "utf8");
 
     await expect(
       createTaskFromTemplate({
-        repoRoot: root,
+        ...projectInput(root),
         templateId: "core-module-with-tests",
         taskId: "existing-task",
         title: "Existing task",
@@ -127,7 +154,7 @@ describe("task creation from templates", () => {
       const agent = JSON.parse(await readFile(agentPath, "utf8")) as AgentProfile;
 
       const result = await createTaskFromTemplate({
-        repoRoot: root,
+        ...projectInput(root),
         templateId,
         taskId: `${templateId}-fixture`,
         title: `${templateId} fixture`,
@@ -144,7 +171,7 @@ describe("task creation from templates", () => {
     await copyRepoTemplate(root, "cli-command-with-tests");
 
     const result = await createTaskFromTemplate({
-      repoRoot: root,
+      ...projectInput(root),
       templateId: "cli-command-with-tests",
       taskId: "add-template-values",
       title: "Add template values",
@@ -168,7 +195,7 @@ describe("task creation from templates", () => {
     await copyRepoTemplate(root, "core-module-with-tests");
 
     const result = await createTaskFromTemplate({
-      repoRoot: root,
+      ...projectInput(root),
       templateId: "core-module-with-tests",
       taskId: "manual-narrowing-fixture",
       title: "Manual narrowing fixture",
@@ -179,5 +206,22 @@ describe("task creation from templates", () => {
     expect(task.verifyCommands).toContain("bun test tests/<module>.test.ts");
     expect(task.expectedCommitSubject).toBe("feat: add <module> core behavior");
     expect(result.unresolvedPlaceholders).toEqual(["module"]);
+  });
+
+  test("supports explicit legacy task spec directory override", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-task-template-"));
+    tmpRoots.push(root);
+    await writeTemplate(root);
+
+    const result = await createTaskFromTemplate({
+      ...projectInput(root),
+      taskSpecsDir: join(root, "references", "tasks"),
+      templateId: "core-module-with-tests",
+      taskId: "legacy-task-output",
+      title: "Legacy task output",
+    });
+
+    expect(result.path).toBe(join(root, "references", "tasks", "legacy-task-output.json"));
+    await expect(readFile(result.path, "utf8")).resolves.toContain("\"id\": \"legacy-task-output\"");
   });
 });

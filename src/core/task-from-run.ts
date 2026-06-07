@@ -6,6 +6,8 @@ import {
   type RecommendedNextAction,
   type RunDiagnosis,
 } from "./run-diagnose";
+import { buildProjectContext } from "./project-context";
+import { projectPaths } from "./project-paths";
 import { RunIndex, type RunOutcome, type RunSummary } from "./ledger";
 import { RunLifecycleStore, type RunLifecycleRecord } from "./run-lifecycle-store";
 import { taskFamily } from "./task-family";
@@ -17,6 +19,8 @@ export interface CreateTaskFromRunInput {
   taskId: string;
   title: string;
   repoRoot?: string;
+  stateRoot?: string;
+  taskSpecsDir?: string;
 }
 
 export type CreateTaskFromRunStatus = "created" | "refused";
@@ -324,8 +328,11 @@ export async function createTaskFromRun(input: CreateTaskFromRunInput): Promise<
     };
   }
 
-  const repoRoot = resolve(input.repoRoot ?? ".");
-  const tasksDir = join(repoRoot, "references", "tasks");
+  const projectContext = await buildProjectContext({
+    targetRepoRoot: input.repoRoot,
+    ...(input.stateRoot ? { stateRoot: input.stateRoot } : {}),
+  });
+  const tasksDir = resolve(input.taskSpecsDir ?? projectPaths.taskSpecsDir(projectContext));
   const path = join(tasksDir, `${input.taskId}.json`);
   const task = buildTaskSpec({
     log,

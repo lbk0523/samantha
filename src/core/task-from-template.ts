@@ -1,6 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { TaskSpec } from "./contracts";
+import { buildProjectContext } from "./project-context";
+import { projectPaths } from "./project-paths";
 import { unresolvedTaskPlaceholders } from "./task-placeholders";
 
 export interface TaskTemplate {
@@ -18,6 +20,10 @@ export interface CreateTaskFromTemplateInput {
   title: string;
   replacements?: Record<string, string>;
   repoRoot?: string;
+  harnessRoot?: string;
+  stateRoot?: string;
+  assetRoot?: string;
+  taskSpecsDir?: string;
 }
 
 export interface CreateTaskFromTemplateWrite {
@@ -65,8 +71,13 @@ export async function createTaskFromTemplate(
   assertFileStem("template id", input.templateId);
   assertFileStem("task id", input.taskId);
 
-  const repoRoot = resolve(input.repoRoot ?? ".");
-  const templatePath = join(repoRoot, "references", "task-templates", `${input.templateId}.json`);
+  const projectContext = await buildProjectContext({
+    targetRepoRoot: input.repoRoot,
+    ...(input.harnessRoot ? { harnessRoot: input.harnessRoot } : {}),
+    ...(input.stateRoot ? { stateRoot: input.stateRoot } : {}),
+    ...(input.assetRoot ? { assetRoot: input.assetRoot } : {}),
+  });
+  const templatePath = projectPaths.taskTemplatePath(projectContext, input.templateId);
   const template = await readTaskTemplate(templatePath);
   const task = replaceTaskPlaceholders(
     {
@@ -76,7 +87,7 @@ export async function createTaskFromTemplate(
     },
     input.replacements ?? {},
   );
-  const tasksDir = join(repoRoot, "references", "tasks");
+  const tasksDir = resolve(input.taskSpecsDir ?? projectPaths.taskSpecsDir(projectContext));
   const path = join(tasksDir, `${input.taskId}.json`);
 
   await mkdir(tasksDir, { recursive: true });

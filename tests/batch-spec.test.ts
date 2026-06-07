@@ -9,6 +9,8 @@ import { createReplacementBatchSpec } from "../src/core/batch-spec-replacement";
 import { listBatchSpecs, readBatchSpecById } from "../src/core/batch-spec-store";
 import type { TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
+import { buildProjectContext } from "../src/core/project-context";
+import { projectPaths } from "../src/core/project-paths";
 
 let tmpRoots: string[] = [];
 
@@ -763,6 +765,30 @@ describe("BatchSpec replacement generation", () => {
 });
 
 describe("BatchSpec artifact store", () => {
+  test("defaults BatchSpec store reads to project-scoped state", async () => {
+    const root = await mkdtemp(join(tmpdir(), "samantha-batch-store-"));
+    tmpRoots.push(root);
+    const stateRoot = join(root, "state");
+    const ctx = await buildProjectContext({ targetRepoRoot: root, stateRoot });
+    const batchesDir = projectPaths.batchesDir(ctx);
+    const spec = batchSpec({ batchId: "state-batch", tasks: [task("task-a")] });
+    await mkdir(batchesDir, { recursive: true });
+    await writeFile(join(batchesDir, "state-batch.json"), `${JSON.stringify(spec, null, 2)}\n`, "utf8");
+
+    await expect(listBatchSpecs({ repoRoot: root, stateRoot })).resolves.toEqual([
+      {
+        batchId: "state-batch",
+        path: join(batchesDir, "state-batch.json"),
+        status: "planned",
+        baseCommit: "0123456789abcdef0123456789abcdef01234567",
+        taskCount: 1,
+      },
+    ]);
+    await expect(readBatchSpecById({ repoRoot: root, stateRoot, batchId: "state-batch" })).resolves.toEqual(
+      spec,
+    );
+  });
+
   test("lists BatchSpec summaries in stable batchId order and ignores non-json files", async () => {
     const root = await mkdtemp(join(tmpdir(), "samantha-batch-store-"));
     tmpRoots.push(root);

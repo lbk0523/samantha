@@ -2,6 +2,9 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { AgentProfile, TaskSpec } from "../core/contracts";
 import { RunIndex, summarizeWorkerRun, type RunSummary } from "../core/ledger";
+import type { ProjectContext } from "../core/project-context";
+import { buildProjectContext } from "../core/project-context";
+import { projectPaths } from "../core/project-paths";
 import { summarizeReportOnlyReviews, type ReportReviewSummary } from "../core/report-review";
 import { writeWorkerRunLog, type WorkerRunLogInput, type WorkerRunLogWrite } from "../core/run-log";
 import { validateDispatch } from "../core/policy";
@@ -32,18 +35,18 @@ async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
 }
 
-function defaultAgentPath(repoRoot: string, task: TaskSpec): string {
-  return join(repoRoot, "references", "agent-profiles", `${task.targetAgent}.json`);
+function defaultAgentPath(ctx: ProjectContext, task: TaskSpec): string {
+  return projectPaths.agentProfilePath(ctx, task.targetAgent);
 }
 
 async function readDispatchPair(input: {
   taskPath: string;
-  repoRoot: string;
+  projectContext: ProjectContext;
   agentPath?: string;
 }): Promise<{ task: TaskSpec; agent: AgentProfile }> {
   const task = await readJson<TaskSpec>(resolve(input.taskPath));
   const agent = await readJson<AgentProfile>(
-    resolve(input.agentPath ?? defaultAgentPath(input.repoRoot, task)),
+    resolve(input.agentPath ?? defaultAgentPath(input.projectContext, task)),
   );
   const plan = validateDispatch(task, agent);
 
@@ -87,12 +90,13 @@ export async function orchestrateReportOnlyReviews(
   }
 
   const repoRoot = resolve(input.repoRoot);
-  const runsDir = resolve(input.runsDir ?? join(repoRoot, "runs"));
+  const projectContext = await buildProjectContext({ targetRepoRoot: repoRoot });
+  const runsDir = resolve(input.runsDir ?? projectPaths.runsDir(projectContext));
   const pairs = await Promise.all(
     input.taskPaths.map((taskPath) =>
       readDispatchPair({
         taskPath,
-        repoRoot,
+        projectContext,
         agentPath: input.agentPath,
       }),
     ),

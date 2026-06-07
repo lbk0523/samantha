@@ -1,11 +1,15 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { BatchSpec } from "./batch-spec";
+import { buildProjectContext } from "./project-context";
+import { projectPaths } from "./project-paths";
 
 export const DEFAULT_BATCHES_DIR = "references/batch-specs";
 
 export interface BatchSpecStoreInput {
   batchesDir?: string;
+  repoRoot?: string;
+  stateRoot?: string;
 }
 
 export interface BatchSpecSummary {
@@ -50,11 +54,21 @@ export async function readBatchSpecRecordById(
 }
 
 async function readBatchSpecRecords(input: BatchSpecStoreInput): Promise<BatchSpecRecord[]> {
-  const batchesDir = resolve(input.batchesDir ?? DEFAULT_BATCHES_DIR);
+  const batchesDir = await resolveBatchesDir(input);
   const filePaths = await listBatchJsonFiles(batchesDir);
   const records = await Promise.all(filePaths.map(readBatchSpecRecord));
   assertUniqueBatchIds(records);
   return records.sort(compareBatchRecords);
+}
+
+async function resolveBatchesDir(input: BatchSpecStoreInput): Promise<string> {
+  if (input.batchesDir) return resolve(input.batchesDir);
+
+  const projectContext = await buildProjectContext({
+    targetRepoRoot: input.repoRoot,
+    ...(input.stateRoot ? { stateRoot: input.stateRoot } : {}),
+  });
+  return projectPaths.batchesDir(projectContext);
 }
 
 async function listBatchJsonFiles(batchesDir: string): Promise<string[]> {

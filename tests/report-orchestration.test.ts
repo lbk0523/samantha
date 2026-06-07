@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { orchestrateReportOnlyReviews } from "../src/commands/orchestrate-reports";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
+import { buildProjectContext } from "../src/core/project-context";
+import { projectPaths } from "../src/core/project-paths";
 import type { WorkerRunLog } from "../src/core/run-log";
 import { git } from "../src/core/git";
 
@@ -53,6 +55,30 @@ async function makeRepo(): Promise<string> {
   await git(["add", "README.md"], root);
   await git(["commit", "-m", "chore: initial fixture"], root);
   return root;
+}
+
+async function makeWorkspaceRepo(name: string): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-report-workspace-"));
+  tmpRoots.push(root);
+  const repo = join(root, "agent-workspace", "repos", name);
+  await mkdir(repo, { recursive: true });
+  await git(["init"], repo);
+  await git(["config", "user.email", "samantha@example.local"], repo);
+  await git(["config", "user.name", "Samantha Test"], repo);
+  await writeFile(join(repo, "README.md"), "base\n", "utf8");
+  await git(["add", "README.md"], repo);
+  await git(["commit", "-m", "chore: initial fixture"], repo);
+  return repo;
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
+  }
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
@@ -141,6 +167,32 @@ describe("report-only orchestration", () => {
 
     const indexLines = (await readFile(join(runsDir, "index.jsonl"), "utf8")).trim().split("\n");
     expect(indexLines).toHaveLength(2);
+  });
+
+  test("defaults report run evidence to project-scoped state", async () => {
+    const repo = await makeWorkspaceRepo("review-app");
+    const fixtureDir = await mkdtemp(join(tmpdir(), "samantha-report-fixtures-"));
+    tmpRoots.push(fixtureDir);
+    const taskAPath = join(fixtureDir, "review-a.json");
+    const taskBPath = join(fixtureDir, "review-b.json");
+    const markerPath = join(fixtureDir, "starts.txt");
+    const fakeCodex = await makeBarrierCodex(markerPath);
+    await writeJson(taskAPath, reportTask("review-a"));
+    await writeJson(taskBPath, reportTask("review-b"));
+
+    const projectContext = await buildProjectContext({ targetRepoRoot: repo });
+    const result = await orchestrateReportOnlyReviews({
+      taskPaths: [taskAPath, taskBPath],
+      repoRoot: repo,
+      codexBin: fakeCodex,
+    });
+
+    expect(result.runs.map((run) => run.taskId).sort()).toEqual(["review-a", "review-b"]);
+    expect(result.runs.every((run) => run.runLog.path.startsWith(projectPaths.runsDir(projectContext)))).toBe(
+      true,
+    );
+    expect(await readFile(projectPaths.runIndexPath(projectContext), "utf8")).toContain("review-a");
+    expect(await pathExists(join(repo, "runs"))).toBe(false);
   });
 
   test("blocks the whole orchestration before dispatch when any task is not report-only", async () => {

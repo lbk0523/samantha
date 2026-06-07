@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AgentProfile, TaskSpec } from "../src/core/contracts";
 import { git, gitHead } from "../src/core/git";
+import { buildProjectContext } from "../src/core/project-context";
+import { projectPaths } from "../src/core/project-paths";
+import { acquireProjectWriterLock } from "../src/core/project-writer-lock";
 import { readRunEvents, type RunEventInput } from "../src/core/run-events";
 import {
   HOOK_DEFINITION_DIR,
@@ -73,6 +76,30 @@ async function makeRepo(): Promise<string> {
   await git(["add", "README.md"], root);
   await git(["commit", "-m", "chore: initial fixture"], root);
   return root;
+}
+
+async function makeWorkspaceRepo(name: string): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "samantha-dispatch-workspace-"));
+  tmpRoots.push(root);
+  const repo = join(root, "agent-workspace", "repos", name);
+  await mkdir(repo, { recursive: true });
+  await git(["init"], repo);
+  await git(["config", "user.email", "samantha@example.local"], repo);
+  await git(["config", "user.name", "Samantha Test"], repo);
+  await writeFile(join(repo, "README.md"), "base\n", "utf8");
+  await git(["add", "README.md"], repo);
+  await git(["commit", "-m", "chore: initial fixture"], repo);
+  return repo;
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
+  }
 }
 
 async function makeFakeCodex(lines: string[]): Promise<string> {
@@ -827,6 +854,71 @@ describe("worker dispatch", () => {
       outcome: "verify_failed",
       harnessResultStatus: "pass",
     });
+  });
+
+  test("run-task defaults runtime evidence and worktrees to project-scoped state", async () => {
+    const repo = await makeWorkspaceRepo("app");
+    const fakeCodex = await makeFakeCodex([
+      'while [ "$1" != "--cd" ]; do shift; done',
+      "shift",
+      'cd "$1"',
+      "echo changed > README.md",
+      `echo 'HARNESS_RESULT: {"status":"pass","note":"changed readme","commit":""}'`,
+    ]);
+    const taskPath = join(repo, "task.json");
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+
+    const projectContext = await buildProjectContext({ targetRepoRoot: repo });
+    const result = await runTaskCommand({
+      taskPath,
+      repoRoot: repo,
+      codexBin: fakeCodex,
+      runtimeKind: "exec-json",
+    });
+
+    expect(result.runLog.path.startsWith(projectPaths.runsDir(projectContext))).toBe(true);
+    expect(result.execution.preparation.allocation?.worktreePath.startsWith(projectPaths.worktreesRoot(projectContext))).toBe(
+      true,
+    );
+    expect(await readFile(projectPaths.runIndexPath(projectContext), "utf8")).toContain(result.runLog.runId);
+    const runEvents = await readRunEvents({ runsDir: projectPaths.runsDir(projectContext) });
+    expect(runEvents.events.map((event) => event.eventType)).toEqual([
+      "worker_turn_completed",
+      "worker_run_log_written",
+    ]);
+    expect(await pathExists(join(repo, "runs"))).toBe(false);
+    expect(await pathExists(join(repo, "worktrees"))).toBe(false);
+  });
+
+  test("run-task blocks a writer when the project writer lock is already held", async () => {
+    const repo = await makeWorkspaceRepo("locked-app");
+    const taskPath = join(repo, "task.json");
+    await writeFile(taskPath, `${JSON.stringify(task, null, 2)}\n`, "utf8");
+    const projectContext = await buildProjectContext({ targetRepoRoot: repo });
+    const existing = await acquireProjectWriterLock({
+      projectContext,
+      taskId: "already-running",
+      runId: "run-already-running",
+      now: new Date("2026-06-07T01:02:03.000Z"),
+    });
+
+    const result = await runTaskCommand({
+      taskPath,
+      repoRoot: repo,
+      runtimeKind: "exec-json",
+    });
+
+    expect(result.execution.pass).toBe(false);
+    expect(result.execution.dispatchError).toContain(
+      "project writer lock is already held for locked-app-",
+    );
+    expect(result.execution.dispatchError).toContain("held by task already-running run run-already-running");
+    expect(result.execution.command).toBeUndefined();
+    expect(result.runLog.path.startsWith(projectPaths.runsDir(projectContext))).toBe(true);
+    expect(await pathExists(projectPaths.writerLockPath(projectContext))).toBe(true);
+
+    await existing.release();
+    expect(await pathExists(projectPaths.writerLockPath(projectContext))).toBe(false);
   });
 
   test("runs worker.pre_dispatch allow hooks before setup and records top-level run-log evidence", async () => {

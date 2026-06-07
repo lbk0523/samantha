@@ -224,11 +224,13 @@ export async function promoteLessonCandidate(input: LessonPromoteInput): Promise
 
 export async function autoPromoteLessonPlaybooks(input: {
   repoRoot: string;
+  candidateRoot?: string;
   candidates: LessonInboxReviewIndexEntry[];
   dirtyTreeBlocked: boolean;
   targetDate: string;
 }): Promise<LessonAutoPromotionReport> {
   const repoRoot = resolve(input.repoRoot);
+  const candidateRoot = resolve(input.candidateRoot ?? repoRoot);
   const promoted: LessonAutoPromotionEntry[] = [];
   const skipped: LessonAutoPromotionEntry[] = [];
   const blocked: LessonAutoPromotionEntry[] = [];
@@ -275,7 +277,7 @@ export async function autoPromoteLessonPlaybooks(input: {
     }
 
     const result = await promoteLessonCandidate({
-      candidatePath: repoAbsolutePath(repoRoot, candidate.candidatePath),
+      candidatePath: repoAbsolutePath(candidateRoot, candidate.candidatePath),
       repoRoot,
       playbookId,
     });
