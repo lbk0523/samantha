@@ -16,6 +16,11 @@ state as completion evidence: thread summary is advisory only.
 trusted evidence remains Samantha run evidence.
 worker-owned orchestration remains forbidden.
 
+Do not assume every created thread can be opened from the Codex UI. SDK/exec
+bridge threads may be readable by id and still fail UI navigation. Treat those
+threads as read-by-id monitor threads unless UI-native visibility has been
+verified.
+
 ## When To Use
 
 Use this playbook when a reviewed thread-control slice permits the main
@@ -38,6 +43,9 @@ record.
   product surfaces or authority changes.
 - Confirm deterministic verification is available before treating any output as
   acceptance-ready.
+- Before exposing a `::created-thread{...}` button or telling BK to click a UI
+  chat link, confirm the thread was created by a UI-native tool or is visible
+  through the app-native thread path. Bridge read success alone is not enough.
 
 ## Background Thread Prompt Shape
 
@@ -106,6 +114,7 @@ Final operator reports should name:
 - TaskSpec path
 - command
 - run log path
+- thread access mode: UI-native, or read-by-id only
 - `HARNESS_RESULT` status
 - changed-file scope
 - verification result

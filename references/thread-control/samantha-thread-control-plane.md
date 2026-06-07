@@ -43,6 +43,12 @@ Thread ids, thread summaries, streamed event counts, continuation notes, and
 operator-visible conversation state may improve diagnosis, but they do not
 prove completion or acceptance.
 
+Thread identity and UI navigability are separate. A Codex SDK/exec bridge
+thread may have durable turns and be readable by id while still being absent
+from the app thread list or opening as an empty view through a generated
+`::created-thread{...}` button. The control plane must label those threads as
+read-by-id navigation only unless UI-native visibility has been verified.
+
 ## Non-Goals
 
 - Do not add thread API automation in this brief.
@@ -64,6 +70,10 @@ must preserve:
 - Long delegation prompts can cause unnecessary discovery. Thread-control
   work needs short mechanical prompt shapes or Chief-of-Staff steering so the
   background thread stays inside its assigned role.
+- SDK-created exec threads can be valid monitor threads without being
+  UI-navigable chats. Do not expose a `::created-thread{...}` UI button for
+  those threads unless app-native visibility has been checked; otherwise report
+  the thread id with the read-by-id management command.
 
 ## Phased Roadmap
 

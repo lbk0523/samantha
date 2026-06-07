@@ -31,6 +31,13 @@ merge, cleanup, push, lifecycle, policy, doctrine 판단을 만들거나 바꾸�
 thread id와 thread summary는 advisory navigation only다. 이 둘은 관련 대화와
 작업 위치를 찾는 데 도움을 줄 수 있지만 trusted evidence가 아니다.
 
+thread id가 존재하거나 bridge에서 read-by-id가 성공해도 Codex UI navigation이
+보장되는 것은 아니다. SDK/exec bridge로 생성된 thread는 turn history를 갖고
+있어도 app-server `thread/list`에 나타나지 않거나, `::created-thread{...}`
+버튼을 클릭했을 때 빈 화면처럼 열릴 수 있다. 따라서 manual protocol에서는
+UI 버튼을 trusted linkage로 취급하지 않고, UI-native visibility가 별도로
+확인되지 않은 thread는 read-by-id monitor thread로 보고한다.
+
 trusted evidence는 계속 Samantha run evidence에 남는다.
 
 - run log
@@ -63,6 +70,9 @@ accept, merge, cleanup, lifecycle trajectory를 계속 소유한다.
 - 작업은 Thread Control Plane의 manual background thread 연결 범위에 머문다.
 - thread 생성이 trusted state change가 아니라 advisory navigation임을 운영자가
   확인했다.
+- thread 생성 방식이 UI-native인지 SDK/exec bridge인지 확인했다. SDK/exec
+  bridge thread라면 `thread-bridge:read` 성공과 UI navigation 가능성을 분리해
+  보고한다.
 - self-build gate가 필요한 작업이면 Samantha-owned task spec, isolated worktree,
   worker run, `HARNESS_RESULT`, deterministic verification, commit/report evidence
   경로를 유지한다.
@@ -105,6 +115,8 @@ thread를 만들기 전에 다음을 확인한다.
 - Samantha CLI clarity check를 수행했는가?
 - direct implementation drift 가능성을 확인했는가?
 - thread summary가 trusted evidence가 아님을 명시했는가?
+- UI button 또는 `::created-thread{...}` directive를 노출하려면 UI-native
+  visibility가 확인되었는가? 확인되지 않았다면 read-by-id only로 보고했는가?
 - top-level `pass: false` 상태에서 accept하지 않는다는 조건을 명시했는가?
 - post-accept `runs:show` visibilitySummary / trajectory 확인을 남겼는가?
 
@@ -115,6 +127,9 @@ background thread에 전달하는 지시는 다음 경계를 포함해야 한다
 - assigned scope 안에서만 작업한다.
 - target file 또는 target artifact 범위를 벗어나면 멈춘다.
 - thread id와 thread summary는 advisory navigation으로만 보고한다.
+- SDK/exec bridge thread는 UI navigation guaranteed thread라고 주장하지 않는다.
+  UI-native visibility가 검증되지 않았으면 `::created-thread{...}` 버튼을
+  만들지 않고 read-by-id 관리 경로를 보고한다.
 - Samantha run evidence 없이 완료, accept, merge, cleanup, push, lifecycle 변경을
   주장하지 않는다.
 - worker-owned orchestration, worker merge, worker cleanup, worker push,
