@@ -1,0 +1,51 @@
+{
+  "id": "worker-event-log-wake-signal",
+  "title": "Add worker event log wake signals",
+  "taskFamily": "cli-command",
+  "workMode": "tdd-first",
+  "riskClass": "lifecycle-sensitive",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/commands/run-task.ts",
+    "src/core/run-events.ts",
+    "src/core/worker-dispatch.ts",
+    "src/cli.ts",
+    "tests/run-events.test.ts",
+    "tests/worker-dispatch.test.ts",
+    "tests/cli.test.ts"
+  ],
+  "forbiddenChanges": [
+    "ARCHITECTURE.md",
+    "NORTH_STAR.md",
+    "ROADMAP.md",
+    "OPERATING_GUIDE_KR.md",
+    "WORK-RULES.md",
+    "AGENTS.md",
+    "src/core/contracts.ts",
+    "src/core/policy.ts",
+    "src/core/run-accept.ts",
+    "src/core/worktree-cleanup.ts",
+    "src/core/merge-gate.ts",
+    "src/core/batch-execution.ts",
+    "src/core/sequential-ceo-autopilot.ts",
+    "references/agent-profiles/**",
+    "references/playbooks/**",
+    "references/task-templates/**",
+    "references/tasks/**",
+    "references/initiatives/**",
+    "references/operations/**",
+    "runs/**",
+    "worktrees/**",
+    "package.json",
+    "bun.lock"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "bun test tests/run-events.test.ts tests/worker-dispatch.test.ts tests/cli.test.ts",
+    "bun run typecheck",
+    "bun test"
+  ],
+  "instructions": "Implement a local Samantha-owned append-only JSONL event log for worker wake signals. The goal is to reduce token-heavy supervision polling by letting an operator wait on small run events instead of repeatedly reading worker thread context.\n\nRequired behavior:\n- Add a focused src/core/run-events.ts module for writing and reading run events under a runs directory, defaulting to events.jsonl.\n- Define closed event shapes for at least worker_turn_completed and worker_run_log_written.\n- Event records must include schemaVersion, eventId, eventType, runId, taskId, createdAt, and enough small evidence fields to wake supervision without reading thread context. worker_run_log_written must include runLogPath, pass, and HARNESS_RESULT status when available.\n- Treat events as advisory wake signals only. They must not accept, merge, clean, commit, push, mutate lifecycle state, rewrite policy, or replace HARNESS_RESULT, scope checks, deterministic verification, run logs, run index, or Samantha-owned lifecycle evidence.\n- Emit worker_turn_completed from the worker dispatch path only after the worker runtime returns. Do not emit it for setup failure or pre-runtime dispatch blocks.\n- Emit worker_run_log_written from run-task only after writeWorkerRunLog and RunIndex.append have completed.\n- Add a narrow explicit CLI read/wait surface. Prefer names such as runs:events for reading recent events and runs:wait for waiting for one event. The wait command must be bounded by a timeout and must only inspect the local event log or filesystem state, not worker thread context.\n- Keep the CLI local-only. Do not add a daemon, background service, remote adapter, dashboard, routine trigger, connector, hidden memory, worker-owned event trust, automatic accept, automatic merge, automatic cleanup, automatic commit, automatic push, or continuation successor execution.\n\nImplementation guidance:\n- Use append-only JSONL with deterministic parsing behavior. Ignore or report malformed lines in a diagnosable way without trusting them.\n- Keep polling inside runs:wait cheap and bounded if direct file watch is not used. A small interval is acceptable because it reads only events.jsonl, not large thread context.\n- Reuse existing styles in src/cli.ts, tests/cli.test.ts, and tests/worker-dispatch.test.ts.\n- If executeWorkerDispatch needs an injected event callback to emit worker_turn_completed at the right boundary, keep it narrow and optional.\n\nRequired tests:\n- Focused run-events tests prove append/read behavior, event filtering by type/task/run id, timeout behavior, and malformed-line handling if implemented.\n- Worker dispatch tests prove worker_turn_completed is emitted after a successful runtime return and is not emitted when setup fails before runtime dispatch.\n- CLI tests prove parser coverage for the new read/wait commands, successful wait/read output from a temp runs directory, timeout behavior, and no mutation outside the event log.\n- Existing codex-sdk runtime and run-task behavior must continue to pass.\n\nStop conditions:\n- Stop and report rework if implementing this requires daemon/background operation, remote/control-plane integration, dashboards, routine triggers, worker-owned orchestration, worker-owned trusted completion, or automatic lifecycle mutation.\n- Stop and report rework if event receipt would become a trusted gate or would bypass HARNESS_RESULT parsing, changed-file scope checks, deterministic verification, run log writing, run index writing, or Samantha-owned accept/merge/cleanup authority.\n- Stop and report rework if the implementation requires changing TaskSpec contracts, dispatch policy, merge/accept/cleanup logic, batch execution, sequential continuation automation, package metadata, or doctrine documents.\n\nEnd with exactly one HARNESS_RESULT line.",
+  "expectedCommitSubject": "feat: add worker run event log",
+  "status": "pending"
+}
