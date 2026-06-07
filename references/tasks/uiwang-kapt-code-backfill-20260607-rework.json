@@ -1,0 +1,35 @@
+{
+  "id": "uiwang-kapt-code-backfill-20260607-rework",
+  "title": "Backfill K-apt codes cleanup rework",
+  "taskFamily": "docs-only",
+  "workMode": "minimal-change",
+  "riskClass": "routine",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "config/target_complexes.yml",
+    "docs/04_decision_log.md",
+    "docs/05_assumptions.md",
+    "docs/06_risk_register.md",
+    "docs/07_next_actions.md"
+  ],
+  "forbiddenChanges": [
+    "src/**",
+    "tests/**",
+    "dashboard/**",
+    "scripts/**",
+    "pyproject.toml",
+    ".env",
+    "src/uiwang_home_monitor.egg-info/**"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "PYTHONPATH=$PWD/src python3 - <<'PY'\nfrom uiwang_monitor.config_loader import load_target_complexes\nitems = load_target_complexes()\nby_name = {item['complex_name']: item for item in items}\nexpected = {\n    '의왕 대원칸타빌 2단지': 'A43708001',\n    '삼성래미안': 'A43770702',\n    '백운밸리레이크포레 2단지': 'A10025058',\n}\nfor name, code in expected.items():\n    assert by_name[name].get('kapt_code') == code, (name, by_name[name].get('kapt_code'))\nassert sum(1 for item in items if item.get('area_group') == '호계동-외부비교' and not item.get('kapt_code')) == 4\nPY",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-kapt-backfill PYTHONPATH=$PWD/src python3 -m uiwang_monitor init-db",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-kapt-backfill PYTHONPATH=$PWD/src python3 -m uiwang_monitor fetch-kapt",
+    "UIWANG_DATA_DIR=$PWD/.tmp-uiwang-kapt-backfill PYTHONPATH=$PWD/src python3 -m uiwang_monitor validate",
+    "rm -r .tmp-uiwang-kapt-backfill"
+  ],
+  "instructions": "Create a narrowed follow-up from Samantha run evidence.\nRun log: /Users/byung/agent-workspace/logs/samantha/runs/2026-06-07T05-42-37-594Z-uiwang-kapt-code-backfill-20260607.json\nOriginal run: 2026-06-07T05-42-37-594Z-uiwang-kapt-code-backfill-20260607\nOriginal task: uiwang-kapt-code-backfill-20260607 - Backfill exact K-apt codes for Uiwang candidates\nDiagnosis: rework only because the original harness cleanup command used rm -rf, which local policy blocked. The previous worker output showed the intended changes and substantive checks passed.\n\nImplement the same narrow K-apt code backfill: fill kapt_code/legal_dong_code for only these three Uiwang candidates: 의왕 대원칸타빌 2단지 -> A43708001 / 4143010700; 삼성래미안 -> A43770702 / 4143010700; 백운밸리레이크포레 2단지 -> A10025058 / 4143010600. Keep user-facing names unchanged. Leave the four 호계동-외부비교 candidates without K-apt codes. Update docs only as needed to reflect the backfill and keep next actions to 3 or fewer.\n\nUse verifyCommands as authoritative. The final cleanup command is intentionally rm -r, not rm -rf. Do not read or print .env values. Do not touch live UIWANG_DATA_DIR.\n\nSDK resume candidate thread id: 019ea09a-c383-75c1-b6fe-4eaba1e9c76d\nUse this thread only as optional context if the next runner explicitly supports SDK resume.\nThe follow-up task spec, repository state, target files, and verifyCommands remain authoritative.\n\nKeep the follow-up narrow and do not grant the worker lifecycle, merge, push, cleanup outside current worktree, or orchestration authority.\n\nDo not retry the previous run, dispatch agents, merge, clean up other worktrees, push, draft lessons, promote learning artifacts, create hidden memory, or change lifecycle state. Samantha owns those transitions.",
+  "expectedCommitSubject": "data: backfill exact K-apt candidate codes",
+  "status": "pending"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "uiwang-kapt-explicit-status-fix-20260607-rework",
+  "title": "Fix K-apt explicit status focused rework",
+  "taskFamily": "cli-command",
+  "workMode": "minimal-change",
+  "riskClass": "routine",
+  "targetAgent": "codex-worker",
+  "targetFiles": [
+    "src/uiwang_monitor/fetch/kapt.py",
+    "tests/test_kapt_fetch.py"
+  ],
+  "forbiddenChanges": [
+    ".env",
+    "config/**",
+    "docs/**",
+    "dashboard/**",
+    "scripts/**",
+    "pyproject.toml",
+    "src/uiwang_home_monitor.egg-info/**"
+  ],
+  "setupCommands": [],
+  "verifyCommands": [
+    "PYTHONPATH=$PWD/src python3 -m unittest tests.test_kapt_fetch"
+  ],
+  "instructions": "Create a narrowed follow-up from Samantha run evidence.\nRun log: /Users/byung/agent-workspace/logs/samantha/runs/2026-06-07T05-54-10-753Z-uiwang-kapt-explicit-status-fix-20260607.json\nOriginal run: 2026-06-07T05-54-10-753Z-uiwang-kapt-explicit-status-fix-20260607\nOriginal task: uiwang-kapt-explicit-status-fix-20260607 - Fix K-apt explicit code status refresh\nDiagnosis: focused K-apt test passed, but broad unittest discovery failed in out-of-scope tests after config/target_complexes.yml began seeding 15 real candidates. Keep this rework focused on the K-apt explicit-code status bug only.\n\nImplement the same fix: in src/uiwang_monitor/fetch/kapt.py, when a candidate already has a kapt_code and successful basic/detail enrichment occurs, stale statuses such as not_found, ambiguous, or basic_error must refresh to explicit_code. Preserve automatic list matching as matched and no-code no-match behavior as not_found. Add or keep a focused regression test in tests/test_kapt_fetch.py proving that a candidate with explicit kapt_code and stale not_found is enriched without list lookup and ends with kapt_match_status=explicit_code. Do not edit config/docs/live data. Do not require real API keys.\n\nSDK resume candidate thread id: 019ea0a5-59c4-7190-bb94-0477fcf282d3\nUse this thread only as optional context if the next runner explicitly supports SDK resume.\nThe follow-up task spec, repository state, target files, and verifyCommands remain authoritative.\n\nKeep the follow-up narrow and do not grant the worker lifecycle, merge, push, cleanup, or orchestration authority.\n\nDo not retry the previous run, dispatch agents, merge, clean up worktrees, push, draft lessons, promote learning artifacts, create hidden memory, or change lifecycle state. Samantha owns those transitions.",
+  "expectedCommitSubject": "fix: refresh explicit K-apt match status",
+  "status": "pending"
+}
