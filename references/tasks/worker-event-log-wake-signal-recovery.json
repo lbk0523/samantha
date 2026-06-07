@@ -42,7 +42,6 @@
   "setupCommands": [
     "bun install --frozen-lockfile"
   ],
-  "setupTimeoutMs": 120000,
   "verifyCommands": [
     "bun test tests/run-events.test.ts tests/worker-dispatch.test.ts tests/cli.test.ts",
     "bun run typecheck",
